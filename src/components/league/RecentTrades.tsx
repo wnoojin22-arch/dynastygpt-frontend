@@ -75,7 +75,9 @@ export default function RecentTrades({ trades, basePath, leagueId, limit = 7 }: 
                     <span style={{ fontWeight: 700, color: C.primary }}>{t.counter_party}</span>
                   </div>
                   <TradeAssetList
-                    players={t.players_sent} picks={t.picks_sent} compact
+                    players={[...(t.players_sent || []), ...(t.players_received || [])]}
+                    picks={[...(t.picks_sent || []), ...(t.picks_received || [])]}
+                    compact
                   />
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 2, alignItems: "flex-end", flexShrink: 0 }}>
