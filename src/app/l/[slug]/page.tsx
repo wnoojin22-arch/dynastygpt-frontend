@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useLeagueStore } from "@/lib/stores/league-store";
 import { useQuery } from "@tanstack/react-query";
@@ -33,13 +33,69 @@ function posColor(pos: string) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   SECTION HEAD (Shadynasty pattern)
+   SECTION HEAD
    ═══════════════════════════════════════════════════════════════ */
 function SectionHead({ title, badge }: { title: string; badge?: string }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, paddingBottom: 8, borderBottom: `1px solid ${C.border}` }}>
       <span style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.14em", color: C.primary, fontFamily: SANS }}>{title}</span>
       {badge && <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.08em", color: C.gold, fontFamily: SANS, padding: "2px 8px", borderRadius: 3, background: C.goldDim, border: `1px solid ${C.goldBorder}` }}>{badge}</span>}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   AI INSIGHT STRIP — rotating one-liner, crossfade
+   ═══════════════════════════════════════════════════════════════ */
+const INSIGHTS = [
+  "WacoRides2Glory is riding a 5-game win streak — longest active in the league",
+  "Kris Pringle won the 2024 title — back-to-back incoming?",
+  "MonkeyEpoxy has the youngest roster in the league — avg age 23.8",
+  "#1 and #2 in power rankings separated by less than 3K SHA",
+  "jpinola just hit 10 wins for the first time since 2022",
+  "medianrare hasn't made a trade in 14 months — the quietest GM in the league",
+  "85 trades across 7 seasons — DLP Dynasty League is one of the most active in the platform",
+  "Silentclock has traded with every owner in the league at least once",
+];
+
+function InsightStrip() {
+  const [idx, setIdx] = useState(0);
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setVisible(false);
+      setTimeout(() => {
+        setIdx((prev) => (prev + 1) % INSIGHTS.length);
+        setVisible(true);
+      }, 400);
+    }, 7000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div style={{
+      height: 36, display: "flex", alignItems: "center", justifyContent: "center",
+      padding: "0 24px", overflow: "hidden",
+    }}>
+      <div style={{
+        display: "flex", alignItems: "center", gap: 10,
+        opacity: visible ? 1 : 0,
+        transition: "opacity 0.4s ease",
+      }}>
+        <span style={{
+          fontSize: 9, fontWeight: 800, letterSpacing: "0.14em",
+          color: C.gold, fontFamily: MONO, flexShrink: 0,
+        }}>AI INSIGHT</span>
+        <div style={{ width: 1, height: 12, background: C.border, flexShrink: 0 }} />
+        <span style={{
+          fontSize: 13, fontWeight: 500, color: C.secondary,
+          fontFamily: SANS, fontStyle: "italic",
+          whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+        }}>
+          {INSIGHTS[idx]}
+        </span>
+      </div>
     </div>
   );
 }
@@ -77,44 +133,76 @@ function MarketTicker({ risers, fallers }: { risers: { player: string; sha_delta
         <span style={{ display: "inline-block", width: 40 }} />
         {renderSet("c")}
       </div>
-      <style>{`
-        @keyframes tickerScroll { 0% { transform: translateX(0); } 100% { transform: translateX(-33.333%); } }
-        @keyframes pulse-gold { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
-      `}</style>
     </div>
   );
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   QUICK LINKS (copied from Shadynasty)
+   FEATURED ARTICLE (hero card — ESPN top-story energy)
    ═══════════════════════════════════════════════════════════════ */
-function QuickLinks({ basePath }: { basePath: string }) {
-  const router = useRouter();
-  const links = [
-    { label: "War Room", desc: "Owner command center — trades, rivals, intel", path: "/war-room", accent: C.gold, icon: "⚔" },
-    { label: "Trade Analyzer", desc: "Evaluate any trade with owner context", path: "/trade-analyzer", accent: C.blue, icon: "⇌" },
-    { label: "Power Rankings", desc: "SHA · Dynasty · Win-Now", path: "/trades", accent: C.green, icon: "◎" },
-  ];
+function FeaturedArticle({ leagueName }: { leagueName: string }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-      {links.map((link) => (
-        <div key={link.label} onClick={() => router.push(`${basePath}${link.path}`)}
-          style={{ padding: "12px 14px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, cursor: "pointer", transition: "all 0.2s", display: "flex", alignItems: "center", gap: 12 }}
-          onMouseEnter={(e) => { e.currentTarget.style.borderColor = link.accent + "50"; e.currentTarget.style.background = C.elevated; }}
-          onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.background = C.card; }}>
-          <div style={{ width: 34, height: 34, borderRadius: 8, background: link.accent + "12", border: `1px solid ${link.accent}20`, display: "flex", alignItems: "center", justifyContent: "center", color: link.accent, flexShrink: 0, fontSize: 16 }}>{link.icon}</div>
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 800, color: C.primary, fontFamily: SANS }}>{link.label}</div>
-            <div style={{ fontSize: 11, color: C.dim, fontFamily: SANS, marginTop: 2 }}>{link.desc}</div>
-          </div>
+    <div style={{
+      borderRadius: 10, cursor: "pointer",
+      background: `linear-gradient(160deg, ${C.card} 0%, #0d1020 50%, ${C.card} 100%)`,
+      border: `1px solid ${C.border}`, position: "relative", overflow: "hidden",
+      transition: "all 0.3s ease",
+    }}
+    onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.005)"; e.currentTarget.style.borderColor = C.gold + "40"; e.currentTarget.style.boxShadow = `0 8px 40px rgba(212,165,50,0.06)`; }}
+    onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.borderColor = C.border; e.currentTarget.style.boxShadow = "none"; }}>
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, ${C.gold}20, transparent)` }} />
+      {/* Image placeholder */}
+      <div style={{ height: 180, background: `linear-gradient(135deg, ${C.elevated}, ${C.card}, ${C.panel})`, position: "relative", overflow: "hidden" }}>
+        <div style={{ position: "absolute", top: 20, left: 30, width: "38%", height: 110, borderRadius: 8, background: C.panel, border: `1px solid ${C.border}`, transform: "rotate(-3deg)", opacity: 0.7 }} />
+        <div style={{ position: "absolute", top: 15, left: "50%", transform: "translateX(-50%)", width: "38%", height: 110, borderRadius: 8, background: C.panel, border: `1px solid ${C.borderLt}`, opacity: 0.85 }} />
+        <div style={{ position: "absolute", top: 25, right: 30, width: "38%", height: 110, borderRadius: 8, background: C.panel, border: `1px solid ${C.borderLt}`, transform: "rotate(3deg)", opacity: 0.9 }} />
+        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 50, background: `linear-gradient(180deg, transparent, ${C.card})`, zIndex: 4 }} />
+      </div>
+      <div style={{ padding: "16px 24px 22px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+          <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.1em", color: C.gold, fontFamily: SANS, padding: "2px 8px", borderRadius: 3, background: C.goldDim, border: `1px solid ${C.goldBorder}` }}>FEATURED</span>
+          <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.1em", color: C.dim, fontFamily: SANS }}>MOCK DRAFT</span>
         </div>
-      ))}
+        <h3 style={{ fontFamily: DISPLAY, fontSize: 22, color: C.primary, margin: "0 0 8px", lineHeight: 1.2, letterSpacing: "-0.01em" }}>
+          {leagueName} — First Mock Draft
+        </h3>
+        <p style={{ fontFamily: SANS, fontSize: 13, color: C.dim, lineHeight: 1.6, margin: "0 0 14px" }}>
+          AI-generated mock draft based on team needs, draft capital, and historical tendencies. See who your league-mates are likely to target.
+        </p>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontFamily: SANS, fontSize: 11, color: C.dim, fontWeight: 500 }}>DynastyGPT</span>
+          <span style={{ color: C.dim, fontSize: 11 }}>·</span>
+          <span style={{ fontFamily: SANS, fontSize: 11, color: C.dim, fontWeight: 500 }}>5 min read</span>
+          <span style={{ fontFamily: SANS, fontSize: 13, color: C.dim, marginLeft: 4 }}>→</span>
+        </div>
+      </div>
     </div>
   );
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   POWER RANKINGS WIDGET (Shadynasty compact sidebar style)
+   LEAGUE INTEL ARTICLE CARDS
+   ═══════════════════════════════════════════════════════════════ */
+function LeagueArticle({ cat, catColor, title, desc, date }: { cat: string; catColor: string; title: string; desc: string; date: string }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden", cursor: "pointer", transition: "all 0.2s" }}
+      onMouseEnter={(e) => { e.currentTarget.style.borderColor = C.borderLt; e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 4px 20px rgba(0,0,0,0.3)"; }}
+      onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; }}>
+      <div style={{ padding: "8px 12px", display: "flex", alignItems: "center", gap: 6, borderBottom: `1px solid ${C.border}` }}>
+        <div style={{ width: 6, height: 6, borderRadius: "50%", background: catColor }} />
+        <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.1em", color: C.dim, fontFamily: SANS }}>{cat}</span>
+        <span style={{ marginLeft: "auto", fontSize: 9, color: `${C.dim}80`, fontFamily: MONO }}>{date}</span>
+      </div>
+      <div style={{ padding: 14, flex: 1 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: C.primary, fontFamily: SANS, lineHeight: 1.35, marginBottom: 6 }}>{title}</div>
+        <div style={{ fontSize: 12, color: C.dim, fontFamily: SANS, lineHeight: 1.5 }}>{desc}</div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   POWER RANKINGS WIDGET (compact sidebar)
    ═══════════════════════════════════════════════════════════════ */
 function PowerRankingsWidget({ rankings }: { rankings: { owner: string; rank: number; total_sha: number }[] }) {
   if (!rankings.length) return null;
@@ -149,7 +237,7 @@ function PowerRankingsWidget({ rankings }: { rankings: { owner: string; rank: nu
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   RECENT TRADES (compact, with verdict badges)
+   RECENT TRADES (compact, verdict badges)
    ═══════════════════════════════════════════════════════════════ */
 function getVerdictStyle(v: string) {
   if (!v) return null;
@@ -173,25 +261,25 @@ function RecentTradesWidget({ trades, basePath }: { trades: { owner: string; cou
 
   return (
     <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden" }}>
-      <div style={{ padding: "12px 16px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 10 }}>
+      <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 8 }}>
         <span style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.14em", color: C.primary, fontFamily: SANS }}>RECENT TRADES</span>
         <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.08em", color: C.gold, fontFamily: SANS, padding: "2px 8px", borderRadius: 3, background: C.goldDim, border: `1px solid ${C.goldBorder}` }}>{trades.length}</span>
       </div>
       <div style={{ display: "flex", flexDirection: "column" }}>
-        {trades.slice(0, 5).map((t, i) => {
+        {trades.slice(0, 7).map((t, i) => {
           const vs = t.verdict ? getVerdictStyle(t.verdict) : null;
           const sent = Array.isArray(t.players_sent) ? t.players_sent.slice(0, 2).join(", ") : "";
           const got = Array.isArray(t.players_received) ? t.players_received.slice(0, 2).join(", ") : "";
           return (
             <div key={t.trade_id || i}
-              style={{ padding: "10px 16px", cursor: "pointer", transition: "background 0.12s", borderBottom: i < 4 ? `1px solid ${C.border}` : "none", display: "flex", alignItems: "center", gap: 12 }}
+              style={{ padding: "8px 14px", cursor: "pointer", transition: "background 0.12s", borderBottom: i < 6 ? `1px solid ${C.border}` : "none", display: "flex", alignItems: "center", gap: 10 }}
               onMouseEnter={(e) => { e.currentTarget.style.background = C.elevated; }}
               onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
-              <span style={{ fontSize: 10, color: C.dim, fontFamily: MONO, width: 40, flexShrink: 0 }}>{formatDate(t.date)}</span>
+              <span style={{ fontSize: 10, color: C.dim, fontFamily: MONO, width: 38, flexShrink: 0 }}>{formatDate(t.date)}</span>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 12, fontFamily: SANS, marginBottom: 2 }}>
+                <div style={{ fontSize: 12, fontFamily: SANS, marginBottom: 1 }}>
                   <span style={{ fontWeight: 700, color: C.primary }}>{t.owner}</span>
-                  <span style={{ color: C.dim, fontWeight: 500, margin: "0 6px" }}>↔</span>
+                  <span style={{ color: C.dim, fontWeight: 500, margin: "0 5px" }}>↔</span>
                   <span style={{ fontWeight: 700, color: C.primary }}>{t.counter_party}</span>
                 </div>
                 {(sent || got) && (
@@ -206,31 +294,10 @@ function RecentTradesWidget({ trades, basePath }: { trades: { owner: string; cou
         })}
       </div>
       <div onClick={() => router.push(`${basePath}/trades`)}
-        style={{ padding: "10px 16px", borderTop: `1px solid ${C.border}`, cursor: "pointer", textAlign: "center", transition: "background 0.12s" }}
+        style={{ padding: "8px 14px", borderTop: `1px solid ${C.border}`, cursor: "pointer", textAlign: "center", transition: "background 0.12s" }}
         onMouseEnter={(e) => { e.currentTarget.style.background = C.elevated; }}
         onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
         <span style={{ fontSize: 11, fontWeight: 700, color: C.gold, fontFamily: SANS }}>View All Trades →</span>
-      </div>
-    </div>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   LEAGUE INTEL ARTICLES — AI content feed (placeholder)
-   ═══════════════════════════════════════════════════════════════ */
-function LeagueArticle({ cat, catColor, title, desc, date }: { cat: string; catColor: string; title: string; desc: string; date: string }) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden", cursor: "pointer", transition: "all 0.2s" }}
-      onMouseEnter={(e) => { e.currentTarget.style.borderColor = C.borderLt; e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 4px 20px rgba(0,0,0,0.3)"; }}
-      onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; }}>
-      <div style={{ padding: "8px 12px", display: "flex", alignItems: "center", gap: 6, borderBottom: `1px solid ${C.border}` }}>
-        <div style={{ width: 6, height: 6, borderRadius: "50%", background: catColor }} />
-        <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.1em", color: C.dim, fontFamily: SANS }}>{cat}</span>
-        <span style={{ marginLeft: "auto", fontSize: 9, color: `${C.dim}80`, fontFamily: MONO }}>{date}</span>
-      </div>
-      <div style={{ padding: 14, flex: 1 }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: C.primary, fontFamily: SANS, lineHeight: 1.35, marginBottom: 6 }}>{title}</div>
-        <div style={{ fontSize: 12, color: C.dim, fontFamily: SANS, lineHeight: 1.5 }}>{desc}</div>
       </div>
     </div>
   );
@@ -262,7 +329,6 @@ export default function LeagueHome() {
   const isSF = overview?.format?.is_superflex;
   const tradeCount = overview?.trade_volume?.total || 0;
 
-  // Build league-specific article placeholders
   const leagueArticles = [
     { cat: "POWER RANKINGS", catColor: C.gold, title: `${leagueName} Power Rankings Update`, desc: `Fresh SHA rankings across all ${numTeams} teams. See who's rising, who's falling, and where the value gaps are.`, date: "Today" },
     { cat: "TRADE REPORT", catColor: C.green, title: `${tradeCount} Trades Analyzed — Who's Winning?`, desc: "AI-graded trade verdicts for every deal in league history. Win rates, robbery alerts, and owner tendencies revealed.", date: "Today" },
@@ -272,44 +338,18 @@ export default function LeagueHome() {
 
   return (
     <>
-      {/* ── HERO ── */}
-      <div style={{
-        padding: "28px 32px 24px",
-        background: `linear-gradient(160deg, ${C.panel} 0%, #0c0f1a 40%, #0a0e18 60%, ${C.panel} 100%)`,
-        borderBottom: `1px solid ${C.border}`, position: "relative", overflow: "hidden",
-      }}>
-        <div style={{ position: "absolute", top: 0, left: 32, right: 32, height: 1, background: `linear-gradient(90deg, transparent 0%, ${C.gold}50 25%, ${C.gold}80 50%, ${C.gold}50 75%, transparent 100%)` }} />
-        <div style={{ position: "absolute", top: -60, left: "15%", width: 300, height: 120, background: `radial-gradient(ellipse, ${C.gold}06 0%, transparent 70%)`, pointerEvents: "none" }} />
-        <div style={{ maxWidth: 1200, margin: "0 auto", position: "relative", animation: "fadeUp 0.5s ease both" }}>
-          <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: "0.3em", color: C.gold, fontFamily: MONO, marginBottom: 10, display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 20, height: 1, background: `linear-gradient(90deg, ${C.gold}, transparent)` }} />
-            DYNASTY INTELLIGENCE PLATFORM
-          </div>
-          <div style={{ display: "flex", alignItems: "flex-end", gap: 20, flexWrap: "wrap" }}>
-            <h1 style={{ fontSize: 34, fontWeight: 900, color: C.primary, fontFamily: SERIF, fontStyle: "italic", letterSpacing: "-0.01em", margin: 0, lineHeight: 1.05 }}>
-              {leagueName}
-            </h1>
-            {overview && (
-              <div style={{ display: "flex", gap: 12, fontFamily: MONO, fontSize: 11, marginBottom: 4 }}>
-                <span style={{ color: C.dim }}>{numTeams}T</span>
-                <span style={{ color: C.dim }}>{isSF ? "SF" : "1QB"}</span>
-                <span style={{ color: C.dim }}>{overview.scoring?.type?.toUpperCase()}</span>
-                <span style={{ color: C.gold }}>{tradeCount} trades</span>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+      {/* ── AI Insight Strip ── */}
+      <InsightStrip />
 
-      {/* ── MARKET MOVERS ── */}
+      {/* ── Market Movers Ticker ── */}
       {trending && <MarketTicker risers={trending.risers || []} fallers={trending.fallers || []} />}
 
       {/* ── MAIN GRID — Content Left, Widgets Right ── */}
-      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 32px 48px", display: "grid", gridTemplateColumns: "1fr 320px", gap: 24, alignItems: "start" }}>
+      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "20px 32px 48px", display: "grid", gridTemplateColumns: "1fr 320px", gap: 24, alignItems: "start" }}>
         {/* LEFT COLUMN */}
         <div style={{ display: "flex", flexDirection: "column", gap: 24, animation: "fadeUp 0.5s ease 0.1s both" }}>
-          {/* Recent Trades */}
-          <RecentTradesWidget trades={recentTrades?.trades || []} basePath={basePath} />
+          {/* Hero Article */}
+          <FeaturedArticle leagueName={leagueName} />
 
           {/* League Intel Articles */}
           <div>
@@ -344,38 +384,21 @@ export default function LeagueHome() {
 
         {/* RIGHT COLUMN */}
         <div style={{ display: "flex", flexDirection: "column", gap: 20, animation: "fadeUp 0.5s ease 0.2s both" }}>
-          {/* Quick Links */}
-          <div><SectionHead title="QUICK LINKS" /><QuickLinks basePath={basePath} /></div>
-
           {/* Power Rankings */}
           <div>
             <SectionHead title="POWER RANKINGS" badge="SHA" />
             <PowerRankingsWidget rankings={rankings?.rankings || []} />
           </div>
 
-          {/* League Info */}
-          {overview && (
-            <div style={{ padding: "14px 16px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}` }}>
-              <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.12em", color: C.dim, fontFamily: SANS, marginBottom: 10 }}>LEAGUE INFO</div>
-              {[
-                ["Format", isSF ? "Superflex Dynasty" : "1QB Dynasty"],
-                ["Teams", String(numTeams)],
-                ["Platform", "Sleeper"],
-                ["Scoring", overview.scoring?.type?.toUpperCase() || "—"],
-                ["Trades", String(tradeCount)],
-              ].map(([l, v]) => (
-                <div key={l} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0" }}>
-                  <span style={{ fontSize: 12, color: C.dim, fontFamily: SANS }}>{l}</span>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: C.secondary, fontFamily: MONO }}>{v}</span>
-                </div>
-              ))}
-            </div>
-          )}
+          {/* Recent Trades */}
+          <RecentTradesWidget trades={recentTrades?.trades || []} basePath={basePath} />
         </div>
       </div>
 
       <style>{`
         @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes tickerScroll { 0% { transform: translateX(0); } 100% { transform: translateX(-33.333%); } }
+        @keyframes pulse-gold { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
       `}</style>
     </>
   );

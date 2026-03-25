@@ -160,33 +160,18 @@ function HeaderBar({ owner, owners, onOwnerChange, leagueName }: {
   owner: string | null; owners: { name: string }[];
   onOwnerChange: (v: string) => void; leagueName: string;
 }) {
-  const router = useRouter();
   return (
     <div style={{
       height: 48, background: C.panel, borderBottom: `1px solid ${C.border}`,
       display: "flex", alignItems: "center", padding: "0 20px", gap: 14, flexShrink: 0,
     }}>
-      {/* Logo / Wordmark */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0, cursor: "pointer" }}
-        onClick={() => router.push("/")}>
-        <div style={{ display: "flex", alignItems: "baseline", lineHeight: 1 }}>
-          <span style={{ fontFamily: DISPLAY, fontSize: 18, color: "#fff", letterSpacing: "-0.5px" }}>DYNASTY</span>
-          <span style={{
-            fontFamily: DISPLAY, fontSize: 18, letterSpacing: "-0.5px",
-            background: "linear-gradient(180deg, #f5e6a3, #d4a532, #8b6914)",
-            WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
-          }}>GPT</span>
-        </div>
-      </div>
-
-      <div style={{ width: 1, height: 24, background: C.border }} />
-
-      {/* League Name */}
-      {leagueName && (
-        <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 600, color: C.secondary }}>
-          {leagueName}
-        </span>
-      )}
+      {/* League Name — IS the branding in league context */}
+      <span style={{
+        fontFamily: SERIF, fontSize: 20, fontWeight: 900, fontStyle: "italic",
+        color: C.goldBright, lineHeight: 1, flexShrink: 0,
+      }}>
+        {leagueName || "DynastyGPT"}
+      </span>
 
       <div style={{ width: 1, height: 24, background: C.border }} />
 
