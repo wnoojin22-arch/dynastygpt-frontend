@@ -123,7 +123,7 @@ function DashboardView({ lid, owner }: { lid: string; owner: string }) {
   const grades = roster?.positional_grades || {};
   const radarData = (needs?.needs || []).map((n) => {
     const g = rankToGrade(n.league_rank);
-    return { position: `${n.position} ${g.grade}`, you: n.total_sha, league: n.league_avg };
+    return { position: n.position, grade: g.grade, gradeColor: g.color, you: n.total_sha, league: n.league_avg };
   });
   const wins = graded?.wins || 0, losses = graded?.losses || 0, pushes = graded?.pushes || 0;
   const donut = [
@@ -271,7 +271,16 @@ function DashboardView({ lid, owner }: { lid: string; owner: string }) {
               <ResponsiveContainer width="100%" height={200}>
                 <RadarChart data={radarData}>
                   <PolarGrid stroke="rgba(255,255,255,0.06)" />
-                  <PolarAngleAxis dataKey="position" tick={{ fill: C.dim, fontSize: 10, fontFamily: "monospace" }} />
+                  <PolarAngleAxis dataKey="position" tick={(props: any) => {
+                    const d = radarData[props.payload.index];
+                    if (!d) return <text x={props.x} y={props.y} textAnchor="middle" fill={C.dim} fontSize={10}>{props.payload.value}</text>;
+                    return (
+                      <g>
+                        <text x={props.x} y={props.y - 6} textAnchor="middle" fill={POS[d.position] || C.dim} fontSize={11} fontFamily="'JetBrains Mono', monospace" fontWeight={700}>{d.position}</text>
+                        <text x={props.x} y={props.y + 10} textAnchor="middle" fill={d.gradeColor} fontSize={16} fontFamily="'Archivo Black', sans-serif" fontWeight={900}>{d.grade}</text>
+                      </g>
+                    );
+                  }} />
                   <PolarRadiusAxis tick={false} axisLine={false} />
                   <Radar name="You" dataKey="you" stroke={C.gold} fill={C.gold} fillOpacity={0.2} strokeWidth={2} />
                   <Radar name="League" dataKey="league" stroke="#4a4d5e" fill="#4a4d5e" fillOpacity={0.08} strokeWidth={1} />

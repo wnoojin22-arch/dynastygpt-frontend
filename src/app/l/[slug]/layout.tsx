@@ -78,6 +78,11 @@ function SvgIcon({ id, color }: { id: string; color: string }) {
       <path d="M16 3l4 4-4 4"/><path d="M20 7H4"/><path d="M8 21l-4-4 4-4"/><path d="M4 17h16"/>
     </svg>
   );
+  if (id === "rankings") return (
+    <svg {...p}>
+      <path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/>
+    </svg>
+  );
   if (id === "intel") return (
     <svg {...p}>
       <path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/>
@@ -100,6 +105,7 @@ const NAV_ITEMS: { id: string; label: string; path: string }[] = [
   { id: "war-room",        label: "War\nRoom",        path: "/war-room" },
   { id: "trade-analyzer",  label: "Trade\nAnalyzer",  path: "/trade-analyzer" },
   { id: "trades",          label: "League\nTrades",   path: "/trades" },
+  { id: "rankings",        label: "Rankings",           path: "/rankings" },
   { id: "intel",           label: "Scouting\nReport",  path: "/intel" },
   { id: "draft",           label: "Draft",            path: "/draft" },
 ];
