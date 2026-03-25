@@ -10,6 +10,7 @@ import {
   getRivalries, getFranchiseIntel, getActions, getOverview,
 } from "@/lib/api";
 import { FranchiseIntel as FranchiseIntelComponent } from "@/components/league";
+import RivalsView from "@/components/league/RivalsView";
 import {
   Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   ResponsiveContainer, PieChart, Pie, Cell,
@@ -504,40 +505,7 @@ function MyTradesView({ lid, owner }: { lid: string; owner: string }) {
   );
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   RIVALS VIEW
-   ═══════════════════════════════════════════════════════════════ */
-function RivalsView({ lid, owner }: { lid: string; owner: string }) {
-  const { data: rivals } = useQuery({ queryKey: ["rivals", lid, owner], queryFn: () => getRivalries(lid, owner), enabled: !!lid && !!owner });
-
-  return (
-    <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
-      <DCard label="TRADE RIVALRIES" right={<span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>{rivals?.rivals?.length || 0} partners</span>}>
-        {rivals?.rivals && rivals.rivals.length > 0 ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            {rivals.rivals.map((r) => (
-              <div key={r.partner} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 4px", borderBottom: `1px solid ${C.white08}`, borderRadius: 4 }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = C.elevated; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
-                <span style={{ fontSize: 13, fontWeight: 500, color: C.primary, flex: 1 }}>{r.partner}</span>
-                <span style={{ fontFamily: MONO, fontSize: 11, color: C.dim }}>{r.trade_count} trades</span>
-                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.green }}>{r.wins}W</span>
-                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.red }}>{r.losses}L</span>
-                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: r.net_sha_balance >= 0 ? C.green : C.red }}>
-                  {r.net_sha_balance >= 0 ? "+" : ""}{fmt(r.net_sha_balance)}
-                </span>
-                <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 3,
-                  color: r.verdict === "Dominating" ? C.green : r.verdict === "Getting fleeced" ? C.red : C.dim,
-                  background: `${r.verdict === "Dominating" ? C.green : r.verdict === "Getting fleeced" ? C.red : C.dim}15`,
-                }}>{r.verdict}</span>
-              </div>
-            ))}
-          </div>
-        ) : <p style={{ fontFamily: MONO, fontSize: 12, color: C.dim }}>No trade rivalries yet</p>}
-      </DCard>
-    </div>
-  );
-}
+/* Old inline RivalsView removed — now imported from @/components/league/RivalsView */
 
 /* ═══════════════════════════════════════════════════════════════
    TRADE BUILDER VIEW (placeholder — complex component)
@@ -590,7 +558,7 @@ export default function WarRoomPage() {
     "franchise-intel": <FranchiseIntelComponent leagueId={lid} owner={owner} leagueName={leagueName} />,
     history: <MyTradesView lid={lid} owner={owner} />,
     builder: <TradeBuilderView lid={lid} owner={owner} />,
-    rivals: <RivalsView lid={lid} owner={owner} />,
+    rivals: <RivalsView leagueId={lid} owner={owner} />,
   };
 
   return <>{views[activeView] || views.dashboard}</>;
