@@ -8,7 +8,7 @@ const C = {
   bg: "#06080d", panel: "#0a0d15", card: "#10131d", elevated: "#171b28",
   border: "#1a1e30", white08: "rgba(255,255,255,0.06)",
   primary: "#eeeef2", secondary: "#b0b2c8", dim: "#9596a5",
-  gold: "#d4a532", goldDim: "rgba(212,165,50,0.10)", goldBorder: "rgba(212,165,50,0.22)",
+  gold: "#d4a532", goldBright: "#f5e6a3", goldDim: "rgba(212,165,50,0.10)", goldBorder: "rgba(212,165,50,0.22)",
   green: "#7dd3a0", red: "#e47272", blue: "#6bb8e0", orange: "#e09c6b",
 };
 const POS: Record<string, string> = { QB: "#EF4444", RB: "#3B82F6", WR: "#22C55E", TE: "#F59E0B" };
