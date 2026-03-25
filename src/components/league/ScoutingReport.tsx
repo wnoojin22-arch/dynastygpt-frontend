@@ -3,10 +3,20 @@
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getScoutingReport } from "@/lib/api";
-import { C, SANS, MONO, DISPLAY } from "./tokens";
+import { C, SANS, MONO } from "./tokens";
 
 /* ═══════════════════════════════════════════════════════════════
-   AI SCOUTING REPORT — multi-paragraph narrative (Bill Simmons energy)
+   MARKDOWN → HTML (basic: bold, paragraphs, line breaks)
+   ═══════════════════════════════════════════════════════════════ */
+function mdToHtml(md: string): string {
+  return md
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\n\n/g, "</p><p style='margin-top:12px'>")
+    .replace(/\n/g, "<br/>");
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   AI SCOUTING REPORT — multi-paragraph narrative
    ═══════════════════════════════════════════════════════════════ */
 export default function ScoutingReport({ leagueId, owner }: {
   leagueId: string; owner: string;
@@ -18,7 +28,28 @@ export default function ScoutingReport({ leagueId, owner }: {
     staleTime: 10 * 60 * 1000,
   });
 
-  const report = data as { report?: string; owner?: string; sha_rank?: number; total_sha?: number } | undefined;
+  // Handle various response shapes
+  const raw = data as Record<string, unknown> | undefined;
+  let reportText = "";
+  if (raw?.report) {
+    const r = raw.report;
+    if (typeof r === "string") {
+      // Could be a JSON string or plain markdown
+      if (r.startsWith("{") || r.startsWith("[")) {
+        try {
+          const parsed = JSON.parse(r);
+          reportText = typeof parsed.report === "string" ? parsed.report : typeof parsed === "string" ? parsed : JSON.stringify(parsed);
+        } catch {
+          reportText = r;
+        }
+      } else {
+        reportText = r;
+      }
+    } else if (typeof r === "object") {
+      const obj = r as Record<string, unknown>;
+      reportText = String(obj.report || obj.text || obj.raw_response || "");
+    }
+  }
 
   return (
     <div style={{
@@ -35,18 +66,18 @@ export default function ScoutingReport({ leagueId, owner }: {
           display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11,
         }}>🧠</div>
         <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.12em", color: C.gold }}>AI SCOUTING REPORT</span>
-        {report?.sha_rank && (
+        {raw?.sha_rank != null && (
           <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim, marginLeft: "auto" }}>
-            #{report.sha_rank} overall
+            #{String(raw.sha_rank)} overall
           </span>
         )}
       </div>
       <div style={{ padding: "16px 20px" }}>
         {isLoading ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {[1, 2, 3].map((i) => (
+            {[1, 2, 3, 4].map((i) => (
               <div key={i} style={{
-                height: 14, borderRadius: 4, width: `${100 - i * 15}%`,
+                height: 14, borderRadius: 4, width: `${100 - i * 12}%`,
                 background: `linear-gradient(90deg, ${C.elevated}, ${C.borderLt}, ${C.elevated})`,
                 backgroundSize: "200% 100%", animation: "shimmer 1.8s ease-in-out infinite",
               }} />
@@ -56,10 +87,10 @@ export default function ScoutingReport({ leagueId, owner }: {
           <div style={{ fontFamily: SANS, fontSize: 13, color: C.dim, fontStyle: "italic" }}>
             AI scouting report will be available after the league has been fully analyzed.
           </div>
-        ) : report?.report ? (
+        ) : reportText ? (
           <div
             style={{ fontFamily: SANS, fontSize: 14, color: C.secondary, lineHeight: 1.7 }}
-            dangerouslySetInnerHTML={{ __html: report.report }}
+            dangerouslySetInnerHTML={{ __html: `<p>${mdToHtml(reportText)}</p>` }}
           />
         ) : (
           <div style={{ fontFamily: SANS, fontSize: 13, color: C.dim, fontStyle: "italic" }}>
