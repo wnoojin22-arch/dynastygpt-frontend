@@ -8,7 +8,7 @@ import {
   getRoster, getPicks, getOwnerTrending, getOwnerNeeds,
   getGradedTradesByOwner, getTradePartners, getRankings,
   getOwnerRecord, getChampionships, getOwnerProfiles,
-  getRivalries, getFranchiseIntel, getActions, getOverview,
+  getRivalries, getFranchiseIntel, getActions, getOverview, getLeagueIntel,
 } from "@/lib/api";
 import { FranchiseIntel as FranchiseIntelComponent } from "@/components/league";
 import RivalsView from "@/components/league/RivalsView";
@@ -115,11 +115,16 @@ function DashboardView({ lid, owner }: { lid: string; owner: string }) {
   const { data: record } = useQuery({ queryKey: ["record", lid, owner], queryFn: () => getOwnerRecord(lid, owner), enabled: !!lid && !!owner, staleTime: 3600000 });
   const { data: champs } = useQuery({ queryKey: ["champs", lid, owner], queryFn: () => getChampionships(lid, owner), enabled: !!lid && !!owner, staleTime: 3600000 });
   const { data: profiles } = useQuery({ queryKey: ["profiles", lid], queryFn: () => getOwnerProfiles(lid), enabled: !!lid });
+  const { data: leagueIntel } = useQuery({ queryKey: ["league-intel", lid], queryFn: () => getLeagueIntel(lid), enabled: !!lid, staleTime: 600000 });
 
   const myRank = rankings?.rankings?.find((r) => r.owner.toLowerCase() === owner.toLowerCase());
   const myProfile = profiles?.profiles?.find((p) => p.owner.toLowerCase() === owner.toLowerCase());
+  const myIntel = leagueIntel?.owners?.find((o) => o.owner.toLowerCase() === owner.toLowerCase());
   const grades = roster?.positional_grades || {};
-  const radarData = (needs?.needs || []).map((n) => ({ position: n.position, you: n.total_sha, league: n.league_avg }));
+  const radarData = (needs?.needs || []).map((n) => {
+    const g = rankToGrade(n.league_rank);
+    return { position: `${n.position} ${g.grade}`, you: n.total_sha, league: n.league_avg };
+  });
   const wins = graded?.wins || 0, losses = graded?.losses || 0, pushes = graded?.pushes || 0;
   const donut = [
     { name: "W", value: wins, color: C.green },
@@ -180,36 +185,19 @@ function DashboardView({ lid, owner }: { lid: string; owner: string }) {
         </div>
       )}
 
-      {/* ── Rank Cards + Positional Grades ── */}
-      <div style={{ display: "flex", gap: 10 }}>
+      {/* ── 3 Rank Cards: League, Dynasty, Win-Now ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
         {[
-          { label: "DYNASTY", rank: myRank?.rank, sub: fmt(roster?.total_sha), accent: "#8B5CF6" },
-          { label: "LEAGUE RANK", rank: myProfile?.sha_rank, sub: myProfile?.window || "—", accent: C.gold },
+          { label: "LEAGUE RANK", rank: myRank?.rank, sub: fmt(roster?.total_sha), accent: C.gold },
+          { label: "DYNASTY", rank: myIntel?.dynasty_rank ?? myRank?.rank, sub: "Long-term value", accent: C.blue },
+          { label: "WIN-NOW", rank: myIntel?.win_now_rank ?? myRank?.rank, sub: "Peak-age value", accent: C.green },
         ].map((c) => (
-          <div key={c.label} style={{ flex: 1, borderRadius: 6, padding: "10px 12px", textAlign: "center", background: C.elevated, border: `1px solid ${C.border}`, borderTop: `2px solid ${c.accent}` }}>
+          <div key={c.label} style={{ borderRadius: 6, padding: "10px 12px", textAlign: "center", background: C.elevated, border: `1px solid ${C.border}`, borderTop: `2px solid ${c.accent}` }}>
             <p style={{ fontFamily: MONO, fontSize: 10, letterSpacing: "0.08em", color: C.dim, marginBottom: 4 }}>{c.label}</p>
-            <p style={{ fontSize: 28, fontWeight: 900, fontFamily: MONO, color: c.accent }}>{typeof c.rank === "number" ? `#${c.rank}` : safe(c.rank)}</p>
+            <p style={{ fontSize: 28, fontWeight: 900, fontFamily: MONO, color: c.accent }}>{typeof c.rank === "number" ? `#${c.rank}` : "—"}</p>
             <p style={{ fontFamily: MONO, fontSize: 10, color: C.secondary, marginTop: 2 }}>{c.sub}</p>
           </div>
         ))}
-
-        {/* Positional Grades — with rank numbers like Shadynasty */}
-        <div style={{ display: "flex", gap: 6 }}>
-          {(["QB", "RB", "WR", "TE"] as const).map((pos) => {
-            const g = grades[pos] || "?";
-            const clr = gradeColor(g);
-            const n = needs?.needs?.find((x) => x.position === pos);
-            const rk = n ? `#${n.league_rank}` : "";
-            const gradeLabel = rankToGrade(n?.league_rank || 7);
-            return (
-              <div key={pos} style={{ width: 64, borderRadius: 6, padding: "10px 4px", textAlign: "center", background: C.elevated, border: `1px solid ${C.border}` }}>
-                <p style={{ fontSize: 10, fontFamily: MONO, fontWeight: 700, color: POS[pos] }}>{pos}</p>
-                <p style={{ fontSize: 20, fontWeight: 900, fontFamily: MONO, marginTop: 2, color: gradeLabel.color, textShadow: `0 0 12px ${gradeLabel.color}44` }}>{gradeLabel.grade}</p>
-                <p style={{ fontSize: 9, fontFamily: MONO, color: C.dim, marginTop: 2 }}>{rk}</p>
-              </div>
-            );
-          })}
-        </div>
       </div>
 
       {/* ── Two Column: Roster + Sidebar ── */}
