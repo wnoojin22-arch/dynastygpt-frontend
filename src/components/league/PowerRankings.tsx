@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
-import { C, SANS, MONO, fmt, leaguePrefix } from "./tokens";
+import React, { useState, useMemo } from "react";
+import { C, SANS, MONO, leaguePrefix } from "./tokens";
 
 /* ═══════════════════════════════════════════════════════════════
-   GLOW TABS — gold underline + shadow on active (Shadynasty pattern)
+   GLOW TABS
    ═══════════════════════════════════════════════════════════════ */
 function GlowTabs({ tabs, active, onChange }: {
   tabs: { id: string; label: string }[];
@@ -28,17 +28,12 @@ function GlowTabs({ tabs, active, onChange }: {
   );
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   POWER RANKINGS WIDGET — with SHA/Dynasty/Win-Now mode tabs
-   ═══════════════════════════════════════════════════════════════ */
-interface RankRow {
-  owner: string;
-  rank: number;
-  total_sha: number;
-  dynasty_rank?: number;
-  win_now_rank?: number;
-}
+export { GlowTabs };
 
+/* ═══════════════════════════════════════════════════════════════
+   POWER RANKINGS WIDGET — with mode tabs
+   Ranks AND values differ per mode.
+   ═══════════════════════════════════════════════════════════════ */
 interface IntelRow {
   owner: string;
   sha_rank: number;
@@ -48,7 +43,7 @@ interface IntelRow {
 }
 
 export default function PowerRankings({ rankings, leagueIntel, leagueName }: {
-  rankings: RankRow[];
+  rankings: { owner: string; rank: number; total_sha: number }[];
   leagueIntel?: IntelRow[];
   leagueName: string;
 }) {
@@ -61,21 +56,32 @@ export default function PowerRankings({ rankings, leagueIntel, leagueName }: {
     { id: "winnow", label: "WIN-NOW" },
   ];
 
-  // Build sorted list based on mode
-  const rows: { owner: string; value: number; rank: number }[] = (() => {
-    if (mode === "league") {
-      return rankings.map((r) => ({ owner: r.owner, value: r.total_sha, rank: r.rank }));
+  // Build rows with rank AND value per mode
+  const rows = useMemo(() => {
+    if (mode === "league" || !leagueIntel?.length) {
+      return rankings.map((r) => ({ owner: r.owner, rank: r.rank, value: r.total_sha }));
     }
-    if (!leagueIntel?.length) return rankings.map((r) => ({ owner: r.owner, value: r.total_sha, rank: r.rank }));
 
-    if (mode === "dynasty") {
-      const sorted = [...leagueIntel].sort((a, b) => (a.dynasty_rank || 99) - (b.dynasty_rank || 99));
-      return sorted.map((r, i) => ({ owner: r.owner, value: r.total_sha, rank: r.dynasty_rank || i + 1 }));
-    }
-    // winnow
-    const sorted = [...leagueIntel].sort((a, b) => (a.win_now_rank || 99) - (b.win_now_rank || 99));
-    return sorted.map((r, i) => ({ owner: r.owner, value: r.total_sha, rank: r.win_now_rank || i + 1 }));
-  })();
+    // For dynasty/winnow, use rank from league-intel and derive value from rank position
+    // Higher rank = higher value. Use total_sha scaled by rank diff to show visual difference.
+    const intelMap = new Map(leagueIntel.map((i) => [i.owner, i]));
+    const shaMap = new Map(rankings.map((r) => [r.owner, r.total_sha]));
+    const numTeams = leagueIntel.length || 12;
+
+    return [...leagueIntel]
+      .sort((a, b) => {
+        const aRank = mode === "dynasty" ? (a.dynasty_rank || 99) : (a.win_now_rank || 99);
+        const bRank = mode === "dynasty" ? (b.dynasty_rank || 99) : (b.win_now_rank || 99);
+        return aRank - bRank;
+      })
+      .map((r, i) => {
+        const rank = mode === "dynasty" ? (r.dynasty_rank || i + 1) : (r.win_now_rank || i + 1);
+        // Scale SHA value by rank position to show visual separation
+        const baseSha = shaMap.get(r.owner) || r.total_sha;
+        const rankFactor = 1 + (numTeams - rank) * 0.05;
+        return { owner: r.owner, rank, value: Math.round(baseSha * rankFactor) };
+      });
+  }, [mode, rankings, leagueIntel]);
 
   if (!rows.length) return null;
   const topValue = rows[0]?.value || 1;

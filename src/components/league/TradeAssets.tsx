@@ -9,16 +9,15 @@ import { C, SANS, MONO, posColor } from "./tokens";
    ═══════════════════════════════════════════════════════════════ */
 export function AssetBadge({ name, type }: { name: string; type: "player" | "pick" }) {
   if (type === "pick") {
+    // Subtle pick styling — small PICK tag, muted, same size as players
     return (
       <span style={{
         display: "inline-flex", alignItems: "center", gap: 3,
-        fontFamily: MONO, fontSize: 10, fontWeight: 700,
-        color: "#8B5CF6", background: "rgba(139,92,246,0.12)",
-        padding: "1px 6px", borderRadius: 3, border: "1px solid rgba(139,92,246,0.25)",
-        whiteSpace: "nowrap",
+        fontFamily: SANS, fontSize: 11, fontWeight: 600,
+        color: C.secondary, whiteSpace: "nowrap",
       }}>
-        <span style={{ fontSize: 8, fontWeight: 900, letterSpacing: "0.04em" }}>PICK</span>
-        {name}
+        <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, letterSpacing: "0.02em", color: C.dim, background: C.white08, padding: "0px 3px", borderRadius: 2 }}>PICK</span>
+        {name.replace(/\s*\([^)]*\)/g, "")}
       </span>
     );
   }
