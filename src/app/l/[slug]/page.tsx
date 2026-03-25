@@ -22,7 +22,6 @@ const C = {
 const SANS = "-apple-system, 'SF Pro Display', 'Inter', 'Segoe UI', system-ui, sans-serif";
 const MONO = "'JetBrains Mono', 'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace";
 const DISPLAY = "'Archivo Black', sans-serif";
-const SERIF = "'Playfair Display', Georgia, serif";
 
 function fmt(n: number | null | undefined): string {
   if (n == null || isNaN(n)) return "—";
@@ -80,19 +79,11 @@ function InsightStrip() {
     }}>
       <div style={{
         display: "flex", alignItems: "center", gap: 10,
-        opacity: visible ? 1 : 0,
-        transition: "opacity 0.4s ease",
+        opacity: visible ? 1 : 0, transition: "opacity 0.4s ease",
       }}>
-        <span style={{
-          fontSize: 9, fontWeight: 800, letterSpacing: "0.14em",
-          color: C.gold, fontFamily: MONO, flexShrink: 0,
-        }}>AI INSIGHT</span>
+        <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: "0.14em", color: C.gold, fontFamily: MONO, flexShrink: 0 }}>AI INSIGHT</span>
         <div style={{ width: 1, height: 12, background: C.border, flexShrink: 0 }} />
-        <span style={{
-          fontSize: 13, fontWeight: 500, color: C.secondary,
-          fontFamily: SANS, fontStyle: "italic",
-          whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-        }}>
+        <span style={{ fontSize: 13, fontWeight: 500, color: C.secondary, fontFamily: SANS, fontStyle: "italic", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
           {INSIGHTS[idx]}
         </span>
       </div>
@@ -101,7 +92,7 @@ function InsightStrip() {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   MARKET MOVERS TICKER (league-specific)
+   MARKET MOVERS TICKER
    ═══════════════════════════════════════════════════════════════ */
 function MarketTicker({ risers, fallers }: { risers: { player: string; sha_delta: number; position?: string }[]; fallers: { player: string; sha_delta: number; position?: string }[] }) {
   const items = [
@@ -138,7 +129,119 @@ function MarketTicker({ risers, fallers }: { risers: { player: string; sha_delta
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   FEATURED ARTICLE (hero card — ESPN top-story energy)
+   SVG PLACEHOLDER IMAGES — designed, content-typed, dark + gold
+   ═══════════════════════════════════════════════════════════════ */
+function DraftBoardSVG() {
+  return (
+    <svg width="100%" height="100%" viewBox="0 0 400 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="400" height="180" fill={C.elevated} />
+      {/* Grid lines */}
+      {[0,1,2,3,4,5,6,7].map(i => <line key={`v${i}`} x1={50*i+50} y1="20" x2={50*i+50} y2="160" stroke={C.border} strokeWidth="1" />)}
+      {[0,1,2,3].map(i => <line key={`h${i}`} x1="30" y1={35*i+40} x2="370" y2={35*i+40} stroke={C.border} strokeWidth="1" />)}
+      {/* Round labels */}
+      {["R1","R2","R3","R4"].map((r,i) => <text key={r} x="20" y={35*i+47} fill={C.gold} fontSize="9" fontFamily="monospace" fontWeight="700" textAnchor="end" opacity="0.6">{r}</text>)}
+      {/* Pick cells — scattered filled ones */}
+      {[[60,28],[110,28],[160,28],[210,28],[260,28],[310,28],[350,28],
+        [60,63],[110,63],[210,63],[310,63],
+        [60,98],[160,98],[260,98],
+        [110,133],[210,133]
+      ].map(([x,y],i) => <rect key={i} x={x} y={y} width="38" height="24" rx="3" fill={i < 7 ? `${C.gold}18` : `${C.border}`} stroke={i < 3 ? C.gold : C.border} strokeWidth="0.5" opacity={0.4 + (i < 7 ? 0.3 : 0)} />)}
+      {/* Title hint */}
+      <text x="200" y="14" fill={C.gold} fontSize="8" fontFamily="monospace" fontWeight="800" textAnchor="middle" letterSpacing="3" opacity="0.4">MOCK DRAFT BOARD</text>
+    </svg>
+  );
+}
+
+function BarChartSVG() {
+  const bars = [95,78,72,65,58,52,48,42,38,30,25,18];
+  return (
+    <svg width="100%" height="100%" viewBox="0 0 280 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="280" height="100" fill={C.elevated} />
+      {bars.map((h,i) => {
+        const color = i === 0 ? C.gold : i < 4 ? C.green : i < 8 ? C.blue : C.red;
+        return <rect key={i} x={14 + i*22} y={90 - h} width="16" rx="2" height={h} fill={color} opacity={0.25 + (i === 0 ? 0.25 : 0)} />;
+      })}
+      <line x1="10" y1="90" x2="270" y2="90" stroke={C.border} strokeWidth="1" />
+    </svg>
+  );
+}
+
+function TradeArrowsSVG() {
+  return (
+    <svg width="100%" height="100%" viewBox="0 0 280 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="280" height="100" fill={C.elevated} />
+      {/* Two sides */}
+      <rect x="20" y="20" width="100" height="60" rx="6" fill={C.panel} stroke={C.border} strokeWidth="1" />
+      <rect x="160" y="20" width="100" height="60" rx="6" fill={C.panel} stroke={C.border} strokeWidth="1" />
+      {/* Arrows */}
+      <path d="M125 40 L155 40" stroke={C.green} strokeWidth="2" markerEnd="url(#arrowG)" />
+      <path d="M155 60 L125 60" stroke={C.red} strokeWidth="2" markerEnd="url(#arrowR)" />
+      <defs>
+        <marker id="arrowG" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill={C.green} /></marker>
+        <marker id="arrowR" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill={C.red} /></marker>
+      </defs>
+      {/* Player lines */}
+      {[0,1,2].map(i => <rect key={`a${i}`} x="30" y={28+i*16} width={60-i*10} height="8" rx="2" fill={C.border} opacity={0.5-i*0.1} />)}
+      {[0,1,2].map(i => <rect key={`b${i}`} x="170" y={28+i*16} width={60-i*10} height="8" rx="2" fill={C.border} opacity={0.5-i*0.1} />)}
+      {/* Verdict badge */}
+      <rect x="115" y="72" width="50" height="16" rx="3" fill={C.goldDim} stroke={C.goldBorder} strokeWidth="0.5" />
+      <text x="140" y="83" fill={C.gold} fontSize="7" fontFamily="monospace" fontWeight="800" textAnchor="middle">VERDICT</text>
+    </svg>
+  );
+}
+
+function RadarChartSVG() {
+  return (
+    <svg width="100%" height="100%" viewBox="0 0 280 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="280" height="100" fill={C.elevated} />
+      {/* Radar rings */}
+      <circle cx="140" cy="50" r="35" fill="none" stroke={C.border} strokeWidth="0.5" />
+      <circle cx="140" cy="50" r="25" fill="none" stroke={C.border} strokeWidth="0.5" />
+      <circle cx="140" cy="50" r="15" fill="none" stroke={C.border} strokeWidth="0.5" />
+      {/* Axes */}
+      {[0,72,144,216,288].map(a => {
+        const rad = a * Math.PI / 180;
+        return <line key={a} x1="140" y1="50" x2={140+Math.cos(rad)*35} y2={50-Math.sin(rad)*35} stroke={C.border} strokeWidth="0.5" />;
+      })}
+      {/* Data polygon */}
+      <polygon points="140,20 170,38 165,68 115,68 110,38" fill={C.gold} fillOpacity="0.12" stroke={C.gold} strokeWidth="1.5" opacity="0.6" />
+      {/* Labels */}
+      {[["QB",140,10],["RB",178,42],["WR",168,78],["TE",112,78],["PICK",102,42]].map(([l,x,y]) =>
+        <text key={l as string} x={x as number} y={y as number} fill={C.dim} fontSize="7" fontFamily="monospace" fontWeight="700" textAnchor="middle" opacity="0.6">{l as string}</text>
+      )}
+      {/* Owner card hint */}
+      <rect x="20" y="15" width="50" height="10" rx="2" fill={C.border} opacity="0.4" />
+      <rect x="20" y="30" width="35" height="8" rx="2" fill={C.border} opacity="0.3" />
+      <rect x="210" y="15" width="50" height="10" rx="2" fill={C.border} opacity="0.4" />
+      <rect x="210" y="30" width="35" height="8" rx="2" fill={C.border} opacity="0.3" />
+    </svg>
+  );
+}
+
+function ScoutingReportSVG() {
+  return (
+    <svg width="100%" height="100%" viewBox="0 0 280 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="280" height="100" fill={C.elevated} />
+      {/* Report layout */}
+      <rect x="15" y="10" width="120" height="80" rx="4" fill={C.panel} stroke={C.border} strokeWidth="0.5" />
+      {/* Text lines */}
+      {[0,1,2,3,4,5].map(i => <rect key={i} x="25" y={20+i*11} width={80-i*8} height="5" rx="1" fill={C.border} opacity={0.4-i*0.04} />)}
+      {/* Grade badge */}
+      <rect x="145" y="10" width="40" height="40" rx="6" fill={C.goldDim} stroke={C.goldBorder} strokeWidth="1" />
+      <text x="165" y="36" fill={C.gold} fontSize="18" fontFamily="monospace" fontWeight="900" textAnchor="middle">A-</text>
+      {/* Stat bars */}
+      {[["BUY",70,C.green],["SELL",50,C.red],["HOLD",35,C.secondary]].map(([l,w,c],i) => (
+        <React.Fragment key={i}>
+          <text x="148" y={66+i*13} fill={C.dim} fontSize="7" fontFamily="monospace" fontWeight="700" opacity="0.5">{l as string}</text>
+          <rect x="175" y={60+i*13} width={w as number} height="6" rx="1" fill={c as string} opacity="0.3" />
+        </React.Fragment>
+      ))}
+    </svg>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   FEATURED ARTICLE (hero card with Draft Board SVG)
    ═══════════════════════════════════════════════════════════════ */
 function FeaturedArticle({ leagueName }: { leagueName: string }) {
   return (
@@ -151,13 +254,7 @@ function FeaturedArticle({ leagueName }: { leagueName: string }) {
     onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.005)"; e.currentTarget.style.borderColor = C.gold + "40"; e.currentTarget.style.boxShadow = `0 8px 40px rgba(212,165,50,0.06)`; }}
     onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.borderColor = C.border; e.currentTarget.style.boxShadow = "none"; }}>
       <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, ${C.gold}20, transparent)` }} />
-      {/* Image placeholder */}
-      <div style={{ height: 180, background: `linear-gradient(135deg, ${C.elevated}, ${C.card}, ${C.panel})`, position: "relative", overflow: "hidden" }}>
-        <div style={{ position: "absolute", top: 20, left: 30, width: "38%", height: 110, borderRadius: 8, background: C.panel, border: `1px solid ${C.border}`, transform: "rotate(-3deg)", opacity: 0.7 }} />
-        <div style={{ position: "absolute", top: 15, left: "50%", transform: "translateX(-50%)", width: "38%", height: 110, borderRadius: 8, background: C.panel, border: `1px solid ${C.borderLt}`, opacity: 0.85 }} />
-        <div style={{ position: "absolute", top: 25, right: 30, width: "38%", height: 110, borderRadius: 8, background: C.panel, border: `1px solid ${C.borderLt}`, transform: "rotate(3deg)", opacity: 0.9 }} />
-        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 50, background: `linear-gradient(180deg, transparent, ${C.card})`, zIndex: 4 }} />
-      </div>
+      <div style={{ height: 180, overflow: "hidden" }}><DraftBoardSVG /></div>
       <div style={{ padding: "16px 24px 22px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
           <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.1em", color: C.gold, fontFamily: SANS, padding: "2px 8px", borderRadius: 3, background: C.goldDim, border: `1px solid ${C.goldBorder}` }}>FEATURED</span>
@@ -181,13 +278,15 @@ function FeaturedArticle({ leagueName }: { leagueName: string }) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   LEAGUE INTEL ARTICLE CARDS
+   LEAGUE INTEL ARTICLE CARDS (with SVG images)
    ═══════════════════════════════════════════════════════════════ */
-function LeagueArticle({ cat, catColor, title, desc, date }: { cat: string; catColor: string; title: string; desc: string; date: string }) {
+function LeagueArticle({ cat, catColor, title, desc, date, image }: { cat: string; catColor: string; title: string; desc: string; date: string; image: React.ReactNode }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden", cursor: "pointer", transition: "all 0.2s" }}
       onMouseEnter={(e) => { e.currentTarget.style.borderColor = C.borderLt; e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 4px 20px rgba(0,0,0,0.3)"; }}
       onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; }}>
+      {/* SVG Image */}
+      <div style={{ height: 100, overflow: "hidden" }}>{image}</div>
       <div style={{ padding: "8px 12px", display: "flex", alignItems: "center", gap: 6, borderBottom: `1px solid ${C.border}` }}>
         <div style={{ width: 6, height: 6, borderRadius: "50%", background: catColor }} />
         <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.1em", color: C.dim, fontFamily: SANS }}>{cat}</span>
@@ -202,7 +301,7 @@ function LeagueArticle({ cat, catColor, title, desc, date }: { cat: string; catC
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   POWER RANKINGS WIDGET (compact sidebar)
+   POWER RANKINGS WIDGET — fixed name overflow
    ═══════════════════════════════════════════════════════════════ */
 function PowerRankingsWidget({ rankings }: { rankings: { owner: string; rank: number; total_sha: number }[] }) {
   if (!rankings.length) return null;
@@ -215,20 +314,25 @@ function PowerRankingsWidget({ rankings }: { rankings: { owner: string; rank: nu
         const color = i === 0 ? C.gold : i < 4 ? C.green : i < 8 ? C.secondary : C.red;
         return (
           <div key={r.owner} style={{
-            display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 4,
+            display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", borderRadius: 4,
             background: i === 0 ? C.goldDim : "transparent",
             border: i === 0 ? `1px solid ${C.goldBorder}` : "1px solid transparent",
             transition: "background 0.12s",
           }}
           onMouseEnter={(e) => { if (i > 0) e.currentTarget.style.background = C.elevated; }}
           onMouseLeave={(e) => { if (i > 0) e.currentTarget.style.background = "transparent"; }}>
-            <span style={{ width: 18, fontSize: 11, fontWeight: 900, color, fontFamily: MONO, textAlign: "right" }}>{i + 1}</span>
-            {i === 0 && <span style={{ fontSize: 11 }}>👑</span>}
-            <span style={{ fontSize: 13, fontWeight: i < 4 ? 700 : 500, color: i < 4 ? C.primary : C.secondary, fontFamily: SANS, width: 64, flexShrink: 0 }}>{r.owner}</span>
-            <div style={{ flex: 1, height: 4, background: C.border, borderRadius: 2, overflow: "hidden" }}>
+            <span style={{ width: 18, fontSize: 11, fontWeight: 900, color, fontFamily: MONO, textAlign: "right", flexShrink: 0 }}>{i + 1}</span>
+            {i === 0 && <span style={{ fontSize: 11, flexShrink: 0 }}>👑</span>}
+            <span style={{
+              fontSize: 12, fontWeight: i < 4 ? 700 : 500,
+              color: i < 4 ? C.primary : C.secondary, fontFamily: SANS,
+              minWidth: 0, flex: 1,
+              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+            }}>{r.owner}</span>
+            <div style={{ width: 50, height: 4, background: C.border, borderRadius: 2, overflow: "hidden", flexShrink: 0 }}>
               <div style={{ height: "100%", borderRadius: 2, width: `${pct}%`, background: i === 0 ? C.gold : i < 4 ? C.green : i < 8 ? "#2563eb" : C.red, transition: "width 0.8s ease" }} />
             </div>
-            <span style={{ fontSize: 11, fontWeight: 700, color: C.dim, fontFamily: MONO, width: 46, textAlign: "right", flexShrink: 0 }}>{(r.total_sha / 1000).toFixed(1)}k</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: C.dim, fontFamily: MONO, width: 42, textAlign: "right", flexShrink: 0 }}>{(r.total_sha / 1000).toFixed(1)}k</span>
           </div>
         );
       })}
@@ -326,37 +430,33 @@ export default function LeagueHome() {
 
   const leagueName = overview?.name || "DynastyGPT";
   const numTeams = overview?.format?.num_teams || 0;
-  const isSF = overview?.format?.is_superflex;
   const tradeCount = overview?.trade_volume?.total || 0;
 
   const leagueArticles = [
-    { cat: "POWER RANKINGS", catColor: C.gold, title: `${leagueName} Power Rankings Update`, desc: `Fresh SHA rankings across all ${numTeams} teams. See who's rising, who's falling, and where the value gaps are.`, date: "Today" },
-    { cat: "TRADE REPORT", catColor: C.green, title: `${tradeCount} Trades Analyzed — Who's Winning?`, desc: "AI-graded trade verdicts for every deal in league history. Win rates, robbery alerts, and owner tendencies revealed.", date: "Today" },
-    { cat: "OWNER SPOTLIGHT", catColor: C.blue, title: "Owner Behavioral Profiles Now Available", desc: "Full trade tendency analysis, position biases, seasonal timing patterns, and rival matchup histories for every owner.", date: "Mar 24" },
-    { cat: "FRANCHISE INTEL", catColor: "#a78bfa", title: "AI Scouting Reports Are Live", desc: "Personalized buy-low targets, sell-high candidates, trade partner fits, and positional gap analysis for your team.", date: "Mar 23" },
+    { cat: "POWER RANKINGS", catColor: C.gold, title: `${leagueName} Power Rankings Update`, desc: `Fresh SHA rankings across all ${numTeams} teams. See who's rising, who's falling, and where the value gaps are.`, date: "Today", image: <BarChartSVG /> },
+    { cat: "TRADE REPORT", catColor: C.green, title: `${tradeCount} Trades Analyzed — Who's Winning?`, desc: "AI-graded trade verdicts for every deal in league history. Win rates, robbery alerts, and owner tendencies.", date: "Today", image: <TradeArrowsSVG /> },
+    { cat: "OWNER SPOTLIGHT", catColor: C.blue, title: "Owner Behavioral Profiles Now Available", desc: "Full trade tendency analysis, position biases, seasonal timing patterns, and rival matchup histories.", date: "Mar 24", image: <RadarChartSVG /> },
+    { cat: "FRANCHISE INTEL", catColor: "#a78bfa", title: "AI Scouting Reports Are Live", desc: "Personalized buy-low targets, sell-high candidates, trade partner fits, and positional gap analysis.", date: "Mar 23", image: <ScoutingReportSVG /> },
   ];
 
   return (
     <>
-      {/* ── AI Insight Strip ── */}
+      {/* AI Insight Strip */}
       <InsightStrip />
 
-      {/* ── Market Movers Ticker ── */}
+      {/* Market Movers Ticker */}
       {trending && <MarketTicker risers={trending.risers || []} fallers={trending.fallers || []} />}
 
-      {/* ── MAIN GRID — Content Left, Widgets Right ── */}
+      {/* MAIN GRID — Content Left, Widgets Right */}
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "20px 32px 48px", display: "grid", gridTemplateColumns: "1fr 320px", gap: 24, alignItems: "start" }}>
-        {/* LEFT COLUMN */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 24, animation: "fadeUp 0.5s ease 0.1s both" }}>
+        {/* LEFT COLUMN — continuous content feed, no section breaks between hero + articles */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 16, animation: "fadeUp 0.5s ease 0.1s both" }}>
           {/* Hero Article */}
           <FeaturedArticle leagueName={leagueName} />
 
-          {/* League Intel Articles */}
-          <div>
-            <SectionHead title="LEAGUE INTEL" badge="AI" />
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
-              {leagueArticles.map((a, i) => <LeagueArticle key={i} {...a} />)}
-            </div>
+          {/* Sub-articles — flows directly under hero, no section header */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
+            {leagueArticles.map((a, i) => <LeagueArticle key={i} {...a} />)}
           </div>
 
           {/* League Snapshot */}
@@ -384,13 +484,10 @@ export default function LeagueHome() {
 
         {/* RIGHT COLUMN */}
         <div style={{ display: "flex", flexDirection: "column", gap: 20, animation: "fadeUp 0.5s ease 0.2s both" }}>
-          {/* Power Rankings */}
           <div>
             <SectionHead title="POWER RANKINGS" badge="SHA" />
             <PowerRankingsWidget rankings={rankings?.rankings || []} />
           </div>
-
-          {/* Recent Trades */}
           <RecentTradesWidget trades={recentTrades?.trades || []} basePath={basePath} />
         </div>
       </div>

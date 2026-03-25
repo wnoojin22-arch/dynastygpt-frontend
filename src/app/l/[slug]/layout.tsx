@@ -165,13 +165,33 @@ function HeaderBar({ owner, owners, onOwnerChange, leagueName }: {
       height: 48, background: C.panel, borderBottom: `1px solid ${C.border}`,
       display: "flex", alignItems: "center", padding: "0 20px", gap: 14, flexShrink: 0,
     }}>
-      {/* League Name — IS the branding in league context */}
-      <span style={{
-        fontFamily: SERIF, fontSize: 20, fontWeight: 900, fontStyle: "italic",
-        color: C.goldBright, lineHeight: 1, flexShrink: 0,
-      }}>
-        {leagueName || "DynastyGPT"}
-      </span>
+      {/* League Name — branded like DynastyGPT wordmark */}
+      <div style={{ display: "flex", alignItems: "baseline", lineHeight: 1, flexShrink: 0 }}>
+        {(() => {
+          const name = leagueName || "DynastyGPT";
+          // Extract words, find "Dynasty" or use last word as gold
+          const words = name.replace(/\s+League$/i, "").split(/\s+/);
+          const dynIdx = words.findIndex((w) => w.toLowerCase() === "dynasty");
+          if (dynIdx >= 0) {
+            const before = words.slice(0, dynIdx).join(" ");
+            return (
+              <>
+                {before && <span style={{ fontFamily: DISPLAY, fontSize: 18, color: "#fff", letterSpacing: "-0.5px", marginRight: 4 }}>{before.toUpperCase()}</span>}
+                <span style={{ fontFamily: DISPLAY, fontSize: 18, letterSpacing: "-0.5px", background: "linear-gradient(180deg, #f5e6a3, #d4a532, #8b6914)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>DYNASTY</span>
+              </>
+            );
+          }
+          // No "Dynasty" in name — first word white, rest gold
+          const first = words[0] || "";
+          const rest = words.slice(1).join(" ");
+          return (
+            <>
+              <span style={{ fontFamily: DISPLAY, fontSize: 18, color: "#fff", letterSpacing: "-0.5px", marginRight: rest ? 4 : 0 }}>{first.toUpperCase()}</span>
+              {rest && <span style={{ fontFamily: DISPLAY, fontSize: 18, letterSpacing: "-0.5px", background: "linear-gradient(180deg, #f5e6a3, #d4a532, #8b6914)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>{rest.toUpperCase()}</span>}
+            </>
+          );
+        })()}
+      </div>
 
       <div style={{ width: 1, height: 24, background: C.border }} />
 
