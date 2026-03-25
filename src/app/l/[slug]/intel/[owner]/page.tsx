@@ -7,7 +7,7 @@ import {
   getOwnerProfile, getRivalries, getOwnerRecord, getChampionships,
   getOwnerNeeds, getRoster, getGradedTradesByOwner, getDraftHistory, getDraftAnalysis,
 } from "@/lib/api";
-import { ScoutingReport, RivalsView } from "@/components/league";
+import { ScoutingReport, RivalsView, TradeReportModal } from "@/components/league";
 import { TradeAssetList } from "@/components/league/TradeAssets";
 import { C, SANS, MONO, DISPLAY, SERIF, fmt, posColor, getVerdictStyle, gradeColor } from "@/components/league/tokens";
 import type { RosterPlayer } from "@/lib/types";
@@ -56,6 +56,7 @@ export default function OwnerDetailPage({ params }: { params: Promise<{ owner: s
   const ownerName = decodeURIComponent(ownerParam);
   const { currentLeagueId: lid } = useLeagueStore();
   const [tab, setTab] = useState<TabId>("overview");
+  const [reportTradeId, setReportTradeId] = useState<string | null>(null);
 
   const { data: profile } = useQuery({ queryKey: ["owner-profile", lid, ownerName], queryFn: () => getOwnerProfile(lid!, ownerName), enabled: !!lid });
   const { data: record } = useQuery({ queryKey: ["record", lid, ownerName], queryFn: () => getOwnerRecord(lid!, ownerName), enabled: !!lid });
@@ -195,10 +196,12 @@ export default function OwnerDetailPage({ params }: { params: Promise<{ owner: s
               {(graded?.trades || []).map((trade, i) => {
                 const vs = trade.verdict ? getVerdictStyle(trade.verdict) : null;
                 return (
-                  <div key={`${trade.trade_id}-${i}`} style={{
+                  <div key={`${trade.trade_id}-${i}`}
+                    onClick={() => trade.trade_id && setReportTradeId(trade.trade_id)}
+                    style={{
                     padding: "8px 4px", borderBottom: `1px solid ${C.white08}`, borderRadius: 4,
                     borderLeft: vs ? `3px solid ${vs.color}` : "3px solid transparent",
-                    transition: "background 0.1s",
+                    transition: "background 0.1s", cursor: "pointer",
                   }}
                     onMouseEnter={(e) => { e.currentTarget.style.background = C.elevated; }}
                     onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
@@ -301,6 +304,11 @@ export default function OwnerDetailPage({ params }: { params: Promise<{ owner: s
       {/* RIVALS */}
       {tab === "rivals" && lid && (
         <RivalsView leagueId={lid} owner={ownerName} />
+      )}
+
+      {/* Trade Report Modal */}
+      {reportTradeId && lid && (
+        <TradeReportModal leagueId={lid} tradeId={reportTradeId} onClose={() => setReportTradeId(null)} />
       )}
     </div>
   );

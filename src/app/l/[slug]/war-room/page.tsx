@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useLeagueStore } from "@/lib/stores/league-store";
 import { useWarRoomStore } from "@/lib/stores/war-room-store";
 import { useQuery } from "@tanstack/react-query";
@@ -11,6 +12,7 @@ import {
 } from "@/lib/api";
 import { FranchiseIntel as FranchiseIntelComponent } from "@/components/league";
 import RivalsView from "@/components/league/RivalsView";
+import TradeReportModal from "@/components/league/TradeReportModal";
 import {
   Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   ResponsiveContainer, PieChart, Pie, Cell,
@@ -449,12 +451,13 @@ function FranchiseIntelView({ lid, owner }: { lid: string; owner: string }) {
    ═══════════════════════════════════════════════════════════════ */
 function MyTradesView({ lid, owner }: { lid: string; owner: string }) {
   const { data: graded } = useQuery({ queryKey: ["graded-owner", lid, owner], queryFn: () => getGradedTradesByOwner(lid, owner), enabled: !!lid && !!owner });
+  const [reportTradeId, setReportTradeId] = useState<string | null>(null);
 
   return (
     <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
       {/* Record strip */}
       {graded && (
-        <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 12px", borderRadius: 6, background: C.panel, border: `1px solid ${C.border}` }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 12px", borderRadius: 6, background: C.panel, border: `1px solid ${C.border}`, flexWrap: "wrap" }}>
           <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.gold, letterSpacing: "0.08em" }}>TRADE RECORD — {owner.toUpperCase()}</span>
           <div style={{ width: 1, height: 16, background: C.border }} />
           <span style={{ fontFamily: MONO, fontSize: 12, color: C.green }}>W: <b>{graded.wins}</b></span>
@@ -469,29 +472,25 @@ function MyTradesView({ lid, owner }: { lid: string; owner: string }) {
           {graded?.trades?.map((t: GradedTrade, i: number) => {
             const vs = t.verdict ? getVerdictStyle(t.verdict) : null;
             return (
-              <div key={`${t.trade_id}-${i}`} style={{
-                padding: "8px", borderRadius: 4, borderBottom: `1px solid ${C.white08}`,
-                borderLeft: vs ? `3px solid ${vs.color}` : "3px solid transparent",
-              }}
+              <div key={`${t.trade_id}-${i}`}
+                onClick={() => t.trade_id && setReportTradeId(t.trade_id)}
+                style={{
+                  padding: "8px", borderRadius: 4, borderBottom: `1px solid ${C.white08}`,
+                  borderLeft: vs ? `3px solid ${vs.color}` : "3px solid transparent",
+                  cursor: "pointer", transition: "background 0.1s",
+                }}
                 onMouseEnter={(e) => { e.currentTarget.style.background = C.elevated; }}
                 onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ fontSize: 13, fontWeight: 500, color: C.primary }}>{t.owner}</span>
-                    <span style={{ fontFamily: MONO, fontSize: 11, color: C.dim }}>↔</span>
-                    <span style={{ fontSize: 13, fontWeight: 500, color: C.primary }}>{t.counter_party}</span>
+                    <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>{t.date?.slice(0, 10)}</span>
+                    {vs && <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.04em", padding: "1px 6px", borderRadius: 3, color: vs.color, background: vs.bg }}>{t.verdict}</span>}
                   </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    {vs && <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "1px 6px", borderRadius: 3, color: vs.color, background: vs.bg, border: `1px solid ${vs.border}` }}>{t.verdict}</span>}
-                    {t.sha_balance != null && !isNaN(t.sha_balance) && (
-                      <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: t.sha_balance > 0 ? C.green : t.sha_balance < 0 ? C.red : C.dim }}>{t.sha_balance > 0 ? "+" : ""}{fmt(t.sha_balance)}</span>
-                    )}
-                    <span style={{ fontFamily: MONO, fontSize: 11, color: C.dim }}>{t.date?.slice(0, 10)}</span>
-                  </div>
+                  <span style={{ fontFamily: MONO, fontSize: 11, color: C.secondary }}>w/ {t.counter_party}</span>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, fontFamily: MONO, fontSize: 11 }}>
-                  <div><span style={{ color: C.dim }}>Sent: </span><span style={{ color: C.secondary }}>{Array.isArray(t.players_sent) ? t.players_sent.join(", ") : "—"}</span></div>
-                  <div><span style={{ color: C.dim }}>Got: </span><span style={{ color: C.secondary }}>{Array.isArray(t.players_received) ? t.players_received.join(", ") : "—"}</span></div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                  <TradeAssetListInline players={t.players_sent} picks={t.picks_sent} label="GAVE" />
+                  <TradeAssetListInline players={t.players_received} picks={t.picks_received} label="GOT" />
                 </div>
               </div>
             );
@@ -501,6 +500,32 @@ function MyTradesView({ lid, owner }: { lid: string; owner: string }) {
           )}
         </div>
       </DCard>
+
+      {/* Trade Report Modal */}
+      {reportTradeId && (
+        <TradeReportModal leagueId={lid} tradeId={reportTradeId} onClose={() => setReportTradeId(null)} />
+      )}
+    </div>
+  );
+}
+
+/* Inline trade asset list for war room (avoids importing component into inline page) */
+function TradeAssetListInline({ players, picks, label }: { players?: string[] | null; picks?: string[] | null; label: string }) {
+  const all = [...(players || []).map(p => ({ name: p, isPick: false })), ...(picks || []).map(p => ({ name: p, isPick: true }))];
+  return (
+    <div>
+      <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.08em", color: label === "GAVE" ? C.red : C.green }}>{label}</span>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 2 }}>
+        {all.length > 0 ? all.map((a, i) => (
+          a.isPick ? (
+            <span key={i} style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: "#8B5CF6", background: "rgba(139,92,246,0.12)", padding: "1px 6px", borderRadius: 3, border: "1px solid rgba(139,92,246,0.25)" }}>
+              <span style={{ fontSize: 8, fontWeight: 900 }}>PICK </span>{a.name}
+            </span>
+          ) : (
+            <span key={i} style={{ fontSize: 11, fontWeight: 600, color: C.primary }}>{a.name}</span>
+          )
+        )) : <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>—</span>}
+      </div>
     </div>
   );
 }
