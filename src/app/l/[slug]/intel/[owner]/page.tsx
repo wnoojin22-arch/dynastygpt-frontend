@@ -4,6 +4,7 @@ import { use } from "react";
 import { useLeagueStore } from "@/lib/stores/league-store";
 import { useQuery } from "@tanstack/react-query";
 import { getOwnerProfile, getRivalries, getOwnerRecord, getChampionships, getOwnerNeeds, getRoster } from "@/lib/api";
+import { ScoutingReport } from "@/components/league";
 import type { RosterPlayer } from "@/lib/types";
 
 const C = {
@@ -76,6 +77,9 @@ export default function OwnerDetailPage({ params }: { params: Promise<{ owner: s
           <span style={{ fontFamily: MONO, fontSize: 12, color: C.gold }}>🏆 {champs.championships}</span>
         )}
       </div>
+
+      {/* AI Scouting Report */}
+      {lid && <ScoutingReport leagueId={lid} owner={ownerName} />}
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
         {/* Tendencies */}

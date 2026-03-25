@@ -166,8 +166,8 @@ export default function TradesPage() {
                   <span style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.gold }}>{d.grade}</span>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, fontFamily: MONO, fontSize: 12 }}>
-                  <div><span style={{ color: C.dim }}>{d.side_a?.owner}:</span> <span style={{ fontWeight: 700, color: C.gold }}>{fmt(d.side_a?.total_sha)} SHA</span></div>
-                  <div><span style={{ color: C.dim }}>{d.side_b?.owner}:</span> <span style={{ fontWeight: 700, color: C.gold }}>{fmt(d.side_b?.total_sha)} SHA</span></div>
+                  <div><span style={{ color: C.dim }}>{d.side_a?.owner}:</span> <span style={{ fontWeight: 700, color: C.gold }}>{fmt(d.side_a?.total_sha)}</span></div>
+                  <div><span style={{ color: C.dim }}>{d.side_b?.owner}:</span> <span style={{ fontWeight: 700, color: C.gold }}>{fmt(d.side_b?.total_sha)}</span></div>
                 </div>
                 <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: C.green, marginTop: 8 }}>Winner: {d.winner}</div>
               </div>

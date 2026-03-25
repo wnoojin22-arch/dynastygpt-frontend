@@ -47,7 +47,7 @@ export default function IntelListPage() {
     <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 16px", borderRadius: 6, background: C.panel, border: `1px solid ${C.border}` }}>
-        <span style={{ fontFamily: SERIF, fontSize: 20, fontWeight: 900, fontStyle: "italic", color: C.goldBright }}>Owner Intel</span>
+        <span style={{ fontFamily: SERIF, fontSize: 20, fontWeight: 900, fontStyle: "italic", color: C.goldBright }}>Scouting Reports</span>
         <span style={{ fontFamily: MONO, fontSize: 11, color: C.dim, marginLeft: "auto" }}>{owners.length} owners</span>
       </div>
 
@@ -81,7 +81,7 @@ export default function IntelListPage() {
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                   <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "2px 6px", borderRadius: 3, background: `${tier}15`, color: tier, border: `1px solid ${tier}25` }}>{windowLabel}</span>
                   <span style={{ fontFamily: MONO, fontSize: 11, color: C.secondary }}>{p.record ? `${p.record.wins}W-${p.record.losses}L` : "—"}</span>
-                  <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.gold, marginLeft: "auto" }}>{fmt(p.total_sha)} SHA</span>
+                  <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.gold, marginLeft: "auto" }}>{fmt(p.total_sha)}</span>
                 </div>
 
                 {/* Positional Grades */}

@@ -27,7 +27,7 @@ export default function TradeAnalyzerPage() {
           Evaluate Any Trade
         </div>
         <div style={{ fontFamily: SANS, fontSize: 14, color: C.dim, marginTop: 8, lineHeight: 1.5 }}>
-          Grade trades with full league context — SHA & KTC valuations, win probability, and owner-aware analysis.
+          Grade trades with full league context — dynasty valuations, win probability, and owner-aware analysis.
         </div>
       </div>
 

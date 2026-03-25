@@ -100,7 +100,7 @@ const NAV_ITEMS: { id: string; label: string; path: string }[] = [
   { id: "war-room",        label: "War\nRoom",        path: "/war-room" },
   { id: "trade-analyzer",  label: "Trade\nAnalyzer",  path: "/trade-analyzer" },
   { id: "trades",          label: "League\nTrades",   path: "/trades" },
-  { id: "intel",           label: "Owner\nIntel",     path: "/intel" },
+  { id: "intel",           label: "Scouting\nReport",  path: "/intel" },
   { id: "draft",           label: "Draft",            path: "/draft" },
 ];
 
@@ -268,7 +268,7 @@ function WarRoomSubNav({ activeView, onViewChange, owner, shaRank }: {
         </div>
         {owner && shaRank > 0 && (
           <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, marginTop: 4, letterSpacing: "0.05em" }}>
-            <span style={{ color: windowColor }}>{windowLabel}</span> · #{shaRank} SHA
+            <span style={{ color: windowColor }}>{windowLabel}</span> · #{shaRank}
           </div>
         )}
       </div>

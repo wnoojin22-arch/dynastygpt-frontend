@@ -4,7 +4,9 @@ import React, { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useLeagueStore } from "@/lib/stores/league-store";
 import { useQuery } from "@tanstack/react-query";
-import { getRankings, getRecentTrades, getTrending, getOwnerProfiles, getOverview } from "@/lib/api";
+import { getRankings, getRecentTrades, getTrending, getOwnerProfiles, getOverview, getLeagueIntel } from "@/lib/api";
+import { PowerRankings, RecentTrades } from "@/components/league";
+import { leaguePrefix } from "@/components/league/tokens";
 
 /* ═══════════════════════════════════════════════════════════════
    DESIGN TOKENS
@@ -50,7 +52,7 @@ const INSIGHTS = [
   "WacoRides2Glory is riding a 5-game win streak — longest active in the league",
   "Kris Pringle won the 2024 title — back-to-back incoming?",
   "MonkeyEpoxy has the youngest roster in the league — avg age 23.8",
-  "#1 and #2 in power rankings separated by less than 3K SHA",
+  "#1 and #2 in power rankings separated by less than 3K in value",
   "jpinola just hit 10 wins for the first time since 2022",
   "medianrare hasn't made a trade in 14 months — the quietest GM in the league",
   "85 trades across 7 seasons — DLP Dynasty League is one of the most active in the platform",
@@ -421,6 +423,7 @@ export default function LeagueHome() {
   const { data: recentTrades } = useQuery({ queryKey: ["recent-trades", lid], queryFn: () => getRecentTrades(lid!, 10), enabled: !!lid });
   const { data: trending } = useQuery({ queryKey: ["trending", lid], queryFn: () => getTrending(lid!), enabled: !!lid, staleTime: 10 * 60 * 1000 });
   const { data: profiles } = useQuery({ queryKey: ["profiles", lid], queryFn: () => getOwnerProfiles(lid!), enabled: !!lid, staleTime: 10 * 60 * 1000 });
+  const { data: leagueIntel } = useQuery({ queryKey: ["league-intel", lid], queryFn: () => getLeagueIntel(lid!), enabled: !!lid, staleTime: 10 * 60 * 1000 });
 
   if (!lid) return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
@@ -433,7 +436,7 @@ export default function LeagueHome() {
   const tradeCount = overview?.trade_volume?.total || 0;
 
   const leagueArticles = [
-    { cat: "POWER RANKINGS", catColor: C.gold, title: `${leagueName} Power Rankings Update`, desc: `Fresh SHA rankings across all ${numTeams} teams. See who's rising, who's falling, and where the value gaps are.`, date: "Today", image: <BarChartSVG /> },
+    { cat: "POWER RANKINGS", catColor: C.gold, title: `${leagueName} Power Rankings Update`, desc: `Fresh power rankings across all ${numTeams} teams. See who's rising, who's falling, and where the value gaps are.`, date: "Today", image: <BarChartSVG /> },
     { cat: "TRADE REPORT", catColor: C.green, title: `${tradeCount} Trades Analyzed — Who's Winning?`, desc: "AI-graded trade verdicts for every deal in league history. Win rates, robbery alerts, and owner tendencies.", date: "Today", image: <TradeArrowsSVG /> },
     { cat: "OWNER SPOTLIGHT", catColor: C.blue, title: "Owner Behavioral Profiles Now Available", desc: "Full trade tendency analysis, position biases, seasonal timing patterns, and rival matchup histories.", date: "Mar 24", image: <RadarChartSVG /> },
     { cat: "FRANCHISE INTEL", catColor: "#a78bfa", title: "AI Scouting Reports Are Live", desc: "Personalized buy-low targets, sell-high candidates, trade partner fits, and positional gap analysis.", date: "Mar 23", image: <ScoutingReportSVG /> },
@@ -474,7 +477,7 @@ export default function LeagueHome() {
                       <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: tier }}>#{p.sha_rank}</span>
                     </div>
                     <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim }}>{p.window} · {p.record ? `${p.record.wins}W-${p.record.losses}L` : "—"}</div>
-                    <div style={{ fontFamily: MONO, fontSize: 11, color: C.gold, marginTop: 2 }}>{fmt(p.total_sha)} SHA</div>
+                    <div style={{ fontFamily: MONO, fontSize: 11, color: C.gold, marginTop: 2 }}>{fmt(p.total_sha)} {leaguePrefix(leagueName)}</div>
                   </div>
                 );
               })}
@@ -485,10 +488,18 @@ export default function LeagueHome() {
         {/* RIGHT COLUMN */}
         <div style={{ display: "flex", flexDirection: "column", gap: 20, animation: "fadeUp 0.5s ease 0.2s both" }}>
           <div>
-            <SectionHead title="POWER RANKINGS" badge="SHA" />
-            <PowerRankingsWidget rankings={rankings?.rankings || []} />
+            <SectionHead title="POWER RANKINGS" />
+            <PowerRankings
+              rankings={rankings?.rankings || []}
+              leagueIntel={leagueIntel?.owners}
+              leagueName={leagueName}
+            />
           </div>
-          <RecentTradesWidget trades={recentTrades?.trades || []} basePath={basePath} />
+          <RecentTrades
+            trades={recentTrades?.trades || []}
+            basePath={basePath}
+            leagueId={lid}
+          />
         </div>
       </div>
 

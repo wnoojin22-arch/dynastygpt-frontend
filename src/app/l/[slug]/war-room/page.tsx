@@ -7,8 +7,9 @@ import {
   getRoster, getPicks, getOwnerTrending, getOwnerNeeds,
   getGradedTradesByOwner, getTradePartners, getRankings,
   getOwnerRecord, getChampionships, getOwnerProfiles,
-  getRivalries, getFranchiseIntel, getActions,
+  getRivalries, getFranchiseIntel, getActions, getOverview,
 } from "@/lib/api";
+import { FranchiseIntel as FranchiseIntelComponent } from "@/components/league";
 import {
   Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   ResponsiveContainer, PieChart, Pie, Cell,
@@ -142,7 +143,7 @@ function DashboardView({ lid, owner }: { lid: string; owner: string }) {
           { label: "RECORD", value: record ? `${record.all_time_wins}W-${record.all_time_losses}L` : "—" },
           { label: "TITLES", value: champs ? String(champs.championships) : "0" },
           { label: "PLAYOFFS", value: champs ? String(champs.playoff_appearances) : "0" },
-          { label: "SHA TOTAL", value: roster ? fmt(roster.total_sha) : "—", accent: true },
+          { label: "LEAGUE VALUE", value: roster ? fmt(roster.total_sha) : "—", accent: true },
         ].map((s, i) => (
           <div key={s.label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
             {i > 0 && <div style={{ width: 1, height: 16, background: C.border }} />}
@@ -180,7 +181,7 @@ function DashboardView({ lid, owner }: { lid: string; owner: string }) {
       <div style={{ display: "flex", gap: 10 }}>
         {[
           { label: "DYNASTY", rank: myRank?.rank, sub: fmt(roster?.total_sha), accent: "#8B5CF6" },
-          { label: "SHA RANK", rank: myProfile?.sha_rank, sub: myProfile?.window || "—", accent: C.gold },
+          { label: "LEAGUE RANK", rank: myProfile?.sha_rank, sub: myProfile?.window || "—", accent: C.gold },
         ].map((c) => (
           <div key={c.label} style={{ flex: 1, borderRadius: 6, padding: "10px 12px", textAlign: "center", background: C.elevated, border: `1px solid ${C.border}`, borderTop: `2px solid ${c.accent}` }}>
             <p style={{ fontFamily: MONO, fontSize: 10, letterSpacing: "0.08em", color: C.dim, marginBottom: 4 }}>{c.label}</p>
@@ -219,7 +220,7 @@ function DashboardView({ lid, owner }: { lid: string; owner: string }) {
               {/* Header */}
               <div style={{ display: "grid", gridTemplateColumns: "1.8fr 0.6fr 0.6fr 0.5fr 0.5fr", padding: "0 8px 4px", color: C.dim }}>
                 <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.06em" }}>PLAYER</span>
-                <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, textAlign: "center" }}>SHA VAL</span>
+                <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, textAlign: "center" }}>VALUE</span>
                 <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, textAlign: "center" }}>POS RK</span>
                 <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, textAlign: "center" }}>7D</span>
                 <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, textAlign: "center" }}>AGE</span>
@@ -332,7 +333,7 @@ function DashboardView({ lid, owner }: { lid: string; owner: string }) {
                     </div>
                   </div>
                 ))}
-                <p style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>{picks.total_picks} picks · <span style={{ color: C.gold }}>{fmt(picks.total_sha_value)} SHA</span></p>
+                <p style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>{picks.total_picks} picks · <span style={{ color: C.gold }}>{fmt(picks.total_sha_value)} value</span></p>
               </div>
             ) : <Skel h={60} />}
           </DCard>
@@ -572,13 +573,21 @@ function NoOwnerView() {
 export default function WarRoomPage() {
   const { currentLeagueId: lid, currentOwner: owner } = useLeagueStore();
   const { activeView } = useWarRoomStore();
+  const { data: overview } = useQuery({
+    queryKey: ["overview", lid],
+    queryFn: () => getOverview(lid!),
+    enabled: !!lid,
+    staleTime: 60 * 60 * 1000,
+  });
 
   if (!lid) return <NoOwnerView />;
   if (!owner) return <NoOwnerView />;
 
+  const leagueName = overview?.name || "DynastyGPT";
+
   const views: Record<string, React.ReactNode> = {
     dashboard: <DashboardView lid={lid} owner={owner} />,
-    "franchise-intel": <FranchiseIntelView lid={lid} owner={owner} />,
+    "franchise-intel": <FranchiseIntelComponent leagueId={lid} owner={owner} leagueName={leagueName} />,
     history: <MyTradesView lid={lid} owner={owner} />,
     builder: <TradeBuilderView lid={lid} owner={owner} />,
     rivals: <RivalsView lid={lid} owner={owner} />,
