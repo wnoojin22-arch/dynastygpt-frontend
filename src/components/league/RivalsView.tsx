@@ -144,7 +144,7 @@ export default function RivalsView({ leagueId, owner }: {
   );
 
   const nemesis = [...rivals].sort((a, b) => (a.wins / Math.max(a.wins + a.losses, 1)) - (b.wins / Math.max(b.wins + b.losses, 1)))[0];
-  const bag = [...rivals].sort((a, b) => (b.wins / Math.max(b.wins + b.losses, 1)) - (a.wins / Math.max(a.wins + a.losses, 1)))[0];
+  const bag = [...rivals].filter(r => r.opponent !== nemesis?.opponent).sort((a, b) => (b.wins / Math.max(b.wins + b.losses, 1)) - (a.wins / Math.max(a.wins + a.losses, 1)))[0] || null;
   const totalW = rivals.reduce((s, r) => s + r.wins, 0);
   const totalL = rivals.reduce((s, r) => s + r.losses, 0);
 
@@ -166,7 +166,7 @@ export default function RivalsView({ leagueId, owner }: {
         <div style={{ width: 50, display: "flex", alignItems: "center", justifyContent: "center", background: C.elevated }}>
           <span style={{ fontFamily: SERIF, fontSize: 18, fontWeight: 900, fontStyle: "italic", color: C.gold }}>VS</span>
         </div>
-        <Spot r={bag} label="PUNCHING BAG" lc={C.green} isNem={false} />
+        {bag ? <Spot r={bag} label="PUNCHING BAG" lc={C.green} isNem={false} /> : <div style={{ padding: 16, display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>NOT ENOUGH RIVALS</span></div>}
       </div>
 
       {/* ALL OPPONENTS TABLE */}

@@ -258,32 +258,40 @@ function WarRoomSubNav({ activeView, onViewChange, owner, shaRank }: {
   const [hovered, setHovered] = useState<string | null>(null);
   const windowLabel = shaRank <= 4 ? "CONTENDER" : shaRank <= 8 ? "MID PACK" : "REBUILDING";
   const windowColor = shaRank <= 4 ? C.green : shaRank <= 8 ? C.gold : C.red;
+  const collapsed = activeView === "builder";
+  const navWidth = collapsed ? 52 : 200;
 
   return (
     <div style={{
-      width: 200, height: "100%", background: C.panel,
+      width: navWidth, height: "100%", background: C.panel,
       borderRight: `1px solid ${C.border}`,
       display: "flex", flexDirection: "column", padding: "16px 0", flexShrink: 0,
-      overflow: "hidden",
+      overflow: "hidden", transition: "width 0.2s ease",
     }}>
-      {/* Owner Badge */}
-      <div style={{ padding: "0 16px 16px", borderBottom: `1px solid ${C.border}`, marginBottom: 12 }}>
-        <div style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, letterSpacing: "0.3em", color: `${C.gold}80`, marginBottom: 6 }}>WAR ROOM</div>
-        <div style={{ fontFamily: SERIF, fontSize: 18, fontWeight: 900, fontStyle: "italic", color: C.goldBright, lineHeight: 1 }}>
-          {owner || "Select Owner"}
-        </div>
-        {owner && shaRank > 0 && (
-          <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, marginTop: 4, letterSpacing: "0.05em" }}>
-            <span style={{ color: windowColor }}>{windowLabel}</span> · #{shaRank}
+      {/* Owner Badge — hidden when collapsed */}
+      {!collapsed ? (
+        <div style={{ padding: "0 16px 16px", borderBottom: `1px solid ${C.border}`, marginBottom: 12 }}>
+          <div style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, letterSpacing: "0.3em", color: `${C.gold}80`, marginBottom: 6 }}>WAR ROOM</div>
+          <div style={{ fontFamily: SERIF, fontSize: 18, fontWeight: 900, fontStyle: "italic", color: C.goldBright, lineHeight: 1 }}>
+            {owner || "Select Owner"}
           </div>
-        )}
-      </div>
+          {owner && shaRank > 0 && (
+            <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, marginTop: 4, letterSpacing: "0.05em" }}>
+              <span style={{ color: windowColor }}>{windowLabel}</span> · #{shaRank}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div style={{ padding: "8px 0 12px", borderBottom: `1px solid ${C.border}`, marginBottom: 8, textAlign: "center" }}>
+          <div style={{ fontFamily: SERIF, fontSize: 16, fontWeight: 900, fontStyle: "italic", color: C.goldBright }}>⚡</div>
+        </div>
+      )}
 
       {/* Nav Groups */}
       <div style={{ flex: 1, overflowY: "auto" }}>
         {WAR_ROOM_VIEWS.map((group, gi) => (
           <div key={gi} style={{ marginBottom: 8 }}>
-            {group.header && (
+            {!collapsed && group.header && (
               <div style={{
                 padding: "8px 16px 4px", fontFamily: MONO, fontSize: 9,
                 fontWeight: 800, letterSpacing: "0.2em", color: `${C.dim}80`,
@@ -299,15 +307,18 @@ function WarRoomSubNav({ activeView, onViewChange, owner, shaRank }: {
                   onClick={() => onViewChange(item.id)}
                   onMouseEnter={() => setHovered(item.id)}
                   onMouseLeave={() => setHovered(null)}
+                  title={collapsed ? item.label : undefined}
                   style={{
-                    display: "flex", alignItems: "center", gap: 10,
-                    padding: "8px 16px", cursor: "pointer", transition: "all 0.12s",
+                    display: "flex", alignItems: "center", gap: collapsed ? 0 : 10,
+                    padding: collapsed ? "10px 0" : "8px 16px",
+                    justifyContent: collapsed ? "center" : "flex-start",
+                    cursor: "pointer", transition: "all 0.12s",
                     borderLeft: isActive ? `2px solid ${C.gold}` : "2px solid transparent",
                     background: isActive ? C.goldGlow : isHov ? `${C.elevated}80` : "transparent",
                   }}
                 >
-                  <span style={{ fontSize: 13, color: isActive ? C.gold : C.dim, transition: "color 0.12s", width: 18, textAlign: "center" }}>{item.icon}</span>
-                  <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: isActive ? 700 : 500, color: isActive ? C.primary : C.secondary, transition: "color 0.12s", flex: 1 }}>{item.label}</span>
+                  <span style={{ fontSize: collapsed ? 16 : 13, color: isActive ? C.gold : C.dim, transition: "color 0.12s", width: 18, textAlign: "center" }}>{item.icon}</span>
+                  {!collapsed && <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: isActive ? 700 : 500, color: isActive ? C.primary : C.secondary, transition: "color 0.12s", flex: 1 }}>{item.label}</span>}
                 </div>
               );
             })}
@@ -316,14 +327,14 @@ function WarRoomSubNav({ activeView, onViewChange, owner, shaRank }: {
       </div>
 
       {/* Bottom Status */}
-      <div style={{ padding: "12px 16px", borderTop: `1px solid ${C.border}` }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      <div style={{ padding: collapsed ? "12px 8px" : "12px 16px", borderTop: `1px solid ${C.border}` }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, justifyContent: collapsed ? "center" : "flex-start" }}>
           <div style={{
             width: 6, height: 6, borderRadius: "50%", background: C.green,
             boxShadow: `0 0 6px ${C.green}60`,
             animation: "pulse-gold 2s ease infinite",
           }} />
-          <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim, letterSpacing: "0.08em" }}>ALL SYSTEMS ONLINE</span>
+          {!collapsed && <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim, letterSpacing: "0.08em" }}>ALL SYSTEMS ONLINE</span>}
         </div>
       </div>
     </div>
