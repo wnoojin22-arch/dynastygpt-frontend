@@ -533,15 +533,10 @@ function TradeAssetListInline({ players, picks, label }: { players?: string[] | 
 /* ═══════════════════════════════════════════════════════════════
    TRADE BUILDER VIEW (placeholder — complex component)
    ═══════════════════════════════════════════════════════════════ */
+/* TradeBuilderView imported from components */
+import TradeBuilderComponent from "@/components/league/trade-builder/TradeBuilderView";
 function TradeBuilderView({ lid, owner }: { lid: string; owner: string }) {
-  return (
-    <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
-      <div style={{ fontFamily: SERIF, fontSize: 24, fontWeight: 900, fontStyle: "italic", color: C.goldBright }}>Trade Builder</div>
-      <DCard label="COMING SOON">
-        <p style={{ fontFamily: MONO, fontSize: 12, color: C.dim }}>Interactive trade builder with AI coaching is in development.</p>
-      </DCard>
-    </div>
-  );
+  return <TradeBuilderComponent leagueId={lid} owner={owner} />;
 }
 
 /* ═══════════════════════════════════════════════════════════════
