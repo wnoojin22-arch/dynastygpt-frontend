@@ -12,9 +12,10 @@ interface Props {
   side: "give" | "receive";
   posGrades?: Record<string, string>;
   moveableNames?: Set<string>;
+  windowToggle?: React.ReactNode;
 }
 
-export default function RosterColumn({ title, roster, selectedNames, onToggle, side, posGrades, moveableNames }: Props) {
+export default function RosterColumn({ title, roster, selectedNames, onToggle, side, posGrades, moveableNames, windowToggle }: Props) {
   const grouped = useMemo(() => {
     const groups: Record<string, RosterPlayer[]> = { QB: [], RB: [], WR: [], TE: [], PICK: [] };
     for (const p of roster) {
@@ -27,52 +28,80 @@ export default function RosterColumn({ title, roster, selectedNames, onToggle, s
     return Object.entries(groups).filter(([_, players]) => players.length > 0);
   }, [roster]);
 
-  const selectedSet = useMemo(() => new Set(selectedNames.map(n => n.toLowerCase())), [selectedNames]);
+  const selectedSet = useMemo(() => new Set(selectedNames.map((n) => n.toLowerCase())), [selectedNames]);
 
   return (
-    <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
-      {/* Header */}
-      <div style={{ padding: "8px 12px", borderBottom: `1px solid ${C.border}`, background: C.goldDim }}>
-        <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.10em", color: C.gold }}>{title}</span>
+    <div style={{ flex: "1 1 0", minWidth: 0, display: "flex", flexDirection: "column", background: C.panel, borderRadius: 8, border: `1px solid ${C.border}`, overflow: "hidden" }}>
+      {/* Header with optional window toggle */}
+      <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}` }}>
+        {windowToggle}
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginTop: windowToggle ? 6 : 0 }}>
+          <span style={{ fontFamily: "Archivo Black, sans-serif", fontSize: 14, letterSpacing: "0.05em", color: C.primary }}>{title}</span>
+        </div>
       </div>
 
       {/* Player list */}
-      <div style={{ flex: 1, overflowY: "auto", maxHeight: 500 }}>
+      <div style={{ flex: 1, overflowY: "auto", padding: "4px 0" }}>
         {grouped.map(([pos, players]) => {
           const grade = posGrades?.[pos];
-          const gc = grade === "ELITE" ? C.green : grade === "STRONG" ? C.blue : grade === "AVERAGE" ? C.gold : grade === "WEAK" ? C.orange : grade === "CRITICAL" ? C.red : C.dim;
+          const gc = grade === "ELITE" || grade === "STRONG" ? C.green : grade === "WEAK" || grade === "CRITICAL" ? C.red : C.gold;
 
           return (
-            <div key={pos}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 12px", background: C.elevated, borderBottom: `1px solid ${C.border}` }}>
-                <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: posColor(pos) }}>{pos}</span>
-                <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>{players.length}</span>
-                {grade && <span style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 9, fontWeight: 700, color: gc, padding: "1px 5px", borderRadius: 3, background: `${gc}15` }}>{grade}</span>}
+            <div key={pos} style={{ marginBottom: 2 }}>
+              {/* Position header */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 14px", background: C.white08 }}>
+                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: posColor(pos), letterSpacing: "0.1em" }}>{pos}</span>
+                {grade && (
+                  <span style={{
+                    fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 3,
+                    background: grade === "WEAK" || grade === "CRITICAL" ? `${C.red}15` : grade === "ELITE" || grade === "STRONG" ? `${C.green}15` : `${C.gold}15`,
+                    color: gc,
+                  }}>{grade}</span>
+                )}
               </div>
-              {players.map((p) => {
+
+              {/* Players */}
+              {players.map((p, idx) => {
                 const selected = selectedSet.has(p.name.toLowerCase());
-                const isLocked = side === "receive" && moveableNames && !moveableNames.has(p.name_clean) && p.sha_value >= 2000 && p.position !== "PICK";
+                const isPick = p.position === "PICK";
+                const isUntouchable = side === "receive" && !isPick && p.sha_value > 2000 && moveableNames && moveableNames.size > 0 && !moveableNames.has(p.name_clean);
 
                 return (
-                  <div key={p.name}
-                    onClick={() => !isLocked && onToggle(p.name)}
+                  <div key={`${side}-${pos}-${p.name}-${idx}`}
+                    onClick={() => onToggle(p.name)}
                     style={{
-                      display: "flex", alignItems: "center", gap: 6, padding: "4px 12px",
-                      cursor: isLocked ? "not-allowed" : "pointer",
-                      borderBottom: `1px solid ${C.white08}`,
-                      borderLeft: selected ? `3px solid ${side === "give" ? C.red : C.green}` : "3px solid transparent",
-                      background: selected ? `${side === "give" ? C.red : C.green}08` : "transparent",
-                      opacity: isLocked ? 0.4 : 1,
-                      transition: "all 0.12s",
+                      display: "flex", alignItems: "center", gap: 8, padding: "5px 14px",
+                      cursor: isUntouchable ? "not-allowed" : "pointer",
+                      borderLeft: `3px solid ${selected ? C.gold : "transparent"}`,
+                      background: selected ? `${C.gold}15` : "transparent",
+                      opacity: selected ? 0.55 : isUntouchable ? 0.4 : 1,
+                      transition: "all 0.15s",
                     }}
-                    onMouseEnter={(e) => { if (!selected && !isLocked) e.currentTarget.style.background = C.elevated; }}
-                    onMouseLeave={(e) => { if (!selected) e.currentTarget.style.background = "transparent"; }}>
-                    <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 600, color: C.primary, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {p.name}
-                      {isLocked && " 🔒"}
+                    onMouseEnter={(e) => { if (!selected) e.currentTarget.style.background = C.white08; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = selected ? `${C.gold}15` : "transparent"; }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{
+                        fontFamily: SANS, fontSize: 13, fontWeight: 500, color: selected ? C.dim : C.primary,
+                        whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                        textDecoration: selected ? "line-through" : "none",
+                      }}>
+                        {p.name}
+                        {isUntouchable && <span style={{ fontSize: 11, opacity: 0.5, marginLeft: 4 }}>🔒</span>}
+                      </span>
+                    </div>
+                    {/* Positional rank badge */}
+                    {p.sha_pos_rank && (
+                      <span style={{
+                        fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "1px 5px",
+                        borderRadius: 3, background: C.elevated, color: posColor(pos),
+                      }}>{p.sha_pos_rank}</span>
+                    )}
+                    <span style={{ fontFamily: MONO, fontSize: 12, color: C.gold, minWidth: 48, textAlign: "right" }}>
+                      {p.sha_value > 0 ? fmt(p.sha_value) : "—"}
                     </span>
-                    <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.gold, flexShrink: 0 }}>{fmt(p.sha_value)}</span>
-                    {p.age && <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim, flexShrink: 0 }}>{p.age}y</span>}
+                    {!isPick && p.age && (
+                      <span style={{ fontFamily: MONO, fontSize: 11, color: C.dim, minWidth: 18, textAlign: "right" }}>{p.age}</span>
+                    )}
                   </div>
                 );
               })}
