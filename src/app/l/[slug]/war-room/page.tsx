@@ -515,8 +515,9 @@ function TradeAssetListInline({ players, picks, label }: { players?: string[] | 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 2 }}>
         {all.length > 0 ? all.map((a, i) => (
           a.isPick ? (
-            <span key={i} style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: "#8B5CF6", background: "rgba(139,92,246,0.12)", padding: "1px 6px", borderRadius: 3, border: "1px solid rgba(139,92,246,0.25)" }}>
-              <span style={{ fontSize: 8, fontWeight: 900 }}>PICK </span>{a.name}
+            <span key={i} style={{ fontSize: 11, fontWeight: 600, color: C.secondary, display: "inline-flex", alignItems: "center", gap: 3 }}>
+              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 8, fontWeight: 800, color: C.dim, background: C.white08, padding: "0px 3px", borderRadius: 2 }}>PICK</span>
+              {a.name.replace(/\s*\([^)]*\)/g, "")}
             </span>
           ) : (
             <span key={i} style={{ fontSize: 11, fontWeight: 600, color: C.primary }}>{a.name}</span>

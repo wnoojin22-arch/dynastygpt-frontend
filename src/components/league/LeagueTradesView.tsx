@@ -17,6 +17,8 @@ interface Trade {
   sha_balance?: number | null; verdict?: string | null;
   side_a_verdict?: string | null; side_b_verdict?: string | null;
   side_a_owner?: string | null; side_b_owner?: string | null;
+  side_a_score?: number | null; side_b_score?: number | null;
+  side_a_letter?: string | null; side_b_letter?: string | null;
 }
 
 function letterFromVerdict(v: string | null | undefined): string {
@@ -171,8 +173,8 @@ export default function LeagueTradesView({ leagueId }: { leagueId: string }) {
         <div style={{ maxHeight: 640, overflowY: "auto" }}>
           {filtered.map((t) => {
             const vs = t.verdict ? getVerdictStyle(t.verdict) : null;
-            const aLetter = letterFromVerdict(t.side_a_verdict);
-            const bLetter = letterFromVerdict(t.side_b_verdict);
+            const aLetter = t.side_a_letter || letterFromVerdict(t.side_a_verdict);
+            const bLetter = t.side_b_letter || letterFromVerdict(t.side_b_verdict);
             const aColor = gradeColor(aLetter);
             const bColor = gradeColor(bLetter);
             const aAssets = assetStr(t.players_sent, t.picks_sent);
