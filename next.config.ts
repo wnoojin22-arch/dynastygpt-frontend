@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  turbopack: {
+    root: "/Users/amandamcdougall/dynastygpt-frontend",
+  },
 };
 
 export default nextConfig;

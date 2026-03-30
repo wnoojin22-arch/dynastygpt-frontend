@@ -73,6 +73,11 @@ export interface NegotiationInsight {
   priority: number;
 }
 
+export interface PositionalImpact {
+  owner?: Record<string, { before: string; after: string; direction: "up" | "down" | "same" }>;
+  partner?: Record<string, { before: string; after: string; direction: "up" | "down" | "same" }>;
+}
+
 export interface TradeEvaluation {
   league_id: string;
   i_give: TradeAsset[];
@@ -82,6 +87,7 @@ export interface TradeEvaluation {
   owner_grade: GradeResult;
   negotiation_insights: NegotiationInsight[];
   ask_for_more: Array<{ asset: string; sha_value: number; position: string; reason: string }>;
+  positional_impact?: PositionalImpact;
 }
 
 export interface SuggestedPackage {
@@ -96,6 +102,9 @@ export interface SuggestedPackage {
   negotiation_insights: NegotiationInsight[];
   combined_score: number;
   pitch: string;
+  narrative?: string;
+  tier?: string;
+  market_comparison?: string;
 }
 
 export interface RosterPlayer {

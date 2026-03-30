@@ -33,7 +33,7 @@ function DCard({ label, right, children }: { label: string; right?: React.ReactN
   );
 }
 
-export default function DraftPage() {
+export default function DraftRoom() {
   const { currentLeagueId: lid, currentOwner: owner } = useLeagueStore();
 
   const { data: history } = useQuery({ queryKey: ["draft-history", lid], queryFn: () => getDraftHistory(lid!), enabled: !!lid });

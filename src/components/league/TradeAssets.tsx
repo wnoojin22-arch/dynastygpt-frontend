@@ -2,6 +2,7 @@
 
 import React from "react";
 import { C, SANS, MONO, posColor } from "./tokens";
+import PlayerName from "./PlayerName";
 
 /* ═══════════════════════════════════════════════════════════════
    TRADE ASSETS — renders players + picks as inline badges
@@ -22,9 +23,7 @@ export function AssetBadge({ name, type }: { name: string; type: "player" | "pic
     );
   }
   return (
-    <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, color: C.primary, whiteSpace: "nowrap" }}>
-      {name}
-    </span>
+    <PlayerName name={name} style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, color: C.primary, whiteSpace: "nowrap" }} />
   );
 }
 

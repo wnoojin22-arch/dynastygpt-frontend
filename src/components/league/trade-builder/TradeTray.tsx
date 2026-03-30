@@ -70,12 +70,15 @@ function AssetRow({ name, roster, onRemove, side }: { name: string; roster: Rost
   const color = side === "give" ? C.red : C.green;
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 8px", borderLeft: `3px solid ${color}`, transition: "background 0.1s" }}
+    <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 8px", borderLeft: `3px solid ${color}`, transition: "background 0.1s" }}
       onMouseEnter={(e) => { e.currentTarget.style.background = C.elevated; }}
       onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
       {p && <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 900, color: posColor(p.position), background: posColor(p.position) + "18", padding: "0 3px", borderRadius: 2 }}>{p.position}</span>}
       <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 600, color: C.primary, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</span>
-      <span style={{ fontFamily: MONO, fontSize: 10, color: C.gold }}>{p ? fmt(p.sha_value) : "?"}</span>
+      {p?.sha_pos_rank && (
+        <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: posColor(p.position), background: C.elevated, padding: "1px 4px", borderRadius: 3 }}>{p.sha_pos_rank}</span>
+      )}
+      <span style={{ fontFamily: MONO, fontSize: 10, color: C.gold, minWidth: 36, textAlign: "right" }}>{p ? fmt(p.sha_value) : "?"}</span>
       <span onClick={() => onRemove(name)} style={{ cursor: "pointer", fontSize: 12, color: C.dim, padding: "0 2px" }}>✕</span>
     </div>
   );

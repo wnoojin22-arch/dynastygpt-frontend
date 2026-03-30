@@ -3,12 +3,13 @@
 import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useLeagueStore } from "@/lib/stores/league-store";
-import { useWarRoomStore } from "@/lib/stores/war-room-store";
+import PlayerCardModal from "@/components/league/PlayerCardModal";
 import { useQuery } from "@tanstack/react-query";
 import { getOwners, getOverview, getRankings } from "@/lib/api";
+import { Home, LayoutGrid, Search, Zap, BarChart3 } from "lucide-react";
 
 /* ═══════════════════════════════════════════════════════════════
-   DESIGN TOKENS (mirrors Shadynasty exactly)
+   DESIGN TOKENS
    ═══════════════════════════════════════════════════════════════ */
 const C = {
   bg: "#06080d", panel: "#0a0d15", card: "#10131d", elevated: "#171b28",
@@ -53,114 +54,87 @@ function ShieldLogo({ size = 28 }: { size?: number }) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   SVG NAV ICONS (copied from Shadynasty IconSidebar)
+   NAV ITEMS — 5 items, no sub-nav
    ═══════════════════════════════════════════════════════════════ */
-function SvgIcon({ id, color }: { id: string; color: string }) {
-  const s = 22;
-  const p = { width: s, height: s, viewBox: "0 0 24 24", fill: "none", stroke: color, strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
-  if (id === "home") return (
-    <svg {...p}><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg>
-  );
-  if (id === "war-room") return (
-    <svg {...p}>
-      <path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 7.5l4-4 4 4-4 4"/>
-      <path d="M9.5 17.5L21 6V3h-3L6.5 14.5"/><path d="M7 17l-4 4"/><path d="M17 17l4 4"/>
-    </svg>
-  );
-  if (id === "trade-analyzer") return (
-    <svg {...p}>
-      <path d="M8 3H5a2 2 0 00-2 2v14a2 2 0 002 2h3"/><path d="M16 3h3a2 2 0 012 2v14a2 2 0 01-2 2h-3"/>
-      <path d="M7 12h10"/><path d="M10 9l-3 3 3 3"/><path d="M14 9l3 3-3 3"/>
-    </svg>
-  );
-  if (id === "trades") return (
-    <svg {...p}>
-      <path d="M16 3l4 4-4 4"/><path d="M20 7H4"/><path d="M8 21l-4-4 4-4"/><path d="M4 17h16"/>
-    </svg>
-  );
-  if (id === "rankings") return (
-    <svg {...p}>
-      <path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/>
-    </svg>
-  );
-  if (id === "intel") return (
-    <svg {...p}>
-      <path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/>
-    </svg>
-  );
-  if (id === "draft") return (
-    <svg {...p}>
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/>
-      <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
-    </svg>
-  );
-  return null;
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   NAV ITEMS — 6 items, matching Shadynasty structure
-   ═══════════════════════════════════════════════════════════════ */
-const NAV_ITEMS: { id: string; label: string; path: string }[] = [
-  { id: "home",            label: "Home",             path: "" },
-  { id: "war-room",        label: "War\nRoom",        path: "/war-room" },
-  { id: "trade-analyzer",  label: "Trade\nAnalyzer",  path: "/trade-analyzer" },
-  { id: "trades",          label: "League\nTrades",   path: "/trades" },
-  { id: "rankings",        label: "Rankings",           path: "/rankings" },
-  { id: "intel",           label: "Scouting\nReport",  path: "/intel" },
-  { id: "draft",           label: "Draft",            path: "/draft" },
+const NAV_ITEMS: { id: string; label: string; path: string; icon: React.ReactNode }[] = [
+  { id: "home",      label: "Home",      path: "",           icon: <Home size={20} /> },
+  { id: "dashboard", label: "Dashboard", path: "/dashboard", icon: <LayoutGrid size={20} /> },
+  { id: "intel",     label: "Intel",     path: "/intel",     icon: <Search size={20} /> },
+  { id: "trades",    label: "Trades",    path: "/trades",    icon: <Zap size={20} /> },
+  { id: "rankings",  label: "Rankings",  path: "/rankings",  icon: <BarChart3 size={20} /> },
 ];
 
 /* ═══════════════════════════════════════════════════════════════
-   ICON SIDEBAR (copied from Shadynasty)
+   ICON SIDEBAR — 5 items, 64px, lucide-react icons
    ═══════════════════════════════════════════════════════════════ */
-function IconSidebar({ basePath, pathname }: { basePath: string; pathname: string }) {
+function IconSidebar({ basePath, pathname, owner, shaRank }: {
+  basePath: string; pathname: string; owner: string | null; shaRank: number;
+}) {
   const router = useRouter();
   const [hovered, setHovered] = useState<string | null>(null);
+  const windowLabel = shaRank <= 4 ? "CONTENDER" : shaRank <= 8 ? "MID PACK" : "REBUILDING";
+  const windowColor = shaRank <= 4 ? C.green : shaRank <= 8 ? C.gold : C.red;
 
   return (
-    <div style={{
-      width: 64, height: "100%", background: "#000",
-      borderRight: `1px solid ${C.border}`,
-      display: "flex", flexDirection: "column", alignItems: "center",
-      paddingTop: 14, gap: 2, flexShrink: 0,
-    }}>
-      <div style={{ cursor: "pointer", marginBottom: 18 }} onClick={() => router.push("/")}>
+    <div className="flex flex-col items-center shrink-0 w-16 h-full bg-black border-r border-border pt-3.5 gap-0.5">
+      {/* Logo */}
+      <div className="cursor-pointer mb-4" onClick={() => router.push("/")}>
         <ShieldLogo size={32} />
       </div>
+
+      {/* Owner identity */}
+      {owner && (
+        <div className="w-full px-2 pb-2 mb-1 border-b border-border text-center">
+          <div className="font-sans text-[8px] font-bold text-primary truncate leading-tight">{owner}</div>
+          {shaRank > 0 && (
+            <div className="font-sans text-[8px] mt-0.5" style={{ color: windowColor }}>
+              #{shaRank} {windowLabel}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Nav items */}
       {NAV_ITEMS.map((item) => {
         const href = `${basePath}${item.path}`;
         const isActive = item.path === ""
           ? pathname === basePath || pathname === basePath + "/"
           : pathname.startsWith(href);
         const isHov = hovered === item.id;
-        const iconColor = isActive ? C.gold : (isHov ? C.primary : C.dim);
+
         return (
           <div key={item.id}
             onClick={() => router.push(href)}
             onMouseEnter={() => setHovered(item.id)}
             onMouseLeave={() => setHovered(null)}
-            style={{
-              width: 54, padding: "10px 0", borderRadius: 6,
-              display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
-              cursor: "pointer", transition: "all 0.15s",
-              background: isActive ? C.elevated : (isHov ? `${C.elevated}80` : "transparent"),
-              borderLeft: isActive ? `2px solid ${C.gold}` : "2px solid transparent",
-            }}>
-            <SvgIcon id={item.id} color={iconColor} />
-            <span style={{
-              fontSize: 8, fontWeight: 700, letterSpacing: "0.03em", textAlign: "center",
-              lineHeight: 1.2, whiteSpace: "pre-line", fontFamily: SANS,
-              color: isActive || isHov ? C.primary : C.dim,
-            }}>{item.label}</span>
+            className={`flex flex-col items-center gap-1 w-[54px] py-2.5 rounded-md cursor-pointer transition-all
+              ${isActive ? "bg-elevated border-l-2 border-gold" : isHov ? "bg-elevated/80 border-l-2 border-transparent" : "border-l-2 border-transparent"}`}
+          >
+            <span className={`transition-colors ${isActive ? "text-gold" : isHov ? "text-primary" : "text-dim"}`}>
+              {item.icon}
+            </span>
+            <span className={`font-sans text-[8px] font-bold tracking-wide text-center leading-tight
+              ${isActive || isHov ? "text-primary" : "text-dim"}`}>
+              {item.label}
+            </span>
           </div>
         );
       })}
+
+      {/* Spacer */}
+      <div className="flex-1" />
+
+      {/* Bottom status */}
+      <div className="w-full px-2 py-3 border-t border-border flex items-center justify-center gap-1.5">
+        <div className="w-1.5 h-1.5 rounded-full bg-accent-green animate-pulse" style={{ boxShadow: `0 0 6px ${C.green}60` }} />
+        <span className="font-sans text-[7px] text-dim tracking-wider hidden">ONLINE</span>
+      </div>
     </div>
   );
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   HEADER BAR (copied from Shadynasty War Room)
+   HEADER BAR
    ═══════════════════════════════════════════════════════════════ */
 function HeaderBar({ owner, owners, onOwnerChange, leagueName }: {
   owner: string | null; owners: { name: string }[];
@@ -171,11 +145,10 @@ function HeaderBar({ owner, owners, onOwnerChange, leagueName }: {
       height: 48, background: C.panel, borderBottom: `1px solid ${C.border}`,
       display: "flex", alignItems: "center", padding: "0 20px", gap: 14, flexShrink: 0,
     }}>
-      {/* League Name — branded like DynastyGPT wordmark */}
+      {/* League Name */}
       <div style={{ display: "flex", alignItems: "baseline", lineHeight: 1, flexShrink: 0 }}>
         {(() => {
           const name = leagueName || "DynastyGPT";
-          // Extract words, find "Dynasty" or use last word as gold
           const words = name.replace(/\s+League$/i, "").split(/\s+/);
           const dynIdx = words.findIndex((w) => w.toLowerCase() === "dynasty");
           if (dynIdx >= 0) {
@@ -187,7 +160,6 @@ function HeaderBar({ owner, owners, onOwnerChange, leagueName }: {
               </>
             );
           }
-          // No "Dynasty" in name — first word white, rest gold
           const first = words[0] || "";
           const rest = words.slice(1).join(" ");
           return (
@@ -214,12 +186,11 @@ function HeaderBar({ owner, owners, onOwnerChange, leagueName }: {
         }}
       >
         <option value="" style={{ background: C.card }}>Select Owner</option>
-        {owners.map((o) => (
-          <option key={o.name} value={o.name} style={{ background: C.card }}>{o.name}</option>
+        {owners.map((o: Record<string, unknown>, i: number) => (
+          <option key={String(o.platform_user_id || o.slot || i)} value={String(o.name)} style={{ background: C.card }}>{String(o.name)}</option>
         ))}
       </select>
 
-      {/* Spacer */}
       <div style={{ flex: 1 }} />
 
       {/* Powered-by badge */}
@@ -237,118 +208,12 @@ function HeaderBar({ owner, owners, onOwnerChange, leagueName }: {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   WAR ROOM SUB-NAV (Secondary Sidebar)
-   ═══════════════════════════════════════════════════════════════ */
-const WAR_ROOM_VIEWS = [
-  { header: "MY TEAM", items: [
-    { id: "dashboard", label: "Dashboard", icon: "◎" },
-    { id: "franchise-intel", label: "Franchise Intel", icon: "⌘" },
-    { id: "history", label: "My Trades", icon: "◷" },
-    { id: "builder", label: "Trade Builder", icon: "⚡" },
-  ]},
-  { header: "INTEL", items: [
-    { id: "rivals", label: "Rivals", icon: "⚔" },
-  ]},
-];
-
-function WarRoomSubNav({ activeView, onViewChange, owner, shaRank }: {
-  activeView: string; onViewChange: (v: string) => void;
-  owner: string | null; shaRank: number;
-}) {
-  const [hovered, setHovered] = useState<string | null>(null);
-  const windowLabel = shaRank <= 4 ? "CONTENDER" : shaRank <= 8 ? "MID PACK" : "REBUILDING";
-  const windowColor = shaRank <= 4 ? C.green : shaRank <= 8 ? C.gold : C.red;
-  const collapsed = activeView === "builder";
-  const navWidth = collapsed ? 52 : 200;
-
-  return (
-    <div style={{
-      width: navWidth, height: "100%", background: C.panel,
-      borderRight: `1px solid ${C.border}`,
-      display: "flex", flexDirection: "column", padding: "16px 0", flexShrink: 0,
-      overflow: "hidden", transition: "width 0.2s ease",
-    }}>
-      {/* Owner Badge — hidden when collapsed */}
-      {!collapsed ? (
-        <div style={{ padding: "0 16px 16px", borderBottom: `1px solid ${C.border}`, marginBottom: 12 }}>
-          <div style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, letterSpacing: "0.3em", color: `${C.gold}80`, marginBottom: 6 }}>WAR ROOM</div>
-          <div style={{ fontFamily: SERIF, fontSize: 18, fontWeight: 900, fontStyle: "italic", color: C.goldBright, lineHeight: 1 }}>
-            {owner || "Select Owner"}
-          </div>
-          {owner && shaRank > 0 && (
-            <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, marginTop: 4, letterSpacing: "0.05em" }}>
-              <span style={{ color: windowColor }}>{windowLabel}</span> · #{shaRank}
-            </div>
-          )}
-        </div>
-      ) : (
-        <div style={{ padding: "8px 0 12px", borderBottom: `1px solid ${C.border}`, marginBottom: 8, textAlign: "center" }}>
-          <div style={{ fontFamily: SERIF, fontSize: 16, fontWeight: 900, fontStyle: "italic", color: C.goldBright }}>⚡</div>
-        </div>
-      )}
-
-      {/* Nav Groups */}
-      <div style={{ flex: 1, overflowY: "auto" }}>
-        {WAR_ROOM_VIEWS.map((group, gi) => (
-          <div key={gi} style={{ marginBottom: 8 }}>
-            {!collapsed && group.header && (
-              <div style={{
-                padding: "8px 16px 4px", fontFamily: MONO, fontSize: 9,
-                fontWeight: 800, letterSpacing: "0.2em", color: `${C.dim}80`,
-              }}>
-                {group.header}
-              </div>
-            )}
-            {group.items.map((item) => {
-              const isActive = activeView === item.id;
-              const isHov = hovered === item.id;
-              return (
-                <div key={item.id}
-                  onClick={() => onViewChange(item.id)}
-                  onMouseEnter={() => setHovered(item.id)}
-                  onMouseLeave={() => setHovered(null)}
-                  title={collapsed ? item.label : undefined}
-                  style={{
-                    display: "flex", alignItems: "center", gap: collapsed ? 0 : 10,
-                    padding: collapsed ? "10px 0" : "8px 16px",
-                    justifyContent: collapsed ? "center" : "flex-start",
-                    cursor: "pointer", transition: "all 0.12s",
-                    borderLeft: isActive ? `2px solid ${C.gold}` : "2px solid transparent",
-                    background: isActive ? C.goldGlow : isHov ? `${C.elevated}80` : "transparent",
-                  }}
-                >
-                  <span style={{ fontSize: collapsed ? 16 : 13, color: isActive ? C.gold : C.dim, transition: "color 0.12s", width: 18, textAlign: "center" }}>{item.icon}</span>
-                  {!collapsed && <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: isActive ? 700 : 500, color: isActive ? C.primary : C.secondary, transition: "color 0.12s", flex: 1 }}>{item.label}</span>}
-                </div>
-              );
-            })}
-          </div>
-        ))}
-      </div>
-
-      {/* Bottom Status */}
-      <div style={{ padding: collapsed ? "12px 8px" : "12px 16px", borderTop: `1px solid ${C.border}` }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, justifyContent: collapsed ? "center" : "flex-start" }}>
-          <div style={{
-            width: 6, height: 6, borderRadius: "50%", background: C.green,
-            boxShadow: `0 0 6px ${C.green}60`,
-            animation: "pulse-gold 2s ease infinite",
-          }} />
-          {!collapsed && <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim, letterSpacing: "0.08em" }}>ALL SYSTEMS ONLINE</span>}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════════
    LEAGUE LAYOUT — Icon Sidebar + Header Bar + Content
    ═══════════════════════════════════════════════════════════════ */
 export default function LeagueLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { currentLeagueId, currentOwner, setOwner } = useLeagueStore();
   const slug = pathname.split("/")[2] || "";
-  const { activeView: warRoomView, setActiveView: setWarRoomView } = useWarRoomStore();
 
   const { data: overview } = useQuery({
     queryKey: ["overview", currentLeagueId],
@@ -371,7 +236,6 @@ export default function LeagueLayout({ children }: { children: React.ReactNode }
 
   const owners = ownersData?.owners || [];
   const basePath = `/l/${slug}`;
-  const isWarRoom = pathname.includes("/war-room");
   const myRank = rankings?.rankings?.find((r) => r.owner.toLowerCase() === (currentOwner || "").toLowerCase());
 
   return (
@@ -379,18 +243,10 @@ export default function LeagueLayout({ children }: { children: React.ReactNode }
       display: "flex", height: "100vh", overflow: "hidden",
       background: C.bg, color: C.primary, fontFamily: SANS,
     }}>
-      {/* ── Icon Sidebar ── */}
-      <IconSidebar basePath={basePath} pathname={pathname} />
+      <style>{`@keyframes pulse-gold{0%,100%{opacity:1}50%{opacity:.3}}`}</style>
 
-      {/* ── War Room Sub-Nav (conditional) ── */}
-      {isWarRoom && (
-        <WarRoomSubNav
-          activeView={warRoomView}
-          onViewChange={setWarRoomView}
-          owner={currentOwner}
-          shaRank={myRank?.rank || 0}
-        />
-      )}
+      {/* ── Icon Sidebar ── */}
+      <IconSidebar basePath={basePath} pathname={pathname} owner={currentOwner} shaRank={myRank?.rank || 0} />
 
       {/* ── Main Area (Header + Content) ── */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
@@ -404,6 +260,7 @@ export default function LeagueLayout({ children }: { children: React.ReactNode }
           {children}
         </main>
       </div>
+      <PlayerCardModal />
     </div>
   );
 }

@@ -186,7 +186,7 @@ function SectionHead({ title, badge }: { title: string; badge?: string }) {
    ARTICLE CARDS — Editorial content feed (placeholder)
    ═══════════════════════════════════════════════════════════════ */
 const ARTICLES = [
-  { category: 'TRADE MARKET', categoryColor: T.gold, title: 'Trade Market Heating Up: 96K+ Trades Analyzed', desc: 'DynastyGPT has now processed over 96,000 trades across 8,400+ leagues. Here\'s what the data says about the current market.', time: '5 min read', date: 'Mar 25' },
+  { category: 'TRADE MARKET', categoryColor: T.gold, title: 'Trade Market Heating Up: 338K+ Trades Analyzed', desc: 'DynastyGPT has now processed over 338,000 trades across 9,200+ leagues. Here\'s what the data says about the current market.', time: '5 min read', date: 'Mar 27' },
   { category: 'RANKINGS', categoryColor: T.green, title: '2026 Rookie Rankings: Early Top 10 Preview', desc: 'With the NFL Draft approaching, dynasty managers are already positioning. Our AI-powered rankings break down the top prospects.', time: '8 min read', date: 'Mar 24' },
   { category: 'BUY LOW', categoryColor: T.blue, title: 'Week 12 Dynasty Buy-Lows You\'re Missing', desc: 'These undervalued assets are being moved at historic discounts. Our enriched trade data shows the opportunity window closing fast.', time: '4 min read', date: 'Mar 23' },
   { category: 'ANALYSIS', categoryColor: '#a78bfa', title: 'Owner Behavioral Profiling: How It Works', desc: 'We track 30+ behavioral signals per trade. Learn how DynastyGPT builds owner profiles that predict trade tendencies.', time: '6 min read', date: 'Mar 22' },
@@ -263,9 +263,9 @@ function ArticleCard({ article }: { article: typeof ARTICLES[number] }) {
    ═══════════════════════════════════════════════════════════════ */
 function PlatformStats() {
   const stats = [
-    { value: '96,731', label: 'TRADES' },
-    { value: '8,428', label: 'LEAGUES' },
-    { value: '34,335', label: 'OWNERS' },
+    { value: '337,980', label: 'TRADES' },
+    { value: '9,280', label: 'LEAGUES' },
+    { value: '75,000+', label: 'OWNERS' },
   ];
   return (
     <div style={{ padding: '14px 16px', borderRadius: 8, background: T.card, border: `1px solid ${T.border}` }}>
@@ -340,8 +340,8 @@ function TrendingWidget() {
    ═══════════════════════════════════════════════════════════════ */
 const CAPS = [
   { icon: '⚔', title: 'War Room', desc: 'Roster intel, draft capital, positional radar, and franchise analytics.', accent: T.gold },
-  { icon: '⇌', title: 'Trade Analyzer', desc: 'Grade any trade with SHA & KTC valuations and owner context.', accent: T.blue },
-  { icon: '◎', title: 'Power Rankings', desc: 'SHA, Dynasty, and Win-Now modes with positional breakdowns.', accent: T.green },
+  { icon: '⇌', title: 'Trade Analyzer', desc: 'Grade any trade with dynasty and win-now valuations plus owner context.', accent: T.blue },
+  { icon: '◎', title: 'Power Rankings', desc: 'Overall, Dynasty, and Win-Now modes with positional breakdowns.', accent: T.green },
   { icon: '◉', title: 'Owner Intel', desc: 'Behavioral profiling — trade tendencies, biases, and rival analysis.', accent: T.orange },
   { icon: '⌘', title: 'Franchise Intel', desc: 'AI scouting reports, buy-low targets, and trade partner fits.', accent: '#a78bfa' },
   { icon: '📊', title: 'Draft Room', desc: 'Draft history with hit rates, bust rates, and position tendencies.', accent: T.red },

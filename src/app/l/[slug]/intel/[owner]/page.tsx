@@ -9,6 +9,7 @@ import {
 } from "@/lib/api";
 import { ScoutingReport, RivalsView, TradeReportModal } from "@/components/league";
 import { TradeAssetList } from "@/components/league/TradeAssets";
+import DraftRoom from "@/components/league/DraftRoom";
 import { C, SANS, MONO, DISPLAY, SERIF, fmt, posColor, getVerdictStyle, gradeColor } from "@/components/league/tokens";
 import type { RosterPlayer } from "@/lib/types";
 
@@ -45,6 +46,7 @@ const TABS = [
   { id: "draft", label: "DRAFT ROOM" },
   { id: "roster", label: "ROSTER" },
   { id: "rivals", label: "RIVALS" },
+  { id: "seasons", label: "SEASONS" },
 ] as const;
 type TabId = typeof TABS[number]["id"];
 
@@ -69,8 +71,8 @@ export default function OwnerDetailPage({ params }: { params: Promise<{ owner: s
 
   if (!lid) return <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}><p style={{ fontFamily: MONO, fontSize: 13, color: C.dim }}>No league loaded</p></div>;
 
-  const t = profile?.tendencies;
-  const badges = t?.badges || [];
+  const t = (profile?.tendencies || (profile as Record<string, unknown>)?.trading || {}) as Record<string, unknown>;
+  const badges = (t.badges || []) as string[];
 
   return (
     <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
@@ -115,7 +117,7 @@ export default function OwnerDetailPage({ params }: { params: Promise<{ owner: s
           <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8 }}>
             {[
               { label: "TRADES/YR", value: t?.trades_per_year ? String(t.trades_per_year) : "—", color: C.primary },
-              { label: "WIN RATE", value: t?.trade_win_rate ? `${(t.trade_win_rate * 100).toFixed(0)}%` : "—", color: (t?.trade_win_rate || 0) >= 0.5 ? C.green : C.red },
+              { label: "WIN RATE", value: t?.trade_win_rate ? `${(Number(t.trade_win_rate) * 100).toFixed(0)}%` : "—", color: Number(t?.trade_win_rate || 0) >= 0.5 ? C.green : C.red },
               { label: "TOTAL TRADES", value: String(profile?.trade_count || 0), color: C.primary },
               { label: "RECORD", value: record ? `${record.all_time_wins}W-${record.all_time_losses}L` : "—", color: C.primary },
               { label: "TITLES", value: champs ? String(champs.championships) : "0", color: C.gold },
@@ -233,39 +235,8 @@ export default function OwnerDetailPage({ params }: { params: Promise<{ owner: s
       )}
 
       {/* DRAFT ROOM */}
-      {tab === "draft" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {/* Draft Analysis Summary */}
-          {draftAnalysis != null && (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
-              {[
-                { label: "TOTAL PICKS", value: String((draftAnalysis as Record<string, unknown>).total_picks || 0), color: C.primary },
-                { label: "HIT RATE", value: `${(draftAnalysis as Record<string, unknown>).hit_rate || 0}%`, color: C.green },
-                { label: "BUST RATE", value: `${(draftAnalysis as Record<string, unknown>).bust_rate || 0}%`, color: C.red },
-                { label: "HITS", value: String((draftAnalysis as Record<string, unknown>).hits || 0), color: C.blue },
-              ].map((s) => (
-                <div key={s.label} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, padding: "10px 12px", textAlign: "center" }}>
-                  <div style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, letterSpacing: "0.10em", color: C.dim, marginBottom: 4 }}>{s.label}</div>
-                  <div style={{ fontFamily: DISPLAY, fontSize: 20, color: s.color }}>{s.value}</div>
-                </div>
-              ))}
-            </div>
-          )}
-          <DCard label="DRAFT HISTORY" right={<span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>{(draft?.picks as unknown[])?.length || 0} picks</span>}>
-            <div style={{ maxHeight: 400, overflowY: "auto" }}>
-              {((draft?.picks || []) as Array<Record<string, unknown>>)
-                .filter((p) => String(p.owner || "").toLowerCase() === ownerName.toLowerCase())
-                .map((p, i) => (
-                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0", borderBottom: `1px solid ${C.white08}` }}>
-                    <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim, width: 30 }}>R{String(p.round)}.{String(p.pick)}</span>
-                    <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: posColor(String(p.position || "")), background: posColor(String(p.position || "")) + "18", padding: "1px 4px", borderRadius: 2 }}>{String(p.position || "")}</span>
-                    <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 600, color: C.primary, flex: 1 }}>{String(p.player || "—")}</span>
-                    <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>{String(p.season || "")}</span>
-                  </div>
-                ))}
-            </div>
-          </DCard>
-        </div>
+      {tab === "draft" && lid && (
+        <DraftRoom />
       )}
 
       {/* ROSTER */}
@@ -305,6 +276,256 @@ export default function OwnerDetailPage({ params }: { params: Promise<{ owner: s
       {tab === "rivals" && lid && (
         <RivalsView leagueId={lid} owner={ownerName} />
       )}
+
+      {/* SEASONS */}
+      {tab === "seasons" && (() => {
+        const seasons: Array<Record<string, unknown>> = (record as any)?.seasons || [];
+        const finishes: Array<{ season: string; finish: number }> = champs?.season_finishes || [];
+        const champYears = new Set(champs?.championship_years || []);
+        const playoffYears = new Set(champs?.playoff_years || []);
+        const totalSeasons = seasons.length;
+
+        // Merge season records with finish positions
+        const merged = seasons.map((s: any) => {
+          const sf = finishes.find((f) => String(f.season) === String(s.season));
+          return {
+            season: String(s.season),
+            wins: s.wins as number,
+            losses: s.losses as number,
+            pf: s.points_for as number,
+            pa: s.points_against as number,
+            finish: sf?.finish ?? null as number | null,
+            isChamp: champYears.has(String(s.season)),
+            isPlayoff: playoffYears.has(String(s.season)),
+            displayName: s.display_name as string || ownerName,
+          };
+        }).sort((a, b) => Number(a.season) - Number(b.season));
+
+        // Trajectory
+        const recentFinishes = merged.filter((m) => m.finish != null).slice(-3);
+        let trajectory = "STABLE";
+        if (recentFinishes.length >= 2) {
+          const first = recentFinishes[0].finish!;
+          const last = recentFinishes[recentFinishes.length - 1].finish!;
+          if (last < first - 2) trajectory = "RISING";
+          else if (last > first + 2) trajectory = "DECLINING";
+        }
+        const trajColor = trajectory === "RISING" ? C.green : trajectory === "DECLINING" ? C.red : C.gold;
+
+        // Best season
+        const best = merged.reduce((a, b) =>
+          (a.isChamp && !b.isChamp) ? a :
+          (!a.isChamp && b.isChamp) ? b :
+          (a.finish ?? 99) < (b.finish ?? 99) ? a : b,
+          merged[0] || {} as typeof merged[0]
+        );
+
+        // Avg finish
+        const validFinishes = merged.filter((m) => m.finish != null);
+        const avgFinish = validFinishes.length > 0
+          ? (validFinishes.reduce((s, m) => s + m.finish!, 0) / validFinishes.length)
+          : null;
+
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {/* ── Summary strip ── */}
+            <div style={{
+              display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
+              padding: "12px 16px", borderRadius: 8,
+              background: C.panel, border: `1px solid ${C.border}`,
+            }}>
+              {champs && champs.championships > 0 && (
+                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  {Array.from({ length: champs.championships }).map((_, i) => (
+                    <span key={i} style={{ fontSize: 20 }}>🏆</span>
+                  ))}
+                  <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.gold, marginLeft: 4 }}>
+                    {champs.championships}x CHAMPION
+                  </span>
+                </div>
+              )}
+              <div style={{ width: 1, height: 20, background: C.borderLt }} />
+              <div style={{ fontFamily: MONO, fontSize: 11, color: C.secondary }}>
+                <span style={{ fontWeight: 700, color: C.primary }}>{champs?.playoff_appearances || 0}</span> playoff{(champs?.playoff_appearances || 0) !== 1 ? "s" : ""} / {totalSeasons} seasons
+              </div>
+              <div style={{ width: 1, height: 20, background: C.borderLt }} />
+              <span style={{
+                fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.06em",
+                padding: "3px 10px", borderRadius: 4,
+                color: trajColor, background: `${trajColor}15`, border: `1px solid ${trajColor}30`,
+              }}>
+                {trajectory}
+              </span>
+              {avgFinish != null && (
+                <>
+                  <div style={{ width: 1, height: 20, background: C.borderLt }} />
+                  <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim }}>
+                    Avg finish: <span style={{ fontWeight: 700, color: C.primary }}>{avgFinish.toFixed(1)}</span>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* ── Championship Timeline (horizontal scroll) ── */}
+            {merged.length > 0 && (
+              <DCard label="TIMELINE">
+                <div style={{
+                  display: "flex", gap: 0, overflowX: "auto", paddingBottom: 4,
+                  WebkitOverflowScrolling: "touch" as any,
+                }}>
+                  {merged.map((m, i) => {
+                    const finishColor = m.isChamp ? C.gold : m.finish != null && m.finish <= 3 ? C.green
+                      : m.finish != null && m.finish <= 6 ? C.blue
+                      : m.finish != null && m.finish <= 9 ? C.gold : C.red;
+                    const barHeight = m.finish != null ? Math.max(20, 100 - (m.finish - 1) * 7) : 30;
+
+                    return (
+                      <div key={m.season} style={{
+                        display: "flex", flexDirection: "column", alignItems: "center",
+                        minWidth: 56, flex: "1 0 56px", gap: 4,
+                        padding: "4px 2px",
+                        borderRight: i < merged.length - 1 ? `1px solid ${C.white08}` : "none",
+                      }}>
+                        {/* Trophy or finish */}
+                        <div style={{ height: 24, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          {m.isChamp ? (
+                            <span style={{ fontSize: 18 }}>🏆</span>
+                          ) : m.isPlayoff ? (
+                            <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.green, background: `${C.green}15`, padding: "1px 4px", borderRadius: 3 }}>PO</span>
+                          ) : (
+                            <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>—</span>
+                          )}
+                        </div>
+
+                        {/* Bar */}
+                        <div style={{
+                          width: 20, height: barHeight, borderRadius: 3,
+                          background: `${finishColor}30`, border: `1px solid ${finishColor}50`,
+                          display: "flex", alignItems: "flex-start", justifyContent: "center", paddingTop: 3,
+                          transition: "height 0.3s ease",
+                        }}>
+                          <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 900, color: finishColor }}>
+                            {m.finish ?? "?"}
+                          </span>
+                        </div>
+
+                        {/* Record */}
+                        <span style={{ fontFamily: MONO, fontSize: 9, color: C.secondary, whiteSpace: "nowrap" }}>
+                          {m.wins}-{m.losses}
+                        </span>
+
+                        {/* Year */}
+                        <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: m.isChamp ? C.gold : C.dim }}>
+                          {m.season.slice(-2)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </DCard>
+            )}
+
+            {/* ── Best Season Highlight ── */}
+            {best && best.season && (
+              <div style={{
+                padding: "14px 18px", borderRadius: 8,
+                background: best.isChamp
+                  ? `linear-gradient(135deg, rgba(212,165,50,0.08), rgba(212,165,50,0.02))`
+                  : C.card,
+                border: `1px solid ${best.isChamp ? C.goldBorder : C.border}`,
+              }}>
+                <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.12em", color: C.gold, marginBottom: 6 }}>
+                  BEST SEASON
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                  <span style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: C.gold }}>{best.season}</span>
+                  {best.isChamp && <span style={{ fontSize: 22 }}>🏆</span>}
+                  <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 700, color: C.primary }}>
+                    {best.wins}W-{best.losses}L
+                  </span>
+                  {best.finish != null && (
+                    <span style={{ fontFamily: MONO, fontSize: 12, color: C.secondary }}>
+                      Finished {best.finish === 1 ? "1st" : best.finish === 2 ? "2nd" : best.finish === 3 ? "3rd" : `${best.finish}th`}
+                    </span>
+                  )}
+                  {best.pf > 0 && (
+                    <span style={{ fontFamily: MONO, fontSize: 11, color: C.dim }}>{fmt(best.pf)} PF</span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ── Season-by-Season Cards ── */}
+            <DCard label="ALL SEASONS">
+              <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+                {/* Header */}
+                <div style={{
+                  display: "grid", gridTemplateColumns: "60px 1fr 80px 80px 60px 40px",
+                  padding: "4px 8px 6px", gap: 8,
+                }}>
+                  {["YEAR", "RECORD", "PF", "PA", "FINISH", ""].map((h) => (
+                    <span key={h} style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.08em", color: C.dim }}>{h}</span>
+                  ))}
+                </div>
+
+                {[...merged].reverse().map((m) => {
+                  const winPct = (m.wins + m.losses) > 0 ? m.wins / (m.wins + m.losses) : 0;
+                  const wrColor = winPct >= 0.6 ? C.green : winPct >= 0.45 ? C.gold : C.red;
+                  const finColor = m.isChamp ? C.gold : m.finish != null && m.finish <= 3 ? C.green : m.finish != null && m.finish <= 6 ? C.blue : m.finish != null && m.finish <= 9 ? C.gold : C.red;
+
+                  return (
+                    <div key={m.season} style={{
+                      display: "grid", gridTemplateColumns: "60px 1fr 80px 80px 60px 40px",
+                      padding: "6px 8px", gap: 8, alignItems: "center",
+                      borderBottom: `1px solid ${C.white08}`,
+                      background: m.isChamp ? `${C.gold}06` : "transparent",
+                    }}>
+                      {/* Year */}
+                      <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: m.isChamp ? C.gold : C.primary }}>
+                        {m.season}
+                      </span>
+
+                      {/* Record with bar */}
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: wrColor }}>
+                          {m.wins}W-{m.losses}L
+                        </span>
+                        <div style={{ flex: 1, height: 4, borderRadius: 2, background: C.border, overflow: "hidden", maxWidth: 80 }}>
+                          <div style={{ width: `${winPct * 100}%`, height: "100%", background: wrColor, borderRadius: 2 }} />
+                        </div>
+                      </div>
+
+                      {/* PF */}
+                      <span style={{ fontFamily: MONO, fontSize: 11, color: C.secondary }}>
+                        {m.pf > 0 ? fmt(m.pf) : "—"}
+                      </span>
+
+                      {/* PA */}
+                      <span style={{ fontFamily: MONO, fontSize: 11, color: C.dim }}>
+                        {m.pa > 0 ? fmt(m.pa) : "—"}
+                      </span>
+
+                      {/* Finish */}
+                      <span style={{
+                        fontFamily: MONO, fontSize: 12, fontWeight: 800,
+                        color: finColor,
+                      }}>
+                        {m.finish != null ? (m.finish === 1 ? "1st" : m.finish === 2 ? "2nd" : m.finish === 3 ? "3rd" : `${m.finish}th`) : "—"}
+                      </span>
+
+                      {/* Icons */}
+                      <div style={{ display: "flex", gap: 2 }}>
+                        {m.isChamp && <span style={{ fontSize: 14 }}>🏆</span>}
+                        {m.isPlayoff && !m.isChamp && <span style={{ fontFamily: MONO, fontSize: 8, color: C.green }}>PO</span>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </DCard>
+          </div>
+        );
+      })()}
 
       {/* Trade Report Modal */}
       {reportTradeId && lid && (

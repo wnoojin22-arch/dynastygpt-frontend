@@ -4,7 +4,7 @@ import React from "react";
 import { C, SANS, MONO, DISPLAY, fmt, posColor, gradeColor } from "../tokens";
 import GradeBadge from "./GradeBadge";
 import AcceptanceGauge from "./AcceptanceGauge";
-import type { TradeEvaluation } from "./types";
+import type { TradeEvaluation, PositionalImpact } from "./types";
 
 export default function AnalysisModal({ evaluation, owner, partner, onClose }: {
   evaluation: TradeEvaluation; owner: string; partner: string; onClose: () => void;
@@ -14,6 +14,7 @@ export default function AnalysisModal({ evaluation, owner, partner, onClose }: {
   const bal = evaluation.sha_balance;
   const insights = evaluation.negotiation_insights;
   const askMore = evaluation.ask_for_more;
+  const posImpact = evaluation.positional_impact;
 
   const verdictColor = grade.verdict.includes("SMASH") || grade.verdict.includes("GOOD") ? C.green
     : grade.verdict.includes("BREAK") ? C.gold
@@ -104,7 +105,7 @@ export default function AnalysisModal({ evaluation, owner, partner, onClose }: {
             <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.10em", color: C.gold, marginBottom: 8 }}>TRADE BALANCE</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
               {[
-                { label: "SHA", gap: bal?.sha_gap, pct: bal?.sha_gap_percentage },
+                { label: "VALUE", gap: bal?.sha_gap, pct: bal?.sha_gap_percentage },
                 { label: "DYNASTY", gap: bal?.dynasty_gap, pct: bal?.dynasty_gap_percentage },
                 { label: "WIN-NOW", gap: bal?.winnow_gap, pct: bal?.winnow_gap_percentage },
               ].map(({ label, gap, pct }) => (
@@ -118,6 +119,33 @@ export default function AnalysisModal({ evaluation, owner, partner, onClose }: {
               ))}
             </div>
           </div>
+
+          {/* POSITIONAL IMPACT */}
+          {posImpact?.owner && (
+            <div style={{ gridColumn: "1 / -1", background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 14 }}>
+              <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.10em", color: C.gold, marginBottom: 8 }}>POSITIONAL IMPACT</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+                {(["QB", "RB", "WR", "TE"] as const).map((pos) => {
+                  const d = posImpact.owner?.[pos];
+                  if (!d) return null;
+                  const dirColor = d.direction === "up" ? C.green : d.direction === "down" ? C.red : C.dim;
+                  const arrow = d.direction === "up" ? "▲" : d.direction === "down" ? "▼" : "—";
+                  const beforeColor = d.before === "ELITE" || d.before === "STRONG" ? C.green : d.before === "WEAK" || d.before === "CRITICAL" ? C.red : C.gold;
+                  const afterColor = d.after === "ELITE" || d.after === "STRONG" ? C.green : d.after === "WEAK" || d.after === "CRITICAL" ? C.red : C.gold;
+                  return (
+                    <div key={pos} style={{ textAlign: "center", padding: "6px 4px", borderRadius: 6, background: d.direction !== "same" ? `${dirColor}06` : "transparent", border: `1px solid ${d.direction !== "same" ? `${dirColor}20` : C.border}` }}>
+                      <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: posColor(pos), marginBottom: 4 }}>{pos}</div>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
+                        <span style={{ fontFamily: MONO, fontSize: 11, color: beforeColor }}>{d.before}</span>
+                        <span style={{ fontFamily: MONO, fontSize: 10, color: dirColor }}>{arrow}</span>
+                        <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: afterColor }}>{d.after}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* ASK FOR MORE */}
           {askMore && askMore.length > 0 && (

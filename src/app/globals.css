@@ -168,3 +168,163 @@
 @keyframes barFill {
   from { width: 0%; }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   MOBILE RESPONSIVE — 375px-640px
+   Fixes inline-style grid/flex layouts that break on mobile.
+   Uses !important sparingly — only where inline styles exist.
+   ═══════════════════════════════════════════════════════════════ */
+
+@media (max-width: 640px) {
+  /* ── Prevent horizontal overflow ── */
+  body, html {
+    overflow-x: hidden;
+    max-width: 100vw;
+  }
+
+  /* ── Force ALL inline multi-column grids to stack ── */
+  /* This catches every gridTemplateColumns set via inline style */
+  div[style*="gridTemplateColumns"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Exception: keep 2-col for small stat grids (gap: 4) */
+  div[style*="gap: 4"] {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  /* Exception: keep trade gave/got side-by-side */
+  div[style*="28px 1fr"] {
+    grid-template-columns: 1fr 28px 1fr !important;
+  }
+
+  /* ── Fix fixed-width sidebars/panels ── */
+  div[style*="width: 340"],
+  div[style*="width: 350"],
+  div[style*="width: 280"] {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* ── Reduce excessive padding ── */
+  div[style*="padding: '24px 28px'"],
+  div[style*="padding: \"24px 28px\""] {
+    padding: 12px 14px !important;
+  }
+
+  /* ── Minimum touch targets ── */
+  button, a, select, [role="button"] {
+    min-height: 44px;
+  }
+
+  /* ── Reduce large font sizes ── */
+  [style*="fontSize: 32"],
+  [style*="fontSize: 36"],
+  [style*="fontSize: 28"] {
+    font-size: 22px !important;
+  }
+
+  /* ── Trade log: tighter rows ── */
+  .tl2-card {
+    padding-left: 12px !important;
+    padding-right: 8px !important;
+  }
+
+  /* ── My Trades hero section: stack 3-column to 1 ── */
+  /* The 140px | 1fr | 1fr grid */
+  div[style*="gridTemplateColumns: '140px 1fr 1fr'"],
+  div[style*='gridTemplateColumns: "140px 1fr 1fr"'] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* ── Trade chains: simplify 5-column grid ── */
+  div[style*="140px 1fr 30px 1fr 80px"] {
+    grid-template-columns: 1fr !important;
+    gap: 4px !important;
+  }
+
+  /* ── Franchise Intel: 3-column → 1 ── */
+  div[style*="repeat(3, 1fr)"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* ── Stats row: wrap on mobile ── */
+  div[style*="repeat(5, 1fr)"] {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+
+  div[style*="repeat(4, 1fr)"] {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* ── Modals: full-screen on mobile ── */
+  div[style*="max-width: 1100px"],
+  div[style*="maxWidth: 1100"],
+  div[style*="max-width: 800px"],
+  div[style*="maxWidth: 800"] {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* ── Feedback panel: full width on mobile ── */
+  div[style*="width: 370"] {
+    width: 100% !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MOBILE UTILITY CLASSES
+   Apply these in components for responsive behavior
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Stack grid to single column on mobile */
+.mobile-stack {
+  @media (max-width: 640px) {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Stack flex children vertically on mobile */
+.mobile-col {
+  @media (max-width: 640px) {
+    flex-direction: column !important;
+  }
+}
+
+/* Hide on mobile */
+.mobile-hide {
+  @media (max-width: 640px) {
+    display: none !important;
+  }
+}
+
+/* Full width on mobile */
+.mobile-full {
+  @media (max-width: 640px) {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+}
+
+/* Reduce gap on mobile */
+.mobile-gap-sm {
+  @media (max-width: 640px) {
+    gap: 6px !important;
+  }
+}
+
+/* Smaller text on mobile */
+.mobile-text-sm {
+  @media (max-width: 640px) {
+    font-size: 11px !important;
+  }
+}
+
+/* Smaller padding on mobile */
+.mobile-pad-sm {
+  @media (max-width: 640px) {
+    padding: 8px !important;
+  }
+}

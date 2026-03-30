@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getGradedTrades, getOwners } from "@/lib/api";
 import TradeReportModal from "./TradeReportModal";
 import { C, SANS, MONO, SERIF, DISPLAY, fmt, gradeColor, getVerdictStyle } from "./tokens";
+import PlayerName from "./PlayerName";
 
 /* ═══════════════════════════════════════════════════════════════
    LEAGUE TRADES VIEW — Shadynasty "League Trade History" pattern
@@ -36,10 +37,35 @@ function letterFromVerdict(v: string | null | undefined): string {
 }
 
 function assetStr(players?: string[] | null, picks?: string[] | null): string {
-  const all = [...(players || []), ...(picks || []).map((p) => p.replace(/\s*\([^)]*\)/g, ""))];
-  if (!all.length) return "—";
+  const p = (players || []).filter(Boolean);
+  const pk = (picks || []).map((s) => s.replace(/\s*\([^)]*\)/g, "")).filter(Boolean);
+  const all = [...p, ...pk];
+  if (!all.length) return "";
   if (all.length <= 2) return all.join(", ");
   return `${all.slice(0, 2).join(", ")} +${all.length - 2}`;
+}
+function isEmptyTrade(players?: string[] | null, picks?: string[] | null): boolean {
+  return !(players || []).filter(Boolean).length && !(picks || []).filter(Boolean).length;
+}
+
+function InlineAssets({ players, picks }: { players?: string[] | null; picks?: string[] | null }) {
+  const p = (players || []).filter(Boolean);
+  const pk = (picks || []).map(s => s.replace(/\s*\([^)]*\)/g, "")).filter(Boolean);
+  const all = [...p.map(n => ({ name: n, isPick: false })), ...pk.map(n => ({ name: n, isPick: true }))];
+  if (!all.length) return <span>—</span>;
+  const shown = all.slice(0, 2);
+  const extra = all.length - 2;
+  return (
+    <span>
+      {shown.map((a, i) => (
+        <React.Fragment key={i}>
+          {i > 0 && ", "}
+          {a.isPick ? a.name : <PlayerName name={a.name} style={{ color: "inherit" }} />}
+        </React.Fragment>
+      ))}
+      {extra > 0 && <span style={{ color: C.dim }}> +{extra}</span>}
+    </span>
+  );
 }
 
 export default function LeagueTradesView({ leagueId }: { leagueId: string }) {
@@ -180,6 +206,11 @@ export default function LeagueTradesView({ leagueId }: { leagueId: string }) {
             const aAssets = assetStr(t.players_sent, t.picks_sent);
             const bAssets = assetStr(t.players_received, t.picks_received);
 
+            // Skip waiver/FAAB transactions (no assets on either side)
+            if (isEmptyTrade(t.players_sent, t.picks_sent) && isEmptyTrade(t.players_received, t.picks_received)) return null;
+
+            const hasGrade = !!(aLetter || bLetter);
+
             return (
               <div key={t.trade_id}
                 onClick={() => setReportTradeId(t.trade_id)}
@@ -198,8 +229,8 @@ export default function LeagueTradesView({ leagueId }: { leagueId: string }) {
                 <div style={{ display: "flex", alignItems: "center", gap: 4, flex: 1, minWidth: 0 }}>
                   <div style={{ width: 22, height: 22, borderRadius: "50%", background: `${aColor}15`, border: `1.5px solid ${aColor}35`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: 9, fontWeight: 900, color: aColor, flexShrink: 0 }}>{t.owner[0]}</div>
                   <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 700, color: C.primary, flexShrink: 0 }}>{t.owner}</span>
-                  {aLetter && <span style={{ fontFamily: DISPLAY, fontSize: 12, fontWeight: 900, color: aColor, padding: "1px 6px", borderRadius: 3, background: `${aColor}15`, border: `1px solid ${aColor}30`, flexShrink: 0 }}>{aLetter}</span>}
-                  <span style={{ fontFamily: SANS, fontSize: 11, color: C.dim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{aAssets}</span>
+                  {aLetter ? <span style={{ fontFamily: DISPLAY, fontSize: 12, fontWeight: 900, color: aColor, padding: "1px 6px", borderRadius: 3, background: `${aColor}15`, border: `1px solid ${aColor}30`, flexShrink: 0 }}>{aLetter}</span> : null}
+                  <span style={{ fontFamily: SANS, fontSize: 11, color: C.dim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}><InlineAssets players={t.players_sent} picks={t.picks_sent} /></span>
                 </div>
 
                 {/* Arrow */}
@@ -209,12 +240,13 @@ export default function LeagueTradesView({ leagueId }: { leagueId: string }) {
                 <div style={{ display: "flex", alignItems: "center", gap: 4, flex: 1, minWidth: 0 }}>
                   <div style={{ width: 22, height: 22, borderRadius: "50%", background: `${bColor}15`, border: `1.5px solid ${bColor}35`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: 9, fontWeight: 900, color: bColor, flexShrink: 0 }}>{t.counter_party[0]}</div>
                   <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 700, color: C.primary, flexShrink: 0 }}>{t.counter_party}</span>
-                  {bLetter && <span style={{ fontFamily: DISPLAY, fontSize: 12, fontWeight: 900, color: bColor, padding: "1px 6px", borderRadius: 3, background: `${bColor}15`, border: `1px solid ${bColor}30`, flexShrink: 0 }}>{bLetter}</span>}
-                  <span style={{ fontFamily: SANS, fontSize: 11, color: C.dim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{bAssets}</span>
+                  {bLetter ? <span style={{ fontFamily: DISPLAY, fontSize: 12, fontWeight: 900, color: bColor, padding: "1px 6px", borderRadius: 3, background: `${bColor}15`, border: `1px solid ${bColor}30`, flexShrink: 0 }}>{bLetter}</span> : null}
+                  <span style={{ fontFamily: SANS, fontSize: 11, color: C.dim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}><InlineAssets players={t.players_received} picks={t.picks_received} /></span>
                 </div>
 
-                {/* Verdict pill */}
-                {vs && <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.04em", color: vs.color, background: vs.bg, padding: "3px 8px", borderRadius: 3, flexShrink: 0, boxShadow: t.verdict?.includes("ROBBERY") ? `0 0 12px rgba(255,68,68,0.20)` : "none" }}>{vs.label}</span>}
+                {/* Verdict pill or No Grade */}
+                {vs ? <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.04em", color: vs.color, background: vs.bg, padding: "3px 8px", borderRadius: 3, flexShrink: 0, boxShadow: t.verdict?.includes("ROBBERY") ? `0 0 12px rgba(255,68,68,0.20)` : "none" }}>{vs.label}</span>
+                    : !hasGrade && <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.dim, padding: "3px 8px", borderRadius: 3, background: C.elevated, border: `1px solid ${C.border}`, letterSpacing: "0.06em" }}>NO GRADE</span>}
               </div>
             );
           })}

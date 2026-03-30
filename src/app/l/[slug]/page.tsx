@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getRankings, getRecentTrades, getTrending, getOwnerProfiles, getOverview, getLeagueIntel } from "@/lib/api";
 import { PowerRankings, RecentTrades } from "@/components/league";
 import { leaguePrefix } from "@/components/league/tokens";
+import PlayerName from "@/components/league/PlayerName";
 
 /* ═══════════════════════════════════════════════════════════════
    DESIGN TOKENS
@@ -106,7 +107,7 @@ function MarketTicker({ risers, fallers }: { risers: { player: string; sha_delta
   const renderSet = (prefix: string) => items.map((p, i) => (
     <span key={`${prefix}-${i}`} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: MONO, whiteSpace: "nowrap" }}>
       {p.position && <span style={{ fontSize: 8, fontWeight: 900, letterSpacing: "0.04em", color: posColor(p.position), fontFamily: SANS, background: posColor(p.position) + "18", padding: "1px 4px", borderRadius: 2 }}>{p.position}</span>}
-      <span style={{ fontSize: 11, fontWeight: 700, color: C.primary }}>{p.player}</span>
+      <PlayerName name={p.player} style={{ fontSize: 11, fontWeight: 700, color: C.primary }} />
       <span style={{ fontSize: 10, fontWeight: 900, color: p.dir === "up" ? C.green : C.red }}>
         {p.dir === "up" ? "▲" : "▼"} {p.dir === "up" ? "+" : ""}{fmt(p.sha_delta)}
       </span>
@@ -315,7 +316,7 @@ function PowerRankingsWidget({ rankings }: { rankings: { owner: string; rank: nu
         const pct = (r.total_sha / topScore) * 100;
         const color = i === 0 ? C.gold : i < 4 ? C.green : i < 8 ? C.secondary : C.red;
         return (
-          <div key={r.owner} style={{
+          <div key={`${r.owner}-${i}`} style={{
             display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", borderRadius: 4,
             background: i === 0 ? C.goldDim : "transparent",
             border: i === 0 ? `1px solid ${C.goldBorder}` : "1px solid transparent",
@@ -466,10 +467,10 @@ export default function LeagueHome() {
           <div>
             <SectionHead title="LEAGUE SNAPSHOT" badge={`${profiles?.profiles?.length || 0} TEAMS`} />
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 8 }}>
-              {profiles?.profiles?.map((p) => {
+              {profiles?.profiles?.map((p, i) => {
                 const tier = p.sha_rank <= 3 ? C.green : p.sha_rank <= 6 ? C.gold : p.sha_rank <= 9 ? C.orange : C.red;
                 return (
-                  <div key={p.owner} style={{ padding: "8px 12px", borderRadius: 6, background: C.elevated, border: `1px solid ${C.border}`, cursor: "pointer", transition: "all 0.15s" }}
+                  <div key={`${p.owner}-${i}`} style={{ padding: "8px 12px", borderRadius: 6, background: C.elevated, border: `1px solid ${C.border}`, cursor: "pointer", transition: "all 0.15s" }}
                     onMouseEnter={(e) => { e.currentTarget.style.borderColor = C.borderLt; e.currentTarget.style.transform = "translateY(-1px)"; }}
                     onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.transform = "translateY(0)"; }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>

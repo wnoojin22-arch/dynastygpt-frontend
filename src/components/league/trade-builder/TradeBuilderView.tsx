@@ -9,11 +9,13 @@
  */
 import React, { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getRoster, getLeagueIntel, getOwners } from "@/lib/api";
+import { getRoster, getLeagueIntel, getOwners, getPicks } from "@/lib/api";
 import { C, SANS, MONO, DISPLAY, SERIF, fmt, posColor } from "../tokens";
 import RosterColumn from "./RosterColumn";
 import TradeTray from "./TradeTray";
 import AnalysisModal from "./AnalysisModal";
+import ChatPanel from "./ChatPanel";
+import PlayerName from "../PlayerName";
 import type { RosterPlayer, TradeEvaluation, SuggestedPackage, NegotiationInsight } from "./types";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -62,25 +64,45 @@ function PackageCard({ pkg, onBuild }: { pkg: SuggestedPackage; onBuild: () => v
   const g = pkg.owner_trade_grade || { grade: "?", score: 0, verdict: "?" };
   const color = gradeColor(g.grade || "?");
   const accColor = likelihoodColor(pkg.acceptance_likelihood || 0);
+  const tierColor = pkg.tier === "exploit" ? C.green : pkg.tier === "above_market" ? C.gold : C.dim;
+  const tierLabel = pkg.tier === "exploit" ? "EXPLOIT" : pkg.tier === "above_market" ? "ABOVE MARKET" : pkg.tier === "fair_value" ? "FAIR VALUE" : "";
   return (
     <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 16, marginBottom: 10, transition: "border-color 0.15s" }}
       onMouseEnter={(e) => { e.currentTarget.style.borderColor = C.goldBorder; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.border; }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
-        <div style={{ width: 36, height: 36, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: `${color}18`, border: `2px solid ${color}` }}>
+      {/* Header: partner + tier + grade + acceptance */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+        <div style={{ width: 36, height: 36, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: `${color}18`, border: `2px solid ${color}`, flexShrink: 0 }}>
           <span style={{ fontFamily: DISPLAY, fontSize: 16, color }}>{g.grade}</span></div>
-        <div style={{ flex: 1 }}><span style={{ fontFamily: SANS, fontSize: 14, fontWeight: 600, color: C.primary }}>{pkg.partner}</span>
-          <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim }}>{g.verdict} · {pkg.combined_score} combined</div></div>
-        <div style={{ textAlign: "right" }}><span style={{ fontFamily: MONO, fontSize: 18, fontWeight: 700, color: accColor }}>{pkg.acceptance_likelihood}</span>
-          <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim }}>acceptance</div></div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontFamily: SANS, fontSize: 14, fontWeight: 600, color: C.primary }}>{pkg.partner}</span>
+            {tierLabel && <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", padding: "2px 6px", borderRadius: 3, background: `${tierColor}15`, color: tierColor, border: `1px solid ${tierColor}25` }}>{tierLabel}</span>}
+          </div>
+          {pkg.market_comparison && <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim }}>{pkg.market_comparison}</div>}
+        </div>
+        <div style={{ textAlign: "right", flexShrink: 0 }}><span style={{ fontFamily: MONO, fontSize: 18, fontWeight: 700, color: accColor }}>{pkg.acceptance_likelihood}</span>
+          <div style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>acceptance</div></div>
       </div>
+
+      {/* Narrative — the AI's league-first explanation */}
+      {pkg.narrative && (
+        <div style={{ fontFamily: SANS, fontSize: 13, lineHeight: 1.55, color: C.secondary, padding: "10px 12px", background: C.elevated, borderRadius: 6, borderLeft: `3px solid ${C.gold}50`, marginBottom: 10 }}>
+          {pkg.narrative}
+        </div>
+      )}
+
+      {/* Send / Receive */}
       <div style={{ display: "flex", gap: 8, marginBottom: 10, fontSize: 13, fontFamily: SANS }}>
-        <div style={{ flex: 1 }}><span style={{ fontFamily: MONO, fontSize: 11, color: C.red, fontWeight: 700 }}>SEND</span>
-          {(pkg.i_give_names || []).map((n, i) => <div key={i} style={{ color: C.secondary, marginTop: 2 }}>{n}</div>)}</div>
+        <div style={{ flex: 1 }}><span style={{ fontFamily: MONO, fontSize: 10, color: C.red, fontWeight: 700, letterSpacing: "0.08em" }}>SEND</span>
+          {(pkg.i_give_names || []).map((n, i) => <div key={i} style={{ color: C.secondary, marginTop: 2 }}><PlayerName name={n} style={{ color: C.secondary }} /></div>)}</div>
         <div style={{ color: C.dim, alignSelf: "center", fontSize: 16 }}>→</div>
-        <div style={{ flex: 1 }}><span style={{ fontFamily: MONO, fontSize: 11, color: C.green, fontWeight: 700 }}>GET</span>
-          {(pkg.i_receive_names || []).map((n, i) => <div key={i} style={{ color: C.secondary, marginTop: 2 }}>{n}</div>)}</div>
+        <div style={{ flex: 1 }}><span style={{ fontFamily: MONO, fontSize: 10, color: C.green, fontWeight: 700, letterSpacing: "0.08em" }}>GET</span>
+          {(pkg.i_receive_names || []).map((n, i) => <div key={i} style={{ color: C.secondary, marginTop: 2 }}><PlayerName name={n} style={{ color: C.secondary }} /></div>)}</div>
       </div>
-      {(pkg.negotiation_insights as NegotiationInsight[])?.[0] && <div style={{ fontFamily: SANS, fontSize: 12, color: C.secondary, padding: "6px 8px", background: C.elevated, borderRadius: 4, borderLeft: `2px solid ${C.gold}40`, marginBottom: 10 }}>{(pkg.negotiation_insights as NegotiationInsight[])[0].insight}</div>}
+
+      {/* Fallback: negotiation insight if no narrative */}
+      {!pkg.narrative && (pkg.negotiation_insights as NegotiationInsight[])?.[0] && <div style={{ fontFamily: SANS, fontSize: 12, color: C.secondary, padding: "6px 8px", background: C.elevated, borderRadius: 4, borderLeft: `2px solid ${C.gold}40`, marginBottom: 10 }}>{(pkg.negotiation_insights as NegotiationInsight[])[0].insight}</div>}
+
       <button onClick={onBuild} style={{ width: "100%", padding: "8px 0", borderRadius: 6, border: "none", cursor: "pointer", fontFamily: DISPLAY, fontSize: 13, letterSpacing: "0.08em", background: `linear-gradient(135deg,${C.goldDark},${C.gold})`, color: "#000", transition: "opacity 0.15s" }}
         onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.85"; }} onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}>BUILD THIS TRADE</button>
     </div>
@@ -105,100 +127,7 @@ function ResultsPanel({ packages, loading, query, onBuild, onBack }: { packages:
   );
 }
 
-/* ═══ CHAT PANEL — matching Shadynasty exactly ═══ */
-function ChatPanel({ leagueId, owner, partner, collapsed, onToggle }: {
-  leagueId: string; owner: string; partner: string; collapsed: boolean; onToggle: () => void;
-}) {
-  const [messages, setMessages] = useState<Array<{ role: string; content: string }>>([]);
-  const [input, setInput] = useState("");
-  const [streaming, setStreaming] = useState(false);
-  const endRef = useRef<HTMLDivElement>(null);
-
-  const quickPrompts = partner
-    ? ["Is this a good trade?", "How do I improve it?", "Better partner?", "Negotiation strategy?"]
-    : messages.length === 0
-    ? ["Who should I trade with?", "Best trade I can make?", "Who overpays for picks?", "Positions to target?"]
-    : [];
-
-  const sendMessage = useCallback(async (text: string) => {
-    if (!text.trim() || streaming) return;
-    const newMsgs = [...messages, { role: "user", content: text }];
-    setMessages(newMsgs); setInput(""); setStreaming(true);
-    try {
-      const res = await fetch(`${API}/api/league/${leagueId}/trade-builder/chat`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ owner, message: text, conversation_history: newMsgs.slice(-10) }),
-      });
-      const reader = res.body?.getReader(); if (!reader) { setStreaming(false); return; }
-      const decoder = new TextDecoder(); let buffer = ""; let fullText = "";
-      setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
-      while (true) {
-        const { done, value } = await reader.read(); if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n"); buffer = lines.pop() || "";
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue; const data = line.slice(6);
-          if (data === "[DONE]") continue;
-          try { const p = JSON.parse(data); if (p.text) { fullText += p.text; setMessages((prev) => { const c = [...prev]; c[c.length - 1] = { role: "assistant", content: fullText }; return c; }); } } catch { /* skip */ }
-        }
-      }
-    } catch { setMessages((prev) => [...prev, { role: "assistant", content: "Connection error. Try again." }]); }
-    finally { setStreaming(false); }
-  }, [messages, streaming, leagueId, owner]);
-
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
-
-  if (collapsed) return (
-    <div onClick={onToggle} style={{ width: 40, flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8, background: C.panel, borderLeft: `1px solid ${C.border}`, cursor: "pointer" }}>
-      <span style={{ fontSize: 16 }}>💬</span>
-      <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.gold, writingMode: "vertical-rl", letterSpacing: "0.1em" }}>AI</span>
-      {messages.length > 0 && <div style={{ width: 6, height: 6, borderRadius: "50%", background: C.green }} />}
-    </div>
-  );
-
-  return (
-    <div style={{ width: 340, flexShrink: 0, display: "flex", flexDirection: "column", background: C.panel, borderLeft: `1px solid ${C.border}` }}>
-      <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 8 }}>
-        <span style={{ fontSize: 14 }}>🧠</span>
-        <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.12em", color: C.gold, flex: 1 }}>TRADE ADVISOR</span>
-        <button onClick={() => setMessages([])} style={{ background: "none", border: "none", color: C.dim, cursor: "pointer", fontFamily: MONO, fontSize: 10 }}>CLEAR</button>
-        <button onClick={onToggle} style={{ background: "none", border: "none", color: C.dim, cursor: "pointer", fontSize: 16 }}>›</button>
-      </div>
-      <div style={{ flex: 1, overflowY: "auto", padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
-        {messages.length === 0 && (
-          <>
-            <div style={{ fontFamily: SERIF, fontSize: 14, fontStyle: "italic", color: C.goldBright, textAlign: "center", padding: "20px 0 8px" }}>Ready to advise</div>
-            <div style={{ fontFamily: SANS, fontSize: 12, color: C.dim, textAlign: "center", marginBottom: 12 }}>Ask about trades, player values, or strategy.</div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "center" }}>
-              {quickPrompts.map((q) => (
-                <button key={q} onClick={() => sendMessage(q)} style={{ padding: "6px 12px", borderRadius: 20, border: `1px solid ${C.goldBorder}`, background: C.goldGlow, color: C.gold, fontFamily: SANS, fontSize: 12, cursor: "pointer", transition: "all 0.15s" }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = C.goldDim; }} onMouseLeave={(e) => { e.currentTarget.style.background = C.goldGlow; }}>{q}</button>
-              ))}
-            </div>
-          </>
-        )}
-        {messages.map((m, i) => (
-          <div key={i} style={{ alignSelf: m.role === "user" ? "flex-end" : "flex-start", maxWidth: "85%", padding: "8px 12px", borderRadius: m.role === "user" ? "12px 12px 2px 12px" : "12px 12px 12px 2px", background: m.role === "user" ? `${C.gold}15` : C.card, border: `1px solid ${m.role === "user" ? C.goldBorder : C.border}` }}>
-            <span style={{ fontFamily: SANS, fontSize: 13, color: m.role === "user" ? C.primary : C.secondary, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
-              {m.content}{streaming && i === messages.length - 1 && <span style={{ color: C.gold, animation: "pulse-gold 1s ease infinite" }}> ●</span>}
-            </span>
-          </div>
-        ))}
-        <div ref={endRef} />
-      </div>
-      <div style={{ padding: "8px 12px", borderTop: `1px solid ${C.border}`, display: "flex", gap: 6 }}>
-        <input type="text" value={input} placeholder="Ask about trades..." onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") sendMessage(input); }} disabled={streaming}
-          style={{ flex: 1, padding: "8px 12px", borderRadius: 6, border: `1px solid ${C.borderLt}`, background: C.elevated, color: C.primary, fontSize: 13, fontFamily: SANS, outline: "none" }} />
-        <button onClick={() => sendMessage(input)} disabled={streaming || !input.trim()} style={{
-          padding: "8px 16px", borderRadius: 6, border: "none", cursor: "pointer",
-          background: C.gold, color: C.bg, fontFamily: DISPLAY, fontSize: 12, letterSpacing: "0.06em",
-          opacity: streaming || !input.trim() ? 0.4 : 1 }}>SEND</button>
-      </div>
-      <style>{`@keyframes pulse-gold { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }`}</style>
-    </div>
-  );
-}
+// ChatPanel imported from ./ChatPanel.tsx (full Shadynasty port with streaming, auto-injection)
 
 /* ═══════════════════════════════════════════════════════════════
    MAIN VIEW — Three-state adaptive workspace (Shadynasty exact port)
@@ -219,30 +148,44 @@ export default function TradeBuilderView({ leagueId, owner }: { leagueId: string
   const [activeSellAsset, setActiveSellAsset] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [chatCollapsed, setChatCollapsed] = useState(false);
+  const [chatInjection, setChatInjection] = useState<string | null>(null);
   const buildingRef = useRef(false);
 
   // Data
   const { data: ownersData } = useQuery({ queryKey: ["owners", leagueId], queryFn: () => getOwners(leagueId), enabled: !!leagueId, staleTime: 600000 });
   const { data: ownerRoster } = useQuery({ queryKey: ["roster", leagueId, owner], queryFn: () => getRoster(leagueId, owner), enabled: !!owner });
   const { data: partnerRoster } = useQuery({ queryKey: ["roster", leagueId, partner], queryFn: () => getRoster(leagueId, partner), enabled: !!partner });
+  const { data: ownerPicks } = useQuery({ queryKey: ["picks", leagueId, owner], queryFn: () => getPicks(leagueId, owner), enabled: !!owner, staleTime: 300000 });
+  const { data: partnerPicks } = useQuery({ queryKey: ["picks", leagueId, partner], queryFn: () => getPicks(leagueId, partner), enabled: !!partner, staleTime: 300000 });
   const { data: leagueIntel } = useQuery({ queryKey: ["league-intel", leagueId], queryFn: () => getLeagueIntel(leagueId), enabled: !!leagueId, staleTime: 600000 });
 
-  const buildRoster = (data: unknown): RosterPlayer[] => {
-    if (!data) return [];
-    const d = data as Record<string, unknown>;
-    const bp = d.by_position as Record<string, Array<Record<string, unknown>>> | undefined;
-    if (!bp) return [];
+  const buildRoster = (data: unknown, picksData?: unknown): RosterPlayer[] => {
     const all: RosterPlayer[] = [];
-    for (const pos of ["QB", "RB", "WR", "TE"] as const) {
-      for (const p of (bp[pos] || [])) {
-        all.push({ name: String(p.name || ""), name_clean: String(p.name_clean || ""), position: pos, sha_value: Number(p.sha_value || 0), sha_pos_rank: String(p.sha_pos_rank || ""), age: p.age ? Number(p.age) : null });
+    if (data) {
+      const d = data as Record<string, unknown>;
+      const bp = d.by_position as Record<string, Array<Record<string, unknown>>> | undefined;
+      if (bp) {
+        for (const pos of ["QB", "RB", "WR", "TE"] as const) {
+          for (const p of (bp[pos] || [])) {
+            all.push({ name: String(p.name || ""), name_clean: String(p.name_clean || ""), position: pos, sha_value: Number(p.sha_value || 0), sha_pos_rank: String(p.sha_pos_rank || ""), age: p.age ? Number(p.age) : null });
+          }
+        }
+      }
+    }
+    // Merge picks as PICK-position roster entries
+    if (picksData) {
+      const pd = picksData as Record<string, unknown>;
+      const picks = (pd.picks || []) as Array<Record<string, unknown>>;
+      for (const pk of picks) {
+        const label = `${pk.season} Rd ${pk.round}${pk.is_own_pick ? "" : ` (${pk.original_owner})`}`;
+        all.push({ name: label, name_clean: String(pk.season) + "_" + String(pk.round), position: "PICK", sha_value: Number(pk.sha_value || 0), sha_pos_rank: "", age: null });
       }
     }
     return all;
   };
 
-  const myRoster = useMemo(() => buildRoster(ownerRoster), [ownerRoster]);
-  const theirRoster = useMemo(() => buildRoster(partnerRoster), [partnerRoster]);
+  const myRoster = useMemo(() => buildRoster(ownerRoster, ownerPicks), [ownerRoster, ownerPicks]);
+  const theirRoster = useMemo(() => buildRoster(partnerRoster, partnerPicks), [partnerRoster, partnerPicks]);
   const otherOwners = useMemo(() => (ownersData?.owners || []).filter((o: { name: string }) => o.name.toLowerCase() !== owner.toLowerCase()), [ownersData, owner]);
   const myIntel = useMemo(() => leagueIntel?.owners?.find((o: { owner: string }) => o.owner.toLowerCase() === owner.toLowerCase()), [leagueIntel, owner]);
   const theirIntel = useMemo(() => leagueIntel?.owners?.find((o: { owner: string }) => o.owner.toLowerCase() === partner.toLowerCase()), [leagueIntel, partner]);
@@ -269,28 +212,79 @@ export default function TradeBuilderView({ leagueId, owner }: { leagueId: string
       const res = await fetch(`${API}/api/league/${leagueId}/trade-builder/evaluate`, { method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ owner, partner, i_give: giveNames, i_receive: receiveNames, mode, window_override: myWindow ? toBackend(myWindow) : null, partner_window_override: theirWindow ? toBackend(theirWindow) : null }) });
       const data = await res.json();
-      if (!res.ok) { setError(data.error || "Failed"); } else { setEvaluation(data as TradeEvaluation); setShowModal(true); }
+      if (!res.ok) { setError(data.error || "Failed"); } else {
+        const ev = data as TradeEvaluation;
+        setEvaluation(ev); setShowModal(true);
+        // Auto-inject analysis summary into chat
+        const g = ev.owner_grade;
+        const acc = ev.acceptance?.acceptance_likelihood;
+        if (g) {
+          const injection = `${giveNames.join(", ")} to ${partner} for ${receiveNames.join(", ")}\nGrade: ${g.grade} (${g.score}) — ${g.verdict}${acc ? `. ${acc}% acceptance likelihood` : ""}${g.reasons?.[0] ? `\n${g.reasons[0]}` : ""}\n${Date.now()}`;
+          setChatInjection(injection);
+        }
+      }
     } catch (e: unknown) { setError(e instanceof Error ? e.message : "Failed"); } finally { setAnalyzing(false); }
   }, [owner, partner, giveNames, receiveNames, mode, myWindow, theirWindow, leagueId]);
 
-  // Suggest
+  // Suggest — calls the trade engine for algorithmic suggestions with AI narration
   const fireSuggest = useCallback(async (body: Record<string, unknown>, query: string) => {
     setSuggestLoading(true); setSuggestedPkgs([]); setSuggestQuery(query); setError(null);
     try {
-      const res = await fetch(`${API}/api/league/${leagueId}/trade-builder/evaluate`, { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ owner, mode, ...body, window_override: myWindow ? toBackend(myWindow) : null, partner_window_override: theirWindow ? toBackend(theirWindow) : null }) });
-      const data = await res.json();
-      if (!res.ok) { setError(data.error || "Failed"); } else { setSuggestedPkgs(data.suggested_packages || []); }
-    } catch (e: unknown) { setError(e instanceof Error ? e.message : "Failed"); } finally { setSuggestLoading(false); }
-  }, [owner, mode, myWindow, theirWindow, leagueId]);
+      // Asset is optional — backend will auto-pick from roster if not provided
+      const asset = (body.sell_asset as string) || (body.i_receive as string[])?.[0] || undefined;
+      const findPosition = (body.find_position as string) || undefined;
 
-  const handleSellAsset = useCallback((name: string) => { setActiveSellAsset(name); fireSuggest({ entry_type: "sell_asset", sell_asset: name }, `Selling ${name}`); }, [fireSuggest]);
+      const res = await fetch(`${API}/api/league/${leagueId}/trade-engine/generate`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ owner, asset: asset || undefined, mode, partner: body.partner || undefined, find_position: findPosition || undefined }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error || data.detail || "Failed"); setSuggestLoading(false); return; }
+
+      // Map trade engine response to SuggestedPackage format
+      const packages: SuggestedPackage[] = (data.packages || []).map((p: Record<string, unknown>) => {
+        const scoring = (p.scoring || {}) as Record<string, unknown>;
+        const give = (p.give || []) as Array<Record<string, unknown>>;
+        const receive = (p.receive || []) as Array<Record<string, unknown>>;
+        return {
+          partner: p.partner as string,
+          i_give: give,
+          i_receive: receive,
+          i_give_names: give.map((a) => a.name as string),
+          i_receive_names: receive.map((a) => a.name as string),
+          sha_balance: {},
+          acceptance_likelihood: (scoring.acceptance_likelihood as number) || 0,
+          owner_trade_grade: { grade: (scoring.grade as string) || "?", score: (scoring.grade_score as number) || 0, verdict: (scoring.grade_verdict as string) || "" },
+          negotiation_insights: [],
+          combined_score: (scoring.combined_score as number) || 0,
+          pitch: (p.rationale as string) || "",
+          narrative: (p.narrative as string) || "",
+          tier: (p.tier as string) || "",
+          market_comparison: (p.market_comparison as string) || "",
+        } as unknown as SuggestedPackage;
+      });
+      setSuggestedPkgs(packages);
+    } catch (e: unknown) { setError(e instanceof Error ? e.message : "Failed"); } finally { setSuggestLoading(false); }
+  }, [owner, mode, leagueId]);
+
+  const handleSellAsset = useCallback((name: string) => { setActiveSellAsset(name); fireSuggest({ sell_asset: name }, `Selling ${name}`); }, [fireSuggest]);
   const handleFindPosition = useCallback((pos: string) => {
-    if (activeSellAsset) { fireSuggest({ entry_type: "sell_and_need", sell_asset: activeSellAsset, need_position: pos, partner: partner || undefined }, `Selling ${activeSellAsset} for a ${pos}`); }
-    else { fireSuggest({ entry_type: "find_position", target_position: pos, partner: partner || undefined }, `Finding a ${pos}`); }
+    // Works with OR without a player selected
+    fireSuggest(
+      { sell_asset: activeSellAsset || undefined, find_position: pos, partner: partner || undefined },
+      activeSellAsset ? `Trading ${activeSellAsset} for a ${pos}` : `Finding ${pos} upgrades`,
+    );
   }, [fireSuggest, partner, activeSellAsset]);
-  const handleSuggestWithPartner = useCallback(() => { setActiveSellAsset(null); fireSuggest({ entry_type: "suggest_with_partner", partner: partner || undefined }, partner ? `Best trades with ${partner}` : "Best trades across the league"); }, [fireSuggest, partner]);
-  const handleTargetPlayer = useCallback((name: string) => { if (!partner) return; setActiveSellAsset(null); fireSuggest({ entry_type: "target_player", partner, i_receive: [name] }, `Targeting ${name} from ${partner}`); }, [fireSuggest, partner]);
+  const handleSuggestWithPartner = useCallback(() => {
+    // Works with OR without a player selected — backend auto-picks if needed
+    fireSuggest(
+      { sell_asset: activeSellAsset || undefined, partner: partner || undefined },
+      activeSellAsset
+        ? (partner ? `Best trades with ${partner} for ${activeSellAsset}` : `Exploring trades for ${activeSellAsset}`)
+        : (partner ? `Best trades with ${partner}` : `Best available trades`),
+    );
+  }, [fireSuggest, partner, activeSellAsset]);
+  const handleTargetPlayer = useCallback((name: string) => { if (!partner) return; setActiveSellAsset(null); fireSuggest({ i_receive: [name], partner }, `Targeting ${name} from ${partner}`); }, [fireSuggest, partner]);
   const buildPackage = useCallback((pkg: SuggestedPackage) => {
     if (!partner && pkg.partner) { buildingRef.current = true; setPartner(pkg.partner); }
     setGiveNames(pkg.i_give_names || []); setReceiveNames(pkg.i_receive_names || []); setSuggestedPkgs([]); setSuggestQuery("");
@@ -408,7 +402,7 @@ export default function TradeBuilderView({ leagueId, owner }: { leagueId: string
       </div>
 
       {/* ── CHAT PANEL ── */}
-      <ChatPanel leagueId={leagueId} owner={owner} partner={partner} collapsed={chatCollapsed} onToggle={() => setChatCollapsed((c) => !c)} />
+      <ChatPanel leagueId={leagueId} owner={owner} activeTrade={evaluation} suggestedPackages={suggestedPkgs.length > 0 ? suggestedPkgs : null} partner={partner} collapsed={chatCollapsed} onToggle={() => setChatCollapsed((c) => !c)} injectedMessage={chatInjection} />
     </div>
   );
 }

@@ -43,6 +43,11 @@ export interface PlayerCard {
   team: string;
   age: number | null;
   college: string | null;
+  sleeper_id: string | null;
+  height: string | null;
+  weight: string | null;
+  rookie_year: number | null;
+  years_exp: number | null;
   sha_value: number;
   ktc_value: number | null;
   dynasty_value: number | null;
@@ -52,7 +57,7 @@ export interface PlayerCard {
   dynasty_rank: number | null;
   redraft_rank: number | null;
   current_owner: string | null;
-  acquisition: { method: string; from?: string; date?: string; trade_id?: string } | null;
+  acquisition: { method: string; from?: string; date?: string; trade_id?: string; round?: number; pick?: number; year?: number } | null;
   season_stats: SeasonStat[];
   snapshot_date: string;
 }
@@ -99,6 +104,7 @@ export interface RosterResponse {
   bench: RosterPlayer[];
   taxi: RosterPlayer[];
   by_position: Record<string, RosterPlayer[]>;
+  players?: RosterPlayer[];
 }
 
 // ── Pick types ──────────────────────────────────────────────────────────
@@ -176,6 +182,8 @@ export interface Championships {
   championship_years: string[];
   playoff_appearances: number;
   playoff_years: string[];
+  season_finishes?: Array<{ season: string; finish: number }>;
+  championship_history?: Record<string, unknown>;
 }
 
 export interface Tendencies {
@@ -218,6 +226,10 @@ export interface GradedTrade {
   side_b_verdict: string | null;
   side_a_owner: string | null;
   side_b_owner: string | null;
+  side_a_score: number | null;
+  side_b_score: number | null;
+  side_a_letter: string | null;
+  side_b_letter: string | null;
 }
 
 export interface TradeGradeResponse {
@@ -269,6 +281,7 @@ export interface TradePartner {
 
 export interface TrendingPlayer {
   player: string;
+  name?: string;
   position: string;
   sha_value: number;
   sha_delta: number;

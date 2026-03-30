@@ -4,56 +4,256 @@ import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getFranchiseIntel, getCoachesCorner, getGmVerdict, getActions } from "@/lib/api";
 import { C, SANS, MONO, DISPLAY, fmt, posColor } from "./tokens";
+import PlayerName from "./PlayerName";
+import { ArrowUpRight, Shield, Eye, Target, AlertTriangle } from "lucide-react";
+import CoachesCorner from "./CoachesCorner";
 
 /* ═══════════════════════════════════════════════════════════════
-   HELPERS
+   HELPERS — safe text extraction, prevent JSON leaking
    ═══════════════════════════════════════════════════════════════ */
-function mdToHtml(md: string): string {
+
+function safeText(v: unknown): string {
+  if (typeof v === "string") return v;
+  if (v == null) return "";
+  if (typeof v === "object") {
+    const obj = v as Record<string, unknown>;
+    // Try known keys in priority order
+    for (const key of ["raw_response", "text", "verdict", "report", "summary", "content"]) {
+      if (typeof obj[key] === "string") return obj[key] as string;
+    }
+    // If it's an array, join strings
+    if (Array.isArray(v)) return v.filter(x => typeof x === "string").join("\n");
+  }
+  return "";
+}
+
+function renderHtml(md: string): string {
   return md
-    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/<strong>/g, '<strong style="color:#eeeef2;font-weight:700">')
+    .replace(/\*\*(.+?)\*\*/g, '<strong style="color:#eeeef2;font-weight:700">$1</strong>')
     .replace(/\n\n/g, "</p><p>")
     .replace(/\n/g, "<br/>");
 }
 
-function extractText(v: unknown): string {
-  if (typeof v === "string") return v;
-  if (v && typeof v === "object") {
-    const obj = v as Record<string, unknown>;
-    if (typeof obj.raw_response === "string") return obj.raw_response;
-    if (typeof obj.text === "string") return obj.text;
-    if (typeof obj.verdict === "string") return obj.verdict;
-    if (typeof obj.report === "string") return obj.report;
+/** Extract action item — handles both string and {action, data_point} formats */
+function parseActionItem(item: unknown): { action: string; detail: string } {
+  if (typeof item === "string") return { action: item, detail: "" };
+  if (item && typeof item === "object") {
+    const obj = item as Record<string, unknown>;
+    return {
+      action: String(obj.action || obj.title || obj.name || obj.text || ""),
+      detail: String(obj.data_point || obj.detail || obj.reason || obj.description || ""),
+    };
   }
-  return "";
+  return { action: String(item), detail: "" };
+}
+
+/** Derive a display rank from sha_pos_rank or fall back to position + "depth" label */
+function posRankLabel(p: Record<string, unknown>): string {
+  if (p.sha_pos_rank && typeof p.sha_pos_rank === "string" && p.sha_pos_rank.trim()) {
+    return p.sha_pos_rank.trim();
+  }
+  if (p.sha_pos_rank && typeof p.sha_pos_rank === "number") {
+    const pos = String(p.position || "");
+    return pos ? `${pos}${p.sha_pos_rank}` : `#${p.sha_pos_rank}`;
+  }
+  if (p.pos_rank && typeof p.pos_rank === "string") return p.pos_rank.trim();
+  if (p.rank) {
+    const pos = String(p.position || "");
+    const n = String(p.rank).replace(/\D/g, "");
+    return pos && n ? `${pos}${n}` : n ? `#${n}` : "";
+  }
+  const pos = String(p.position || "");
+  return pos ? `${pos} depth` : "";
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SHARED COMPONENTS
+   ═══════════════════════════════════════════════════════════════ */
+
+/** Position badge — small colored pill */
+function PosBadge({ pos }: { pos: string }) {
+  if (!pos) return null;
+  return (
+    <span style={{
+      fontSize: 11, fontWeight: 700, color: posColor(pos), fontFamily: SANS,
+      background: posColor(pos) + "18", padding: "2px 6px", borderRadius: 3,
+      minWidth: 28, textAlign: "center", display: "inline-block", flexShrink: 0,
+    }}>{pos}</span>
+  );
+}
+
+/** Position rank pill — e.g. "WR13" */
+function PosRankPill({ label }: { label: string }) {
+  if (!label || label.endsWith("depth")) return null;
+  return (
+    <span style={{
+      fontSize: 11, fontWeight: 600, color: C.secondary, fontFamily: SANS,
+      background: C.elevated, padding: "2px 7px", borderRadius: 10,
+      border: `1px solid ${C.borderLt}`, flexShrink: 0,
+    }}>{label}</span>
+  );
 }
 
 function SectionCard({ label, accent, children }: { label: string; accent?: string; children: React.ReactNode }) {
   return (
     <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
       <div style={{ padding: "8px 14px", borderBottom: `1px solid ${C.border}`, background: accent ? `${accent}10` : C.goldDim }}>
-        <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.10em", color: accent || C.gold }}>{label}</span>
+        <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 500, color: accent || C.gold }}>{label}</span>
       </div>
       <div style={{ padding: 14 }}>{children}</div>
     </div>
   );
 }
 
-function PlayerRow({ p }: { p: Record<string, unknown> }) {
+function GradeBar({ pos, grade, eliteCount, starterCount }: { pos: string; grade: string; eliteCount?: number; starterCount?: number }) {
+  const gc = grade === "ELITE" ? C.green : grade === "STRONG" ? "#6bb8e0" : grade === "AVERAGE" ? C.gold : grade === "WEAK" ? C.orange : C.red;
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 0", borderBottom: `1px solid ${C.white08}` }}>
-      <span style={{ fontSize: 9, fontWeight: 900, color: posColor(String(p.position || "")), fontFamily: SANS, background: posColor(String(p.position || "")) + "18", padding: "1px 4px", borderRadius: 2 }}>{String(p.position || "")}</span>
-      <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 600, color: C.primary, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{String(p.name || p.player || "—")}</span>
-      {p.age != null && <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>{String(p.age)}y</span>}
-      <span style={{ fontFamily: MONO, fontSize: 10, color: C.gold }}>{fmt(p.sha_value as number)}</span>
+    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 0", borderBottom: `1px solid ${C.white08}` }}>
+      <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 700, color: posColor(pos), width: 28 }}>{pos}</span>
+      <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 600, color: gc, padding: "2px 8px", borderRadius: 4, background: `${gc}15`, border: `1px solid ${gc}25`, minWidth: 70, textAlign: "center" }}>{grade}</span>
+      <span style={{ fontFamily: SANS, fontSize: 13, color: C.dim, flex: 1 }}>
+        {eliteCount ? `${eliteCount} elite` : ""}{eliteCount && starterCount ? " · " : ""}{starterCount ? `${starterCount} starter` : ""}
+      </span>
+    </div>
+  );
+}
+
+/** Clean card rows for Coaches Corner sections — no table headers */
+function CoachesCardList({ label, subtitle, items, accent, max }: {
+  label: string; subtitle: string; items: Array<Record<string, unknown>>; accent: string; max: number;
+}) {
+  const capped = items.slice(0, max);
+  return (
+    <div>
+      <div style={{ fontFamily: SANS, fontSize: 13, fontWeight: 600, color: accent, marginBottom: 3 }}>{label}</div>
+      <div style={{ fontFamily: SANS, fontSize: 12, color: C.dim, marginBottom: 10 }}>{subtitle}</div>
+
+      {capped.length === 0 ? (
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 14 }}>
+          <span style={{ fontFamily: SANS, fontSize: 14, color: C.dim }}>No {label.toLowerCase()} candidates right now.</span>
+        </div>
+      ) : (
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
+          {capped.map((p, j) => {
+            const pos = String(p.position || "");
+            const name = String(p.name || p.player || "—");
+            const age = p.age != null ? Number(p.age) : null;
+            const rank = posRankLabel(p);
+            const reason = p.reason || p.why || p.one_liner || "";
+            return (
+              <div key={j} style={{ padding: "10px 14px", borderBottom: j < capped.length - 1 ? `1px solid ${C.white08}` : "none" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
+                  <PosBadge pos={pos} />
+                  <PlayerName name={name} style={{ fontFamily: SANS, fontSize: 14, fontWeight: 500, color: C.primary, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} />
+                  {age != null && <span style={{ fontFamily: SANS, fontSize: 12, color: C.dim, flexShrink: 0 }}>{age}y</span>}
+                  <PosRankPill label={rank} />
+                </div>
+                {reason && (
+                  <p style={{ fontFamily: SANS, fontSize: 13, color: C.secondary, lineHeight: 1.5, marginTop: 5, marginBottom: 0 }}>{String(reason)}</p>
+                )}
+              </div>
+            );
+          })}
+          {items.length > max && (
+            <div style={{ padding: "8px 14px", fontFamily: SANS, fontSize: 12, color: C.dim }}>+{items.length - max} more</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SkeletonBlock() {
+  return (
+    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 20 }}>
+      <div style={{ height: 14, width: 120, background: C.elevated, borderRadius: 4, marginBottom: 12, animation: "pulse-gold 1.5s ease infinite" }} />
+      <div style={{ height: 16, width: "100%", background: C.elevated, borderRadius: 4, marginBottom: 8 }} />
+      <div style={{ height: 16, width: "75%", background: C.elevated, borderRadius: 4 }} />
     </div>
   );
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   FRANCHISE INTEL — Full render with Franchise Report + Coaches Corner
+   COACHES CORNER — Tailwind-based compact table layout
    ═══════════════════════════════════════════════════════════════ */
-export default function FranchiseIntel({ leagueId, owner, leagueName }: {
-  leagueId: string; owner: string; leagueName: string;
+
+function posTagClasses(pos: string): string {
+  switch (pos) {
+    case "QB": return "text-accent-red bg-accent-red/10";
+    case "RB": return "text-accent-blue bg-accent-blue/10";
+    case "WR": return "text-accent-green bg-accent-green/10";
+    case "TE": return "text-accent-orange bg-accent-orange/10";
+    default: return "text-dim bg-elevated";
+  }
+}
+
+function posTextClass(pos: string): string {
+  switch (pos) {
+    case "QB": return "text-accent-red";
+    case "RB": return "text-accent-blue";
+    case "WR": return "text-accent-green";
+    case "TE": return "text-accent-orange";
+    default: return "text-dim";
+  }
+}
+
+function actionPillClasses(action: string): string {
+  switch (action) {
+    case "SELL": return "text-accent-red bg-accent-red/15 border-accent-red/30";
+    case "HOLD": return "text-accent-green bg-accent-green/15 border-accent-green/30";
+    case "LISTEN":
+    case "CAUTIOUS": return "text-accent-orange bg-accent-orange/15 border-accent-orange/30";
+    default: return "text-dim bg-elevated border-border-lt";
+  }
+}
+
+function gradeTagClasses(grade: string): string {
+  switch (grade) {
+    case "ELITE": return "text-accent-green bg-accent-green/10 border-accent-green/25";
+    case "STRONG": return "text-accent-blue bg-accent-blue/10 border-accent-blue/25";
+    case "AVERAGE": return "text-gold bg-gold/10 border-gold/25";
+    case "WEAK": return "text-accent-orange bg-accent-orange/10 border-accent-orange/25";
+    case "CRITICAL": return "text-accent-red bg-accent-red/10 border-accent-red/25";
+    default: return "text-dim bg-elevated border-border-lt";
+  }
+}
+
+function CoachesRow({ p, isLast }: { p: Record<string, unknown>; isLast: boolean }) {
+  const pos = String(p.position || "");
+  const name = String(p.name || p.player || "—");
+  const age = p.age != null ? String(p.age) : "—";
+  const rank = posRankLabel(p);
+  const action = String(p.action || "");
+  const target = String(p.target || p.reason || "");
+
+  return (
+    <div className={`grid grid-cols-[1fr_44px_36px_60px_64px_1fr] gap-2 px-3 py-2 items-center hover:bg-elevated/50 transition-colors ${!isLast ? "border-b border-white/[0.06]" : ""}`}>
+      <PlayerName name={name} className="font-sans text-[13px] font-medium text-primary truncate" />
+      <span className={`font-sans text-[11px] font-bold text-center rounded px-1 py-0.5 ${posTagClasses(pos)}`}>{pos || "—"}</span>
+      <span className="font-sans text-[12px] text-dim text-center tabular-nums">{age}</span>
+      <span className="font-sans text-[11px] font-semibold text-secondary text-center bg-elevated rounded-full px-1.5 py-0.5 border border-border-lt truncate">{rank || "—"}</span>
+      <span className={`font-sans text-[11px] font-semibold text-center rounded-full px-1.5 py-0.5 border ${actionPillClasses(action)}`}>{action || "—"}</span>
+      <span className="font-sans text-[12px] text-secondary truncate" title={target}>{target}</span>
+    </div>
+  );
+}
+
+function CoachesGradeRow({ pos, grade, isWeakest }: { pos: string; grade: string; isWeakest: boolean }) {
+  return (
+    <div className={`flex items-center gap-2 py-1.5 px-2 rounded ${isWeakest ? "bg-accent-orange/[0.07]" : ""}`}>
+      <span className={`font-sans text-[12px] font-bold w-7 ${posTextClass(pos)}`}>{pos}</span>
+      <span className={`font-sans text-[11px] font-semibold rounded px-2 py-0.5 min-w-[64px] text-center border ${gradeTagClasses(grade)}`}>{grade}</span>
+      {isWeakest && <AlertTriangle size={11} className="text-accent-orange ml-auto shrink-0" />}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   FRANCHISE INTEL — Two-tab layout matching Shadynasty
+   ═══════════════════════════════════════════════════════════════ */
+export default function FranchiseIntel({ leagueId, owner }: {
+  leagueId: string; owner: string; leagueName?: string;
 }) {
   const [tab, setTab] = useState<"report" | "coaches">("report");
 
@@ -65,7 +265,7 @@ export default function FranchiseIntel({ leagueId, owner, leagueName }: {
   const { data: coaches } = useQuery({
     queryKey: ["coaches-corner", leagueId, owner],
     queryFn: () => getCoachesCorner(leagueId, owner),
-    enabled: !!owner && tab === "coaches",
+    enabled: !!owner,
   });
   const { data: gmVerdict } = useQuery({
     queryKey: ["gm-verdict", leagueId, owner],
@@ -78,213 +278,196 @@ export default function FranchiseIntel({ leagueId, owner, leagueName }: {
     enabled: !!owner,
   });
 
-  // Parse nested response structures
+  // Parse nested response structures safely
   const i = intel as Record<string, unknown> | undefined;
   const windowData = i?.window as Record<string, unknown> | undefined;
   const rosterData = i?.roster_strength as Record<string, unknown> | undefined;
   const positions = rosterData?.positions as Record<string, Record<string, unknown>> | undefined;
   const moveable = i?.moveable_assets as Array<Record<string, unknown>> | undefined;
-  const aiReport = i?.ai_report as Record<string, unknown> | undefined;
+
+  // ai_report can be a string (double-encoded JSON) or a dict — parse it safely
+  const aiReportRaw = i?.ai_report;
+  const aiReport: Record<string, unknown> | null = (() => {
+    if (!aiReportRaw) return null;
+    if (typeof aiReportRaw === "object" && !Array.isArray(aiReportRaw)) return aiReportRaw as Record<string, unknown>;
+    if (typeof aiReportRaw === "string") {
+      try {
+        const parsed = JSON.parse(aiReportRaw);
+        // Could be double-nested — check if parsed has ai_report inside it
+        if (parsed?.ai_report && typeof parsed.ai_report === "object") return parsed.ai_report;
+        if (typeof parsed === "object") return parsed;
+      } catch { /* not JSON, ignore */ }
+    }
+    return null;
+  })();
+
   const cc = coaches as Record<string, unknown> | undefined;
   const gm = gmVerdict as Record<string, unknown> | undefined;
+  const act = actions as Record<string, unknown> | undefined;
 
-  // Extract GM Verdict text from nested {verdict: {raw_response: "..."}} or {verdict: "..."}
-  const gmText = extractText(gm?.verdict) || extractText(aiReport?.verdict) || "";
+  // GM Verdict — gm-verdict endpoint returns {verdict: "markdown string"}
+  // ai_report may also have verdict. Try gm endpoint first (cleanest).
+  const gmText = safeText(gm?.verdict) || safeText(aiReport?.verdict) || "";
+
+  // Actions — actions endpoint returns {stop: string[], start: string[], keep: string[]}
+  // ai_report may also have structured actions. Merge both sources.
+  const actionsData = {
+    stop: (act?.stop || aiReport?.stop || []) as unknown[],
+    start: (act?.start || aiReport?.start || []) as unknown[],
+    keep: (act?.keep || aiReport?.keep || []) as unknown[],
+  };
 
   if (!owner) return (
-    <div style={{ padding: 32, textAlign: "center", fontFamily: MONO, fontSize: 12, color: C.dim }}>Select an owner to view franchise intel.</div>
+    <div style={{ padding: 40, textAlign: "center", fontFamily: SANS, fontSize: 14, color: C.dim }}>Select an owner to view franchise intel.</div>
   );
   if (isLoading) return (
-    <div style={{ padding: 32, textAlign: "center", fontFamily: MONO, fontSize: 11, color: C.gold, letterSpacing: "0.1em" }}>LOADING FRANCHISE INTEL...</div>
+    <div style={{ padding: "16px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
+      <SkeletonBlock /><SkeletonBlock /><SkeletonBlock />
+    </div>
   );
 
   return (
     <div style={{ padding: "12px 16px" }}>
-      {/* TAB BAR */}
+      <style>{`@keyframes pulse-gold{0%,100%{opacity:1}50%{opacity:.3}}`}</style>
+
+      {/* ═══ TAB BAR ═══ */}
       <div style={{ display: "flex", gap: 0, borderBottom: `1px solid ${C.borderLt}`, marginBottom: 16 }}>
         {(["report", "coaches"] as const).map((t) => (
           <div key={t} onClick={() => setTab(t)} style={{
-            padding: "8px 18px", fontFamily: MONO, fontSize: 11, fontWeight: 800,
-            letterSpacing: "0.08em", color: tab === t ? C.gold : C.dim, cursor: "pointer",
+            padding: "10px 22px", fontFamily: SANS, fontSize: 14, fontWeight: 500,
+            color: tab === t ? C.gold : C.dim, cursor: "pointer",
             borderBottom: tab === t ? `3px solid ${C.gold}` : "3px solid transparent",
             boxShadow: tab === t ? `0 3px 12px ${C.gold}40` : "none", transition: "all 0.2s",
-          }}>{t === "report" ? "FRANCHISE REPORT" : "COACHES CORNER"}</div>
+          }}>{t === "report" ? "Franchise Report" : "Coaches Corner"}</div>
         ))}
       </div>
 
       {tab === "report" ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {/* GM VERDICT — hero card */}
-          <div style={{
-            padding: "18px 20px", borderRadius: 8,
-            background: `linear-gradient(135deg, ${C.goldGlow}, ${C.card})`,
-            border: `1px solid ${C.goldBorder}`,
-          }}>
-            <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.14em", color: C.gold, marginBottom: 8 }}>GM VERDICT</div>
+        /* ═══════════════════════════════════════════════════════════════
+           FRANCHISE REPORT TAB
+           ═══════════════════════════════════════════════════════════════ */
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+
+          {/* GM Verdict — hero card */}
+          <div style={{ padding: "20px 22px", borderRadius: 8, background: `linear-gradient(135deg, ${C.goldGlow}, ${C.card})`, border: `1px solid ${C.goldBorder}` }}>
+            <div style={{ fontFamily: SANS, fontSize: 13, fontWeight: 500, color: C.gold, marginBottom: 10 }}>GM Verdict</div>
             {gmText ? (
-              <div
-                style={{ fontFamily: SANS, fontSize: 14, fontWeight: 500, color: C.primary, lineHeight: 1.6 }}
-                dangerouslySetInnerHTML={{ __html: `<p>${mdToHtml(gmText)}</p>` }}
-              />
+              <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 500, color: C.primary, lineHeight: 1.65 }}
+                dangerouslySetInnerHTML={{ __html: `<p>${renderHtml(gmText)}</p>` }} />
             ) : (
-              <div style={{ fontFamily: SANS, fontSize: 13, color: C.dim, fontStyle: "italic" }}>
+              <div style={{ fontFamily: SANS, fontSize: 14, color: C.dim, fontStyle: "italic" }}>
                 Franchise intel is being computed. Check back after full league analysis.
               </div>
             )}
           </div>
 
-          {/* WINDOW + ROSTER STRENGTH */}
+          {/* WINDOW + ROSTER STRENGTH — side by side */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <SectionCard label="COMPETITIVE WINDOW">
+            <SectionCard label="Competitive window">
               {windowData ? (
                 <>
-                  <div style={{ fontFamily: DISPLAY, fontSize: 18, color: C.primary, marginBottom: 6 }}>
-                    {String(windowData.window || "—")}
-                  </div>
-                  {windowData.win_now_rank && (
-                    <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", borderBottom: `1px solid ${C.white08}` }}>
-                      <span style={{ fontFamily: SANS, fontSize: 12, color: C.dim }}>Win-Now Rank</span>
-                      <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.green }}>#{String(windowData.win_now_rank)}</span>
+                  <div style={{ fontFamily: DISPLAY, fontSize: 20, color: C.primary, marginBottom: 8 }}>{String(windowData.window || "—")}</div>
+                  {[
+                    { label: "Win-now rank", val: windowData.win_now_rank, color: C.green },
+                    { label: "Dynasty rank", val: windowData.dynasty_rank, color: "#6bb8e0" },
+                    { label: "QB floor", val: rosterData?.qb_floor, color: C.primary },
+                  ].filter(r => r.val).map((r, idx) => (
+                    <div key={idx} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: `1px solid ${C.white08}` }}>
+                      <span style={{ fontFamily: SANS, fontSize: 13, color: C.dim }}>{r.label}</span>
+                      <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 600, color: r.color }}>{typeof r.val === "number" ? `#${r.val}` : String(r.val)}</span>
                     </div>
-                  )}
-                  {windowData.dynasty_rank && (
-                    <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", borderBottom: `1px solid ${C.white08}` }}>
-                      <span style={{ fontFamily: SANS, fontSize: 12, color: C.dim }}>Dynasty Rank</span>
-                      <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.blue }}>#{String(windowData.dynasty_rank)}</span>
-                    </div>
-                  )}
-                  {windowData.qb_floor && (
-                    <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0" }}>
-                      <span style={{ fontFamily: SANS, fontSize: 12, color: C.dim }}>QB Floor</span>
-                      <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.primary }}>{String(rosterData?.qb_floor || "—")}</span>
-                    </div>
-                  )}
+                  ))}
                   {windowData.window_mismatch && (
-                    <div style={{ marginTop: 8, fontFamily: MONO, fontSize: 10, color: C.orange, padding: "4px 8px", borderRadius: 4, background: `${C.orange}12`, border: `1px solid ${C.orange}25` }}>
-                      ⚠ {String(windowData.mismatch_type || "WINDOW MISMATCH").replace(/_/g, " ").toUpperCase()}
+                    <div style={{ marginTop: 10, fontFamily: SANS, fontSize: 12, color: C.orange, padding: "6px 10px", borderRadius: 4, background: `${C.orange}12`, border: `1px solid ${C.orange}25` }}>
+                      ⚠ {String(windowData.mismatch_type || "Window mismatch").replace(/_/g, " ")}
                     </div>
                   )}
                 </>
-              ) : <span style={{ fontFamily: MONO, fontSize: 11, color: C.dim }}>—</span>}
+              ) : <span style={{ fontFamily: SANS, fontSize: 13, color: C.dim }}>—</span>}
             </SectionCard>
 
-            <SectionCard label="ROSTER STRENGTH">
+            <SectionCard label="Roster strength">
               {positions ? (
                 <>
-                  {Object.entries(positions).map(([pos, data]) => {
-                    const grade = String(data.positional_grade || "—");
-                    const gc = grade === "ELITE" ? C.green : grade === "STRONG" ? C.blue : grade === "AVERAGE" ? C.gold : grade === "WEAK" ? C.orange : C.red;
-                    return (
-                      <div key={pos} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", borderBottom: `1px solid ${C.white08}` }}>
-                        <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: posColor(pos), width: 24 }}>{pos}</span>
-                        <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: gc, padding: "1px 6px", borderRadius: 3, background: `${gc}15` }}>{grade}</span>
-                        <span style={{ fontFamily: SANS, fontSize: 11, color: C.dim, flex: 1 }}>{data.elite_count ? `${data.elite_count} elite` : ""} {data.starter_count ? `${data.starter_count} starter` : ""}</span>
-                      </div>
-                    );
-                  })}
+                  {Object.entries(positions).map(([pos, data]) => (
+                    <GradeBar key={pos} pos={pos} grade={String(data.positional_grade || "—")}
+                      eliteCount={data.elite_count as number | undefined} starterCount={data.starter_count as number | undefined} />
+                  ))}
                   {(rosterData?.positional_needs as string[] || []).length > 0 && (
-                    <div style={{ marginTop: 8 }}>
-                      <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.red, letterSpacing: "0.08em" }}>NEEDS: </span>
-                      <span style={{ fontFamily: SANS, fontSize: 11, color: C.secondary }}>{(rosterData?.positional_needs as string[]).join(", ")}</span>
+                    <div style={{ marginTop: 10 }}>
+                      <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 600, color: C.red }}>Needs: </span>
+                      <span style={{ fontFamily: SANS, fontSize: 13, color: C.secondary }}>{(rosterData?.positional_needs as string[]).join(", ")}</span>
                     </div>
                   )}
                 </>
-              ) : <span style={{ fontFamily: MONO, fontSize: 11, color: C.dim }}>—</span>}
+              ) : <span style={{ fontFamily: SANS, fontSize: 13, color: C.dim }}>—</span>}
             </SectionCard>
           </div>
 
-          {/* STOP / START / KEEP */}
-          {actions && (
+          {/* STOP / START / KEEP — three columns, handles object or string items */}
+          {(actionsData.stop.length > 0 || actionsData.start.length > 0 || actionsData.keep.length > 0) && (
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
               {[
-                { label: "STOP", items: actions.stop || [], color: C.red },
-                { label: "START", items: actions.start || [], color: C.green },
-                { label: "KEEP", items: actions.keep || [], color: C.gold },
+                { label: "Stop", items: actionsData.stop, color: C.red },
+                { label: "Start", items: actionsData.start, color: C.green },
+                { label: "Keep", items: actionsData.keep, color: C.gold },
               ].map(({ label, items, color }) => (
-                <SectionCard key={label} label={label} accent={color}>
-                  {(items as string[]).length > 0 ? (items as string[]).map((item, j) => (
-                    <div key={j} style={{ fontFamily: SANS, fontSize: 12, color: C.secondary, padding: "4px 0", borderBottom: `1px solid ${C.white08}`, lineHeight: 1.45 }}>
-                      {item}
-                    </div>
-                  )) : <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>No items</span>}
-                </SectionCard>
+                <div key={label} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
+                  <div style={{ padding: "8px 14px", borderBottom: `1px solid ${C.border}`, background: `${color}10` }}>
+                    <span style={{ fontFamily: SANS, fontSize: 14, fontWeight: 600, color }}>{label}</span>
+                  </div>
+                  <div style={{ padding: 14 }}>
+                    {items.length > 0 ? items.map((rawItem, j) => {
+                      const { action, detail } = parseActionItem(rawItem);
+                      return (
+                        <div key={j} style={{ padding: "6px 0", borderBottom: j < items.length - 1 ? `1px solid ${C.white08}` : "none" }}>
+                          <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 500, color: C.primary, lineHeight: 1.45 }}>{action}</div>
+                          {detail && <div style={{ fontFamily: SANS, fontSize: 13, color: C.dim, marginTop: 3 }}>{detail}</div>}
+                        </div>
+                      );
+                    }) : <span style={{ fontFamily: SANS, fontSize: 13, color: C.dim }}>No items</span>}
+                  </div>
+                </div>
               ))}
             </div>
           )}
 
           {/* MOVEABLE ASSETS */}
           {moveable && moveable.length > 0 && (
-            <SectionCard label="MOVEABLE ASSETS">
-              {moveable.slice(0, 8).map((a, j) => (
-                <div key={j} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", borderBottom: `1px solid ${C.white08}` }}>
-                  <span style={{ fontSize: 9, fontWeight: 900, color: posColor(String(a.position || "")), fontFamily: SANS, background: posColor(String(a.position || "")) + "18", padding: "1px 4px", borderRadius: 2 }}>{String(a.position || "")}</span>
-                  <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 600, color: C.primary, flex: 1 }}>{String(a.name || a.player || "—")}</span>
-                  <span style={{ fontFamily: MONO, fontSize: 10, color: C.gold }}>{fmt(a.sha_value as number)}</span>
-                  <span style={{
-                    fontFamily: MONO, fontSize: 8, fontWeight: 800, letterSpacing: "0.04em",
-                    color: String(a.status) === "SHOP_NOW" ? C.red : C.green,
-                    padding: "1px 6px", borderRadius: 3,
-                    background: String(a.status) === "SHOP_NOW" ? C.redDim : C.greenDim,
-                  }}>{String(a.status || "AVAILABLE")}</span>
-                </div>
-              ))}
-            </SectionCard>
-          )}
-        </div>
-      ) : (
-        /* COACHES CORNER TAB — capped at 5 per category */
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {cc ? (
-            <>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
-                {[
-                  { label: "MOVE NOW", items: (cc.move_now || []) as Array<Record<string, unknown>>, color: C.red, max: 5 },
-                  { label: "HOLD ON TO", items: (cc.hold || []) as Array<Record<string, unknown>>, color: C.green, max: 5 },
-                  { label: "LISTEN TO OFFERS", items: (cc.listen || []) as Array<Record<string, unknown>>, color: C.gold, max: 5 },
-                ].map(({ label, items, color, max }) => {
-                  // Sort by sha_value descending for hold/listen, ascending for move_now
-                  const sorted = [...items].sort((a, b) =>
-                    label === "MOVE NOW"
-                      ? ((a.sha_value as number) || 0) - ((b.sha_value as number) || 0)
-                      : ((b.sha_value as number) || 0) - ((a.sha_value as number) || 0)
-                  );
+            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
+              <div style={{ padding: "8px 14px", borderBottom: `1px solid ${C.border}`, background: C.goldDim }}>
+                <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 500, color: C.gold }}>Moveable assets</span>
+              </div>
+              <div style={{ padding: 14 }}>
+                {moveable.slice(0, 10).map((a, j) => {
+                  const status = String(a.status || "AVAILABLE");
+                  const isShopNow = status === "SHOP_NOW";
+                  const isSellHigh = status === "SELL_HIGH";
+                  const pillColor = isShopNow ? C.orange : isSellHigh ? C.orange : C.secondary;
+                  const pillBg = isShopNow ? `${C.orange}15` : isSellHigh ? `${C.orange}15` : C.elevated;
+                  const pillBorder = isShopNow ? `1px solid ${C.orange}30` : isSellHigh ? `1px solid ${C.orange}30` : `1px solid ${C.borderLt}`;
+                  const pillLabel = isShopNow ? "shop now" : isSellHigh ? "sell high" : "available";
+                  const rankLabel = posRankLabel(a);
                   return (
-                    <SectionCard key={label} label={label} accent={color}>
-                      {sorted.slice(0, max).map((p, j) => (
-                        <div key={j}>
-                          <PlayerRow p={p} />
-                          {p.reason != null && <div style={{ fontFamily: SANS, fontSize: 10, color: C.dim, fontStyle: "italic", padding: "2px 0 4px 28px" }}>{String(p.reason)}</div>}
-                        </div>
-                      ))}
-                      {sorted.length === 0 && <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>—</span>}
-                      {sorted.length > max && <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, marginTop: 4 }}>+{sorted.length - max} more</div>}
-                    </SectionCard>
+                    <div key={j} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderBottom: j < moveable.slice(0, 10).length - 1 ? `1px solid ${C.white08}` : "none" }}>
+                      <PosBadge pos={String(a.position || "")} />
+                      <PlayerName name={String(a.name || a.player || "—")} style={{ fontFamily: SANS, fontSize: 14, fontWeight: 500, color: C.primary, flex: 1 }} />
+                      {rankLabel && !rankLabel.endsWith("depth") && (
+                        <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, color: C.secondary, background: C.elevated, padding: "2px 7px", borderRadius: 10, border: `1px solid ${C.borderLt}`, flexShrink: 0 }}>{rankLabel}</span>
+                      )}
+                      <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 500, color: pillColor, padding: "2px 9px", borderRadius: 10, background: pillBg, border: pillBorder, flexShrink: 0 }}>{pillLabel}</span>
+                    </div>
                   );
                 })}
               </div>
-
-              {/* BUY LOW / SELL HIGH — capped at 5 each */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                {[
-                  { label: "BUY LOW TARGETS", items: (cc.buy_low || []) as Array<Record<string, unknown>>, color: C.green, max: 5 },
-                  { label: "SELL HIGH", items: (cc.sell_high || []) as Array<Record<string, unknown>>, color: C.red, max: 5 },
-                ].map(({ label, items, color, max }) => (
-                  <SectionCard key={label} label={label} accent={color}>
-                    {(items as Array<Record<string, unknown>>).slice(0, max).map((p, j) => (
-                      <div key={j}>
-                        <PlayerRow p={p} />
-                        {p.reason != null && <div style={{ fontFamily: SANS, fontSize: 10, color: C.dim, fontStyle: "italic", padding: "2px 0 4px 28px" }}>{String(p.reason)}</div>}
-                      </div>
-                    ))}
-                    {items.length === 0 && <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>—</span>}
-                  </SectionCard>
-                ))}
-              </div>
-            </>
-          ) : (
-            <div style={{ padding: 24, textAlign: "center", fontFamily: MONO, fontSize: 11, color: C.gold, letterSpacing: "0.1em" }}>LOADING COACHES CORNER...</div>
+            </div>
           )}
         </div>
+      ) : (
+        /* ═══════════════════════════════════════════════════════════════
+           COACHES CORNER TAB — Full GM Dashboard (7 sections)
+           ═══════════════════════════════════════════════════════════════ */
+        <CoachesCorner leagueId={leagueId} owner={owner} />
       )}
     </div>
   );

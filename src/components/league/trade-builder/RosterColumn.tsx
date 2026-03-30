@@ -2,6 +2,7 @@
 
 import React, { useMemo } from "react";
 import { C, SANS, MONO, fmt, posColor } from "../tokens";
+import { usePlayerCardStore } from "@/lib/stores/player-card-store";
 import type { RosterPlayer } from "./types";
 
 interface Props {
@@ -16,6 +17,7 @@ interface Props {
 }
 
 export default function RosterColumn({ title, roster, selectedNames, onToggle, side, posGrades, moveableNames, windowToggle }: Props) {
+  const openPlayerCard = usePlayerCardStore((s) => s.openPlayerCard);
   const grouped = useMemo(() => {
     const groups: Record<string, RosterPlayer[]> = { QB: [], RB: [], WR: [], TE: [], PICK: [] };
     for (const p of roster) {
@@ -79,15 +81,22 @@ export default function RosterColumn({ title, roster, selectedNames, onToggle, s
                     }}
                     onMouseEnter={(e) => { if (!selected) e.currentTarget.style.background = C.white08; }}
                     onMouseLeave={(e) => { e.currentTarget.style.background = selected ? `${C.gold}15` : "transparent"; }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 4 }}>
                       <span style={{
                         fontFamily: SANS, fontSize: 13, fontWeight: 500, color: selected ? C.dim : C.primary,
-                        whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                        whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1,
                         textDecoration: selected ? "line-through" : "none",
                       }}>
                         {p.name}
                         {isUntouchable && <span style={{ fontSize: 11, opacity: 0.5, marginLeft: 4 }}>🔒</span>}
                       </span>
+                      {!isPick && (
+                        <span onClick={(e) => { e.stopPropagation(); openPlayerCard(p.name); }}
+                          style={{ fontSize: 12, color: C.dim, cursor: "pointer", padding: "2px 4px", borderRadius: 3, flexShrink: 0, lineHeight: 1, opacity: 0.5, transition: "opacity 0.15s" }}
+                          onMouseEnter={(e) => { e.currentTarget.style.opacity = "1"; e.currentTarget.style.color = C.gold; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.opacity = "0.5"; e.currentTarget.style.color = C.dim; }}
+                          title="View player card">ⓘ</span>
+                      )}
                     </div>
                     {/* Positional rank badge */}
                     {p.sha_pos_rank && (

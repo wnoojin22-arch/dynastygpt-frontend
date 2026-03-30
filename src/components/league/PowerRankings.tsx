@@ -94,7 +94,7 @@ export default function PowerRankings({ rankings, leagueIntel, leagueName }: {
           const pct = (r.value / topValue) * 100;
           const color = i === 0 ? C.gold : i < 4 ? C.green : i < 8 ? C.secondary : C.red;
           return (
-            <div key={r.owner} style={{
+            <div key={`${r.owner}-${i}`} style={{
               display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", borderRadius: 4,
               background: i === 0 ? C.goldDim : "transparent",
               border: i === 0 ? `1px solid ${C.goldBorder}` : "1px solid transparent",
