@@ -59,8 +59,8 @@ function ShieldLogo({ size = 28 }: { size?: number }) {
 const NAV_ITEMS: { id: string; label: string; path: string; icon: React.ReactNode }[] = [
   { id: "home",      label: "Home",      path: "",           icon: <Home size={20} /> },
   { id: "dashboard", label: "Dashboard", path: "/dashboard", icon: <LayoutGrid size={20} /> },
-  { id: "intel",     label: "Intel",     path: "/intel",     icon: <Search size={20} /> },
   { id: "trades",    label: "Trades",    path: "/trades",    icon: <Zap size={20} /> },
+  { id: "intel",     label: "Intel",     path: "/intel",     icon: <Search size={20} /> },
   { id: "rankings",  label: "Rankings",  path: "/rankings",  icon: <BarChart3 size={20} /> },
 ];
 

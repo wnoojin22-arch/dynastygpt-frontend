@@ -10,6 +10,7 @@ import {
 import { ScoutingReport, RivalsView, TradeReportModal } from "@/components/league";
 import { TradeAssetList } from "@/components/league/TradeAssets";
 import DraftRoom from "@/components/league/DraftRoom";
+import TradeProfile from "@/components/league/TradeProfile";
 import { C, SANS, MONO, DISPLAY, SERIF, fmt, posColor, getVerdictStyle, gradeColor } from "@/components/league/tokens";
 import type { RosterPlayer } from "@/lib/types";
 
@@ -179,59 +180,8 @@ export default function OwnerDetailPage({ params }: { params: Promise<{ owner: s
       )}
 
       {/* TRADE PROFILE */}
-      {tab === "trades" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {/* Record strip */}
-          {graded && (
-            <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 12px", borderRadius: 6, background: C.panel, border: `1px solid ${C.border}`, flexWrap: "wrap" }}>
-              <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.gold, letterSpacing: "0.08em" }}>TRADE RECORD</span>
-              <div style={{ width: 1, height: 16, background: C.border }} />
-              <span style={{ fontFamily: MONO, fontSize: 12, color: C.green }}>W: <b>{graded.wins}</b></span>
-              <span style={{ fontFamily: MONO, fontSize: 12, color: C.red }}>L: <b>{graded.losses}</b></span>
-              <span style={{ fontFamily: MONO, fontSize: 12, color: C.dim }}>P: <b>{graded.pushes}</b></span>
-              <span style={{ fontFamily: MONO, fontSize: 12, color: C.gold }}>Rate: {graded.win_rate ? `${(graded.win_rate * 100).toFixed(0)}%` : "—"}</span>
-            </div>
-          )}
-          {/* Trade log with picks + verdicts */}
-          <DCard label="TRADE HISTORY" right={<span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>{graded?.trades?.length || 0} trades</span>}>
-            <div style={{ maxHeight: 500, overflowY: "auto" }}>
-              {(graded?.trades || []).map((trade, i) => {
-                const vs = trade.verdict ? getVerdictStyle(trade.verdict) : null;
-                return (
-                  <div key={`${trade.trade_id}-${i}`}
-                    onClick={() => trade.trade_id && setReportTradeId(trade.trade_id)}
-                    style={{
-                    padding: "8px 4px", borderBottom: `1px solid ${C.white08}`, borderRadius: 4,
-                    borderLeft: vs ? `3px solid ${vs.color}` : "3px solid transparent",
-                    transition: "background 0.1s", cursor: "pointer",
-                  }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = C.elevated; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>{trade.date?.slice(0, 10)}</span>
-                        {vs && <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: vs.color, background: vs.bg, padding: "1px 6px", borderRadius: 3, letterSpacing: "0.04em" }}>{vs.label}</span>}
-                      </div>
-                      <span style={{ fontFamily: MONO, fontSize: 11, color: C.secondary }}>w/ {trade.counter_party}</span>
-                    </div>
-                    <div style={{ display: "flex", gap: 12 }}>
-                      <div style={{ flex: 1 }}>
-                        <TradeAssetList players={trade.players_sent} picks={trade.picks_sent} direction="sent" />
-                      </div>
-                      <div style={{ width: 1, background: C.border, flexShrink: 0 }} />
-                      <div style={{ flex: 1 }}>
-                        <TradeAssetList players={trade.players_received} picks={trade.picks_received} direction="received" />
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-              {(!graded?.trades || graded.trades.length === 0) && (
-                <p style={{ fontFamily: MONO, fontSize: 12, color: C.dim, padding: 8, textAlign: "center" }}>No graded trades on record</p>
-              )}
-            </div>
-          </DCard>
-        </div>
+      {tab === "trades" && profile && (
+        <TradeProfile ownerName={ownerName} profile={profile as Record<string, unknown>} />
       )}
 
       {/* DRAFT ROOM */}

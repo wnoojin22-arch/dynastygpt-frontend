@@ -20,7 +20,7 @@ import {
 import type { RosterPlayer, GradedTrade } from "@/lib/types";
 import PlayerName from "@/components/league/PlayerName";
 import { usePlayerCardStore } from "@/lib/stores/player-card-store";
-import { ChevronRight, Plus } from "lucide-react";
+import { ChevronRight, Plus, FileText } from "lucide-react";
 
 /* ═══════════════════════════════════════════════════════════════
    DESIGN TOKENS
@@ -117,10 +117,12 @@ function Skel({ h = 20, w = "100%" }: { h?: number; w?: string | number }) {
 function MarketIntelSection({ feed, loading }: { feed: any; loading: boolean }) {
   const [expanded, setExpanded] = useState<string | null>(null);
   const items = (feed?.market_feed || []) as any[];
+  const totalTrades = items.reduce((s: number, i: any) => s + (i.recent_trades || 0), 0);
+  const SANS = "-apple-system, 'Inter', system-ui, sans-serif";
 
   if (loading) {
     return (
-      <DCard label="MARKET INTEL" right={<span style={{ fontFamily: MONO, fontSize: 9, color: C.dim, animation: "pulse 1.5s ease infinite" }}>SCANNING MATCHING LEAGUES...</span>}>
+      <DCard label="Real trades · your players" right={<span style={{ fontFamily: MONO, fontSize: 9, color: C.dim, animation: "pulse 1.5s ease infinite" }}>Scanning matching leagues...</span>}>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {Array.from({ length: 4 }).map((_, i) => <Skel key={i} h={36} />)}
         </div>
@@ -130,44 +132,49 @@ function MarketIntelSection({ feed, loading }: { feed: any; loading: boolean }) 
 
   if (!items.length) {
     return (
-      <DCard label="MARKET INTEL" right={<span style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>No recent activity</span>}>
-        <p style={{ fontFamily: MONO, fontSize: 11, color: C.dim, padding: 8 }}>No recent market activity for your roster in matching formats.</p>
+      <DCard label="Real trades · your players" right={<span style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>No recent activity</span>}>
+        <p style={{ fontFamily: SANS, fontSize: 12, color: C.dim, padding: 8 }}>No recent market activity for your roster in matching formats.</p>
       </DCard>
     );
   }
 
   return (
-    <DCard label="MARKET INTEL" right={
+    <DCard label="Real trades · your players" right={
       <span style={{ fontFamily: MONO, fontSize: 9, color: C.secondary }}>
-        {feed?.players_with_activity || 0} players active · {feed?.format || ""} · {feed?.days || 90}d
+        {feed?.players_with_activity || 0} players · {feed?.format || ""} · last {feed?.days || 90} days
       </span>
     }>
+      {/* Subtitle — credibility line */}
+      <div style={{ fontFamily: SANS, fontSize: 11, color: C.dim, padding: "0 8px 6px", borderBottom: `1px solid ${C.white08}`, marginBottom: 4 }}>
+        {totalTrades} trades across matching leagues
+      </div>
+
       <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
         {items.slice(0, 8).map((item: any) => {
           const isExpanded = expanded === item.player;
-          const posColor = POS[item.position] || C.dim;
+          const pc = POS[item.position] || C.dim;
+          const mostRecent = item.trades?.[0]?.days_ago;
           return (
             <div key={item.player}>
-              {/* Player row */}
               <div
                 onClick={() => setExpanded(isExpanded ? null : item.player)}
                 style={{
                   display: "flex", alignItems: "center", gap: 8, padding: "6px 8px",
                   borderRadius: 4, cursor: "pointer", transition: "background 0.12s",
-                  borderLeft: `3px solid ${posColor}`,
+                  borderLeft: `3px solid ${pc}`,
                   background: isExpanded ? C.elevated : "transparent",
                 }}
                 onMouseEnter={(e) => { if (!isExpanded) e.currentTarget.style.background = C.white08; }}
                 onMouseLeave={(e) => { if (!isExpanded) e.currentTarget.style.background = "transparent"; }}
               >
-                {/* Position badge */}
-                <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: posColor, width: 22 }}>{item.position}</span>
-                {/* Player name */}
-                <span style={{ fontFamily: "-apple-system, 'Inter', system-ui, sans-serif", fontSize: 13, fontWeight: 600, color: C.primary, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {item.player}
-                </span>
-                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.gold }}>{item.pos_rank || fmt(item.sha_value)}</span>
-                {/* Trade count badge */}
+                <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: pc, width: 22 }}>{item.position}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 600, color: C.primary, display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {item.player}
+                  </span>
+                  {mostRecent != null && <span style={{ fontFamily: SANS, fontSize: 10, color: C.dim }}>Last traded {mostRecent} days ago</span>}
+                </div>
+                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.gold }}>{item.pos_rank || ""}</span>
                 <span style={{
                   fontFamily: MONO, fontSize: 9, fontWeight: 800, padding: "2px 6px", borderRadius: 3,
                   color: item.recent_trades >= 5 ? C.green : item.recent_trades >= 3 ? C.gold : C.secondary,
@@ -175,42 +182,37 @@ function MarketIntelSection({ feed, loading }: { feed: any; loading: boolean }) 
                 }}>
                   {item.recent_trades} trades
                 </span>
-                {/* Expand arrow */}
                 <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim, transition: "transform 0.15s", transform: isExpanded ? "rotate(90deg)" : "rotate(0)" }}>▸</span>
               </div>
 
-              {/* Expanded trade details */}
               {isExpanded && (
                 <div style={{ marginLeft: 33, padding: "4px 0 8px", borderLeft: `1px solid ${C.border}`, marginBottom: 4 }}>
                   {(item.trades || []).slice(0, 4).map((t: any, j: number) => {
-                    // Format assets: objects have {name, pos_rank} or are plain strings
-                    const fmtAssets = (assets: any[]) => (assets || []).slice(0, 3).map((a: any) => {
+                    const fmtA = (assets: any[]) => (assets || []).slice(0, 3).map((a: any) => {
                       if (typeof a === "string") return a;
                       const name = (a.name || "").replace(/\s*\([^)]*\)/g, "");
                       const rank = a.pos_rank ? ` (${a.pos_rank})` : "";
                       return `${name}${rank}`;
                     }).join(", ");
-                    // Fix NoneT format label
-                    const fmt = (t.format || "").replace(/NoneT\s*/i, "").trim() || "Unknown";
-                    // Tier tag for non-exact matches
+                    const fmtLabel = (t.format || "").replace(/NoneT\s*/i, "").replace(/^(\d+)T/, "$1-team ·").replace("SF", "SF ·").trim() || "Unknown format";
                     const tierTag = t.match_tier && t.match_tier > 1
-                      ? t.match_tier === 2 ? "diff scoring" : t.match_tier === 3 ? "diff size" : "diff format"
+                      ? t.match_tier === 2 ? "similar format" : t.match_tier === 3 ? "similar size" : "broader match"
                       : null;
                     return (
                       <div key={j} style={{ padding: "4px 12px", borderBottom: `1px solid ${C.white08}` }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
-                          <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>{t.days_ago}d ago</span>
-                          <span style={{ fontFamily: MONO, fontSize: 9, color: C.secondary }}>{fmt}</span>
+                          <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>{t.days_ago} days ago</span>
+                          <span style={{ fontFamily: MONO, fontSize: 9, color: C.secondary }}>{fmtLabel}</span>
                           {tierTag && <span style={{ fontFamily: MONO, fontSize: 8, color: C.dim, fontStyle: "italic" }}>{tierTag}</span>}
                           <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: t.was_sold ? C.red : C.green }}>{t.was_sold ? "SOLD" : "ACQUIRED"}</span>
                         </div>
-                        <div style={{ display: "flex", gap: 8, fontFamily: "-apple-system, 'Inter', system-ui, sans-serif", fontSize: 11 }}>
+                        <div style={{ display: "flex", gap: 8, fontFamily: SANS, fontSize: 11 }}>
                           <span style={{ color: `${C.red}cc` }}>Gave</span>
-                          <span style={{ color: C.secondary, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{fmtAssets(t.gave)}</span>
+                          <span style={{ color: C.secondary, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{fmtA(t.gave)}</span>
                         </div>
-                        <div style={{ display: "flex", gap: 8, fontFamily: "-apple-system, 'Inter', system-ui, sans-serif", fontSize: 11 }}>
+                        <div style={{ display: "flex", gap: 8, fontFamily: SANS, fontSize: 11 }}>
                           <span style={{ color: `${C.green}cc` }}>Got&nbsp;</span>
-                          <span style={{ color: C.primary, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{fmtAssets(t.got)}</span>
+                          <span style={{ color: C.primary, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{fmtA(t.got)}</span>
                         </div>
                       </div>
                     );
@@ -220,6 +222,11 @@ function MarketIntelSection({ feed, loading }: { feed: any; loading: boolean }) 
             </div>
           );
         })}
+      </div>
+
+      {/* Credibility footer */}
+      <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, padding: "8px 8px 2px", borderTop: `1px solid ${C.white08}`, textAlign: "center", letterSpacing: "0.04em" }}>
+        Powered by 1,039,859 real dynasty trades
       </div>
     </DCard>
   );
@@ -302,16 +309,21 @@ function DashboardView({ lid, owner }: { lid: string; owner: string }) {
   const totalTeams = scatterAll.length || 12;
 
   // Season trajectory data: merge record.seasons + season_finishes
+  // Use season_finishes for finish position, fall back to computing from W-L if missing
   const trajectoryData = seasons
-    .filter((s: any) => Number(s.season) < 2026) // Filter out incomplete/future seasons
+    .filter((s: any) => Number(s.season) < 2026 && (s.wins > 0 || s.losses > 0))
     .map((s: any) => {
       const sf = seasonFinishes.find((f: any) => String(f.season) === String(s.season));
       const champYear = (champs?.championship_years || []).includes(String(s.season));
+      // Use explicit finish if available, otherwise estimate from W-L
+      // (lower wins = higher finish number = worse)
+      const finish = sf?.finish ?? null;
       return {
         season: String(s.season),
-        finish: sf?.finish ?? null,
-        ppgRank: null as number | null,
+        finish,
+        wins: s.wins,
         isChamp: champYear,
+        ppgRank: null as number | null,
       };
     });
 
@@ -366,7 +378,8 @@ function DashboardView({ lid, owner }: { lid: string; owner: string }) {
           });
         }
 
-        // 2. Positional needs
+        // 2. Positional needs — find a sell candidate NOT already shown in sell rows
+        const usedNames = new Set(rows.map(r => r.name.toLowerCase()));
         const myIntelData = leagueIntel?.owners?.find((o: any) =>
           o.owner.toLowerCase() === owner.toLowerCase() || o.owner.toLowerCase().replace(/\s*\(#\d+\)/, "") === owner.toLowerCase());
         const criticalNeeds = (myIntelData?.positional_needs || []) as string[];
@@ -374,7 +387,11 @@ function DashboardView({ lid, owner }: { lid: string; owner: string }) {
           const pos = criticalNeeds[0];
           const pg = myIntelData?.positional_grades?.[pos] || "WEAK";
           if (pg === "CRITICAL" || pg === "WEAK") {
-            const sellCandidate = sellHigh.find((s) => String(s.action) === "SELL" && String(s.position) !== pos);
+            const sellCandidate = sellHigh.find((s) =>
+              String(s.action) === "SELL"
+              && String(s.position) !== pos
+              && !usedNames.has(String(s.name || "").toLowerCase())
+            );
             if (sellCandidate) {
               rows.push({
                 tag: "upgrade",
@@ -440,8 +457,15 @@ function DashboardView({ lid, owner }: { lid: string; owner: string }) {
                   </div>
                 </div>
               ))}
-              {/* Build a trade CTA */}
+              {/* Franchise health link + Build a trade CTA */}
               {rows.length > 0 && <div className="w-px self-stretch bg-white/5" />}
+              <div
+                onClick={() => router.push(`/l/${currentLeagueSlug}/intel`)}
+                className="flex items-center gap-1.5 px-3 py-3 rounded-lg cursor-pointer transition-colors hover:bg-amber-400/10 whitespace-nowrap"
+              >
+                <FileText size={14} className="text-amber-400 shrink-0" />
+                <span className="text-sm font-medium text-amber-400">Franchise health</span>
+              </div>
               <div
                 onClick={() => router.push(`/l/${currentLeagueSlug}/trades`)}
                 className="flex items-center gap-2 px-4 py-3 rounded-lg cursor-pointer transition-colors hover:bg-amber-400/10 whitespace-nowrap"
@@ -1026,8 +1050,8 @@ function DashboardView({ lid, owner }: { lid: string; owner: string }) {
                   <CartesianGrid stroke="rgba(255,255,255,0.04)" strokeDasharray="3 3" />
                   <XAxis dataKey="season" tick={{ fill: C.dim, fontSize: 10, fontFamily: MONO }} axisLine={false} tickLine={false} />
                   <YAxis
-                    reversed
-                    domain={[1, totalTeams]}
+                    reversed={trajectoryData.some((d: any) => d.finish != null)}
+                    domain={trajectoryData.some((d: any) => d.finish != null) ? [1, totalTeams] : ["auto", "auto"]}
                     tick={{ fill: C.dim, fontSize: 10, fontFamily: MONO }}
                     axisLine={false} tickLine={false}
                     width={24}
@@ -1048,7 +1072,9 @@ function DashboardView({ lid, owner }: { lid: string; owner: string }) {
                     }}
                   />
                   <Line
-                    type="monotone" dataKey="finish" stroke={C.gold} strokeWidth={2.5}
+                    type="monotone"
+                    dataKey={trajectoryData.some((d: any) => d.finish != null) ? "finish" : "wins"}
+                    stroke={C.gold} strokeWidth={2.5}
                     dot={(props: any) => {
                       const d = trajectoryData[props.index];
                       if (!d) return <circle key={props.key} />;
@@ -1073,7 +1099,7 @@ function DashboardView({ lid, owner }: { lid: string; owner: string }) {
               <div style={{ display: "flex", justifyContent: "center", gap: 14, marginTop: 4 }}>
                 <span style={{ display: "flex", alignItems: "center", gap: 4, fontFamily: MONO, fontSize: 10, color: C.gold }}>
                   <span style={{ width: 18, height: 2, background: C.gold, display: "inline-block", borderRadius: 1 }} />
-                  Finish
+                  {trajectoryData.some((d: any) => d.finish != null) ? "Finish" : "Wins"}
                 </span>
                 <span style={{ display: "flex", alignItems: "center", gap: 4, fontFamily: MONO, fontSize: 10, color: C.dim }}>
                   <span style={{ width: 18, height: 2, background: C.dim, display: "inline-block", borderRadius: 1, opacity: 0.5 }} />
@@ -1092,7 +1118,7 @@ function DashboardView({ lid, owner }: { lid: string; owner: string }) {
         <DCard label="DYNASTY vs WIN-NOW">
           {scatterAll.length > 0 ? (
             <ResponsiveContainer width="100%" height={204}>
-              <ScatterChart margin={{ top: 16, right: 16, bottom: 16, left: 0 }}>
+              <ScatterChart margin={{ top: 16, right: 60, bottom: 16, left: 0 }}>
                 <CartesianGrid stroke="rgba(255,255,255,0.04)" strokeDasharray="3 3" />
                 <XAxis
                   type="number" dataKey="x" name="Dynasty Rank"

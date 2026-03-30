@@ -1,8 +1,9 @@
 import type { NextConfig } from "next";
+import path from "path";
 
 const nextConfig: NextConfig = {
   turbopack: {
-    root: "/Users/amandamcdougall/dynastygpt-frontend",
+    root: path.resolve(__dirname || "."),
   },
 };
 

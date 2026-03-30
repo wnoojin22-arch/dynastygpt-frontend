@@ -27,13 +27,6 @@ function safeText(v: unknown): string {
   return "";
 }
 
-function renderHtml(md: string): string {
-  return md
-    .replace(/<strong>/g, '<strong style="color:#eeeef2;font-weight:700">')
-    .replace(/\*\*(.+?)\*\*/g, '<strong style="color:#eeeef2;font-weight:700">$1</strong>')
-    .replace(/\n\n/g, "</p><p>")
-    .replace(/\n/g, "<br/>");
-}
 
 /** Extract action item — handles both string and {action, data_point} formats */
 function parseActionItem(item: unknown): { action: string; detail: string } {
@@ -349,13 +342,20 @@ export default function FranchiseIntel({ leagueId, owner }: {
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
 
           {/* GM Verdict — hero card */}
-          <div style={{ padding: "20px 22px", borderRadius: 8, background: `linear-gradient(135deg, ${C.goldGlow}, ${C.card})`, border: `1px solid ${C.goldBorder}` }}>
-            <div style={{ fontFamily: SANS, fontSize: 13, fontWeight: 500, color: C.gold, marginBottom: 10 }}>GM Verdict</div>
+          <div className="rounded-lg border px-5 py-5" style={{ background: `linear-gradient(135deg, ${C.goldGlow}, ${C.card})`, borderColor: C.goldBorder }}>
+            <div className="text-[13px] font-medium mb-2.5" style={{ fontFamily: SANS, color: C.gold }}>GM Verdict</div>
             {gmText ? (
-              <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 500, color: C.primary, lineHeight: 1.65 }}
-                dangerouslySetInnerHTML={{ __html: `<p>${renderHtml(gmText)}</p>` }} />
+              <div className="text-sm font-medium leading-relaxed" style={{ fontFamily: SANS, color: C.primary }}>
+                {gmText.split(/\n\n+/).map((para, i) => (
+                  <p key={i} className={i > 0 ? "mt-4" : ""} dangerouslySetInnerHTML={{
+                    __html: para
+                      .replace(/\*\*(.+?)\*\*/g, '<strong class="text-[#eeeef2] font-bold">$1</strong>')
+                      .replace(/\n/g, "<br/>")
+                  }} />
+                ))}
+              </div>
             ) : (
-              <div style={{ fontFamily: SANS, fontSize: 14, color: C.dim, fontStyle: "italic" }}>
+              <div className="text-sm italic" style={{ fontFamily: SANS, color: C.dim }}>
                 Franchise intel is being computed. Check back after full league analysis.
               </div>
             )}
