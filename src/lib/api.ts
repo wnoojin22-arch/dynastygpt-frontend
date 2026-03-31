@@ -75,6 +75,7 @@ export const getTradePartners = (id: string, owner: string, userId?: string | nu
 
 // ── Dynasty Score ───────────────────────────────────────────────────────
 export const getDynastyScore = (id: string, owner: string, userId?: string | null) => get<DynastyScoreResponse>(`${L(id)}/owner/${O(owner, userId)}/dynasty-score`);
+export const getAllDynastyScores = (id: string) => get<{ league_id: string; scores: DynastyScoreResponse[] }>(`${L(id)}/dynasty-scores`);
 
 export interface DynastyScoreResponse {
   score: number;

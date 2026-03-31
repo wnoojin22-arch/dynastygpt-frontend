@@ -311,7 +311,7 @@ function HeaderBar({ owner, owners, onOwnerChange, leagueName, syncing, onResync
 export default function LeagueLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const queryClient = useQueryClient();
-  const { currentLeagueId, currentOwner, currentOwnerId, setOwner } = useLeagueStore();
+  const { currentLeagueId, currentOwner, setOwner } = useLeagueStore();
   const slug = pathname.split("/")[2] || "";
   const [syncing, setSyncing] = useState(false);
 
@@ -373,7 +373,7 @@ export default function LeagueLayout({ children }: { children: React.ReactNode }
         <HeaderBar
           owner={currentOwner}
           owners={owners as unknown as Record<string, unknown>[]}
-          onOwnerChange={(name, userId) => setOwner(name, userId)}
+          onOwnerChange={(name) => setOwner(name)}
           leagueName={overview?.name || ""}
           syncing={syncing}
           onResync={doSync}

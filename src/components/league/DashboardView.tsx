@@ -10,7 +10,7 @@ import {
   getOwnerRecord, getChampionships, getOwnerProfiles,
   getRivalries, getFranchiseIntel, getActions, getOverview, getLeagueIntel,
   getOwnerTendencies, getMarketFeed, getCoachesCorner,
-  getDynastyScore, getOwners, getRosterValueChange,
+  getDynastyScore, getAllDynastyScores, getOwners, getRosterValueChange,
 } from "@/lib/api";
 import type { DynastyScoreResponse } from "@/lib/api";
 import {
@@ -278,19 +278,8 @@ function DynastyScoreCard({ lid, owner, ownerId }: { lid: string; owner: string;
   const { data: allScores, isLoading: loadingAll, isError: errorAll } = useQuery({
     queryKey: ["dynasty-scores-all", lid],
     queryFn: async () => {
-      const { owners } = await getOwners(lid);
-      const scores = await Promise.all(
-        owners.map(async (o) => {
-          try {
-            return await getDynastyScore(lid, o.name, o.platform_user_id);
-          } catch {
-            return null;
-          }
-        })
-      );
-      return scores
-        .filter((s): s is DynastyScoreResponse => s !== null)
-        .sort((a, b) => b.score - a.score);
+      const data = await getAllDynastyScores(lid);
+      return data.scores;
     },
     enabled: !!lid,
     staleTime: 1800000,
