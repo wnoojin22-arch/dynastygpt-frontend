@@ -103,9 +103,10 @@ function AssetCard({asset,gradeFactors,allTrades,sideOwner}:{asset:any;gradeFact
 function ContextCard({sideData}:{sideData:any}){const ctx=sideData?.season_context;const ilpg=sideData?.team_ilpg?.trade_season;if(!ctx)return null;const rb=ctx.record_before_trade;const ra=ctx.record_after_trade;return(<div style={{padding:'12px 14px',borderRadius:6,background:C.card,border:`1px solid ${C.border}`}}><SubHeader label="TEAM CONTEXT"/>{ilpg&&<div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 10px',borderRadius:4,background:C.elevated,marginBottom:8}}><span style={{fontFamily:MONO,fontSize:10,color:C.secondary}}>IDEAL LINEUP</span><div style={{fontFamily:MONO,fontSize:12,color:C.primary}}>{ilpg.before?.avg_ilpg?.toFixed(1)} → {ilpg.after?.avg_ilpg?.toFixed(1)}<span style={{marginLeft:8,fontWeight:800,color:(ilpg.delta||0)>=0?C.green:C.red}}>{(ilpg.delta||0)>=0?'+':''}{ilpg.delta?.toFixed(1)}</span></div></div>}<div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>{rb&&rb.games>0&&<div style={{padding:'6px 10px',borderRadius:4,background:C.elevated}}><div style={{fontFamily:MONO,fontSize:8,color:C.dim,letterSpacing:'0.08em'}}>BEFORE</div><div style={{fontFamily:MONO,fontSize:14,fontWeight:800,color:C.primary}}>{rb.wins}-{rb.losses}</div></div>}{ra&&ra.games>0&&<div style={{padding:'6px 10px',borderRadius:4,background:C.elevated}}><div style={{fontFamily:MONO,fontSize:8,color:C.dim,letterSpacing:'0.08em'}}>AFTER</div><div style={{fontFamily:MONO,fontSize:14,fontWeight:800,color:C.primary}}>{ra.wins}-{ra.losses}</div></div>}</div>{ctx.season_info&&<div style={{marginTop:8,fontFamily:MONO,fontSize:10,color:C.secondary}}>Season: {ctx.season_info.wins}-{ctx.season_info.losses} ({ordinal(ctx.season_info.final_rank)} place){ctx.season_info.champion&&<span style={{color:C.gold,fontWeight:800}}> Champion</span>}</div>}</div>);}
 
 /* ═══════════════════════════════════════════════════════════════
-   FULL REPORT — ported from Shadynasty FullReport
+   FULL REPORT — Two tabs: GRADE (screenshotable) + DETAILS (deep dive)
    ═══════════════════════════════════════════════════════════════ */
 function FullReport({reportData,hindsightData,onClose}:{reportData:any;hindsightData:any;onClose:()=>void}){
+  const [tab,setTab]=useState<'grade'|'details'>('grade');
   const sA=reportData.side_a||{};const sB=reportData.side_b||{};
   const ownerA=sA.owner||"";const ownerB=sB.owner||"";
   const dateStr=String(reportData.trade_date||"").substring(0,10);
@@ -127,11 +128,41 @@ function FullReport({reportData,hindsightData,onClose}:{reportData:any;hindsight
   const aKeyFactors=hA.key_factors||[];const bKeyFactors=hB.key_factors||[];
   const gp={display:'grid' as const,gridTemplateColumns:'1fr 1fr',gap:24,padding:'16px 24px',alignItems:'stretch' as const};
 
+  // Championship check for gold highlight
+  const aChamp=sA.season_context?.season_info?.champion;
+  const bChamp=sB.season_context?.season_info?.champion;
+
+  // Build compact key bullets for hindsight (top 2 per side)
+  const buildBullets=(assets:any[],gradeFactors:any[],keyFactors:string[],isChamp:boolean)=>{
+    const bullets:{text:string;color:string;isChamp?:boolean}[]=[];
+    // Grade factors first (most specific)
+    for(const gf of gradeFactors.slice(0,2)){
+      const col=gf.sentiment==='elite'?C.goldBright:gf.sentiment==='positive'?C.green:gf.sentiment==='negative'?C.red:C.secondary;
+      bullets.push({text:`${gf.title}${gf.value?' — '+gf.value:''}`,color:col});
+    }
+    // Fall back to key factors if no grade factors
+    if(!bullets.length){for(const kf of keyFactors.slice(0,2)){bullets.push({text:kf,color:C.secondary});}}
+    // Fall back to asset production summaries
+    if(!bullets.length){
+      for(const a of assets.filter((a:any)=>a.type!=='pick'&&a.production?.total_points>0).slice(0,2)){
+        const prod=a.production;const ppg=prod.games_started>0?(prod.total_points/prod.games_started):0;
+        bullets.push({text:`${a.name}: ${prod.total_points.toFixed(0)} pts, ${ppg.toFixed(1)} PPG across ${prod.games_on_roster}G`,color:C.secondary});
+      }
+    }
+    // Championship line
+    if(isChamp) bullets.push({text:'Won championship with acquired players',color:C.gold,isChamp:true});
+    // Flip profit
+    for(const a of assets){for(const c of (a.chain||[])){if(c.flip_profit>100) bullets.push({text:`Flipped ${a.name} for ${c.got_back?.join(', ')||'picks'}`,color:C.orange});}}
+    return bullets.slice(0,3);
+  };
+  const aBullets=buildBullets(aAssets,aGradeFactors,aKeyFactors,!!aChamp);
+  const bBullets=buildBullets(bAssets,bGradeFactors,bKeyFactors,!!bChamp);
+
   return(<>
     {/* HEADER */}
     <div style={{padding:'14px 24px',display:'flex',alignItems:'center',justifyContent:'space-between',background:`linear-gradient(135deg, ${C.gold}06, transparent 60%)`,borderBottom:`1px solid ${C.border}`}}>
       <div style={{display:'flex',alignItems:'center',gap:12}}><div style={{width:4,height:36,borderRadius:2,background:C.gold}}/><div><div style={{fontFamily:MONO,fontSize:9,color:C.dim,letterSpacing:'0.22em'}}>TRADE REPORT</div><div style={{display:'flex',alignItems:'center',gap:8,marginTop:4}}><span style={{fontFamily:SANS,fontSize:18,fontWeight:800,color:C.primary}}>{ownerA}</span><span style={{fontFamily:SANS,fontSize:14,color:C.dim}}>⇄</span><span style={{fontFamily:SANS,fontSize:18,fontWeight:700,color:C.secondary}}>{ownerB}</span><span style={{fontFamily:MONO,fontSize:11,color:C.dim,marginLeft:4}}>{dateStr}</span></div></div></div>
-      <div style={{display:'flex',alignItems:'center',gap:12}}>{overall&&<span style={{fontFamily:MONO,fontSize:11,fontWeight:800,color:os.color,padding:'4px 12px',borderRadius:4,background:os.bg,border:`1px solid ${os.border}`}}>{overall}</span>}<div onClick={onClose} style={{width:32,height:32,borderRadius:6,background:C.elevated,border:`1px solid ${C.border}`,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',fontSize:14,color:C.dim,fontFamily:MONO}}>×</div></div></div>
+      <div style={{display:'flex',alignItems:'center',gap:12}}><div style={{display:'flex',alignItems:'center',gap:6,padding:'4px 12px',borderRadius:20,border:'1px solid rgba(212,165,50,0.22)',background:'rgba(212,165,50,0.06)'}}><span style={{fontFamily:SANS,fontSize:9,fontWeight:600,color:'#d4a532',fontStyle:'italic'}}>powered by</span><span style={{fontFamily:SANS,fontSize:12,fontWeight:900,color:'#eeeef2'}}>DynastyGPT<span style={{color:'#d4a532'}}>.com</span></span></div>{overall&&<span style={{fontFamily:MONO,fontSize:11,fontWeight:800,color:os.color,padding:'4px 12px',borderRadius:4,background:os.bg,border:`1px solid ${os.border}`}}>{overall}</span>}<div onClick={onClose} style={{width:32,height:32,borderRadius:6,background:C.elevated,border:`1px solid ${C.border}`,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',fontSize:14,color:C.dim,fontFamily:MONO}}>×</div></div></div>
 
     {/* SUMMARY BAR */}
     <div style={{padding:'10px 24px',borderBottom:`1px solid ${C.border}`,background:C.card,display:'grid',gridTemplateColumns:'1fr auto 1fr',gap:16,alignItems:'center'}}>
@@ -140,28 +171,119 @@ function FullReport({reportData,hindsightData,onClose}:{reportData:any;hindsight
       <div><div style={{fontFamily:MONO,fontSize:8,color:C.green,fontWeight:800,letterSpacing:'0.08em',marginBottom:3}}>{ownerA} GOT</div><div style={{fontFamily:SANS,fontSize:12,color:C.primary,fontWeight:600,lineHeight:1.4}}>{aRaw}</div></div>
     </div>
 
-    {/* TRADE DAY */}
-    <SectionDivider label="T R A D E  D A Y" accent="#5eead4"/>
-    <div style={gp}><div><div style={{fontFamily:MONO,fontSize:9,fontWeight:800,letterSpacing:'0.16em',color:'#5eead4',marginBottom:8}}>{ownerA.toUpperCase()} RECEIVES</div><GradeBox score={tdA.score||50} verdict={tdA.verdict||'No Data'}/></div><div><div style={{fontFamily:MONO,fontSize:9,fontWeight:800,letterSpacing:'0.16em',color:'#5eead4',marginBottom:8}}>{ownerB.toUpperCase()} RECEIVES</div><GradeBox score={tdB.score||50} verdict={tdB.verdict||'No Data'}/></div></div>
+    {/* TABS */}
+    <div style={{display:'flex',borderBottom:`1px solid ${C.border}`}}>
+      {(['grade','details'] as const).map(t=>(
+        <div key={t} onClick={()=>setTab(t)} style={{
+          flex:1,padding:'10px 0',textAlign:'center',cursor:'pointer',transition:'all 0.15s',
+          fontFamily:MONO,fontSize:12,fontWeight:700,letterSpacing:'0.08em',
+          color:tab===t?C.gold:C.dim,
+          borderBottom:tab===t?`3px solid ${C.gold}`:'3px solid transparent',
+        }}>{t==='grade'?'GRADE':'DETAILS'}</div>
+      ))}
+    </div>
 
-    {/* Trade Day Values */}
-    <div style={{...gp,paddingTop:0}}>{[{assets:aAssets,total:aTotal},{assets:bAssets,total:bTotal}].map((side,idx)=>(<div key={idx} style={{padding:'16px',borderRadius:8,background:C.card,border:`1px solid ${C.border}`}}><div style={{fontFamily:MONO,fontSize:8,color:C.dim,letterSpacing:'0.1em',marginBottom:6}}>TOTAL VALUE</div><div style={{fontFamily:MONO,fontSize:32,fontWeight:900,color:C.primary,lineHeight:1,marginBottom:14}}>{fmt(side.total)}</div><div style={{display:'flex',flexDirection:'column',gap:4}}>{side.assets.map((a:any,i:number)=>(<div key={i} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'7px 10px',borderRadius:5,background:C.elevated,border:`1px solid ${C.border}`}}><div style={{display:'flex',alignItems:'center',gap:6}}>{a.type==='pick'&&<StatusTag label="PICK" color={C.gold} bg={C.goldDim} border={C.goldBorder}/>}{a.position&&a.type!=='pick'&&<span style={{fontFamily:MONO,fontSize:8,fontWeight:800,color:posColor(a.position),padding:'1px 4px',borderRadius:3,background:`${posColor(a.position)}15`}}>{a.position}</span>}<span style={{fontFamily:SANS,fontSize:12,fontWeight:600,color:C.primary}}>{a.name}</span></div><span style={{fontFamily:MONO,fontSize:12,fontWeight:700,color:C.secondary}}>{fmt(a.value_at_trade?.value)}</span></div>))}</div></div>))}</div>
+    {/* ═══════ TAB 1: GRADE — compact, screenshotable ═══════ */}
+    {tab==='grade'&&(<>
+      {/* TRADE DAY — compact */}
+      <div style={{padding:'12px 24px 0'}}>
+        <div style={{fontFamily:MONO,fontSize:10,fontWeight:800,letterSpacing:'0.20em',color:'#5eead4',marginBottom:10}}>TRADE DAY</div>
+      </div>
+      <div style={gp}>
+        {[{label:ownerA,td:tdA,assets:aAssets,total:aTotal},{label:ownerB,td:tdB,assets:bAssets,total:bTotal}].map((side,idx)=>(
+          <div key={idx}>
+            {/* Grade + verdict */}
+            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10}}>
+              <GradeCircle score={side.td.score||50} size={44}/>
+              <div>
+                <div style={{fontFamily:MONO,fontSize:9,fontWeight:800,letterSpacing:'0.10em',color:'#5eead4',marginBottom:3}}>{side.label.toUpperCase()} RECEIVES</div>
+                {(()=>{const v=side.td.verdict||'No Data';const vs=getVerdictStyle(v);return <span style={{fontFamily:MONO,fontSize:11,fontWeight:800,color:vs.color,padding:'2px 8px',borderRadius:3,background:vs.bg,border:`1px solid ${vs.border}`}}>{v}</span>;})()}
+              </div>
+            </div>
+            {/* Asset rows — tight, no card wrapper */}
+            <div style={{display:'flex',flexDirection:'column',gap:2,marginBottom:4}}>
+              {side.assets.map((a:any,i:number)=>(
+                <div key={i} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'4px 8px',borderRadius:4,background:C.elevated}}>
+                  <div style={{display:'flex',alignItems:'center',gap:5,minWidth:0}}>
+                    {a.type==='pick'?<span style={{fontFamily:MONO,fontSize:7,fontWeight:800,color:C.gold,background:C.goldDim,padding:'1px 4px',borderRadius:2}}>PICK</span>:
+                    a.position&&<span style={{fontFamily:MONO,fontSize:7,fontWeight:800,color:posColor(a.position),padding:'1px 3px',borderRadius:2,background:`${posColor(a.position)}15`}}>{a.position}</span>}
+                    <span style={{fontFamily:SANS,fontSize:12,fontWeight:600,color:C.primary,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{a.name.replace(/\s*\([^)]*\)/g,'')}</span>
+                  </div>
+                  <span style={{fontFamily:MONO,fontSize:11,fontWeight:700,color:C.secondary,flexShrink:0,marginLeft:8}}>{fmt(a.value_at_trade?.value)}</span>
+                </div>
+              ))}
+            </div>
+            {/* Total as subtle footer */}
+            <div style={{display:'flex',justifyContent:'flex-end',padding:'0 8px',fontFamily:MONO,fontSize:10,color:C.dim}}>
+              Total: <span style={{color:C.primary,fontWeight:700,marginLeft:4}}>{fmt(side.total)}</span>
+            </div>
+          </div>
+        ))}
+      </div>
 
-    {/* HINDSIGHT */}
-    <SectionDivider label="H I N D S I G H T" accent={C.gold}/>
-    {hasHindsight?(<><div style={gp}><div><div style={{fontFamily:MONO,fontSize:9,fontWeight:800,letterSpacing:'0.16em',color:C.gold,marginBottom:8}}>{ownerA.toUpperCase()}'S SIDE</div><GradeBox score={hA.score||0} verdict={hA.verdict||'—'} confidence={hA.confidence}/></div><div><div style={{fontFamily:MONO,fontSize:9,fontWeight:800,letterSpacing:'0.16em',color:C.gold,marginBottom:8}}>{ownerB.toUpperCase()}'S SIDE</div><GradeBox score={hB.score||0} verdict={hB.verdict||'—'} confidence={hB.confidence}/></div></div>
-      {(aGradeFactors.length>0||bGradeFactors.length>0)&&<div style={{...gp,paddingTop:0}}><div>{aGradeFactors.map((gf:any,i:number)=><GradeFactorCard key={i} factor={gf}/>)}</div><div>{bGradeFactors.map((gf:any,i:number)=><GradeFactorCard key={i} factor={gf}/>)}</div></div>}
-      {aGradeFactors.length===0&&(aKeyFactors.length>0||bKeyFactors.length>0)&&<div style={{...gp,paddingTop:0}}>{[aKeyFactors,bKeyFactors].map((kf,idx)=>(<div key={idx} style={{padding:'10px 14px',borderRadius:6,background:C.card,border:`1px solid ${C.border}`}}>{kf.length>0?kf.map((f:string,i:number)=>(<div key={i} style={{display:'flex',alignItems:'flex-start',gap:8,padding:'5px 0',borderBottom:i<kf.length-1?`1px solid ${C.white08}`:'none'}}><span style={{fontSize:8,color:C.green,flexShrink:0,marginTop:4}}>●</span><span style={{fontFamily:SANS,fontSize:11,color:C.secondary,lineHeight:1.5}}>{f}</span></div>)):<span style={{fontFamily:SANS,fontSize:11,color:C.dim,fontStyle:'italic'}}>No factors yet</span>}</div>))}</div>}
-    </>):(<div style={{padding:'24px',textAlign:'center'}}><span style={{fontFamily:SERIF,fontSize:15,fontStyle:'italic',color:C.goldBright}}>Hindsight grades unlock over time</span><div style={{fontFamily:SANS,fontSize:11,color:C.dim,marginTop:4}}>Sync your league to track production, flips, and championships.</div></div>)}
+      {/* HINDSIGHT — compact */}
+      <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:16,padding:'12px 24px 0',borderTop:`1px solid ${C.border}`}}>
+        <div style={{flex:1,height:1,background:`linear-gradient(90deg, transparent, ${C.gold}30)`}}/>
+        <span style={{fontFamily:MONO,fontSize:11,fontWeight:900,letterSpacing:'0.25em',color:C.gold}}>HINDSIGHT</span>
+        <div style={{flex:1,height:1,background:`linear-gradient(90deg, ${C.gold}30, transparent)`}}/>
+      </div>
+      {hasHindsight?(<div style={gp}>
+        {[{label:ownerA,h:hA,bullets:aBullets,champ:aChamp},{label:ownerB,h:hB,bullets:bBullets,champ:bChamp}].map((side,idx)=>(
+          <div key={idx}>
+            {/* Grade + verdict */}
+            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10}}>
+              <GradeCircle score={side.h.score||0} size={44}/>
+              <div>
+                <div style={{fontFamily:MONO,fontSize:9,fontWeight:800,letterSpacing:'0.10em',color:C.gold,marginBottom:3}}>{side.label.toUpperCase()}&apos;S SIDE</div>
+                {(()=>{const v=side.h.verdict||'—';const vs=getVerdictStyle(v);return <span style={{fontFamily:MONO,fontSize:11,fontWeight:800,color:vs.color,padding:'2px 8px',borderRadius:3,background:vs.bg,border:`1px solid ${vs.border}`}}>{v}</span>;})()}
+              </div>
+            </div>
+            {/* Key bullets — 1-3 lines */}
+            <div style={{display:'flex',flexDirection:'column',gap:4}}>
+              {side.bullets.map((b,i)=>(
+                <div key={i} style={{
+                  display:'flex',alignItems:'flex-start',gap:6,padding:'4px 8px',borderRadius:4,
+                  background:b.isChamp?`${C.gold}12`:C.elevated,
+                  border:b.isChamp?`1px solid ${C.gold}30`:'none',
+                }}>
+                  <span style={{fontSize:7,color:b.isChamp?C.gold:b.color,flexShrink:0,marginTop:3}}>{b.isChamp?'★':'●'}</span>
+                  <span style={{fontFamily:SANS,fontSize:11,color:b.isChamp?C.gold:C.secondary,lineHeight:1.4,fontWeight:b.isChamp?700:400}}>{b.text}</span>
+                </div>
+              ))}
+              {!side.bullets.length&&<span style={{fontFamily:SANS,fontSize:11,color:C.dim,fontStyle:'italic',padding:'4px 8px'}}>No data yet</span>}
+            </div>
+          </div>
+        ))}
+      </div>):(<div style={{padding:'20px 24px',textAlign:'center'}}><span style={{fontFamily:SERIF,fontSize:14,fontStyle:'italic',color:C.goldBright}}>Hindsight available after league sync</span></div>)}
+      {/* Watermark */}
+      <div style={{textAlign:'right',padding:'4px 24px 12px'}}><span style={{fontFamily:SANS,fontSize:9,color:`${C.gold}40`,fontWeight:600}}>dynastygpt.com</span></div>
+    </>)}
 
-    {/* ASSETS ACQUIRED */}
-    <div style={{...gp,paddingTop:0}}>{[{owner:ownerA,assets:aAssets,gf:aGradeFactors},{owner:ownerB,assets:bAssets,gf:bGradeFactors}].map(({owner,assets,gf},idx)=>(<div key={idx}><SubHeader label={`${owner.toUpperCase()} ACQUIRED`}/><div style={{display:'flex',flexDirection:'column',gap:6}}>{assets.length>0?assets.map((a:any,i:number)=><AssetCard key={i} asset={a} gradeFactors={gf} allTrades={reportData.all_trades} sideOwner={owner}/>):<span style={{fontFamily:MONO,fontSize:11,color:C.dim}}>No asset data</span>}</div></div>))}</div>
+    {/* ═══════ TAB 2: DETAILS — full deep dive ═══════ */}
+    {tab==='details'&&(<>
+      {/* TRADE DAY expanded */}
+      <SectionDivider label="T R A D E  D A Y" accent="#5eead4"/>
+      <div style={gp}><div><div style={{fontFamily:MONO,fontSize:9,fontWeight:800,letterSpacing:'0.16em',color:'#5eead4',marginBottom:8}}>{ownerA.toUpperCase()} RECEIVES</div><GradeBox score={tdA.score||50} verdict={tdA.verdict||'No Data'}/></div><div><div style={{fontFamily:MONO,fontSize:9,fontWeight:800,letterSpacing:'0.16em',color:'#5eead4',marginBottom:8}}>{ownerB.toUpperCase()} RECEIVES</div><GradeBox score={tdB.score||50} verdict={tdB.verdict||'No Data'}/></div></div>
 
-    {/* Replacement Impact */}
-    {(()=>{const aI=aAssets.filter((a:any)=>a.replacement_impact?.career?.impact&&Math.abs(a.replacement_impact.career.impact)>=3);const bI=bAssets.filter((a:any)=>a.replacement_impact?.career?.impact&&Math.abs(a.replacement_impact.career.impact)>=3);if(!aI.length&&!bI.length)return null;return(<div style={{...gp,paddingTop:0}}>{[aI,bI].map((assets,idx)=>(assets.length>0?<div key={idx} style={{padding:'12px 14px',borderRadius:6,background:C.card,border:`1px solid ${C.border}`}}><SubHeader label="REPLACEMENT IMPACT"/>{assets.map((a:any,i:number)=>{const ri=a.replacement_impact.career;const ic=ri.impact>=0?C.green:C.red;return(<div key={i} style={{marginBottom:8}}><div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}><span style={{fontFamily:SANS,fontSize:13,fontWeight:700,color:C.primary}}>{a.name}</span><span style={{fontFamily:MONO,fontSize:12,fontWeight:800,color:ic,padding:'2px 8px',borderRadius:4,background:ri.impact>=0?'rgba(125,211,160,0.12)':'rgba(228,114,114,0.12)'}}>{ri.impact>=0?'+':''}{ri.impact.toFixed(1)} PPG</span></div><div style={{fontFamily:MONO,fontSize:10,color:C.dim,display:'flex',gap:16}}><span>With: <span style={{color:C.green,fontWeight:700}}>{ri.avg_with?.toFixed(1)}</span></span><span>Without: <span style={{color:C.red,fontWeight:700}}>{ri.avg_without?.toFixed(1)}</span></span></div></div>);})}</div>:<div key={idx}/>))}</div>);})()}
+      {/* Trade Day Values */}
+      <div style={{...gp,paddingTop:0}}>{[{assets:aAssets,total:aTotal},{assets:bAssets,total:bTotal}].map((side,idx)=>(<div key={idx} style={{padding:'16px',borderRadius:8,background:C.card,border:`1px solid ${C.border}`}}><div style={{fontFamily:MONO,fontSize:8,color:C.dim,letterSpacing:'0.1em',marginBottom:6}}>TOTAL VALUE</div><div style={{fontFamily:MONO,fontSize:28,fontWeight:900,color:C.primary,lineHeight:1,marginBottom:12}}>{fmt(side.total)}</div><div style={{display:'flex',flexDirection:'column',gap:4}}>{side.assets.map((a:any,i:number)=>(<div key={i} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'7px 10px',borderRadius:5,background:C.elevated,border:`1px solid ${C.border}`}}><div style={{display:'flex',alignItems:'center',gap:6}}>{a.type==='pick'&&<StatusTag label="PICK" color={C.gold} bg={C.goldDim} border={C.goldBorder}/>}{a.position&&a.type!=='pick'&&<span style={{fontFamily:MONO,fontSize:8,fontWeight:800,color:posColor(a.position),padding:'1px 4px',borderRadius:3,background:`${posColor(a.position)}15`}}>{a.position}</span>}<span style={{fontFamily:SANS,fontSize:12,fontWeight:600,color:C.primary}}>{a.name}</span></div><span style={{fontFamily:MONO,fontSize:12,fontWeight:700,color:C.secondary}}>{fmt(a.value_at_trade?.value)}</span></div>))}</div></div>))}</div>
 
-    {/* Team Context */}
-    {(sA.season_context||sB.season_context)&&<div style={{...gp,paddingTop:0,paddingBottom:24}}><ContextCard sideData={sA}/><ContextCard sideData={sB}/></div>}
+      {/* HINDSIGHT expanded */}
+      <SectionDivider label="H I N D S I G H T" accent={C.gold}/>
+      {hasHindsight?(<><div style={gp}><div><div style={{fontFamily:MONO,fontSize:9,fontWeight:800,letterSpacing:'0.16em',color:C.gold,marginBottom:8}}>{ownerA.toUpperCase()}&apos;S SIDE</div><GradeBox score={hA.score||0} verdict={hA.verdict||'—'} confidence={hA.confidence}/></div><div><div style={{fontFamily:MONO,fontSize:9,fontWeight:800,letterSpacing:'0.16em',color:C.gold,marginBottom:8}}>{ownerB.toUpperCase()}&apos;S SIDE</div><GradeBox score={hB.score||0} verdict={hB.verdict||'—'} confidence={hB.confidence}/></div></div>
+        {(aGradeFactors.length>0||bGradeFactors.length>0)&&<div style={{...gp,paddingTop:0}}><div>{aGradeFactors.map((gf:any,i:number)=><GradeFactorCard key={i} factor={gf}/>)}</div><div>{bGradeFactors.map((gf:any,i:number)=><GradeFactorCard key={i} factor={gf}/>)}</div></div>}
+        {aGradeFactors.length===0&&(aKeyFactors.length>0||bKeyFactors.length>0)&&<div style={{...gp,paddingTop:0}}>{[aKeyFactors,bKeyFactors].map((kf,idx)=>(<div key={idx} style={{padding:'10px 14px',borderRadius:6,background:C.card,border:`1px solid ${C.border}`}}>{kf.length>0?kf.map((f:string,i:number)=>(<div key={i} style={{display:'flex',alignItems:'flex-start',gap:8,padding:'5px 0',borderBottom:i<kf.length-1?`1px solid ${C.white08}`:'none'}}><span style={{fontSize:8,color:C.green,flexShrink:0,marginTop:4}}>●</span><span style={{fontFamily:SANS,fontSize:11,color:C.secondary,lineHeight:1.5}}>{f}</span></div>)):<span style={{fontFamily:SANS,fontSize:11,color:C.dim,fontStyle:'italic'}}>No factors yet</span>}</div>))}</div>}
+      </>):(<div style={{padding:'24px',textAlign:'center'}}><span style={{fontFamily:SERIF,fontSize:15,fontStyle:'italic',color:C.goldBright}}>Hindsight grades unlock over time</span><div style={{fontFamily:SANS,fontSize:11,color:C.dim,marginTop:4}}>Sync your league to track production, flips, and championships.</div></div>)}
+
+      {/* ASSETS ACQUIRED — full cards */}
+      <div style={{...gp,paddingTop:0}}>{[{owner:ownerA,assets:aAssets,gf:aGradeFactors},{owner:ownerB,assets:bAssets,gf:bGradeFactors}].map(({owner,assets,gf},idx)=>(<div key={idx}><SubHeader label={`${owner.toUpperCase()} ACQUIRED`}/><div style={{display:'flex',flexDirection:'column',gap:6}}>{assets.length>0?assets.map((a:any,i:number)=><AssetCard key={i} asset={a} gradeFactors={gf} allTrades={reportData.all_trades} sideOwner={owner}/>):<span style={{fontFamily:MONO,fontSize:11,color:C.dim}}>No asset data</span>}</div></div>))}</div>
+
+      {/* Replacement Impact */}
+      {(()=>{const aI=aAssets.filter((a:any)=>a.replacement_impact?.career?.impact&&Math.abs(a.replacement_impact.career.impact)>=3);const bI=bAssets.filter((a:any)=>a.replacement_impact?.career?.impact&&Math.abs(a.replacement_impact.career.impact)>=3);if(!aI.length&&!bI.length)return null;return(<div style={{...gp,paddingTop:0}}>{[aI,bI].map((assets,idx)=>(assets.length>0?<div key={idx} style={{padding:'12px 14px',borderRadius:6,background:C.card,border:`1px solid ${C.border}`}}><SubHeader label="REPLACEMENT IMPACT"/>{assets.map((a:any,i:number)=>{const ri=a.replacement_impact.career;const ic=ri.impact>=0?C.green:C.red;return(<div key={i} style={{marginBottom:8}}><div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}><span style={{fontFamily:SANS,fontSize:13,fontWeight:700,color:C.primary}}>{a.name}</span><span style={{fontFamily:MONO,fontSize:12,fontWeight:800,color:ic,padding:'2px 8px',borderRadius:4,background:ri.impact>=0?'rgba(125,211,160,0.12)':'rgba(228,114,114,0.12)'}}>{ri.impact>=0?'+':''}{ri.impact.toFixed(1)} PPG</span></div><div style={{fontFamily:MONO,fontSize:10,color:C.dim,display:'flex',gap:16}}><span>With: <span style={{color:C.green,fontWeight:700}}>{ri.avg_with?.toFixed(1)}</span></span><span>Without: <span style={{color:C.red,fontWeight:700}}>{ri.avg_without?.toFixed(1)}</span></span></div></div>);})}</div>:<div key={idx}/>))}</div>);})()}
+
+      {/* Team Context */}
+      {(sA.season_context||sB.season_context)&&<div style={{...gp,paddingTop:0,paddingBottom:24}}><ContextCard sideData={sA}/><ContextCard sideData={sB}/></div>}
+    </>)}
   </>);
 }
 
