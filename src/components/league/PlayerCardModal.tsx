@@ -263,8 +263,8 @@ function OverviewTab({ pc, seasons, history }: { pc?: PlayerCard; seasons: Seaso
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       {/* Value cards — stack on mobile, row on desktop */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
-        <ValueCard label="VALUE" value={fmt(pc.sha_value)} sub={pc.sha_pos_rank} color={C.gold} />
-        <ValueCard label="CONSENSUS" value={pc.dynasty_value ? fmt(pc.dynasty_value) : "—"} sub={pc.dynasty_rank ? `#${pc.dynasty_rank}` : ""} color="#6bb8e0" />
+        <ValueCard label="LEAGUE VALUE" value={fmt(pc.sha_value)} sub={pc.sha_pos_rank} color={C.gold} />
+        <ValueCard label="DYNASTY" value={pc.dynasty_value ? fmt(pc.dynasty_value) : "—"} sub={pc.dynasty_rank ? `#${pc.dynasty_rank}` : ""} color="#6bb8e0" />
         <ValueCard label="WIN-NOW" value={pc.redraft_value ? fmt(pc.redraft_value) : "—"} sub={pc.redraft_rank ? `#${pc.redraft_rank}` : ""} color="#7dd3a0" />
       </div>
 
@@ -533,30 +533,24 @@ function TradesTab({ trades, timeline, playerName, pc }: { trades: Array<Record<
 
 function ValueTab({ history, priceHistory }: { history: ValueHistoryPoint[]; priceHistory?: Record<string, unknown> }) {
   if (history.length < 3) return <EmptyState text="Insufficient value history data." />;
-  const [touchIdx, setTouchIdx] = useState<number | null>(null);
 
-  // SHA value data
-  const shaValues = history.filter(h => h.sha_value != null).map(h => h.sha_value as number);
   const latest = history[history.length - 1];
   const earliest = history[0];
   const delta = (latest.sha_value || 0) - (earliest.sha_value || 0);
   const pctChange = earliest.sha_value ? ((delta / earliest.sha_value) * 100) : 0;
 
-  // Market price data — API shape: {current_value: {market_price, low_confidence}, trend: {monthly: [...]}, volume: {all_time}}
+  // Market price data
   const ph = priceHistory;
-  const marketByMonth: Record<string, number> = {};
-  const trendObj = (ph?.trend || {}) as Record<string, unknown>;
-  const monthlyArr = (trendObj.monthly || []) as { month: string; median_price: number }[];
-  for (const pt of monthlyArr) {
-    marketByMonth[pt.month] = pt.median_price;
-  }
   const cvObj = (ph?.current_value || {}) as Record<string, unknown>;
   const marketValue = typeof cvObj.market_price === "number" ? cvObj.market_price : null;
   const lowVolume = typeof cvObj.low_confidence === "boolean" ? cvObj.low_confidence : true;
   const volObj = (ph?.volume || {}) as Record<string, unknown>;
   const totalVolume = typeof volObj.all_time === "number" ? volObj.all_time : 0;
+  const trendObj = (ph?.trend || {}) as Record<string, unknown>;
+  const signal = typeof trendObj.signal === "string" ? trendObj.signal.toUpperCase() : null;
+  const formatLabel = typeof (ph as Record<string, unknown>)?.format === "string" ? (ph as Record<string, unknown>).format as string : null;
 
-  // Valuation comparison badge
+  // Valuation comparison
   const currentSha = latest.sha_value || 0;
   let valuationPct = 0;
   let valuationLabel = "";
@@ -575,55 +569,14 @@ function ValueTab({ history, priceHistory }: { history: ValueHistoryPoint[]; pri
     }
   }
 
-  // Merge SHA history + market price onto same x-axis (by month)
-  // SHA points are daily, market points are monthly — interpolate market onto SHA dates
-  const chartData = history.map(h => {
-    const month = (h.date || "").substring(0, 7);
-    return { date: h.date, sha: h.sha_value || 0, market: marketByMonth[month] ?? null };
-  });
-
-  // Fixed-size viewBox so strokes don't distort
-  const W = 400;
-  const H = 160;
-  const PAD = { t: 10, b: 20, l: 0, r: 0 };
-  const plotW = W - PAD.l - PAD.r;
-  const plotH = H - PAD.t - PAD.b;
-
-  // Compute unified min/max across both series
-  const allVals = chartData.flatMap(d => [d.sha, ...(d.market != null ? [d.market] : [])]).filter(v => v > 0);
-  const maxVal = Math.max(...allVals, 1);
-  const minVal = Math.min(...allVals, 0);
-  const range = maxVal - minVal || 1;
-  const toX = (i: number) => PAD.l + (i / Math.max(chartData.length - 1, 1)) * plotW;
-  const toY = (v: number) => PAD.t + plotH - ((v - minVal) / range) * plotH;
-
-  // Touch-to-inspect
-  const svgRef = useRef<SVGSVGElement>(null);
-  const handleChartInteraction = useCallback((clientX: number) => {
-    if (!svgRef.current) return;
-    const rect = svgRef.current.getBoundingClientRect();
-    const pct = (clientX - rect.left) / rect.width;
-    const idx = Math.max(0, Math.min(chartData.length - 1, Math.round(pct * (chartData.length - 1))));
-    setTouchIdx(idx);
-  }, [chartData.length]);
-
-  const inspected = touchIdx != null ? chartData[touchIdx] : null;
-
-  // Build polylines
-  const shaLine = chartData.map((d, i) => `${toX(i)},${toY(d.sha)}`).join(" ");
-  const shaArea = (() => {
-    const pts = chartData.map((d, i) => `${toX(i)},${toY(d.sha)}`);
-    return `M${pts.join(" L")} L${toX(chartData.length - 1)},${H - PAD.b} L${PAD.l},${H - PAD.b} Z`;
-  })();
-  const marketLine = chartData
-    .map((d, i) => d.market != null ? `${toX(i)},${toY(d.market)}` : null)
-    .filter(Boolean);
+  // Bar widths — longer bar = 100%, shorter bar is proportional
+  const barMax = Math.max(currentSha, marketValue || 0, 1);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       {/* Summary cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
-        <ValueCard label="CONSENSUS" value={fmt(latest.sha_value || 0)} sub={latest.sha_pos_rank || ""} color={C.gold} />
+        <ValueCard label="CONSENSUS" value={fmt(currentSha)} sub={latest.sha_pos_rank || ""} color={C.gold} />
         {marketValue ? (
           <ValueCard label="MARKET PRICE" value={fmt(marketValue)} sub={`${totalVolume} trades`} color="#6bb8e0" />
         ) : (
@@ -637,85 +590,107 @@ function ValueTab({ history, priceHistory }: { history: ValueHistoryPoint[]; pri
         )}
       </div>
 
-      {/* Chart */}
-      <div>
-        <SectionLabel text="CONSENSUS vs TRADE MARKET" />
-        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "14px 12px 10px" }}>
-          {/* Inspection readout */}
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6, fontFamily: MONO, fontSize: 12, minHeight: 18 }}>
-            {inspected ? (
-              <>
-                <span style={{ color: C.dim }}>{inspected.date}</span>
-                <span style={{ color: C.gold, fontWeight: 700 }}>{fmt(inspected.sha)}</span>
-                {inspected.market != null && <span style={{ color: "#6bb8e0", fontWeight: 700 }}>{fmt(inspected.market)}</span>}
-              </>
-            ) : (
-              <span style={{ color: C.dim, fontSize: 11 }}>Touch or hover to inspect</span>
-            )}
-          </div>
-          <svg
-            ref={svgRef}
-            viewBox={`0 0 ${W} ${H}`}
-            style={{ display: "block", width: "100%", height: "auto", maxHeight: 180, touchAction: "none", cursor: "crosshair" }}
-            onTouchMove={(e) => handleChartInteraction(e.touches[0].clientX)}
-            onTouchEnd={() => setTouchIdx(null)}
-            onMouseMove={(e) => handleChartInteraction(e.clientX)}
-            onMouseLeave={() => setTouchIdx(null)}
-          >
-            {/* SHA area gradient */}
-            <defs>
-              <linearGradient id="pcGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={C.gold} stopOpacity="0.18" />
-                <stop offset="100%" stopColor={C.gold} stopOpacity="0.01" />
-              </linearGradient>
-            </defs>
-            <path d={shaArea} fill="url(#pcGrad)" />
-            {/* SHA line — gold */}
-            <polyline points={shaLine} fill="none" stroke={C.gold} strokeWidth="1.5" strokeLinejoin="round" />
-            {/* Market line — cyan */}
-            {marketLine.length > 1 && (
-              <polyline
-                points={marketLine.join(" ")}
-                fill="none" stroke="#6bb8e0" strokeWidth="1.5" strokeLinejoin="round"
-                strokeDasharray={lowVolume ? "8,5" : "none"}
-                opacity={lowVolume ? 0.5 : 0.85}
-              />
-            )}
-            {/* Crosshair */}
-            {touchIdx != null && (
-              <>
-                <line x1={toX(touchIdx)} y1={PAD.t} x2={toX(touchIdx)} y2={H - PAD.b}
-                  stroke={C.gold} strokeWidth="0.5" strokeDasharray="3,3" opacity="0.4" />
-                <circle cx={toX(touchIdx)} cy={toY(chartData[touchIdx].sha)} r="3" fill={C.gold} />
-                {chartData[touchIdx].market != null && (
-                  <circle cx={toX(touchIdx)} cy={toY(chartData[touchIdx].market!)} r="3" fill="#6bb8e0" />
-                )}
-              </>
-            )}
-          </svg>
-          {/* Legend */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6, fontFamily: MONO, fontSize: 10, color: C.dim }}>
-            <span>{chartData[0]?.date || ""}</span>
-            <div style={{ display: "flex", gap: 10 }}>
-              <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
-                <span style={{ width: 10, height: 1.5, background: C.gold, display: "inline-block", borderRadius: 1 }} />
-                <span style={{ color: C.gold }}>Consensus</span>
-              </span>
-              {marketLine.length > 1 && (
-                <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
-                  <span style={{ width: 10, height: 1.5, background: "#6bb8e0", display: "inline-block", borderRadius: 1 }} />
-                  <span style={{ color: "#6bb8e0" }}>Market{lowVolume ? " (low vol)" : ""}</span>
+      {/* Horizontal bar comparison */}
+      {marketValue ? (
+        <div>
+          <SectionLabel text="CONSENSUS vs TRADE MARKET" />
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "16px 16px 14px" }}>
+            {/* Consensus bar */}
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
+                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.gold, letterSpacing: "0.04em" }}>CONSENSUS</span>
+                <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: C.gold }}>{fmt(currentSha)}</span>
+              </div>
+              <div style={{ height: 28, background: C.elevated, borderRadius: 6, overflow: "hidden" }}>
+                <div style={{
+                  width: `${(currentSha / barMax) * 100}%`, height: "100%",
+                  background: `linear-gradient(90deg, ${C.goldDark}, ${C.gold})`,
+                  borderRadius: 6, transition: "width 0.5s ease",
+                }} />
+              </div>
+            </div>
+            {/* Trade Market bar */}
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
+                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: "#6bb8e0", letterSpacing: "0.04em" }}>TRADE MARKET</span>
+                <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: "#6bb8e0" }}>{fmt(marketValue)}</span>
+              </div>
+              <div style={{ height: 28, background: C.elevated, borderRadius: 6, overflow: "hidden" }}>
+                <div style={{
+                  width: `${(marketValue / barMax) * 100}%`, height: "100%",
+                  background: "linear-gradient(90deg, #3a6d8a, #6bb8e0)",
+                  borderRadius: 6, transition: "width 0.5s ease",
+                  opacity: lowVolume ? 0.6 : 1,
+                }} />
+              </div>
+            </div>
+
+            {/* Valuation badge */}
+            {valuationLabel && (
+              <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
+                <span style={{
+                  fontFamily: MONO, fontSize: 12, fontWeight: 800, letterSpacing: "0.06em",
+                  color: valuationColor, background: `${valuationColor}15`,
+                  padding: "5px 14px", borderRadius: 6, border: `1px solid ${valuationColor}30`,
+                }}>
+                  {valuationLabel}
                 </span>
+              </div>
+            )}
+
+            {/* Stats row */}
+            <div style={{
+              display: "flex", justifyContent: "center", gap: 8, flexWrap: "wrap",
+              fontFamily: MONO, fontSize: 11, color: C.dim,
+              borderTop: `1px solid ${C.border}`, paddingTop: 10,
+            }}>
+              <span>{totalVolume.toLocaleString()} trades</span>
+              {signal && (
+                <>
+                  <span style={{ color: C.border }}>·</span>
+                  <span>30-day trend: <span style={{
+                    fontWeight: 700,
+                    color: signal === "BUY" ? "#7dd3a0" : signal === "SELL" ? "#e47272" : C.dim,
+                  }}>{signal}</span></span>
+                </>
+              )}
+              {formatLabel && (
+                <>
+                  <span style={{ color: C.border }}>·</span>
+                  <span>{formatLabel}</span>
+                </>
+              )}
+              {lowVolume && (
+                <>
+                  <span style={{ color: C.border }}>·</span>
+                  <span style={{ color: "#e4727280" }}>Low volume</span>
+                </>
               )}
             </div>
-            <span>{chartData[chartData.length - 1]?.date || ""}</span>
-          </div>
-          {/* Watermark */}
-          <div style={{ textAlign: "right", marginTop: 4 }}>
-            <span style={{ fontFamily: SANS, fontSize: 9, color: `${C.gold}40`, fontWeight: 600 }}>dynastygpt.com</span>
+
+            {/* Watermark */}
+            <div style={{ textAlign: "right", marginTop: 6 }}>
+              <span style={{ fontFamily: SANS, fontSize: 9, color: `${C.gold}40`, fontWeight: 600 }}>dynastygpt.com</span>
+            </div>
           </div>
         </div>
-      </div>
+      ) : (
+        /* No market data — show value change instead */
+        <div>
+          <SectionLabel text="VALUE CHANGE" />
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "16px 16px 10px", textAlign: "center" }}>
+            <div style={{ fontFamily: MONO, fontSize: 24, fontWeight: 700, color: delta >= 0 ? "#7dd3a0" : "#e47272" }}>
+              {delta >= 0 ? "+" : ""}{fmt(delta)}
+            </div>
+            <div style={{ fontFamily: MONO, fontSize: 12, color: C.dim, marginTop: 4 }}>
+              {pctChange >= 0 ? "+" : ""}{pctChange.toFixed(1)}% over {history.length} days
+            </div>
+            <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim, marginTop: 8, borderTop: `1px solid ${C.border}`, paddingTop: 8 }}>
+              No trade market data available — insufficient trade volume
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
