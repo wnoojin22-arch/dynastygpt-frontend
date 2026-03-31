@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useCallback } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useLeagueStore } from "@/lib/stores/league-store";
 import PlayerCardModal from "@/components/league/PlayerCardModal";
@@ -196,26 +196,6 @@ function BottomTabBar({ basePath, pathname }: { basePath: string; pathname: stri
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   SYNC — auto-resync stale leagues, manual resync button
-   Localhost: stale after 1 hour. Production: stale after 24 hours.
-   ═══════════════════════════════════════════════════════════════ */
-const IS_DEV = typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
-const STALE_MS = IS_DEV ? 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
-
-function getSyncKey(leagueId: string) { return `dgpt_sync_ts_${leagueId}`; }
-
-function isSyncStale(leagueId: string): boolean {
-  if (!IS_DEV) return false; // Never auto-sync on production
-  const ts = localStorage.getItem(getSyncKey(leagueId));
-  if (!ts) return true;
-  return Date.now() - Number(ts) > STALE_MS;
-}
-
-function markSynced(leagueId: string) {
-  localStorage.setItem(getSyncKey(leagueId), String(Date.now()));
-}
-
-/* ═══════════════════════════════════════════════════════════════
    HEADER BAR — with Resync button
    ═══════════════════════════════════════════════════════════════ */
 function HeaderBar({ owner, owners, onOwnerChange, leagueName, syncing, onResync }: {
@@ -334,8 +314,6 @@ export default function LeagueLayout({ children }: { children: React.ReactNode }
   const { currentLeagueId, currentOwner, currentOwnerId, setOwner } = useLeagueStore();
   const slug = pathname.split("/")[2] || "";
   const [syncing, setSyncing] = useState(false);
-  const [syncBanner, setSyncBanner] = useState<string | null>(null);
-  const autoSyncRef = useRef(false);
 
   const { data: overview } = useQuery({
     queryKey: ["overview", currentLeagueId],
@@ -356,15 +334,12 @@ export default function LeagueLayout({ children }: { children: React.ReactNode }
     staleTime: 10 * 60 * 1000,
   });
 
-  // ── Sync handler (used by both auto-sync and manual button) ──
-  const doSync = useCallback(async (reason: string) => {
+  // ── Manual sync only — no auto-sync ──
+  const doSync = useCallback(async () => {
     if (!currentLeagueId || syncing) return;
     setSyncing(true);
-    setSyncBanner(`Syncing latest data... (${reason})`);
     try {
-      const res = await syncLeague(currentLeagueId);
-      markSynced(currentLeagueId);
-      // Invalidate all league queries to refresh with new data
+      await syncLeague(currentLeagueId);
       queryClient.invalidateQueries({ queryKey: ["overview", currentLeagueId] });
       queryClient.invalidateQueries({ queryKey: ["owners", currentLeagueId] });
       queryClient.invalidateQueries({ queryKey: ["rankings", currentLeagueId] });
@@ -372,27 +347,12 @@ export default function LeagueLayout({ children }: { children: React.ReactNode }
       queryClient.invalidateQueries({ queryKey: ["picks"] });
       queryClient.invalidateQueries({ queryKey: ["league-intel", currentLeagueId] });
       queryClient.invalidateQueries({ queryKey: ["trades"] });
-      setSyncBanner(`Synced: ${res.trades} trades, ${res.owners} owners, ${res.enriched_trades} enriched`);
-      setTimeout(() => setSyncBanner(null), 4000);
-    } catch (e) {
-      console.warn("[sync] failed:", e instanceof Error ? e.message : e);
-      setSyncBanner(null);
+    } catch {
+      // Silent failure — never block the UI
     } finally {
       setSyncing(false);
     }
   }, [currentLeagueId, syncing, queryClient]);
-
-  // ── Auto-sync on league load if stale ──
-  useEffect(() => {
-    if (!currentLeagueId || autoSyncRef.current) return;
-    if (isSyncStale(currentLeagueId)) {
-      autoSyncRef.current = true;
-      doSync("auto — data stale");
-    }
-  }, [currentLeagueId, doSync]);
-
-  // Reset auto-sync ref when league changes
-  useEffect(() => { autoSyncRef.current = false; }, [currentLeagueId]);
 
   const owners = ownersData?.owners || [];
   const basePath = `/l/${slug}`;
@@ -416,22 +376,8 @@ export default function LeagueLayout({ children }: { children: React.ReactNode }
           onOwnerChange={(name, userId) => setOwner(name, userId)}
           leagueName={overview?.name || ""}
           syncing={syncing}
-          onResync={() => doSync("manual")}
+          onResync={doSync}
         />
-
-        {/* Sync banner */}
-        {syncBanner && (
-          <div style={{
-            padding: "6px 16px", fontSize: 12, fontFamily: MONO, fontWeight: 600,
-            letterSpacing: "0.03em", flexShrink: 0, display: "flex", alignItems: "center", gap: 8,
-            background: syncing ? `${C.gold}10` : `${C.green}10`,
-            borderBottom: `1px solid ${syncing ? C.goldBorder : `${C.green}30`}`,
-            color: syncing ? C.gold : C.green,
-          }}>
-            {syncing && <RefreshCw size={11} style={{ animation: "spin 1s linear infinite" }} />}
-            {syncBanner}
-          </div>
-        )}
 
         <main className="pb-16 sm:pb-0" style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
           {children}
