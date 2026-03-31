@@ -76,7 +76,7 @@ function IconSidebar({ basePath, pathname, owner, shaRank }: {
   const windowColor = shaRank <= 4 ? C.green : shaRank <= 8 ? C.gold : C.red;
 
   return (
-    <div className="flex flex-col items-center shrink-0 w-16 h-full bg-black border-r border-border pt-3.5 gap-0.5">
+    <div className="hidden sm:flex flex-col items-center shrink-0 w-16 h-full bg-black border-r border-border pt-3.5 gap-0.5">
       {/* Logo */}
       <div className="cursor-pointer mb-4" onClick={() => router.push("/")}>
         <ShieldLogo size={32} />
@@ -134,6 +134,68 @@ function IconSidebar({ basePath, pathname, owner, shaRank }: {
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   BOTTOM TAB BAR — Mobile only, premium glass nav
+   ═══════════════════════════════════════════════════════════════ */
+function BottomTabBar({ basePath, pathname }: { basePath: string; pathname: string }) {
+  const router = useRouter();
+
+  return (
+    <div
+      className="fixed bottom-0 left-0 right-0 z-50 h-14 bg-black/95 backdrop-blur-md border-t border-border sm:hidden pb-safe flex items-center justify-around px-2 animate-[slideUp_0.35s_ease-out_both]"
+      style={{ boxShadow: "0 -2px 20px rgba(0,0,0,0.5)" }}
+    >
+      {NAV_ITEMS.map((item, i) => {
+        const href = `${basePath}${item.path}`;
+        const isActive = item.path === ""
+          ? pathname === basePath || pathname === basePath + "/"
+          : pathname.startsWith(href);
+
+        return (
+          <button
+            key={item.id}
+            onClick={() => router.push(href)}
+            className={`flex flex-col items-center justify-center gap-0.5 flex-1 h-full relative transition-all duration-200 animate-[fadeUp_0.3s_ease-out_both] ${isActive ? "scale-105" : ""}`}
+            style={{ animationDelay: `${i * 50 + 100}ms` }}
+          >
+            {/* Active pill indicator */}
+            {isActive && (
+              <div
+                className="absolute top-0 left-1/2 -translate-x-1/2 w-3 h-[3px] rounded-full bg-gold"
+                style={{ boxShadow: "0 2px 8px rgba(212,165,50,0.4)" }}
+              />
+            )}
+            <span
+              className={`transition-all duration-200 ${isActive ? "text-gold scale-110" : "text-dim"}`}
+              style={{ lineHeight: 0 }}
+            >
+              {isActive
+                ? (() => {
+                    const Icon = { home: Home, dashboard: LayoutGrid, trades: Zap, intel: Search, rankings: BarChart3 }[item.id]!;
+                    return <Icon size={22} />;
+                  })()
+                : item.icon
+              }
+            </span>
+            <span
+              className={`font-sans font-bold tracking-wide text-center leading-tight ${isActive ? "text-gold" : "text-dim"}`}
+              style={{ fontSize: 9 }}
+            >
+              {item.label}
+            </span>
+            {isActive && (
+              <div
+                className="absolute -inset-x-1 -top-1 bottom-0 rounded-t-md pointer-events-none"
+                style={{ boxShadow: "0 -4px 12px rgba(212,165,50,0.15)" }}
+              />
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
    HEADER BAR
    ═══════════════════════════════════════════════════════════════ */
 function HeaderBar({ owner, owners, onOwnerChange, leagueName }: {
@@ -143,10 +205,17 @@ function HeaderBar({ owner, owners, onOwnerChange, leagueName }: {
   return (
     <div style={{
       height: 48, background: C.panel, borderBottom: `1px solid ${C.border}`,
-      display: "flex", alignItems: "center", padding: "0 20px", gap: 14, flexShrink: 0,
-    }}>
+      display: "flex", alignItems: "center", gap: 14, flexShrink: 0,
+    }}
+      className="px-3 sm:px-5"
+    >
+      {/* Shield logo — mobile only (sidebar hidden) */}
+      <div className="sm:hidden shrink-0">
+        <ShieldLogo size={22} />
+      </div>
+
       {/* League Name */}
-      <div style={{ display: "flex", alignItems: "baseline", lineHeight: 1, flexShrink: 0 }}>
+      <div className="flex items-baseline leading-none shrink-0">
         {(() => {
           const name = leagueName || "DynastyGPT";
           const words = name.replace(/\s+League$/i, "").split(/\s+/);
@@ -155,8 +224,8 @@ function HeaderBar({ owner, owners, onOwnerChange, leagueName }: {
             const before = words.slice(0, dynIdx).join(" ");
             return (
               <>
-                {before && <span style={{ fontFamily: DISPLAY, fontSize: 18, color: "#fff", letterSpacing: "-0.5px", marginRight: 4 }}>{before.toUpperCase()}</span>}
-                <span style={{ fontFamily: DISPLAY, fontSize: 18, letterSpacing: "-0.5px", background: "linear-gradient(180deg, #f5e6a3, #d4a532, #8b6914)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>DYNASTY</span>
+                {before && <span className="text-sm sm:text-lg" style={{ fontFamily: DISPLAY, color: "#fff", letterSpacing: "-0.5px", marginRight: 4 }}>{before.toUpperCase()}</span>}
+                <span className="text-sm sm:text-lg" style={{ fontFamily: DISPLAY, letterSpacing: "-0.5px", background: "linear-gradient(180deg, #f5e6a3, #d4a532, #8b6914)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>DYNASTY</span>
               </>
             );
           }
@@ -164,19 +233,20 @@ function HeaderBar({ owner, owners, onOwnerChange, leagueName }: {
           const rest = words.slice(1).join(" ");
           return (
             <>
-              <span style={{ fontFamily: DISPLAY, fontSize: 18, color: "#fff", letterSpacing: "-0.5px", marginRight: rest ? 4 : 0 }}>{first.toUpperCase()}</span>
-              {rest && <span style={{ fontFamily: DISPLAY, fontSize: 18, letterSpacing: "-0.5px", background: "linear-gradient(180deg, #f5e6a3, #d4a532, #8b6914)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>{rest.toUpperCase()}</span>}
+              <span className="text-sm sm:text-lg" style={{ fontFamily: DISPLAY, color: "#fff", letterSpacing: "-0.5px", marginRight: rest ? 4 : 0 }}>{first.toUpperCase()}</span>
+              {rest && <span className="text-sm sm:text-lg" style={{ fontFamily: DISPLAY, letterSpacing: "-0.5px", background: "linear-gradient(180deg, #f5e6a3, #d4a532, #8b6914)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>{rest.toUpperCase()}</span>}
             </>
           );
         })()}
       </div>
 
-      <div style={{ width: 1, height: 24, background: C.border }} />
+      <div className="hidden sm:block" style={{ width: 1, height: 24, background: C.border }} />
 
       {/* Owner Select */}
       <select
         value={owner || ""}
         onChange={(e) => onOwnerChange(e.target.value)}
+        className="flex-1 sm:flex-none min-w-0"
         style={{
           padding: "5px 10px", borderRadius: 4,
           border: `1px solid ${owner ? C.goldBorder : C.border}`,
@@ -193,9 +263,9 @@ function HeaderBar({ owner, owners, onOwnerChange, leagueName }: {
 
       <div style={{ flex: 1 }} />
 
-      {/* Powered-by badge */}
-      <div style={{
-        display: "flex", alignItems: "center", gap: 6, padding: "4px 12px",
+      {/* Powered-by badge — hidden on mobile */}
+      <div className="hidden sm:flex" style={{
+        alignItems: "center", gap: 6, padding: "4px 12px",
         borderRadius: 20, border: `1px solid ${C.goldBorder}`, background: C.goldGlow, flexShrink: 0,
       }}>
         <span style={{ fontSize: 9, fontWeight: 600, color: C.gold, fontFamily: SANS, fontStyle: "italic" }}>powered by</span>
@@ -256,10 +326,14 @@ export default function LeagueLayout({ children }: { children: React.ReactNode }
           onOwnerChange={setOwner}
           leagueName={overview?.name || ""}
         />
-        <main style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
+        <main className="pb-16 sm:pb-0" style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
           {children}
         </main>
       </div>
+
+      {/* ── Bottom Tab Bar (mobile only) ── */}
+      <BottomTabBar basePath={basePath} pathname={pathname} />
+
       <PlayerCardModal />
     </div>
   );

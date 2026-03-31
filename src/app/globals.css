@@ -168,6 +168,10 @@
 @keyframes barFill {
   from { width: 0%; }
 }
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(100%); }
+  to { opacity: 1; transform: translateY(0); }
+}
 
 /* ═══════════════════════════════════════════════════════════════
    MOBILE RESPONSIVE — 375px-640px
@@ -212,9 +216,17 @@
     padding: 12px 14px !important;
   }
 
-  /* ── Minimum touch targets ── */
-  button, a, select, [role="button"] {
+  /* ── Extended touch targets ── */
+  button, a, select, [role="button"],
+  [onclick], [class*="cursor-pointer"] > * {
     min-height: 44px;
+  }
+
+  /* But not tiny inline elements */
+  span[style*="fontSize: 7"],
+  span[style*="fontSize: 8"],
+  span[style*="fontSize: 9"] {
+    min-height: auto;
   }
 
   /* ── Reduce large font sizes ── */
@@ -272,6 +284,51 @@
   div[style*="width: 370"] {
     width: 100% !important;
   }
+
+  /* ── Catch inline "1fr 1fr" that aren't already single-column ── */
+  div[style*="1fr 1fr"]:not([style*="28px"]) {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* ── Dashboard 55fr/45fr split ── */
+  div[style*="55fr 45fr"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* ── League home sidebar layouts ── */
+  div[style*="1fr 320px"],
+  div[style*="1fr 300px"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* ── Tailwind arbitrary grid-cols → single column ── */
+  [class*="grid-cols-["] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Exception: keep trade report 2-col grades */
+  [class*="grid-cols-["].keep-grid-mobile {
+    grid-template-columns: revert !important;
+  }
+
+  /* ── Force flex containers to column on mobile ── */
+  .mobile-col,
+  div[style*="display: \"flex\""][style*="gap: 28"],
+  div[style*="display: \"flex\""][style*="gap: 32"] {
+    flex-direction: column !important;
+  }
+
+  /* ── Fix hardcoded maxHeight containers ── */
+  div[style*="maxHeight: 500"],
+  div[style*="max-height: 500px"] {
+    max-height: 60vh !important;
+  }
+
+  /* ── Reduce horizontal padding on mobile ── */
+  div[style*="padding: \"20px 32px"],
+  div[style*="padding: '20px 32px'"] {
+    padding: 16px 14px 48px !important;
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -327,4 +384,38 @@
   @media (max-width: 640px) {
     padding: 8px !important;
   }
+}
+
+/* Cap maxHeight on mobile */
+.mobile-maxh {
+  @media (max-width: 640px) {
+    max-height: 60vh !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   TOUCH DEVICE INTERACTION
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Touch-friendly active states */
+@media (pointer: coarse) {
+  button:active, a:active, [role="button"]:active,
+  [onclick]:active, [class*="cursor-pointer"]:active {
+    opacity: 0.7;
+    transform: scale(0.97);
+    transition: all 0.1s ease;
+  }
+}
+
+/* Disable hover effects on touch devices */
+@media (hover: none) {
+  [style*="onMouseEnter"],
+  [style*="onmouseenter"] {
+    pointer-events: auto;
+  }
+}
+
+/* Safe area for bottom nav on notched phones */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }

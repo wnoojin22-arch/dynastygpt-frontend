@@ -77,7 +77,7 @@ function InsightStrip() {
   }, []);
 
   return (
-    <div style={{
+    <div className="max-sm:!px-3" style={{
       height: 36, display: "flex", alignItems: "center", justifyContent: "center",
       padding: "0 24px", overflow: "hidden",
     }}>
@@ -96,10 +96,15 @@ function InsightStrip() {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   ROTATING TICKER — cycles categories every 9s with crossfade
+   ROTATING TICKER — cycles categories, each fully styled
    ═══════════════════════════════════════════════════════════════ */
-type TickerItem = { badge?: string; badgeColor?: string; text: string; annotation: string; annotationColor: string };
-type TickerCat = { label: string; dotColor: string; items: TickerItem[] };
+type TickerCat = { label: string; dotColor: string; items: React.ReactNode[] };
+
+/* shared tiny helpers for ticker items */
+const TB = ({ c, children }: { c: string; children: React.ReactNode }) => (
+  <span style={{ fontSize: 8, fontWeight: 900, letterSpacing: "0.04em", color: c, fontFamily: SANS, background: c + "18", padding: "1px 4px", borderRadius: 2 }}>{children}</span>
+);
+const TDot = () => <span style={{ color: C.border, fontSize: 10, margin: "0 2px" }}>·</span>;
 
 function MarketTicker({ risers, fallers, recentTrades, rankings, reportCard }: {
   risers: TrendingPlayer[];
@@ -110,67 +115,153 @@ function MarketTicker({ risers, fallers, recentTrades, rankings, reportCard }: {
 }) {
   const categories = useMemo(() => {
     const cats: TickerCat[] = [];
+    const item = (key: string, children: React.ReactNode) => (
+      <span key={key} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: MONO, whiteSpace: "nowrap" }}>{children}</span>
+    );
 
-    // MARKET MOVERS — interleaved risers & fallers
+    /* ── MARKET MOVERS ─────────────────────────────────────── */
     if (risers.length || fallers.length) {
-      const items: TickerItem[] = [];
+      const nodes: React.ReactNode[] = [];
       const maxLen = Math.max(risers.length, fallers.length);
-      for (let i = 0; i < maxLen && items.length < 14; i++) {
-        if (i < risers.length) items.push({ badge: risers[i].position, badgeColor: posColor(risers[i].position), text: risers[i].player, annotation: `▲ +${fmt(risers[i].sha_delta)}`, annotationColor: C.green });
-        if (i < fallers.length && items.length < 14) items.push({ badge: fallers[i].position, badgeColor: posColor(fallers[i].position), text: fallers[i].player, annotation: `▼ ${fmt(fallers[i].sha_delta)}`, annotationColor: C.red });
+      for (let i = 0; i < maxLen && nodes.length < 14; i++) {
+        if (i < risers.length) {
+          const r = risers[i];
+          nodes.push(item(`r${i}`, <>
+            <TB c={posColor(r.position)}>{r.position}</TB>
+            <PlayerName name={r.player} style={{ fontSize: 11, fontWeight: 700, color: C.primary }} />
+            <span style={{ fontSize: 10, fontWeight: 900, color: C.green }}>▲ +{fmt(r.sha_delta)}</span>
+          </>));
+        }
+        if (i < fallers.length && nodes.length < 14) {
+          const f = fallers[i];
+          nodes.push(item(`f${i}`, <>
+            <TB c={posColor(f.position)}>{f.position}</TB>
+            <PlayerName name={f.player} style={{ fontSize: 11, fontWeight: 700, color: C.primary }} />
+            <span style={{ fontSize: 10, fontWeight: 900, color: C.red }}>▼ {fmt(f.sha_delta)}</span>
+          </>));
+        }
       }
-      cats.push({ label: "MARKET MOVERS", dotColor: C.green, items });
+      cats.push({ label: "MARKET MOVERS", dotColor: C.green, items: nodes });
     }
 
-    // TRADE MARKET — who's winning trades, notable activity
+    /* ── TRADE MARKET ──────────────────────────────────────── */
     if (reportCard) {
-      const items: TickerItem[] = [];
-      if (reportCard.biggest_robbery) { const r = reportCard.biggest_robbery; items.push({ text: `${r.winner} fleeced ${r.loser}`, annotation: `got ${r.winner_got.slice(0, 2).join(", ")}`, annotationColor: C.green }); }
-      if (reportCard.best_winwin) { const w = reportCard.best_winwin; items.push({ text: `${w.side_a} & ${w.side_b}`, annotation: "best win-win deal", annotationColor: C.gold }); }
-      reportCard.quality_leaderboard?.slice(0, 4).forEach(q => items.push({ text: q.owner, annotation: `${Math.round(q.win_pct)}% trade win rate`, annotationColor: q.win_pct >= 60 ? C.green : C.secondary }));
-      if (reportCard.most_active_trader) items.push({ text: reportCard.most_active_trader.owner, annotation: `most active — ${reportCard.most_active_trader.trades} trades`, annotationColor: C.gold });
-      if (reportCard.blockbusters) items.push({ text: `${reportCard.blockbusters} blockbuster deals`, annotation: "this season", annotationColor: C.gold });
-      if (reportCard.panic_trades) items.push({ text: `${reportCard.panic_trades} panic trades`, annotation: "detected", annotationColor: C.red });
-      if (items.length) cats.push({ label: "TRADE MARKET", dotColor: C.gold, items });
+      const nodes: React.ReactNode[] = [];
+      if (reportCard.biggest_robbery) {
+        const r = reportCard.biggest_robbery;
+        nodes.push(item("rob", <>
+          <span style={{ fontSize: 11, fontWeight: 800, color: C.green }}>{r.winner}</span>
+          <span style={{ fontSize: 10, color: C.dim }}>fleeced</span>
+          <span style={{ fontSize: 11, fontWeight: 700, color: C.red }}>{r.loser}</span>
+          <TDot />
+          <span style={{ fontSize: 10, color: C.secondary }}>got {r.winner_got.slice(0, 2).join(", ")}</span>
+        </>));
+      }
+      if (reportCard.best_winwin) {
+        const w = reportCard.best_winwin;
+        nodes.push(item("ww", <>
+          <TB c={C.gold}>WIN-WIN</TB>
+          <span style={{ fontSize: 11, fontWeight: 700, color: C.primary }}>{w.side_a}</span>
+          <span style={{ fontSize: 10, color: C.dim }}>&</span>
+          <span style={{ fontSize: 11, fontWeight: 700, color: C.primary }}>{w.side_b}</span>
+        </>));
+      }
+      reportCard.quality_leaderboard?.slice(0, 4).forEach((q, i) => {
+        const pct = Math.round(q.win_pct);
+        const c = pct >= 65 ? C.green : pct >= 50 ? C.gold : C.red;
+        nodes.push(item(`ql${i}`, <>
+          <span style={{ fontSize: 11, fontWeight: 700, color: C.primary }}>{q.owner}</span>
+          <span style={{ fontSize: 10, fontWeight: 900, color: c }}>{pct}%</span>
+          <span style={{ fontSize: 10, color: C.dim }}>win rate</span>
+        </>));
+      });
+      if (reportCard.most_active_trader) nodes.push(item("active", <>
+        <TB c={C.gold}>MOST ACTIVE</TB>
+        <span style={{ fontSize: 11, fontWeight: 700, color: C.primary }}>{reportCard.most_active_trader.owner}</span>
+        <span style={{ fontSize: 10, fontWeight: 800, color: C.gold }}>{reportCard.most_active_trader.trades} trades</span>
+      </>));
+      if (reportCard.blockbusters) nodes.push(item("block", <>
+        <span style={{ fontSize: 10, fontWeight: 900, color: C.gold }}>{reportCard.blockbusters}</span>
+        <span style={{ fontSize: 10, color: C.secondary }}>blockbuster deals</span>
+      </>));
+      if (reportCard.panic_trades) nodes.push(item("panic", <>
+        <span style={{ fontSize: 10, fontWeight: 900, color: C.red }}>{reportCard.panic_trades}</span>
+        <span style={{ fontSize: 10, color: C.secondary }}>panic trades detected</span>
+      </>));
+      if (nodes.length) cats.push({ label: "TRADE MARKET", dotColor: C.gold, items: nodes });
     }
 
-    // MANAGER RATINGS — power rankings
+    /* ── MANAGER RATINGS ───────────────────────────────────── */
     if (rankings?.length) {
-      const items: TickerItem[] = rankings.slice(0, 12).map(r => ({
-        badge: `#${r.rank}`, badgeColor: r.rank <= 3 ? C.green : r.rank <= 6 ? C.gold : r.rank <= 9 ? C.orange : C.red,
-        text: r.owner, annotation: fmt(r.total_sha), annotationColor: r.rank <= 3 ? C.green : C.gold,
-      }));
-      cats.push({ label: "MANAGER RATINGS", dotColor: C.blue, items });
+      const nodes = rankings.slice(0, 12).map((r, i) => {
+        const tier = r.rank <= 3 ? C.green : r.rank <= 6 ? C.gold : r.rank <= 9 ? C.orange : C.red;
+        return item(`rk${i}`, <>
+          <TB c={tier}>#{r.rank}</TB>
+          <span style={{ fontSize: 11, fontWeight: 700, color: C.primary }}>{r.owner}</span>
+          <span style={{ fontSize: 10, fontWeight: 800, color: tier }}>{fmt(r.total_sha)}</span>
+        </>);
+      });
+      cats.push({ label: "MANAGER RATINGS", dotColor: C.blue, items: nodes });
     }
 
-    // RECENT TRADES — deal summaries
+    /* ── RECENT TRADES ─────────────────────────────────────── */
     if (recentTrades?.length) {
-      const items: TickerItem[] = recentTrades.slice(0, 8).map(t => ({
-        text: `${t.owner} → ${t.counter_party}`,
-        annotation: `${(t.players_sent || []).slice(0, 2).join(", ") || "picks"} ↔ ${(t.players_received || []).slice(0, 2).join(", ") || "picks"}`,
-        annotationColor: C.secondary,
-      }));
-      cats.push({ label: "RECENT TRADES", dotColor: C.orange, items });
+      const nodes = recentTrades.slice(0, 8).map((t, i) => {
+        const verdict = t.verdict;
+        const vColor = verdict === "robbery" ? C.red : verdict === "win-win" ? C.green : C.gold;
+        return item(`tr${i}`, <>
+          <span style={{ fontSize: 11, fontWeight: 700, color: C.primary }}>{t.owner}</span>
+          <span style={{ fontSize: 10, color: C.gold }}>→</span>
+          <span style={{ fontSize: 11, fontWeight: 700, color: C.primary }}>{t.counter_party}</span>
+          <TDot />
+          <span style={{ fontSize: 10, color: C.secondary }}>{(t.players_sent || []).slice(0, 2).join(", ") || "picks"}</span>
+          <span style={{ fontSize: 10, color: C.gold }}>↔</span>
+          <span style={{ fontSize: 10, color: C.secondary }}>{(t.players_received || []).slice(0, 2).join(", ") || "picks"}</span>
+          {verdict && <TB c={vColor}>{verdict.toUpperCase()}</TB>}
+        </>);
+      });
+      cats.push({ label: "RECENT TRADES", dotColor: C.orange, items: nodes });
     }
 
-    // DRAFT BOARD — who's stockpiling vs selling picks
+    /* ── DRAFT BOARD ───────────────────────────────────────── */
     if (reportCard?.pick_movement && reportCard.pick_movement.total_picks_traded > 0) {
       const pm = reportCard.pick_movement;
-      const items: TickerItem[] = [{ text: `${pm.total_picks_traded} picks changed hands`, annotation: "this season", annotationColor: C.gold }];
+      const nodes: React.ReactNode[] = [];
+      nodes.push(item("total", <>
+        <span style={{ fontSize: 10, fontWeight: 900, color: C.gold }}>{pm.total_picks_traded}</span>
+        <span style={{ fontSize: 10, color: C.secondary }}>picks changed hands this season</span>
+      </>));
       const buyers = pm.flow_by_owner?.filter(f => f.net_picks > 0).slice(0, 4) || [];
       const sellers = pm.flow_by_owner?.filter(f => f.net_picks < 0).slice(0, 4) || [];
-      buyers.forEach(f => items.push({ text: f.owner, annotation: `stockpiling picks (+${f.net_picks} net)`, annotationColor: C.green }));
-      sellers.forEach(f => items.push({ text: f.owner, annotation: `selling picks (${f.net_picks} net)`, annotationColor: C.red }));
-      if (items.length > 1) cats.push({ label: "DRAFT BOARD", dotColor: "#a78bfa", items });
+      buyers.forEach((f, i) => nodes.push(item(`buy${i}`, <>
+        <span style={{ fontSize: 11, fontWeight: 700, color: C.primary }}>{f.owner}</span>
+        <TB c={C.green}>+{f.net_picks}</TB>
+        <span style={{ fontSize: 10, color: C.dim }}>stockpiling</span>
+      </>)));
+      sellers.forEach((f, i) => nodes.push(item(`sell${i}`, <>
+        <span style={{ fontSize: 11, fontWeight: 700, color: C.primary }}>{f.owner}</span>
+        <TB c={C.red}>{f.net_picks}</TB>
+        <span style={{ fontSize: 10, color: C.dim }}>selling</span>
+      </>)));
+      if (nodes.length > 1) cats.push({ label: "DRAFT BOARD", dotColor: "#a78bfa", items: nodes });
     }
 
-    // AI INSIGHT — league personality + fun stats
+    /* ── AI INSIGHT ─────────────────────────────────────────── */
     if (reportCard) {
-      const items: TickerItem[] = [];
-      if (reportCard.league_personality) items.push({ text: reportCard.league_personality.type, annotation: reportCard.league_personality.description, annotationColor: C.secondary });
-      if (reportCard.fun_stat) items.push({ text: "Fun stat", annotation: reportCard.fun_stat, annotationColor: C.gold });
-      if (reportCard.activity_summary) items.push({ text: "Season recap", annotation: reportCard.activity_summary, annotationColor: C.secondary });
-      if (items.length) cats.push({ label: "AI INSIGHT", dotColor: C.gold, items });
+      const nodes: React.ReactNode[] = [];
+      if (reportCard.league_personality) nodes.push(item("lp", <>
+        <TB c={C.gold}>{reportCard.league_personality.type.toUpperCase()}</TB>
+        <span style={{ fontSize: 11, fontWeight: 500, color: C.secondary, fontStyle: "italic" }}>{reportCard.league_personality.description}</span>
+      </>));
+      if (reportCard.fun_stat) nodes.push(item("fun", <>
+        <TB c={C.gold}>FUN STAT</TB>
+        <span style={{ fontSize: 11, fontWeight: 500, color: C.secondary, fontStyle: "italic" }}>{reportCard.fun_stat}</span>
+      </>));
+      if (reportCard.activity_summary) nodes.push(item("recap", <>
+        <TB c={C.blue}>SEASON</TB>
+        <span style={{ fontSize: 11, fontWeight: 500, color: C.secondary, fontStyle: "italic" }}>{reportCard.activity_summary}</span>
+      </>));
+      if (nodes.length) cats.push({ label: "AI INSIGHT", dotColor: C.gold, items: nodes });
     }
 
     return cats;
@@ -206,12 +297,11 @@ function MarketTicker({ risers, fallers, recentTrades, rankings, reportCard }: {
   if (!categories.length) return null;
   const cat = categories[catIdx % categories.length];
 
-  const renderSet = (prefix: string) => cat.items.map((item, i) => (
-    <span key={`${prefix}-${i}`} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: MONO, whiteSpace: "nowrap" }}>
-      {item.badge && <span style={{ fontSize: 8, fontWeight: 900, letterSpacing: "0.04em", color: item.badgeColor || C.dim, fontFamily: SANS, background: (item.badgeColor || C.dim) + "18", padding: "1px 4px", borderRadius: 2 }}>{item.badge}</span>}
-      <span style={{ fontSize: 11, fontWeight: 700, color: C.primary }}>{item.text}</span>
-      <span style={{ fontSize: 10, fontWeight: 900, color: item.annotationColor }}>{item.annotation}</span>
-    </span>
+  const renderSet = (prefix: string) => cat.items.map((node, i) => (
+    <React.Fragment key={`${prefix}-${i}`}>
+      {i > 0 && <TDot />}
+      {node}
+    </React.Fragment>
   ));
 
   return (
@@ -222,9 +312,9 @@ function MarketTicker({ risers, fallers, recentTrades, rankings, reportCard }: {
       </div>
       <div ref={scrollRef} style={{ display: "flex", alignItems: "center", gap: 24, whiteSpace: "nowrap", width: "max-content", paddingLeft: 180, opacity: fading ? 0 : 1, transition: "opacity 0.6s ease-in-out" }}>
         {renderSet("a")}
-        <span style={{ display: "inline-block", width: 40 }} />
+        <span style={{ display: "inline-block", width: 60 }} />
         {renderSet("b")}
-        <span style={{ display: "inline-block", width: 40 }} />
+        <span style={{ display: "inline-block", width: 60 }} />
         {renderSet("c")}
       </div>
     </div>
@@ -357,7 +447,7 @@ function FeaturedArticle({ leagueName }: { leagueName: string }) {
     onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.005)"; e.currentTarget.style.borderColor = C.gold + "40"; e.currentTarget.style.boxShadow = `0 8px 40px rgba(212,165,50,0.06)`; }}
     onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.borderColor = C.border; e.currentTarget.style.boxShadow = "none"; }}>
       <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, ${C.gold}20, transparent)` }} />
-      <div style={{ height: 180, overflow: "hidden" }}><DraftBoardSVG /></div>
+      <div className="h-[120px] sm:h-[180px]" style={{ overflow: "hidden" }}><DraftBoardSVG /></div>
       <div style={{ padding: "16px 24px 22px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
           <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.1em", color: C.gold, fontFamily: SANS, padding: "2px 8px", borderRadius: 3, background: C.goldDim, border: `1px solid ${C.goldBorder}` }}>FEATURED</span>
@@ -523,7 +613,7 @@ function ReportCardSkeleton() {
         {/* Activity line skeleton */}
         <div style={{ height: 20, borderRadius: 4, background: C.elevated, width: "75%" }} />
         {/* Three cards skeleton */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+        <div className="mobile-stack" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
           {[0, 1, 2].map((i) => (
             <div key={i} style={{ height: 100, borderRadius: 8, background: C.elevated, border: `1px solid ${C.border}` }} />
           ))}
@@ -584,7 +674,7 @@ function LeagueReportCard({ data }: { data: LeagueReportCardResponse }) {
       </div>
 
       {/* ── Three Spotlight Cards ───────────────────────────── */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 14 }}>
+      <div className="mobile-stack" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 14 }}>
         {/* Biggest Robbery */}
         <div style={{
           background: C.card, borderRadius: 8, overflow: "hidden",
@@ -781,7 +871,7 @@ export default function LeagueHome() {
           <FeaturedArticle leagueName={leagueName} />
 
           {/* Sub-articles — flows directly under hero, no section header */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
+          <div className="mobile-stack" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
             {leagueArticles.map((a, i) => <LeagueArticle key={i} {...a} />)}
           </div>
 

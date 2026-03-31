@@ -1,317 +1,176 @@
-// @ts-nocheck — hindsight data uses Record<string, unknown> extensively; fix types later
+// @ts-nocheck — ported from Shadynasty's TradeReportModal, uses Record<string, unknown> extensively
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getTradeReport, getTradeHindsight } from "@/lib/api";
 import { C, SANS, MONO, DISPLAY, SERIF, fmt, gradeColor, posColor } from "./tokens";
 import PlayerName from "./PlayerName";
+import { usePlayerCardStore } from "@/lib/stores/player-card-store";
 
 /* ═══════════════════════════════════════════════════════════════
-   HELPERS
+   HELPERS — ported from Shadynasty
    ═══════════════════════════════════════════════════════════════ */
-function letterGrade(score: number): string {
-  if (!score) return "—";
-  if (score >= 97) return "A+"; if (score >= 93) return "A"; if (score >= 90) return "A-";
-  if (score >= 87) return "B+"; if (score >= 83) return "B"; if (score >= 80) return "B-";
-  if (score >= 77) return "C+"; if (score >= 73) return "C"; if (score >= 70) return "C-";
-  if (score >= 67) return "D+"; if (score >= 63) return "D"; if (score >= 60) return "D-";
-  return "F";
+function getLetterGrade(s: number) { if(s>=97)return'A+';if(s>=93)return'A';if(s>=90)return'A-';if(s>=87)return'B+';if(s>=83)return'B';if(s>=80)return'B-';if(s>=77)return'C+';if(s>=73)return'C';if(s>=70)return'C-';if(s>=67)return'D+';if(s>=63)return'D';if(s>=60)return'D-';return'F'; }
+function getGradeColor(s: number) { return s >= 90 ? '#4ade80' : s >= 80 ? C.green : s >= 70 ? C.blue : s >= 60 ? C.gold : s >= 50 ? C.orange : C.red; }
+function getVerdictStyle(v: string) {
+  const m: Record<string,{color:string;bg:string;border:string}> = {
+    'Won':{color:'#4ade80',bg:'rgba(74,222,128,0.12)',border:'rgba(74,222,128,0.25)'},'Slight Edge':{color:C.green,bg:'rgba(125,211,160,0.12)',border:'rgba(125,211,160,0.25)'},
+    'Push':{color:C.secondary,bg:'rgba(176,178,200,0.10)',border:'rgba(176,178,200,0.20)'},'Slight Loss':{color:C.orange,bg:'rgba(224,156,107,0.12)',border:'rgba(224,156,107,0.25)'},
+    'Lost':{color:C.red,bg:'rgba(228,114,114,0.12)',border:'rgba(228,114,114,0.25)'},'Fair':{color:C.secondary,bg:'rgba(176,178,200,0.10)',border:'rgba(176,178,200,0.20)'},
+    'Win-Win':{color:C.green,bg:'rgba(125,211,160,0.12)',border:'rgba(125,211,160,0.25)'},'ROBBERY':{color:'#ff4444',bg:'rgba(255,68,68,0.15)',border:'rgba(255,68,68,0.3)'},
+    'No Data':{color:C.dim,bg:'transparent',border:C.border},
+  };
+  return m[v]||{color:C.dim,bg:'transparent',border:C.border};
+}
+function ordinal(n:number){if(!n||isNaN(n))return'—';const s=['th','st','nd','rd'];const v=n%100;return n+(s[(v-20)%10]||s[v]||s[0]);}
+
+/* ═══ LOADING ═══ */
+function LoadingSequence(){const[phase,setPhase]=useState(0);const[systems,setSystems]=useState<Array<{label:string;status:string}>>([]);const checks=[{label:"COLLECTING RECEIPTS",delay:0},{label:"GATHERING TRADE DAY INTEL",delay:350},{label:"TRACKING ASSETS",delay:700},{label:"GATHERING HINDSIGHT INTEL",delay:1050},{label:"MEASURING IMPACT",delay:1400},{label:"GENERATING VERDICT",delay:1750}];useEffect(()=>{const t=[setTimeout(()=>setPhase(1),100),setTimeout(()=>setPhase(2),400),setTimeout(()=>setPhase(3),800)];return()=>t.forEach(clearTimeout);},[]);useEffect(()=>{if(phase>=3)checks.forEach(s=>{setTimeout(()=>setSystems(p=>[...p,{label:s.label,status:"ONLINE"}]),s.delay);});},[phase]);return(<div style={{padding:60,display:'flex',flexDirection:'column',alignItems:'center',gap:24,minHeight:400}}>{phase>=1&&<div style={{position:'relative',width:80,height:80,borderRadius:'50%',border:`1px solid ${C.gold}20`}}><div style={{position:'absolute',top:'50%',left:'50%',width:'50%',height:2,transformOrigin:'0 50%',background:`linear-gradient(90deg, ${C.gold}80, transparent)`,animation:'radarSweep 2s linear infinite'}}/></div>}{phase>=2&&<div style={{textAlign:'center'}}><div style={{fontFamily:MONO,fontSize:14,fontWeight:800,letterSpacing:'0.35em',color:C.goldBright}}>TRADE REPORT</div></div>}{phase>=3&&<div style={{width:320,display:'flex',flexDirection:'column',gap:4}}>{systems.map((sys,i)=>(<div key={i} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'5px 0',fontFamily:MONO,fontSize:10}}><div style={{display:'flex',alignItems:'center',gap:8}}><div style={{width:5,height:5,borderRadius:'50%',background:C.green,boxShadow:`0 0 6px ${C.green}60`}}/><span style={{color:C.dim,letterSpacing:'0.08em'}}>{sys.label}</span></div><span style={{color:C.green,fontWeight:700,fontSize:9}}>ONLINE</span></div>))}</div>}</div>);}
+
+/* ═══ GRADE CIRCLE ═══ */
+function GradeCircle({score,size=64}:{score:number;size?:number}){const letter=getLetterGrade(score);const color=getGradeColor(score);const r=(size-8)/2;const circ=2*Math.PI*r;const pct=Math.min(score/100,1);return(<div style={{position:'relative',width:size,height:size,flexShrink:0}}><svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}><circle cx={size/2} cy={size/2} r={r} fill="none" stroke={C.border} strokeWidth="3"/><circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeDasharray={`${pct*circ} ${circ}`} transform={`rotate(-90 ${size/2} ${size/2})`}/></svg><div style={{position:'absolute',inset:0,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}}><div style={{fontFamily:MONO,fontSize:size*0.3,fontWeight:900,color,lineHeight:1}}>{letter}</div><div style={{fontFamily:MONO,fontSize:size*0.15,fontWeight:700,color:C.dim,lineHeight:1,marginTop:2}}>{score}</div></div></div>);}
+
+/* ═══ GRADE BOX ═══ */
+function GradeBox({score,verdict,confidence}:{score:number;verdict:string;confidence?:string}){const vs=getVerdictStyle(verdict);return(<div style={{display:'flex',alignItems:'center',gap:14,padding:'14px 16px',borderRadius:8,background:`${vs.color}08`,border:`1px solid ${vs.border}`}}><GradeCircle score={score} size={68}/><div><span style={{fontFamily:MONO,fontSize:14,fontWeight:900,color:vs.color,padding:'4px 12px',borderRadius:4,background:vs.bg,border:`1px solid ${vs.border}`}}>{verdict}</span>{confidence&&<div style={{fontFamily:MONO,fontSize:9,color:C.dim,marginTop:8,letterSpacing:'0.06em'}}>{confidence} Confidence</div>}</div></div>);}
+
+/* ═══ SECTION DIVIDER ═══ */
+function SectionDivider({label,accent}:{label:string;accent:string}){return(<div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:16,padding:'18px 24px',borderTop:`1px solid ${C.border}`,background:`linear-gradient(180deg, ${accent}0a, transparent 80%)`}}><div style={{flex:1,height:1,background:`linear-gradient(90deg, transparent, ${accent}30)`}}/><span style={{fontFamily:MONO,fontSize:13,fontWeight:900,letterSpacing:'0.30em',color:accent}}>{label}</span><div style={{flex:1,height:1,background:`linear-gradient(90deg, ${accent}30, transparent)`}}/></div>);}
+
+function SubHeader({label}:{label:string}){return(<div style={{fontFamily:MONO,fontSize:9,fontWeight:800,letterSpacing:'0.14em',color:C.gold,padding:'6px 0',borderBottom:`1px solid ${C.gold}25`,marginBottom:8}}>{label}</div>);}
+function StatusTag({label,color,bg,border}:{label:string;color:string;bg:string;border:string}){return(<span style={{fontFamily:MONO,fontSize:7,fontWeight:800,padding:'1px 5px',borderRadius:3,background:bg,border:`1px solid ${border}`,color}}>{label}</span>);}
+
+/* ═══ GRADE FACTOR CARD ═══ */
+function GradeFactorCard({factor}:{factor:any}){
+  const sm:Record<string,{color:string;bg:string;border:string;icon:string}>={
+    elite:{color:C.goldBright,bg:'rgba(212,165,50,0.12)',border:'rgba(212,165,50,0.30)',icon:'★'},
+    positive:{color:C.green,bg:'rgba(125,211,160,0.12)',border:'rgba(125,211,160,0.25)',icon:'✓'},
+    neutral:{color:C.secondary,bg:'rgba(176,178,200,0.08)',border:'rgba(176,178,200,0.15)',icon:'○'},
+    negative:{color:C.red,bg:'rgba(228,114,114,0.12)',border:'rgba(228,114,114,0.25)',icon:'▼'},
+  };
+  const s=sm[factor.sentiment]||sm.neutral;
+  return(<div style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',borderRadius:6,background:s.bg,border:`1px solid ${s.border}`,marginBottom:4}}>
+    <span style={{fontSize:12,flexShrink:0,color:s.color,fontWeight:900,width:20,textAlign:'center'}}>{s.icon}</span>
+    <div style={{flex:1,minWidth:0}}><div style={{fontFamily:SANS,fontSize:12,fontWeight:700,color:s.color}}>{factor.title}</div><div style={{fontFamily:SANS,fontSize:10,color:C.dim,marginTop:1,lineHeight:1.3}}>{factor.detail}</div></div>
+    {factor.value&&<span style={{fontFamily:MONO,fontSize:12,fontWeight:900,color:s.color,flexShrink:0}}>{factor.value}</span>}
+  </div>);
 }
 
-function verdictColor(v: string): string {
-  const lo = v?.toLowerCase() || "";
-  if (lo.includes("robbery")) return "#ff4444";
-  if (lo.includes("won") || lo.includes("edge")) return C.green;
-  if (lo.includes("win-win")) return C.green;
-  if (lo.includes("push")) return C.secondary;
-  if (lo.includes("lost") || lo.includes("victim")) return C.red;
-  return C.dim;
-}
+/* ═══ ASSET CARD ═══ */
+function AssetCard({asset,gradeFactors,allTrades,sideOwner}:{asset:any;gradeFactors?:any[];allTrades?:any[];sideOwner?:string}){
+  const openCard = usePlayerCardStore.getState().openPlayerCard;
+  const isPick=asset.type==='pick';const prod=asset.production;const isCut=asset.roster_status?.status==='not_rostered';
+  const isTraded=asset.roster_status?.status==='traded_away';const chain=asset.chain||[];const hasChain=chain.length>0;
+  const ppgA=prod&&prod.games_started>0?(prod.total_points/prod.games_started):null;
+  const ppgR=prod&&prod.games_on_roster>0?(prod.total_points/prod.games_on_roster):null;
+  const posImpact=asset.replacement_impact?.career;const vAt=asset.value_at_trade?.value||0;
+  const vNow=asset.value_current?.value||0;const vDelta=asset.value_delta;
+  const age=asset.age;const position=asset.position;
+  const ownerLower=(sideOwner||'').toLowerCase();
 
-function confidenceColor(c: string): string {
-  if (c === "High") return C.green;
-  if (c === "Medium") return C.gold;
-  return C.dim;
-}
+  const flipPackages=hasChain?chain.slice(0,1).map((c:any)=>{
+    const tid=c.trade_id;const flipTrade=(allTrades||[]).find((t:any)=>t.trade_id===tid);
+    let fullGave:string[]=c.gave||[];let fullGot:string[]=c.got_back||[];
+    if(flipTrade){const sA=flipTrade.side_a;const sB=flipTrade.side_b;const ownerIsA=sA&&sA.owner&&sA.owner.toLowerCase()===ownerLower;const ownerSide=ownerIsA?sA:sB;const otherSide=ownerIsA?sB:sA;if(otherSide?.assets_raw)fullGave=otherSide.assets_raw.split(', ').filter(Boolean);if(ownerSide?.assets_raw)fullGot=ownerSide.assets_raw.split(', ').filter(Boolean);}
+    return{...c,fullGave,fullGot,partner:flipTrade?(flipTrade.side_a?.owner?.toLowerCase()===ownerLower?flipTrade.side_b?.owner:flipTrade.side_a?.owner):c.flipped_to};
+  }):[];
 
-function sentimentColor(s: string): string {
-  if (s === "elite") return C.gold;
-  if (s === "positive") return C.green;
-  if (s === "negative") return C.red;
-  return C.dim;
-}
-
-function fmtDec(n: number | null | undefined, d = 1): string {
-  if (n == null || isNaN(n)) return "—";
-  return n.toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   GRADE CIRCLE — SVG ring with letter grade
-   ═══════════════════════════════════════════════════════════════ */
-function GradeCircle({ score, size = 68, label, accentOverride }: { score: number; size?: number; label?: string; accentOverride?: string }) {
-  const letter = letterGrade(score);
-  const color = accentOverride || gradeColor(letter);
-  const r = (size - 8) / 2;
-  const circ = 2 * Math.PI * r;
-  const pct = Math.min(score / 100, 1);
-
-  return (
-    <div style={{ width: size, height: size, position: "relative", flexShrink: 0 }}>
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={C.border} strokeWidth={3} />
-        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={3}
-          strokeLinecap="round" strokeDasharray={`${pct * circ} ${circ}`}
-          transform={`rotate(-90 ${size/2} ${size/2})`} />
-      </svg>
-      <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-        <span style={{ fontFamily: MONO, fontSize: size * 0.3, fontWeight: 900, color, lineHeight: 1 }}>{letter}</span>
-        <span style={{ fontFamily: MONO, fontSize: size * 0.15, fontWeight: 700, color: C.dim, lineHeight: 1, marginTop: 2 }}>{score}</span>
-        {label && <span style={{ fontFamily: MONO, fontSize: size * 0.11, fontWeight: 700, color: C.dim, lineHeight: 1, marginTop: 1 }}>{label}</span>}
-      </div>
+  return(<div style={{padding:'12px 14px',borderRadius:6,background:C.elevated,border:`1px solid ${C.border}`,display:'flex',flexDirection:'column',gap:6}}>
+    <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
+      {isPick&&<StatusTag label="PICK" color={C.gold} bg={C.goldDim} border={C.goldBorder}/>}
+      {position&&!isPick&&<span style={{fontFamily:MONO,fontSize:8,fontWeight:800,color:posColor(position),padding:'1px 4px',borderRadius:3,background:`${posColor(position)}15`,border:`1px solid ${posColor(position)}25`}}>{position}</span>}
+      {isPick?<span style={{fontFamily:SANS,fontSize:14,fontWeight:700,color:C.primary}}>{asset.name}</span>:<PlayerName name={asset.name} style={{fontFamily:SANS,fontSize:14,fontWeight:700,color:isCut?C.red:C.primary,cursor:'pointer'}} />}
+      {age&&<span style={{fontFamily:MONO,fontSize:10,color:C.dim}}>({Math.round(age)})</span>}
+      {hasChain&&<StatusTag label="FLIPPED" color={C.orange} bg="rgba(224,156,107,0.12)" border="rgba(224,156,107,0.25)"/>}
+      {isCut&&!hasChain&&<StatusTag label="CUT" color={C.red} bg="rgba(228,114,114,0.12)" border="rgba(228,114,114,0.25)"/>}
     </div>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   ASSET ROW — player or pick with position + value
-   ═══════════════════════════════════════════════════════════════ */
-function AssetRow({ name, value, isPick, position }: { name: string; value?: number; isPick?: boolean; position?: string }) {
-  // For picks: keep the owner name in parens — it's the differentiator in pick swaps
-  // For players: strip parens (usually redundant position/team info)
-  const displayName = isPick ? name : name.replace(/\s*\([^)]*\)/g, "");
-  return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "3px 0", borderBottom: `1px solid ${C.white08}` }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0, flex: 1 }}>
-        {isPick ? (
-          <span style={{ fontFamily: MONO, fontSize: 7, fontWeight: 800, color: C.dim, background: C.white08, padding: "1px 4px", borderRadius: 2, flexShrink: 0 }}>PICK</span>
-        ) : position ? (
-          <span style={{ fontFamily: MONO, fontSize: 7, fontWeight: 800, color: posColor(position), background: `${posColor(position)}15`, padding: "1px 4px", borderRadius: 2, flexShrink: 0 }}>{position}</span>
-        ) : null}
-        {isPick ? (
-          <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 600, color: C.primary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{displayName}</span>
-        ) : (
-          <PlayerName name={displayName} style={{ fontFamily: SANS, fontSize: 12, fontWeight: 600, color: C.primary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} />
-        )}
+    {(vAt>0||vNow>0)&&<div style={{display:'flex',alignItems:'center',gap:8,fontFamily:MONO,fontSize:10}}><span style={{color:C.dim}}>{fmt(vAt)}</span><span style={{color:C.dim}}>→</span><span style={{color:C.secondary,fontWeight:700}}>{fmt(vNow)}</span>{vDelta!=null&&<span style={{color:vDelta>=0?C.green:C.red,fontWeight:800}}>{vDelta>=0?'+':''}{fmt(vDelta)}</span>}</div>}
+    {flipPackages.map((fp:any,fi:number)=>(<div key={fi} style={{padding:'8px 10px',borderRadius:5,background:C.card,border:`1px solid ${C.gold}15`}}><div style={{fontFamily:MONO,fontSize:9,color:C.orange,fontWeight:700,marginBottom:4}}>↗ FLIPPED TO {(fp.partner||fp.flipped_to||'').toUpperCase()}</div><div style={{fontFamily:SANS,fontSize:11,color:C.secondary,lineHeight:1.6}}><span style={{color:C.red,fontWeight:600}}>{(Array.isArray(fp.fullGave)?fp.fullGave:[]).length>1?'Packaged':'Traded'}</span>{' '}<span style={{color:C.primary,fontWeight:600}}>{(Array.isArray(fp.fullGave)?fp.fullGave:[fp.fullGave]).join(' + ')}</span><span style={{color:C.dim}}> → </span><span style={{color:C.green,fontWeight:600}}>Received {(Array.isArray(fp.fullGot)?fp.fullGot:[fp.fullGot]).join(', ')}</span></div></div>))}
+    {isPick&&asset.resolved_player&&<div style={{fontFamily:MONO,fontSize:9,color:C.dim}}>{asset.resolved_slot&&<span style={{color:C.secondary}}>{asset.resolved_slot} → </span>}{asset.resolved_player==="Not yet drafted"?"Not yet drafted":<span style={{color:C.primary,fontWeight:600}}>{asset.resolved_player}</span>}</div>}
+    {!isPick&&prod&&prod.total_points>0&&<div>
+      <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:4}}><span style={{fontFamily:MONO,fontSize:11,fontWeight:800,color:C.primary}}>{prod.total_points?.toFixed(1)} pts</span><span style={{fontFamily:MONO,fontSize:9,color:C.dim}}>across {prod.games_on_roster} games</span></div>
+      <div style={{display:'flex',gap:0,borderRadius:5,overflow:'hidden',border:`1px solid ${C.border}`,background:C.card}}>
+        {ppgA!=null&&<div style={{flex:1,padding:'8px 12px',borderRight:`1px solid ${C.border}`}}><div style={{fontFamily:MONO,fontSize:7,fontWeight:800,letterSpacing:'0.08em',color:C.dim,marginBottom:3}}>PPG ACTIVE</div><div style={{display:'flex',alignItems:'baseline',gap:4}}><span style={{fontFamily:MONO,fontSize:22,fontWeight:900,color:ppgA>=15?C.green:ppgA>=10?C.primary:C.orange}}>{ppgA.toFixed(1)}</span><span style={{fontFamily:MONO,fontSize:9,color:C.dim}}>({prod.games_started}G)</span></div></div>}
+        {ppgR!=null&&<div style={{flex:1,padding:'8px 12px'}}><div style={{fontFamily:MONO,fontSize:7,fontWeight:800,letterSpacing:'0.08em',color:C.dim,marginBottom:3}}>PPG ROSTERED</div><div style={{display:'flex',alignItems:'baseline',gap:4}}><span style={{fontFamily:MONO,fontSize:22,fontWeight:900,color:ppgR>=12?C.green:ppgR>=7?C.primary:C.red}}>{ppgR.toFixed(1)}</span><span style={{fontFamily:MONO,fontSize:9,color:C.dim}}>({prod.games_on_roster}G)</span></div></div>}
       </div>
-      {value != null && value > 0 && <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.gold, flexShrink: 0, marginLeft: 6 }}>{fmt(value)}</span>}
-    </div>
-  );
+      {prod.seasons&&Object.entries(prod.seasons).map(([yr,s]:any)=>(<div key={yr} style={{fontFamily:MONO,fontSize:9,color:C.dim,marginTop:1,paddingLeft:4}}>{yr}: {s.points?.toFixed(1)} pts ({s.games}G, {s.ppg?.toFixed(1)} PPG)</div>))}
+    </div>}
+    {posImpact&&posImpact.impact!=null&&Math.abs(posImpact.impact)>=0.1&&<div style={{padding:'5px 10px',borderRadius:5,background:posImpact.impact>=0?'rgba(125,211,160,0.12)':'rgba(228,114,114,0.12)',border:`1px solid ${posImpact.impact>=0?'rgba(125,211,160,0.25)':'rgba(228,114,114,0.25)'}`,fontFamily:MONO,fontSize:10,display:'flex',alignItems:'center',gap:6}}><span style={{fontWeight:800,color:C.secondary}}>{position} Impact</span><span style={{color:C.dim}}>{posImpact.avg_without?.toFixed(1)}</span><span style={{color:C.dim}}>→</span><span style={{color:C.secondary,fontWeight:700}}>{posImpact.avg_with?.toFixed(1)}</span><span style={{color:posImpact.impact>=0?C.green:C.red,fontWeight:900,fontSize:11}}>({posImpact.impact>=0?'+':''}{posImpact.impact.toFixed(1)})</span></div>}
+  </div>);
 }
 
+/* ═══ TEAM CONTEXT ═══ */
+function ContextCard({sideData}:{sideData:any}){const ctx=sideData?.season_context;const ilpg=sideData?.team_ilpg?.trade_season;if(!ctx)return null;const rb=ctx.record_before_trade;const ra=ctx.record_after_trade;return(<div style={{padding:'12px 14px',borderRadius:6,background:C.card,border:`1px solid ${C.border}`}}><SubHeader label="TEAM CONTEXT"/>{ilpg&&<div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 10px',borderRadius:4,background:C.elevated,marginBottom:8}}><span style={{fontFamily:MONO,fontSize:10,color:C.secondary}}>IDEAL LINEUP</span><div style={{fontFamily:MONO,fontSize:12,color:C.primary}}>{ilpg.before?.avg_ilpg?.toFixed(1)} → {ilpg.after?.avg_ilpg?.toFixed(1)}<span style={{marginLeft:8,fontWeight:800,color:(ilpg.delta||0)>=0?C.green:C.red}}>{(ilpg.delta||0)>=0?'+':''}{ilpg.delta?.toFixed(1)}</span></div></div>}<div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>{rb&&rb.games>0&&<div style={{padding:'6px 10px',borderRadius:4,background:C.elevated}}><div style={{fontFamily:MONO,fontSize:8,color:C.dim,letterSpacing:'0.08em'}}>BEFORE</div><div style={{fontFamily:MONO,fontSize:14,fontWeight:800,color:C.primary}}>{rb.wins}-{rb.losses}</div></div>}{ra&&ra.games>0&&<div style={{padding:'6px 10px',borderRadius:4,background:C.elevated}}><div style={{fontFamily:MONO,fontSize:8,color:C.dim,letterSpacing:'0.08em'}}>AFTER</div><div style={{fontFamily:MONO,fontSize:14,fontWeight:800,color:C.primary}}>{ra.wins}-{ra.losses}</div></div>}</div>{ctx.season_info&&<div style={{marginTop:8,fontFamily:MONO,fontSize:10,color:C.secondary}}>Season: {ctx.season_info.wins}-{ctx.season_info.losses} ({ordinal(ctx.season_info.final_rank)} place){ctx.season_info.champion&&<span style={{color:C.gold,fontWeight:800}}> Champion</span>}</div>}</div>);}
+
 /* ═══════════════════════════════════════════════════════════════
-   VALUE BALANCE BAR
+   FULL REPORT — ported from Shadynasty FullReport
    ═══════════════════════════════════════════════════════════════ */
-function BalanceBar({ sent, received }: { sent: number; received: number }) {
-  const total = sent + received || 1;
-  const recvPct = Math.round((received / total) * 100);
-  const balance = received - sent;
-  const balColor = balance > 500 ? C.green : balance < -500 ? C.red : C.secondary;
+function FullReport({reportData,hindsightData,onClose}:{reportData:any;hindsightData:any;onClose:()=>void}){
+  const sA=reportData.side_a||{};const sB=reportData.side_b||{};
+  const ownerA=sA.owner||"";const ownerB=sB.owner||"";
+  const dateStr=String(reportData.trade_date||"").substring(0,10);
+  const td=reportData.trade_day||{};const tdA=td.side_a||{};const tdB=td.side_b||{};
+  const h=hindsightData&&(hindsightData.side_a||hindsightData.side_b)?hindsightData:(reportData.hindsight||{});
+  const hA=h.side_a||{};const hB=h.side_b||{};const hasHindsight=(hA.score>0||hB.score>0);
+  const overall=td.overall||h.overall||"";const os=getVerdictStyle(overall);
+  const aAssets=sA.assets||[];const bAssets=sB.assets||[];
+  const aTotal=aAssets.reduce((s:number,a:any)=>s+(a.value_at_trade?.value||0),0);
+  const bTotal=bAssets.reduce((s:number,a:any)=>s+(a.value_at_trade?.value||0),0);
+  const aRaw=sA.assets_raw||aAssets.map((a:any)=>a.name).join(", ");
+  const bRaw=sB.assets_raw||bAssets.map((a:any)=>a.name).join(", ");
+  const tradeDate=reportData.trade_date?new Date(reportData.trade_date):null;
+  const tradeAgeMonths=tradeDate?((Date.now()-tradeDate.getTime())/(1000*60*60*24*30.44)):999;
+  const hideRemaining=tradeAgeMonths<12;
+  const filterGF=(factors:any[])=>factors?factors.filter((f:any)=>!(hideRemaining&&f.category==='remaining')):[];
+  const aGradeFactors=filterGF(hA.grade_factors||sA.grade_factors||[]);
+  const bGradeFactors=filterGF(hB.grade_factors||sB.grade_factors||[]);
+  const aKeyFactors=hA.key_factors||[];const bKeyFactors=hB.key_factors||[];
+  const gp={display:'grid' as const,gridTemplateColumns:'1fr 1fr',gap:24,padding:'16px 24px',alignItems:'stretch' as const};
 
-  return (
-    <div>
-      <div style={{ display: "flex", height: 6, borderRadius: 3, overflow: "hidden", background: C.border }}>
-        <div style={{ width: `${100 - recvPct}%`, background: C.red, transition: "width 0.3s" }} />
-        <div style={{ width: `${recvPct}%`, background: C.green, transition: "width 0.3s" }} />
-      </div>
-      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
-        <span style={{ fontFamily: MONO, fontSize: 10, color: C.red }}>Gave {fmt(sent)}</span>
-        <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: balColor }}>{balance >= 0 ? "+" : ""}{fmt(balance)}</span>
-        <span style={{ fontFamily: MONO, fontSize: 10, color: C.green }}>Got {fmt(received)}</span>
-      </div>
+  return(<>
+    {/* HEADER */}
+    <div style={{padding:'14px 24px',display:'flex',alignItems:'center',justifyContent:'space-between',background:`linear-gradient(135deg, ${C.gold}06, transparent 60%)`,borderBottom:`1px solid ${C.border}`}}>
+      <div style={{display:'flex',alignItems:'center',gap:12}}><div style={{width:4,height:36,borderRadius:2,background:C.gold}}/><div><div style={{fontFamily:MONO,fontSize:9,color:C.dim,letterSpacing:'0.22em'}}>TRADE REPORT</div><div style={{display:'flex',alignItems:'center',gap:8,marginTop:4}}><span style={{fontFamily:SANS,fontSize:18,fontWeight:800,color:C.primary}}>{ownerA}</span><span style={{fontFamily:SANS,fontSize:14,color:C.dim}}>⇄</span><span style={{fontFamily:SANS,fontSize:18,fontWeight:700,color:C.secondary}}>{ownerB}</span><span style={{fontFamily:MONO,fontSize:11,color:C.dim,marginLeft:4}}>{dateStr}</span></div></div></div>
+      <div style={{display:'flex',alignItems:'center',gap:12}}>{overall&&<span style={{fontFamily:MONO,fontSize:11,fontWeight:800,color:os.color,padding:'4px 12px',borderRadius:4,background:os.bg,border:`1px solid ${os.border}`}}>{overall}</span>}<div onClick={onClose} style={{width:32,height:32,borderRadius:6,background:C.elevated,border:`1px solid ${C.border}`,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',fontSize:14,color:C.dim,fontFamily:MONO}}>×</div></div></div>
+
+    {/* SUMMARY BAR */}
+    <div style={{padding:'10px 24px',borderBottom:`1px solid ${C.border}`,background:C.card,display:'grid',gridTemplateColumns:'1fr auto 1fr',gap:16,alignItems:'center'}}>
+      <div><div style={{fontFamily:MONO,fontSize:8,color:C.red,fontWeight:800,letterSpacing:'0.08em',marginBottom:3}}>{ownerA} GAVE</div><div style={{fontFamily:SANS,fontSize:12,color:C.secondary,lineHeight:1.4}}>{bRaw}</div></div>
+      <div style={{fontFamily:MONO,fontSize:18,color:`${C.gold}60`}}>⇄</div>
+      <div><div style={{fontFamily:MONO,fontSize:8,color:C.green,fontWeight:800,letterSpacing:'0.08em',marginBottom:3}}>{ownerA} GOT</div><div style={{fontFamily:SANS,fontSize:12,color:C.primary,fontWeight:600,lineHeight:1.4}}>{aRaw}</div></div>
     </div>
-  );
+
+    {/* TRADE DAY */}
+    <SectionDivider label="T R A D E  D A Y" accent="#5eead4"/>
+    <div style={gp}><div><div style={{fontFamily:MONO,fontSize:9,fontWeight:800,letterSpacing:'0.16em',color:'#5eead4',marginBottom:8}}>{ownerA.toUpperCase()} RECEIVES</div><GradeBox score={tdA.score||50} verdict={tdA.verdict||'No Data'}/></div><div><div style={{fontFamily:MONO,fontSize:9,fontWeight:800,letterSpacing:'0.16em',color:'#5eead4',marginBottom:8}}>{ownerB.toUpperCase()} RECEIVES</div><GradeBox score={tdB.score||50} verdict={tdB.verdict||'No Data'}/></div></div>
+
+    {/* Trade Day Values */}
+    <div style={{...gp,paddingTop:0}}>{[{assets:aAssets,total:aTotal},{assets:bAssets,total:bTotal}].map((side,idx)=>(<div key={idx} style={{padding:'16px',borderRadius:8,background:C.card,border:`1px solid ${C.border}`}}><div style={{fontFamily:MONO,fontSize:8,color:C.dim,letterSpacing:'0.1em',marginBottom:6}}>TOTAL VALUE</div><div style={{fontFamily:MONO,fontSize:32,fontWeight:900,color:C.primary,lineHeight:1,marginBottom:14}}>{fmt(side.total)}</div><div style={{display:'flex',flexDirection:'column',gap:4}}>{side.assets.map((a:any,i:number)=>(<div key={i} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'7px 10px',borderRadius:5,background:C.elevated,border:`1px solid ${C.border}`}}><div style={{display:'flex',alignItems:'center',gap:6}}>{a.type==='pick'&&<StatusTag label="PICK" color={C.gold} bg={C.goldDim} border={C.goldBorder}/>}{a.position&&a.type!=='pick'&&<span style={{fontFamily:MONO,fontSize:8,fontWeight:800,color:posColor(a.position),padding:'1px 4px',borderRadius:3,background:`${posColor(a.position)}15`}}>{a.position}</span>}<span style={{fontFamily:SANS,fontSize:12,fontWeight:600,color:C.primary}}>{a.name}</span></div><span style={{fontFamily:MONO,fontSize:12,fontWeight:700,color:C.secondary}}>{fmt(a.value_at_trade?.value)}</span></div>))}</div></div>))}</div>
+
+    {/* HINDSIGHT */}
+    <SectionDivider label="H I N D S I G H T" accent={C.gold}/>
+    {hasHindsight?(<><div style={gp}><div><div style={{fontFamily:MONO,fontSize:9,fontWeight:800,letterSpacing:'0.16em',color:C.gold,marginBottom:8}}>{ownerA.toUpperCase()}'S SIDE</div><GradeBox score={hA.score||0} verdict={hA.verdict||'—'} confidence={hA.confidence}/></div><div><div style={{fontFamily:MONO,fontSize:9,fontWeight:800,letterSpacing:'0.16em',color:C.gold,marginBottom:8}}>{ownerB.toUpperCase()}'S SIDE</div><GradeBox score={hB.score||0} verdict={hB.verdict||'—'} confidence={hB.confidence}/></div></div>
+      {(aGradeFactors.length>0||bGradeFactors.length>0)&&<div style={{...gp,paddingTop:0}}><div>{aGradeFactors.map((gf:any,i:number)=><GradeFactorCard key={i} factor={gf}/>)}</div><div>{bGradeFactors.map((gf:any,i:number)=><GradeFactorCard key={i} factor={gf}/>)}</div></div>}
+      {aGradeFactors.length===0&&(aKeyFactors.length>0||bKeyFactors.length>0)&&<div style={{...gp,paddingTop:0}}>{[aKeyFactors,bKeyFactors].map((kf,idx)=>(<div key={idx} style={{padding:'10px 14px',borderRadius:6,background:C.card,border:`1px solid ${C.border}`}}>{kf.length>0?kf.map((f:string,i:number)=>(<div key={i} style={{display:'flex',alignItems:'flex-start',gap:8,padding:'5px 0',borderBottom:i<kf.length-1?`1px solid ${C.white08}`:'none'}}><span style={{fontSize:8,color:C.green,flexShrink:0,marginTop:4}}>●</span><span style={{fontFamily:SANS,fontSize:11,color:C.secondary,lineHeight:1.5}}>{f}</span></div>)):<span style={{fontFamily:SANS,fontSize:11,color:C.dim,fontStyle:'italic'}}>No factors yet</span>}</div>))}</div>}
+    </>):(<div style={{padding:'24px',textAlign:'center'}}><span style={{fontFamily:SERIF,fontSize:15,fontStyle:'italic',color:C.goldBright}}>Hindsight grades unlock over time</span><div style={{fontFamily:SANS,fontSize:11,color:C.dim,marginTop:4}}>Sync your league to track production, flips, and championships.</div></div>)}
+
+    {/* ASSETS ACQUIRED */}
+    <div style={{...gp,paddingTop:0}}>{[{owner:ownerA,assets:aAssets,gf:aGradeFactors},{owner:ownerB,assets:bAssets,gf:bGradeFactors}].map(({owner,assets,gf},idx)=>(<div key={idx}><SubHeader label={`${owner.toUpperCase()} ACQUIRED`}/><div style={{display:'flex',flexDirection:'column',gap:6}}>{assets.length>0?assets.map((a:any,i:number)=><AssetCard key={i} asset={a} gradeFactors={gf} allTrades={reportData.all_trades} sideOwner={owner}/>):<span style={{fontFamily:MONO,fontSize:11,color:C.dim}}>No asset data</span>}</div></div>))}</div>
+
+    {/* Replacement Impact */}
+    {(()=>{const aI=aAssets.filter((a:any)=>a.replacement_impact?.career?.impact&&Math.abs(a.replacement_impact.career.impact)>=3);const bI=bAssets.filter((a:any)=>a.replacement_impact?.career?.impact&&Math.abs(a.replacement_impact.career.impact)>=3);if(!aI.length&&!bI.length)return null;return(<div style={{...gp,paddingTop:0}}>{[aI,bI].map((assets,idx)=>(assets.length>0?<div key={idx} style={{padding:'12px 14px',borderRadius:6,background:C.card,border:`1px solid ${C.border}`}}><SubHeader label="REPLACEMENT IMPACT"/>{assets.map((a:any,i:number)=>{const ri=a.replacement_impact.career;const ic=ri.impact>=0?C.green:C.red;return(<div key={i} style={{marginBottom:8}}><div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}><span style={{fontFamily:SANS,fontSize:13,fontWeight:700,color:C.primary}}>{a.name}</span><span style={{fontFamily:MONO,fontSize:12,fontWeight:800,color:ic,padding:'2px 8px',borderRadius:4,background:ri.impact>=0?'rgba(125,211,160,0.12)':'rgba(228,114,114,0.12)'}}>{ri.impact>=0?'+':''}{ri.impact.toFixed(1)} PPG</span></div><div style={{fontFamily:MONO,fontSize:10,color:C.dim,display:'flex',gap:16}}><span>With: <span style={{color:C.green,fontWeight:700}}>{ri.avg_with?.toFixed(1)}</span></span><span>Without: <span style={{color:C.red,fontWeight:700}}>{ri.avg_without?.toFixed(1)}</span></span></div></div>);})}</div>:<div key={idx}/>))}</div>);})()}
+
+    {/* Team Context */}
+    {(sA.season_context||sB.season_context)&&<div style={{...gp,paddingTop:0,paddingBottom:24}}><ContextCard sideData={sA}/><ContextCard sideData={sB}/></div>}
+  </>);
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   SECTION DIVIDER — labeled line
-   ═══════════════════════════════════════════════════════════════ */
-function SectionDivider({ label, color }: { label: string; color: string }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "10px 0 8px" }}>
-      <div style={{ flex: 1, height: 1, background: `${color}30` }} />
-      <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.14em", color, flexShrink: 0 }}>{label}</span>
-      <div style={{ flex: 1, height: 1, background: `${color}30` }} />
-    </div>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   CONFIDENCE BADGE — color-coded center piece
-   ═══════════════════════════════════════════════════════════════ */
-function ConfidenceBadge({ confidence, daysAgo, overall }: { confidence: string; daysAgo: number; overall?: string }) {
-  const color = confidenceColor(confidence);
-  return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, minWidth: 80 }}>
-      {overall && (
-        <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.04em", color: verdictColor(overall), background: `${verdictColor(overall)}15`, padding: "3px 10px", borderRadius: 4, border: `1px solid ${verdictColor(overall)}25`, whiteSpace: "nowrap" }}>
-          {overall.includes(":") ? overall.split(": ")[0].toUpperCase() : overall.toUpperCase()}
-        </span>
-      )}
-      <div style={{ width: 44, height: 44, borderRadius: "50%", border: `2px solid ${color}40`, background: `${color}10`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-        <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 900, color, lineHeight: 1 }}>{confidence[0]}</span>
-      </div>
-      <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, color, letterSpacing: "0.06em" }}>{confidence.toUpperCase()}</span>
-      {daysAgo > 0 && <span style={{ fontFamily: MONO, fontSize: 8, color: C.dim }}>{daysAgo}d ago</span>}
-    </div>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   KEY FACTOR BULLET — narrative bullet for hindsight story
-   ═══════════════════════════════════════════════════════════════ */
-// Replace internal "SHA" jargon in API-generated text with user-friendly "value"
-function cleanText(s: string): string {
-  return s
-    .replace(/\bSHA\b/g, "value")
-    .replace(/\bsha\b/g, "value");
-}
-
-function FactorBullet({ text, sentiment }: { text: string; sentiment?: string }) {
-  const dotColor = sentiment === "elite" ? C.gold : sentiment === "positive" ? C.green : sentiment === "negative" ? C.red : C.dim;
-  return (
-    <div style={{ display: "flex", gap: 6, padding: "3px 0", alignItems: "flex-start" }}>
-      <span style={{ color: dotColor, fontSize: 7, marginTop: 4, flexShrink: 0 }}>◆</span>
-      <span style={{ fontFamily: SANS, fontSize: 12, color: C.secondary, lineHeight: 1.45 }}>{cleanText(text)}</span>
-    </div>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   PER-ASSET CARD — for Details tab
-   ═══════════════════════════════════════════════════════════════ */
-function AssetDetailCard({ asset }: { asset: Record<string, unknown> }) {
-  const name = String(asset.name || "");
-  const type = String(asset.type || "player");
-  const position = String(asset.position || "");
-  const age = asset.age as number | null;
-  const prod = (asset.production || {}) as Record<string, unknown>;
-  const chain = (asset.chain || []) as Array<Record<string, unknown>>;
-  const impact = asset.replacement_impact as Record<string, unknown> | null;
-  const vat = (asset.value_at_trade || {}) as Record<string, unknown>;
-  const vc = (asset.value_current || {}) as Record<string, unknown>;
-  const vDelta = asset.value_delta as number | null;
-  const status = ((asset.roster_status || {}) as Record<string, unknown>).status as string || "";
-
-  const totalPts = Number(prod.total_points || 0);
-  const games = Number(prod.games_on_roster || 0);
-  const started = Number(prod.games_started || 0);
-  const ppgActive = started > 0 ? totalPts / started : 0;
-  const ppgRostered = games > 0 ? totalPts / games : 0;
-  const seasons = (prod.seasons || {}) as Record<string, Record<string, number>>;
-
-  const statusLabel = status === "rostered" ? "ROSTERED" : chain.length > 0 ? "FLIPPED" : status === "not_rostered" ? "CUT" : type === "pick" ? "PICK" : "";
-  const statusColor = status === "rostered" ? C.green : chain.length > 0 ? C.blue : C.red;
-
-  return (
-    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden", marginBottom: 8 }}>
-      {/* Header */}
-      <div style={{ padding: "8px 12px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 6 }}>
-        {position && position !== "PICK" && (
-          <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, color: posColor(position), background: `${posColor(position)}15`, padding: "1px 5px", borderRadius: 2 }}>{position}</span>
-        )}
-        {type === "pick" ? (
-          <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 700, color: C.primary }}>{name}</span>
-        ) : (
-          <PlayerName name={name} style={{ fontFamily: SANS, fontSize: 13, fontWeight: 700, color: C.primary }} />
-        )}
-        {age && <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim, marginLeft: "auto" }}>{age} yrs</span>}
-        {statusLabel && (
-          <span style={{ fontFamily: MONO, fontSize: 7, fontWeight: 800, letterSpacing: "0.08em", color: statusColor, background: `${statusColor}15`, padding: "2px 6px", borderRadius: 3, border: `1px solid ${statusColor}25`, marginLeft: age ? 6 : "auto" }}>{statusLabel}</span>
-        )}
-      </div>
-
-      <div style={{ padding: "8px 12px" }}>
-        {/* Value trajectory */}
-        {(Number(vat.value) > 0 || Number(vc.value) > 0) && (
-          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-            <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>Trade day:</span>
-            <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.secondary }}>{fmt(Number(vat.value))}</span>
-            <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>→</span>
-            <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.secondary }}>{fmt(Number(vc.value))}</span>
-            {vDelta != null && Math.abs(vDelta) > 50 && (
-              <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: vDelta > 0 ? C.green : C.red }}>{vDelta > 0 ? "+" : ""}{fmt(vDelta)}</span>
-            )}
-          </div>
-        )}
-
-        {/* Production (non-picks only) */}
-        {type !== "pick" && totalPts > 0 && (
-          <div style={{ marginBottom: 6 }}>
-            <div style={{ display: "flex", gap: 12, marginBottom: 4 }}>
-              <div><span style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>TOTAL</span><div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.primary }}>{fmtDec(totalPts, 0)} pts</div></div>
-              <div><span style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>PPG ACT</span><div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: ppgActive >= 15 ? C.green : ppgActive >= 8 ? C.secondary : C.red }}>{fmtDec(ppgActive)}</div></div>
-              <div><span style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>PPG ROST</span><div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.dim }}>{fmtDec(ppgRostered)}</div></div>
-              <div><span style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>GAMES</span><div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.dim }}>{started}/{games}</div></div>
-            </div>
-            {/* Seasonal breakdown */}
-            {Object.keys(seasons).length > 0 && (
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                {Object.entries(seasons).sort(([a], [b]) => Number(a) - Number(b)).map(([yr, s]) => (
-                  <span key={yr} style={{ fontFamily: MONO, fontSize: 9, color: C.dim, background: C.white08, padding: "2px 6px", borderRadius: 3 }}>
-                    {yr}: {fmtDec(s.points, 0)} pts ({s.games}g, {fmtDec(s.ppg)} PPG)
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Flip chain */}
-        {chain.length > 0 && chain.map((flip, i) => (
-          <div key={i} style={{ padding: "6px 8px", background: `${C.blue}08`, borderRadius: 4, border: `1px solid ${C.blue}20`, marginBottom: 4 }}>
-            <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.blue, letterSpacing: "0.06em", marginBottom: 4 }}>FLIPPED → {String(flip.flipped_to || "")}</div>
-            <div style={{ display: "flex", gap: 8, fontSize: 11, fontFamily: SANS }}>
-              <div style={{ flex: 1 }}><span style={{ fontFamily: MONO, fontSize: 8, color: C.red }}>GAVE</span>
-                {((flip.gave || []) as string[]).map((n, j) => <div key={j} style={{ color: C.secondary, fontSize: 11 }}>{n}</div>)}
-              </div>
-              <div style={{ color: C.dim, alignSelf: "center" }}>→</div>
-              <div style={{ flex: 1 }}><span style={{ fontFamily: MONO, fontSize: 8, color: C.green }}>GOT</span>
-                {((flip.got_back || []) as string[]).map((n, j) => <div key={j} style={{ color: C.secondary, fontSize: 11 }}>{n}</div>)}
-              </div>
-            </div>
-            {(flip.flip_profit as number) != null && (
-              <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: (flip.flip_profit as number) >= 0 ? C.green : C.red, marginTop: 4 }}>
-                Flip profit: {(flip.flip_profit as number) >= 0 ? "+" : ""}{fmt(flip.flip_profit as number)} value
-              </div>
-            )}
-          </div>
-        ))}
-
-        {/* Replacement impact */}
-        {impact && (impact as Record<string, unknown>).career && (() => {
-          const career = (impact as Record<string, unknown>).career as Record<string, unknown>;
-          const impactVal = Number(career.impact || 0);
-          if (Math.abs(impactVal) < 2) return null;
-          return (
-            <div style={{ padding: "6px 8px", background: `${C.gold}08`, borderRadius: 4, border: `1px solid ${C.gold}20` }}>
-              <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.gold, letterSpacing: "0.06em", marginBottom: 4 }}>REPLACEMENT IMPACT</div>
-              <div style={{ display: "flex", gap: 16, fontFamily: MONO, fontSize: 11 }}>
-                <div><span style={{ fontSize: 9, color: C.dim }}>WITH</span><div style={{ fontWeight: 700, color: C.green }}>{fmtDec(Number(career.avg_with))} PPG</div></div>
-                <div><span style={{ fontSize: 9, color: C.dim }}>WITHOUT</span><div style={{ fontWeight: 700, color: C.red }}>{fmtDec(Number(career.avg_without))} PPG</div></div>
-                <div><span style={{ fontSize: 9, color: C.dim }}>IMPACT</span><div style={{ fontWeight: 700, color: impactVal > 0 ? C.green : C.red }}>{impactVal > 0 ? "+" : ""}{fmtDec(impactVal)}</div></div>
-              </div>
-            </div>
-          );
-        })()}
-      </div>
-    </div>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   TRADE REPORT MODAL — Redesigned: 3-tab
-   Tab 1: TRADE GRADE (Trade Day top + Hindsight bottom)
-   Tab 2: DETAILS (5-component + per-asset + team context)
-   Tab 3: SHARE
+   MODAL WRAPPER — fetches data, renders Shadynasty layout
    ═══════════════════════════════════════════════════════════════ */
 export default function TradeReportModal({ leagueId, tradeId, onClose }: {
   leagueId: string; tradeId: string; onClose: () => void;
 }) {
-  const [tab, setTab] = useState<"grade" | "details" | "share">("grade");
-  const shareRef = useRef<HTMLDivElement>(null);
-
   const { data: report, isLoading } = useQuery({
     queryKey: ["trade-report", leagueId, tradeId],
     queryFn: () => getTradeReport(leagueId, tradeId),
@@ -323,602 +182,17 @@ export default function TradeReportModal({ leagueId, tradeId, onClose }: {
     enabled: !!tradeId,
   });
 
-  // Parse response — handle both shapes
   const r = report as Record<string, unknown> | undefined;
-  const isNewShape = r?.side_a != null;
-  const oldSides = (r?.sides || []) as Array<Record<string, unknown>>;
-  const oldVerdict = (r?.verdict || {}) as Record<string, unknown>;
+  const hasReport = r && (r.side_a || r.sides);
 
-  const sideA = isNewShape ? (r?.side_a || {}) as Record<string, unknown> : oldSides[0] || {};
-  const sideB = isNewShape ? (r?.side_b || {}) as Record<string, unknown> : oldSides[1] || {};
-
-  // Build asset list from names + distribute total value evenly when per-asset values unavailable
-  type ParsedItem = { name: string; isPick: boolean; position: string; value: number };
-  function buildItems(names: string[], isPick: boolean, perAsset: number): ParsedItem[] {
-    return names.map(n => ({ name: n, isPick, position: isPick ? "PICK" : "", value: perAsset }));
-  }
-  function parseAssetsFromArray(assets: Array<Record<string, unknown>>): { items: ParsedItem[]; total: number } {
-    const items = assets.map(a => {
-      const vat = a.value_at_trade as Record<string, unknown> | undefined;
-      // Prefer PIT (point-in-time) value consistently
-      const val = Number(vat?.value ?? a.value ?? 0);
-      return { name: String(a.name || ""), isPick: a.type === "pick", position: String(a.position || ""), value: val };
-    });
-    const total = Math.round(items.reduce((s, a) => s + a.value, 0));
-    return { items, total };
-  }
-
-  // For each side, explicitly parse SENT and RECEIVED separately.
-  // side_a.players_sent = what A sent; side_a.players_received = what A received.
-  // side_a.assets = what A RECEIVED (from deep-dive grader).
-  function parseSide(side: Record<string, unknown>): { sent: ParsedItem[]; received: ParsedItem[]; totalSent: number; totalRecv: number } {
-    const playersSent = (side.players_sent || []) as string[];
-    const picksSent = (side.picks_sent || []) as string[];
-    const playersRecv = (side.players_received || []) as string[];
-    const picksRecv = (side.picks_received || []) as string[];
-    const totalShaSent = Number(side.total_sha_sent || 0);
-    const totalShaRecv = Number(side.total_sha_received || 0);
-
-    // Use explicit sent/received fields when available
-    if (playersSent.length + picksSent.length > 0 || playersRecv.length + picksRecv.length > 0) {
-      const sentCount = playersSent.length + picksSent.length;
-      const recvCount = playersRecv.length + picksRecv.length;
-      const perSent = sentCount > 0 ? Math.round(totalShaSent / sentCount) : 0;
-      const perRecv = recvCount > 0 ? Math.round(totalShaRecv / recvCount) : 0;
-      return {
-        sent: [...buildItems(playersSent, false, perSent), ...buildItems(picksSent, true, perSent)],
-        received: [...buildItems(playersRecv, false, perRecv), ...buildItems(picksRecv, true, perRecv)],
-        totalSent: Math.round(totalShaSent),
-        totalRecv: Math.round(totalShaRecv),
-      };
-    }
-
-    // Deep-dive shape: side.assets = what this side RECEIVED with per-asset values
-    const assets = (side.assets || []) as Array<Record<string, unknown>>;
-    if (assets.length > 0) {
-      const parsed = parseAssetsFromArray(assets);
-      return { sent: [], received: parsed.items, totalSent: Math.round(totalShaSent), totalRecv: parsed.total };
-    }
-
-    return { sent: [], received: [], totalSent: 0, totalRecv: 0 };
-  }
-
-  const parsedA = parseSide(sideA);
-  const parsedB = parseSide(sideB);
-
-  // Build display: what each owner GAVE and GOT.
-  // If explicit sent/received parsed, use directly.
-  // If only received parsed (deep-dive), cross-reference: A's sent = B's received and vice versa.
-  const assetsA = {
-    sent: parsedA.sent.length > 0 ? parsedA.sent : parsedB.received,
-    received: parsedA.received.length > 0 ? parsedA.received : parsedB.sent,
-    totalSent: parsedA.sent.length > 0 ? parsedA.totalSent : parsedB.totalRecv,
-    totalRecv: parsedA.received.length > 0 ? parsedA.totalRecv : parsedB.totalSent,
-  };
-  const assetsB = {
-    sent: parsedB.sent.length > 0 ? parsedB.sent : parsedA.received,
-    received: parsedB.received.length > 0 ? parsedB.received : parsedA.sent,
-    totalSent: parsedB.sent.length > 0 ? parsedB.totalSent : parsedA.totalRecv,
-    totalRecv: parsedB.received.length > 0 ? parsedB.totalRecv : parsedA.totalSent,
-  };
-
-  const tradeDate = String(r?.trade_date || sideA.trade_date || "");
-  const tradeDay = (r?.trade_day || {}) as Record<string, unknown>;
-  const tdA = (tradeDay.side_a || {}) as Record<string, unknown>;
-  const tdB = (tradeDay.side_b || {}) as Record<string, unknown>;
-
-  const overall = String(oldVerdict.overall || tradeDay.overall || "");
-  const aScore = (oldVerdict.side_a_score as number) || (tdA.score as number) || 0;
-  const bScore = (oldVerdict.side_b_score as number) || (tdB.score as number) || 0;
-  const aVerdict = String(oldVerdict.side_a_verdict || tdA.verdict || "");
-  const bVerdict = String(oldVerdict.side_b_verdict || tdB.verdict || "");
-  const aOwner = String(sideA.owner || oldVerdict.side_a_owner || "");
-  const bOwner = String(sideB.owner || oldVerdict.side_b_owner || "");
-  const seasonPhase = String(sideA.season_phase || "").replace(/_/g, " ");
-  const scoringType = String(sideA.scoring_type || "");
-
-  // Hindsight data — merge from report.hindsight AND separate hindsight endpoint
-  const hFromReport = (r?.hindsight || {}) as Record<string, unknown>;
-  const hFromEndpoint = (hindsight || {}) as Record<string, unknown>;
-  // Prefer endpoint (5-component grader) over report's simpler hindsight
-  const h = (hFromEndpoint.side_a || hFromEndpoint.side_b) ? hFromEndpoint : hFromReport;
-  const hA = (h?.side_a || {}) as Record<string, unknown>;
-  const hB = (h?.side_b || {}) as Record<string, unknown>;
-  const hasHindsight = (hA.score as number) > 0 || (hB.score as number) > 0;
-  const hConfidence = String(hA.confidence || hB.confidence || h?.confidence || "");
-  const hDaysAgo = Number(h?.days_ago || 0);
-  const hOverall = String(h?.overall || "");
-
-  // Key factors from hindsight grader
-  const aKeyFactors = (hA.key_factors || []) as string[];
-  const bKeyFactors = (hB.key_factors || []) as string[];
-
-  // Grade factors from deep dive (supplement)
-  const aGradeFactors = (sideA.grade_factors || []) as Array<Record<string, unknown>>;
-  const bGradeFactors = (sideB.grade_factors || []) as Array<Record<string, unknown>>;
-
-  // Merge: key_factors first, then grade_factors titles (deduped)
-  function mergeFactors(keyFactors: string[], gradeFactors: Array<Record<string, unknown>>): Array<{ text: string; sentiment?: string }> {
-    const seen = new Set<string>();
-    const result: Array<{ text: string; sentiment?: string }> = [];
-    for (const kf of keyFactors) {
-      if (!seen.has(kf.toLowerCase())) {
-        seen.add(kf.toLowerCase());
-        result.push({ text: kf });
-      }
-    }
-    for (const gf of gradeFactors) {
-      const title = String(gf.title || "");
-      const detail = String(gf.detail || "");
-      const merged = detail || title;
-      if (merged && !seen.has(merged.toLowerCase())) {
-        seen.add(merged.toLowerCase());
-        result.push({ text: merged, sentiment: String(gf.sentiment || "") });
-      }
-    }
-    return result.slice(0, 5);
-  }
-
-  const aMergedFactors = mergeFactors(aKeyFactors, aGradeFactors);
-  const bMergedFactors = mergeFactors(bKeyFactors, bGradeFactors);
-
-  // Deep dive assets for Details tab
-  const ddAssetsA = (sideA.assets || []) as Array<Record<string, unknown>>;
-  const ddAssetsB = (sideB.assets || []) as Array<Record<string, unknown>>;
-
-  return (
-    <div onClick={onClose} style={{
-      position: "fixed", inset: 0, zIndex: 100,
-      background: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)",
-      display: "flex", alignItems: "center", justifyContent: "center",
-      animation: "fadeIn 0.15s ease",
-    }}>
-      <div onClick={(e) => e.stopPropagation()} style={{
-        width: "min(94vw, 700px)", maxHeight: "92vh", overflowY: "auto",
-        background: C.bg, border: `1px solid ${C.border}`, borderRadius: 12,
-        animation: "modalSlideIn 0.2s ease",
-      }}>
-        {isLoading ? (
-          <div style={{ padding: 60, textAlign: "center" }}>
-            <span style={{ fontFamily: MONO, fontSize: 11, color: C.gold, letterSpacing: "0.14em" }}>LOADING TRADE REPORT...</span>
-          </div>
-        ) : (
-          <>
-            {/* ── HEADER ── */}
-            <div style={{ padding: "14px 20px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 12 }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontFamily: SANS, fontSize: 15, fontWeight: 800, color: C.primary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {aOwner} <span style={{ color: C.dim, fontWeight: 500, fontSize: 13 }}>↔</span> {bOwner}
-                </div>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: C.dim, marginTop: 2 }}>
-                  {tradeDate}{seasonPhase ? ` · ${seasonPhase}` : ""}
-                </div>
-              </div>
-              {overall && (
-                <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.04em", color: verdictColor(overall), background: `${verdictColor(overall)}15`, padding: "4px 12px", borderRadius: 4, border: `1px solid ${verdictColor(overall)}30`, flexShrink: 0 }}>
-                  {overall.includes(":") ? overall.split(": ")[0].toUpperCase() : overall.toUpperCase()}
-                </span>
-              )}
-              <div onClick={onClose} style={{ cursor: "pointer", fontFamily: MONO, fontSize: 14, color: C.dim, padding: "4px 8px", borderRadius: 4, background: C.elevated, flexShrink: 0 }}>✕</div>
-            </div>
-
-            {/* ── TAB BAR ── */}
-            <div style={{ display: "flex", borderBottom: `1px solid ${C.border}`, overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
-              {([["grade", "TRADE GRADE", "#5eead4"], ["details", "DETAILS", C.gold], ["share", "SHARE", C.blue]] as const).map(([id, label, accent]) => (
-                <div key={id} onClick={() => setTab(id as typeof tab)} style={{
-                  flex: 1, minWidth: 100, padding: "11px 0", textAlign: "center", cursor: "pointer",
-                  fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.10em",
-                  color: tab === id ? accent : C.dim,
-                  borderBottom: tab === id ? `3px solid ${accent}` : "3px solid transparent",
-                  transition: "all 0.15s", userSelect: "none",
-                }}>{label}</div>
-              ))}
-            </div>
-
-            {/* ── TAB CONTENT ── */}
-            <div style={{ padding: "16px 20px" }}>
-
-              {/* ════════════════ TAB 1: TRADE GRADE ════════════════ */}
-              {tab === "grade" && (
-                <div>
-                  {/* ── TOP HALF: TRADE DAY ── */}
-
-                  {/* Trade day grade circles — compact row */}
-                  <div style={{ display: "flex", justifyContent: "center", gap: 28, marginBottom: 10 }}>
-                    {[{ owner: aOwner, score: aScore, verdict: aVerdict },
-                      { owner: bOwner, score: bScore, verdict: bVerdict }].map((s, i) => (
-                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <GradeCircle score={s.score} size={56} />
-                        <div>
-                          <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 700, color: C.primary, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.owner}</div>
-                          <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: verdictColor(s.verdict), background: `${verdictColor(s.verdict)}15`, padding: "2px 7px", borderRadius: 3, border: `1px solid ${verdictColor(s.verdict)}25`, display: "inline-block", marginTop: 2 }}>{s.verdict || "—"}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Side-by-side asset breakdown — compact */}
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
-                    {[{ side: sideA, assets: assetsA, owner: aOwner }, { side: sideB, assets: assetsB, owner: bOwner }].map(({ side, assets, owner }, idx) => (
-                      <div key={idx} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, overflow: "hidden" }}>
-                        <div style={{ padding: "4px 8px", borderBottom: `1px solid ${C.border}`, background: C.goldDim }}>
-                          <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, letterSpacing: "0.08em", color: C.gold }}>{owner.toUpperCase()}</span>
-                        </div>
-                        <div style={{ padding: "5px 8px" }}>
-                          <div style={{ fontFamily: MONO, fontSize: 7, fontWeight: 800, letterSpacing: "0.08em", color: C.red, marginBottom: 2 }}>GAVE</div>
-                          {assets.sent.length > 0 ? assets.sent.map((a, j) => <AssetRow key={j} name={a.name} isPick={a.isPick} position={a.position} value={a.value} />) : <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>—</span>}
-                          {assets.totalSent > 0 && <div style={{ fontFamily: MONO, fontSize: 9, color: C.red, textAlign: "right", marginTop: 2 }}>{fmt(assets.totalSent)}</div>}
-                          <div style={{ height: 1, background: C.border, margin: "4px 0" }} />
-                          <div style={{ fontFamily: MONO, fontSize: 7, fontWeight: 800, letterSpacing: "0.08em", color: C.green, marginBottom: 2 }}>GOT</div>
-                          {assets.received.length > 0 ? assets.received.map((a, j) => <AssetRow key={j} name={a.name} isPick={a.isPick} position={a.position} value={a.value} />) : <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>—</span>}
-                          {assets.totalRecv > 0 && <div style={{ fontFamily: MONO, fontSize: 9, color: C.green, textAlign: "right", marginTop: 2 }}>{fmt(assets.totalRecv)}</div>}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Balance bar */}
-                  <div style={{ padding: "6px 10px", background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, marginBottom: 0 }}>
-                    <BalanceBar sent={assetsA.totalSent || (sideA.total_sha_sent as number) || 0} received={assetsA.totalRecv || (sideA.total_sha_received as number) || 0} />
-                    {scoringType && (
-                      <div style={{ fontFamily: MONO, fontSize: 7, color: C.dim, marginTop: 3, display: "flex", alignItems: "center", gap: 3 }}>
-                        <span style={{ color: C.gold }}>◆</span> {scoringType.toUpperCase().replace(/_/g, " ")}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* ── DIVIDER: HINDSIGHT ── */}
-                  <SectionDivider label="HINDSIGHT" color={C.gold} />
-
-                  {/* ── BOTTOM HALF: HINDSIGHT ── */}
-                  {hasHindsight ? (
-                    <div>
-                      {/* Grade circles with confidence badge in center — compact horizontal */}
-                      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 16, marginBottom: 10 }}>
-                        {/* Side A hindsight */}
-                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <GradeCircle score={(hA.score as number) || 0} size={52} accentOverride={C.gold} />
-                          <div>
-                            <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 700, color: C.primary, maxWidth: 130, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{String(hA.owner || aOwner)}</div>
-                            <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, color: verdictColor(String(hA.verdict || "")), background: `${verdictColor(String(hA.verdict || ""))}15`, padding: "1px 6px", borderRadius: 3, border: `1px solid ${verdictColor(String(hA.verdict || ""))}25`, display: "inline-block", marginTop: 2 }}>{String(hA.verdict || "—")}</span>
-                          </div>
-                        </div>
-
-                        {/* Confidence badge */}
-                        <ConfidenceBadge confidence={hConfidence || "Low"} daysAgo={hDaysAgo} overall={hOverall} />
-
-                        {/* Side B hindsight */}
-                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <div style={{ textAlign: "right" }}>
-                            <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 700, color: C.primary, maxWidth: 130, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{String(hB.owner || bOwner)}</div>
-                            <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, color: verdictColor(String(hB.verdict || "")), background: `${verdictColor(String(hB.verdict || ""))}15`, padding: "1px 6px", borderRadius: 3, border: `1px solid ${verdictColor(String(hB.verdict || ""))}25`, display: "inline-block", marginTop: 2 }}>{String(hB.verdict || "—")}</span>
-                          </div>
-                          <GradeCircle score={(hB.score as number) || 0} size={52} accentOverride={C.gold} />
-                        </div>
-                      </div>
-
-                      {/* Two-column key factors — the story */}
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                        {[{ owner: String(hA.owner || aOwner), factors: aMergedFactors, side: hA },
-                          { owner: String(hB.owner || bOwner), factors: bMergedFactors, side: hB }].map((s, i) => {
-                          // Build rich bullets from available hindsight data — always show production/status/value
-                          const bullets: Array<{ text: string; sentiment?: string }> = [];
-
-                          // 1. Start with key_factors from the grader (the narrative)
-                          for (const f of s.factors) bullets.push(f);
-
-                          // 2. Supplement with structured data the grader returned
-                          const totalProd = Number(s.side.total_production || 0);
-                          const games = Number(s.side.games || 0);
-                          const ppg = Number(s.side.ppg || 0);
-                          const rostered = Number(s.side.assets_rostered || 0);
-                          const cut = Number(s.side.assets_cut || 0);
-                          const flipped = Number(s.side.assets_flipped || 0);
-                          const chainPts = Number(s.side.chain_pts || 0);
-                          const champCount = Number(s.side.champ_count || 0);
-                          const bd = (s.side.breakdown || {}) as Record<string, number>;
-                          const remainVal = Number(s.side.remaining_value_raw || 0);
-
-                          const seen = new Set(bullets.map(b => b.text.toLowerCase()));
-
-                          // Production summary — add if not already covered by key_factors
-                          if (totalProd > 0 && !seen.has(`${fmt(totalProd)} total pts delivered`)) {
-                            const prodSentiment = ppg >= 15 ? "positive" : ppg >= 8 ? "neutral" : "negative";
-                            const prodText = games > 0
-                              ? `${fmt(totalProd)} pts produced (${games} games, ${fmtDec(ppg)} PPG)`
-                              : `${fmt(totalProd)} pts produced`;
-                            // Only add if no key_factor already mentions points
-                            if (!bullets.some(b => b.text.includes("pts") || b.text.includes("PPG"))) {
-                              bullets.push({ text: prodText, sentiment: prodSentiment });
-                            }
-                          }
-
-                          // Roster status — add if not already mentioned
-                          if (rostered + cut + flipped > 0 && !bullets.some(b => b.text.includes("roster") || b.text.includes("cut") || b.text.includes("flip"))) {
-                            const parts: string[] = [];
-                            if (rostered > 0) parts.push(`${rostered} still rostered`);
-                            if (flipped > 0) parts.push(`${flipped} flipped`);
-                            if (cut > 0) parts.push(`${cut} cut`);
-                            bullets.push({ text: parts.join(", "), sentiment: cut > rostered ? "negative" : rostered > 0 ? "positive" : undefined });
-                          }
-
-                          // Remaining value
-                          if (remainVal > 500 && !bullets.some(b => b.text.toLowerCase().includes("remaining") || b.text.toLowerCase().includes("current value"))) {
-                            bullets.push({ text: `${fmt(remainVal)} remaining dynasty value on roster`, sentiment: "positive" });
-                          }
-
-                          // Chain returns from flips
-                          if (chainPts > 50 && !bullets.some(b => b.text.includes("chain") || b.text.includes("flipped into"))) {
-                            bullets.push({ text: `${fmt(chainPts)} pts from subsequent flip chains`, sentiment: "positive" });
-                          }
-
-                          // Flip profit
-                          if (bd.flip_profit != null && Math.abs(bd.flip_profit) > 50 && !bullets.some(b => b.text.toLowerCase().includes("flip profit"))) {
-                            bullets.push({
-                              text: `Flip profit: ${bd.flip_profit >= 0 ? "+" : ""}${fmt(bd.flip_profit)} value`,
-                              sentiment: bd.flip_profit > 0 ? "positive" : "negative",
-                            });
-                          }
-
-                          // Championship context
-                          if (champCount > 0 && !bullets.some(b => b.text.includes("champ") || b.text.includes("title"))) {
-                            bullets.push({ text: `Won ${champCount} championship${champCount > 1 ? "s" : ""} with acquired assets`, sentiment: "elite" });
-                          }
-
-                          // Zero production fallback
-                          if (totalProd === 0 && rostered + cut + flipped === 0 && bullets.length === 0) {
-                            bullets.push({ text: "Picks haven't conveyed yet — check back after the draft" });
-                          }
-                          if (bullets.length === 0) {
-                            bullets.push({ text: "Too early to tell — production data still accumulating" });
-                          }
-
-                          // Value trajectory from trade day to now
-                          if (bd.remaining_value != null && bd.production != null) {
-                            const totalReturn = Number(s.side.return_score || 0);
-                            if (totalReturn > 0 && !bullets.some(b => b.text.includes("return score"))) {
-                              bullets.push({
-                                text: `Total return score: ${fmt(totalReturn)}`,
-                                sentiment: totalReturn > 400 ? "positive" : totalReturn > 200 ? "neutral" : "negative",
-                              });
-                            }
-                          }
-
-                          return (
-                            <div key={i} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, padding: "8px 10px" }}>
-                              <div style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, letterSpacing: "0.06em", color: C.gold, marginBottom: 4 }}>{s.owner.toUpperCase()}</div>
-                              {bullets.slice(0, 6).map((f, j) => <FactorBullet key={j} text={f.text} sentiment={f.sentiment} />)}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ) : (
-                    /* Empty state for no hindsight */
-                    <div style={{ padding: "24px 16px", textAlign: "center", background: C.card, border: `1px solid ${C.border}`, borderRadius: 6 }}>
-                      <div style={{ fontFamily: SERIF, fontSize: 15, fontStyle: "italic", color: C.goldBright, marginBottom: 4 }}>Hindsight grades unlock over time</div>
-                      <div style={{ fontFamily: SANS, fontSize: 11, color: C.dim, lineHeight: 1.5 }}>Sync your league to unlock hindsight grades — we track production, flips, and championships to grade how trades actually turned out.</div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* ════════════════ TAB 2: DETAILS ════════════════ */}
-              {tab === "details" && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-
-                  {/* 5-Component Hindsight Breakdown */}
-                  {hasHindsight && (
-                    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
-                      <div style={{ padding: "8px 14px", borderBottom: `1px solid ${C.border}`, background: C.goldDim, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", color: C.gold }}>HINDSIGHT BREAKDOWN</span>
-                        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                          {hDaysAgo > 0 && <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>{hDaysAgo}d ago</span>}
-                          {hConfidence && <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, padding: "1px 5px", borderRadius: 3, color: confidenceColor(hConfidence), background: `${confidenceColor(hConfidence)}15` }}>{hConfidence}</span>}
-                        </div>
-                      </div>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
-                        {[hA, hB].map((s, i) => {
-                          const bd = (s.breakdown || {}) as Record<string, number>;
-                          return (
-                            <div key={i} style={{ padding: "12px 14px", borderRight: i === 0 ? `1px solid ${C.border}` : "none" }}>
-                              <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.primary, marginBottom: 8 }}>{String(s.owner || "")}</div>
-                              {[
-                                { label: "Production", val: bd.production, sub: `${fmt(s.total_production as number)} pts · ${fmtDec(s.ppg as number)} PPG` },
-                                { label: "Remaining Value", val: bd.remaining_value, sub: `${s.assets_rostered} rost · ${s.assets_cut} cut · ${s.assets_flipped} flip` },
-                                { label: "Chain Return", val: bd.chain_return, sub: s.chain_pts ? `${fmt(s.chain_pts as number)} chain pts` : null },
-                                { label: "Flip Profit", val: bd.flip_profit, sub: null },
-                                { label: "Champ Mult", val: null, sub: `${bd.champ_multiplier || 1}x (${s.champ_count || 0} titles)` },
-                              ].map((row) => (
-                                <div key={row.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "3px 0", borderBottom: `1px solid ${C.white08}` }}>
-                                  <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>{row.label}</span>
-                                  <div style={{ textAlign: "right" }}>
-                                    {row.val != null && <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: (row.val as number) > 0 ? C.green : (row.val as number) < 0 ? C.red : C.dim }}>{(row.val as number) > 0 ? "+" : ""}{fmt(row.val as number)}</span>}
-                                    {row.sub && <div style={{ fontFamily: MONO, fontSize: 8, color: C.dim }}>{row.sub}</div>}
-                                  </div>
-                                </div>
-                              ))}
-                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", marginTop: 4, borderTop: `1px solid ${C.border}` }}>
-                                <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.gold }}>RETURN</span>
-                                <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.gold }}>{fmt(s.return_score as number)}</span>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Per-Asset Deep Dive */}
-                  {(ddAssetsA.length > 0 || ddAssetsB.length > 0) && (
-                    <div>
-                      <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", color: C.gold, marginBottom: 8 }}>ASSETS ACQUIRED</div>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                        {[{ owner: aOwner, assets: ddAssetsA }, { owner: bOwner, assets: ddAssetsB }].map(({ owner, assets }, idx) => (
-                          <div key={idx}>
-                            <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 700, color: C.primary, marginBottom: 6 }}>{owner}</div>
-                            {assets.length > 0 ? assets.map((a, j) => <AssetDetailCard key={j} asset={a} />) : (
-                              <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim, padding: 12, textAlign: "center", background: C.card, borderRadius: 8 }}>No asset data</div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Team Context */}
-                  {(sideA.season_context || sideB.season_context) && (
-                    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px" }}>
-                      <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", color: C.gold, marginBottom: 8 }}>TEAM CONTEXT</div>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                        {[{ owner: aOwner, side: sideA }, { owner: bOwner, side: sideB }].map(({ owner, side }, i) => {
-                          const ctx = (side.season_context || {}) as Record<string, unknown>;
-                          const si = (ctx.season_info || ctx) as Record<string, unknown>;
-                          const recBefore = (side.record_before_trade || ctx.record_before_trade || {}) as Record<string, number>;
-                          const recAfter = (side.record_after_trade || ctx.record_after_trade || {}) as Record<string, number>;
-                          return (
-                            <div key={i}>
-                              <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 700, color: C.primary, marginBottom: 4 }}>{owner}</div>
-                              {(recBefore.wins != null || recBefore.losses != null) && (
-                                <div style={{ fontFamily: MONO, fontSize: 10, color: C.dim, marginBottom: 2 }}>
-                                  Before: {recBefore.wins || 0}-{recBefore.losses || 0}
-                                  {recAfter.wins != null && ` → After: ${recAfter.wins}-${recAfter.losses}`}
-                                </div>
-                              )}
-                              {si.wins != null && (
-                                <div style={{ fontFamily: MONO, fontSize: 10, color: C.secondary }}>
-                                  Season: {si.wins}-{si.losses}
-                                  {si.made_playoffs && <span style={{ color: C.green }}> · Playoffs</span>}
-                                  {si.is_champion && <span style={{ color: C.gold, fontWeight: 700 }}> · CHAMPION</span>}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Positional Impact */}
-                  {(sideA.position_sold || sideA.position_targeted) && (
-                    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px" }}>
-                      <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", color: C.gold, marginBottom: 8 }}>POSITIONAL IMPACT</div>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                        {[sideA, sideB].map((side, i) => (
-                          <div key={i}>
-                            <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 700, color: C.primary, marginBottom: 4 }}>{String(side.owner || "")}</div>
-                            {side.position_targeted && <div style={{ fontFamily: MONO, fontSize: 10, color: posColor(String(side.position_targeted)) }}>Targeted: {String(side.position_targeted)}</div>}
-                            {side.position_sold && <div style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>Sold: {String(side.position_sold)}</div>}
-                            {side.roster_need_filled && <div style={{ fontFamily: MONO, fontSize: 9, color: C.green, marginTop: 2 }}>Filled a roster need</div>}
-                            {side.sold_from_strength && <div style={{ fontFamily: MONO, fontSize: 9, color: C.blue, marginTop: 2 }}>Sold from strength</div>}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Trade Context Badges */}
-                  <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px" }}>
-                    <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", color: C.gold, marginBottom: 8 }}>TRADE CONTEXT</div>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                      {(sideA.is_blockbuster as boolean) && <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, padding: "3px 8px", borderRadius: 4, color: C.gold, background: C.goldDim, border: `1px solid ${C.goldBorder}` }}>BLOCKBUSTER</span>}
-                      {(sideA.age_direction as string) && <span style={{ fontFamily: MONO, fontSize: 9, padding: "3px 8px", borderRadius: 4, color: C.blue, background: `${C.blue}15` }}>{String(sideA.age_direction).replace(/_/g, " ")}</span>}
-                      {(sideA.starters_traded as number) > 0 && <span style={{ fontFamily: MONO, fontSize: 9, padding: "3px 8px", borderRadius: 4, color: C.orange, background: `${C.orange}15` }}>{sideA.starters_traded} starters moved</span>}
-                      {(sideA.trade_direction as string) && <span style={{ fontFamily: MONO, fontSize: 9, padding: "3px 8px", borderRadius: 4, color: C.secondary, background: C.white08 }}>{String(sideA.trade_direction).replace(/_/g, " ")}</span>}
-                      {(sideA.includes_star_player as boolean) && <span style={{ fontFamily: MONO, fontSize: 9, padding: "3px 8px", borderRadius: 4, color: "#f5e6a3", background: "rgba(245,230,163,0.10)" }}>STAR PLAYER</span>}
-                      {seasonPhase && <span style={{ fontFamily: MONO, fontSize: 9, padding: "3px 8px", borderRadius: 4, color: C.dim, background: C.white08 }}>{seasonPhase}</span>}
-                    </div>
-                  </div>
-
-                  {/* No hindsight fallback */}
-                  {!hasHindsight && (
-                    <div style={{ padding: 20, textAlign: "center", background: C.card, border: `1px solid ${C.border}`, borderRadius: 8 }}>
-                      <span style={{ fontFamily: MONO, fontSize: 11, color: C.dim }}>Hindsight analysis not yet available for this trade</span>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* ════════════════ TAB 3: SHARE CARD ════════════════ */}
-              {tab === "share" && (
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
-                  <div ref={shareRef} style={{
-                    width: "min(400px, 88vw)", padding: "24px", borderRadius: 14,
-                    background: `linear-gradient(160deg, #0c0f1a, ${C.card}, #0c0f1a)`,
-                    border: `1px solid ${C.goldBorder}`,
-                    boxShadow: `0 8px 32px rgba(0,0,0,0.5), inset 0 1px 0 ${C.goldBorder}`,
-                  }}>
-                    {/* Brand header */}
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-                      <div>
-                        <div style={{ fontFamily: DISPLAY, fontSize: 14, color: C.gold, letterSpacing: "0.06em" }}>DYNASTYGPT</div>
-                        <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, marginTop: 2 }}>TRADE REPORT · {tradeDate}</div>
-                      </div>
-                      {overall && <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: verdictColor(overall), background: `${verdictColor(overall)}18`, padding: "4px 14px", borderRadius: 6, border: `1px solid ${verdictColor(overall)}35` }}>{overall.includes(":") ? overall.split(": ")[0].toUpperCase() : overall.toUpperCase()}</span>}
-                    </div>
-
-                    {/* Grade circles + assets */}
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}>
-                      {[{ owner: aOwner, score: aScore, verdict: aVerdict, side: sideA, hScore: (hA.score as number) || 0 },
-                        { owner: bOwner, score: bScore, verdict: bVerdict, side: sideB, hScore: (hB.score as number) || 0 }].map((s, i) => (
-                        <div key={i} style={{ textAlign: "center" }}>
-                          <div style={{ display: "flex", justifyContent: "center", gap: 6, marginBottom: 8 }}>
-                            <GradeCircle score={s.score} size={60} />
-                            {hasHindsight && s.hScore > 0 && <GradeCircle score={s.hScore} size={44} accentOverride={C.gold} />}
-                          </div>
-                          <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 800, color: C.primary, marginBottom: 2 }}>{s.owner}</div>
-                          <div style={{ fontFamily: MONO, fontSize: 10, color: verdictColor(s.verdict), marginBottom: 6 }}>{s.verdict}</div>
-                          <div style={{ fontFamily: MONO, fontSize: 9, color: C.secondary, lineHeight: 1.5 }}>
-                            {[...((s.side.players_sent || []) as string[]).map(n => n.replace(/\s*\([^)]*\)/g, "")),
-                              ...((s.side.picks_sent || []) as string[]).map(p => p.replace(/\s*\([^)]*\)/g, ""))].slice(0, 3).join("\n") || "—"}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Balance bar */}
-                    <div style={{ marginBottom: 16, padding: "10px 12px", background: "rgba(255,255,255,0.03)", borderRadius: 8 }}>
-                      <BalanceBar sent={assetsA.totalSent || (sideA.total_sha_sent as number) || 0} received={assetsA.totalRecv || (sideA.total_sha_received as number) || 0} />
-                    </div>
-
-                    {/* Key factors */}
-                    <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 12, marginBottom: 12 }}>
-                      <div style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, letterSpacing: "0.12em", color: C.gold, marginBottom: 6 }}>KEY FACTORS</div>
-                      {[
-                        seasonPhase ? `Traded during ${seasonPhase}` : null,
-                        (sideA.position_targeted as string) ? `${aOwner} targeted ${sideA.position_targeted}` : null,
-                        Math.abs(aScore - bScore) > 30 ? `${Math.abs(aScore - bScore)} point grade gap` : null,
-                        (sideA.is_blockbuster as boolean) ? "Blockbuster trade (4+ assets)" : null,
-                        hasHindsight ? `Hindsight: ${hOverall}` : null,
-                      ].filter(Boolean).slice(0, 4).map((f, i) => (
-                        <div key={i} style={{ fontFamily: SANS, fontSize: 10, color: C.secondary, padding: "2px 0", display: "flex", alignItems: "center", gap: 6 }}>
-                          <span style={{ color: C.gold, fontSize: 8 }}>◆</span> {f}
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Watermark */}
-                    <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 6 }}>
-                      <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>powered by</span>
-                      <span style={{ fontFamily: DISPLAY, fontSize: 10, color: C.gold, letterSpacing: "0.04em" }}>dynastygpt.com</span>
-                    </div>
-                  </div>
-
-                  <div style={{ fontFamily: MONO, fontSize: 10, color: C.dim, textAlign: "center", lineHeight: 1.6 }}>
-                    Screenshot this card to share<br />
-                    <span style={{ color: C.secondary }}>Optimized for mobile — just screenshot and send</span>
-                  </div>
-                </div>
-              )}
-            </div>
-          </>
+  return(<>
+    <style>{`@keyframes fadeIn{from{opacity:0}to{opacity:1}}@keyframes modalSlideIn{from{opacity:0;transform:scale(0.97) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}@keyframes radarSweep{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
+    <div onClick={onClose} style={{position:'fixed',inset:0,zIndex:9999,background:'rgba(0,0,0,0.85)',backdropFilter:'blur(8px)',display:'flex',alignItems:'center',justifyContent:'center',animation:'fadeIn 0.2s ease'}}>
+      <div onClick={(e)=>e.stopPropagation()} style={{width:'94vw',maxWidth:1140,maxHeight:'92vh',overflowY:'auto',background:C.bg,border:`1px solid ${C.border}`,borderRadius:12,animation:'modalSlideIn 0.25s ease'}}>
+        {isLoading?<LoadingSequence/>:hasReport?<FullReport reportData={r} hindsightData={hindsight} onClose={onClose}/>:(
+          <div style={{padding:40,textAlign:'center'}}><div style={{fontFamily:MONO,fontSize:12,color:C.red,marginBottom:8}}>Failed to load report</div><div style={{fontFamily:MONO,fontSize:10,color:C.dim}}>Trade ID: {tradeId}</div><div onClick={onClose} style={{marginTop:16,fontFamily:MONO,fontSize:11,color:C.gold,cursor:'pointer',padding:'6px 16px',borderRadius:4,border:`1px solid ${C.goldBorder}`,background:C.goldDim,display:'inline-block'}}>CLOSE</div></div>
         )}
       </div>
-
-      <style>{`
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes modalSlideIn { from { opacity: 0; transform: scale(0.97) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
-      `}</style>
     </div>
-  );
+  </>);
 }

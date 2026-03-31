@@ -316,7 +316,7 @@ function DynastyScoreCard({ lid, owner }: { lid: string; owner: string }) {
 
   if (loadingScore) {
     return (
-      <div style={{ order: -2 }}>
+      <div className="w-full" style={{ order: -2 }}>
         <div style={{
           borderRadius: 6, overflow: "hidden", background: C.card,
           border: `1px solid ${C.border}`,
@@ -342,7 +342,7 @@ function DynastyScoreCard({ lid, owner }: { lid: string; owner: string }) {
   const bullets = (myScore.bullets || []).slice(0, 3);
 
   return (
-    <div style={{ order: -2 }}>
+    <div className="w-full" style={{ order: -2 }}>
       <div style={{
         borderRadius: 8, overflow: "hidden", background: C.card,
         border: `1px solid ${C.goldBorder}`,
@@ -746,10 +746,10 @@ function DashboardView({ lid, owner }: { lid: string; owner: string }) {
             {rows.length > 0 && (
               <p className="text-[13px] font-medium text-secondary mb-1.5 pl-0.5">Your move</p>
             )}
-            <div className="flex items-center rounded-xl bg-elevated/50 p-1">
+            <div className="flex items-center rounded-xl bg-elevated/50 p-1 max-sm:flex-col max-sm:items-stretch">
               {rows.slice(0, 3).map((r, i) => (
-                <div key={i} className="flex items-center flex-1 min-w-0">
-                  {i > 0 && <div className="w-px self-stretch bg-white/5" />}
+                <div key={i} className="flex items-center flex-1 min-w-0 max-sm:w-full">
+                  {i > 0 && <div className="w-px self-stretch bg-white/5 max-sm:hidden" />}
                   <div
                     onClick={() => {
                       if (r.playerName) {
@@ -782,20 +782,22 @@ function DashboardView({ lid, owner }: { lid: string; owner: string }) {
                 </div>
               ))}
               {/* Franchise health link + Build a trade CTA */}
-              {rows.length > 0 && <div className="w-px self-stretch bg-white/5" />}
-              <div
-                onClick={() => router.push(`/l/${currentLeagueSlug}/intel`)}
-                className="flex items-center gap-1.5 px-3 py-3 rounded-lg cursor-pointer transition-colors hover:bg-amber-400/10 whitespace-nowrap"
-              >
-                <FileText size={14} className="text-amber-400 shrink-0" />
-                <span className="text-sm font-medium text-amber-400">Franchise health</span>
-              </div>
-              <div
-                onClick={() => router.push(`/l/${currentLeagueSlug}/trades`)}
-                className="flex items-center gap-2 px-4 py-3 rounded-lg cursor-pointer transition-colors hover:bg-amber-400/10 whitespace-nowrap"
-              >
-                <Plus size={14} className="text-amber-400 shrink-0" />
-                <span className="text-sm font-medium text-amber-400">Build a trade</span>
+              {rows.length > 0 && <div className="w-px self-stretch bg-white/5 max-sm:hidden" />}
+              <div className="flex items-center max-sm:w-full max-sm:flex-row max-sm:justify-center">
+                <div
+                  onClick={() => router.push(`/l/${currentLeagueSlug}/intel`)}
+                  className="flex items-center gap-1.5 px-3 py-3 rounded-lg cursor-pointer transition-colors hover:bg-amber-400/10 whitespace-nowrap max-sm:flex-1 max-sm:justify-center"
+                >
+                  <FileText size={14} className="text-amber-400 shrink-0" />
+                  <span className="text-sm font-medium text-amber-400">Franchise health</span>
+                </div>
+                <div
+                  onClick={() => router.push(`/l/${currentLeagueSlug}/trades`)}
+                  className="flex items-center gap-2 px-4 py-3 rounded-lg cursor-pointer transition-colors hover:bg-amber-400/10 whitespace-nowrap max-sm:flex-1 max-sm:justify-center"
+                >
+                  <Plus size={14} className="text-amber-400 shrink-0" />
+                  <span className="text-sm font-medium text-amber-400">Build a trade</span>
+                </div>
               </div>
             </div>
           </div>
@@ -806,7 +808,7 @@ function DashboardView({ lid, owner }: { lid: string; owner: string }) {
       {/* ══════════════════════════════════════════════════════════
           COMMAND STRIP — tells you WHO you are (MUST BE FIRST VISUALLY)
           ══════════════════════════════════════════════════════════ */}
-      <div style={{
+      <div className="mobile-col" style={{
         display: "flex", alignItems: "center", gap: 0, flexWrap: "wrap",
         padding: "7px 14px", borderRadius: 6, background: C.panel,
         border: `1px solid ${C.border}`, justifyContent: "center",
@@ -821,7 +823,7 @@ function DashboardView({ lid, owner }: { lid: string; owner: string }) {
         }}>{tier.label}</span>
 
         {/* Divider */}
-        <div style={{ width: 1, height: 16, background: C.borderLt, margin: "0 12px" }} />
+        <div className="hidden sm:block" style={{ width: 1, height: 16, background: C.borderLt, margin: "0 12px" }} />
 
         {/* Season record */}
         {isOffseason ? (
@@ -829,7 +831,7 @@ function DashboardView({ lid, owner }: { lid: string; owner: string }) {
             <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
               <span style={{ fontFamily: MONO, fontSize: 10, color: C.gold, letterSpacing: "0.06em" }}>{currentYear} OFFSEASON</span>
             </div>
-            <div style={{ width: 1, height: 16, background: C.borderLt, margin: "0 12px" }} />
+            <div className="hidden sm:block" style={{ width: 1, height: 16, background: C.borderLt, margin: "0 12px" }} />
           </>
         ) : latestSeason ? (
           <>
@@ -840,7 +842,7 @@ function DashboardView({ lid, owner }: { lid: string; owner: string }) {
                 {latestFinish && <span style={{ color: C.dim }}> ({ordinal(latestFinish.finish)})</span>}
               </span>
             </div>
-            <div style={{ width: 1, height: 16, background: C.borderLt, margin: "0 12px" }} />
+            <div className="hidden sm:block" style={{ width: 1, height: 16, background: C.borderLt, margin: "0 12px" }} />
           </>
         ) : null}
 
@@ -856,7 +858,7 @@ function DashboardView({ lid, owner }: { lid: string; owner: string }) {
                 )}
               </span>
             </div>
-            <div style={{ width: 1, height: 16, background: C.borderLt, margin: "0 12px" }} />
+            <div className="hidden sm:block" style={{ width: 1, height: 16, background: C.borderLt, margin: "0 12px" }} />
           </>
         )}
 
@@ -871,7 +873,7 @@ function DashboardView({ lid, owner }: { lid: string; owner: string }) {
                 {champs.playoff_appearances}/{record?.seasons_played ?? "—"}
               </span>
             </div>
-            <div style={{ width: 1, height: 16, background: C.borderLt, margin: "0 12px" }} />
+            <div className="hidden sm:block" style={{ width: 1, height: 16, background: C.borderLt, margin: "0 12px" }} />
           </>
         )}
 
@@ -884,7 +886,7 @@ function DashboardView({ lid, owner }: { lid: string; owner: string }) {
                 {champs.championships}
               </span>
             </div>
-            <div style={{ width: 1, height: 16, background: C.borderLt, margin: "0 12px" }} />
+            <div className="hidden sm:block" style={{ width: 1, height: 16, background: C.borderLt, margin: "0 12px" }} />
           </>
         )}
 
@@ -894,7 +896,7 @@ function DashboardView({ lid, owner }: { lid: string; owner: string }) {
               <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim, letterSpacing: "0.06em" }}>OVERALL</span>
               <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.gold }}>#{myRank.rank}</span>
             </div>
-            <div style={{ width: 1, height: 16, background: C.borderLt, margin: "0 12px" }} />
+            <div className="hidden sm:block" style={{ width: 1, height: 16, background: C.borderLt, margin: "0 12px" }} />
           </>
         )}
         {myIntel?.dynasty_rank && (
@@ -903,7 +905,7 @@ function DashboardView({ lid, owner }: { lid: string; owner: string }) {
               <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim, letterSpacing: "0.06em" }}>DYNASTY</span>
               <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.blue }}>#{myIntel.dynasty_rank}</span>
             </div>
-            <div style={{ width: 1, height: 16, background: C.borderLt, margin: "0 12px" }} />
+            <div className="hidden sm:block" style={{ width: 1, height: 16, background: C.borderLt, margin: "0 12px" }} />
           </>
         )}
         {myIntel?.win_now_rank && (
@@ -912,7 +914,7 @@ function DashboardView({ lid, owner }: { lid: string; owner: string }) {
               <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim, letterSpacing: "0.06em" }}>WIN-NOW</span>
               <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.green }}>#{myIntel.win_now_rank}</span>
             </div>
-            <div style={{ width: 1, height: 16, background: C.borderLt, margin: "0 12px" }} />
+            <div className="hidden sm:block" style={{ width: 1, height: 16, background: C.borderLt, margin: "0 12px" }} />
           </>
         )}
 
@@ -928,7 +930,7 @@ function DashboardView({ lid, owner }: { lid: string; owner: string }) {
             }}>
               {tendencies.badges[0]}
             </span>
-            <div style={{ width: 1, height: 16, background: C.borderLt, margin: "0 12px" }} />
+            <div className="hidden sm:block" style={{ width: 1, height: 16, background: C.borderLt, margin: "0 12px" }} />
           </>
         )}
 
@@ -1039,12 +1041,12 @@ function DashboardView({ lid, owner }: { lid: string; owner: string }) {
           ) : (
             <div>
               {/* Column headers */}
-              <div style={{
+              <div className="max-sm:!grid-cols-[1.8fr_0.6fr_0.55fr]" style={{
                 display: "grid", gridTemplateColumns: "1.8fr 0.6fr 0.55fr 0.55fr",
                 padding: "0 8px 5px", marginBottom: 2,
               }}>
                 {["PLAYER", "VALUE", "POS RK", "30D"].map((h) => (
-                  <span key={h} style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.06em", color: C.dim, textAlign: h === "PLAYER" ? "left" : "center" }}>{h}</span>
+                  <span key={h} className={h === "30D" ? "hidden sm:block" : ""} style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.06em", color: C.dim, textAlign: h === "PLAYER" ? "left" : "center" }}>{h}</span>
                 ))}
               </div>
 
@@ -1084,7 +1086,7 @@ function DashboardView({ lid, owner }: { lid: string; owner: string }) {
                       const trendVal = t30?.delta ? `${t30.delta > 0 ? "▲" : "▼"} ${Math.abs(t30.delta)}` : "—";
                       const isHovered = hoveredPlayer === `${pos}-${idx}`;
                       return (
-                        <div key={p.name_clean} style={{
+                        <div key={p.name_clean} className="max-sm:!grid-cols-[1.8fr_0.6fr_0.55fr]" style={{
                           display: "grid", gridTemplateColumns: "1.8fr 0.6fr 0.55fr 0.55fr",
                           padding: "4px 8px",
                           borderLeft: isTop ? `3px solid ${C.gold}` : `3px solid transparent`,
@@ -1112,7 +1114,7 @@ function DashboardView({ lid, owner }: { lid: string; owner: string }) {
                           }}>
                             {safe(p.sha_pos_rank)}
                           </span>
-                          <span style={{ fontFamily: MONO, fontSize: 10, textAlign: "center", alignSelf: "center", color: trendColor, fontWeight: t30?.delta ? 700 : 400 }}>
+                          <span className="hidden sm:block" style={{ fontFamily: MONO, fontSize: 10, textAlign: "center", alignSelf: "center", color: trendColor, fontWeight: t30?.delta ? 700 : 400 }}>
                             {trendVal}
                           </span>
                         </div>
@@ -1216,7 +1218,7 @@ function DashboardView({ lid, owner }: { lid: string; owner: string }) {
           </div>
 
           {/* Market Intel (scrollable, compact) */}
-          <div style={{ maxHeight: 500, overflowY: "auto", borderRadius: 8 }}>
+          <div className="mobile-maxh" style={{ maxHeight: 500, overflowY: "auto", borderRadius: 8 }}>
             <MarketIntelSection feed={marketFeed as any} loading={loadingMarket} />
           </div>
 
