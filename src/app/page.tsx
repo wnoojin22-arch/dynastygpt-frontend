@@ -3,7 +3,7 @@
 import React, { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLeagueStore } from '@/lib/stores/league-store';
-import { syncLeague } from '@/lib/api';
+import { syncLeague, getOverview } from '@/lib/api';
 
 /* ═══════════════════════════════════════════════════════════════
    DESIGN TOKENS
@@ -363,9 +363,19 @@ export default function LandingPage() {
     setSyncing(true);
     setError(null);
     try {
-      const res = await syncLeague(id);
-      const slug = res.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-      setLeague(id, slug, res.name);
+      // Try fast overview first — if league exists in DB, navigate immediately
+      // The layout auto-sync will refresh data in the background
+      let name = "";
+      try {
+        const overview = await getOverview(id);
+        name = overview.name || id;
+      } catch {
+        // League not in DB yet — must sync first (first-time entry)
+        const res = await syncLeague(id);
+        name = res.name || id;
+      }
+      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      setLeague(id, slug, name);
       router.push(`/l/${slug}`);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to sync league');
