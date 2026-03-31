@@ -238,7 +238,7 @@ export default function PlayerCardModal() {
               ) : tab === "trades" ? (
                 <TradesTab trades={trades} timeline={timeline} playerName={playerName} pc={pc} />
               ) : (
-                <ValueTab history={history} priceHistory={priceData as typeof priceData} />
+                <ValueTab history={history} priceHistory={priceData as Record<string, unknown> | undefined} />
               )}
             </div>
           </motion.div>
@@ -483,11 +483,23 @@ function TradesTab({ trades, timeline, playerName, pc }: { trades: Array<Record<
                 </div>
               );
 
+              const verdict = String(t.verdict || "");
+              const grade = String(t.grade || "");
+              const bal = Number(t.sha_balance || 0);
+              const verdictColor = verdict === "Won" ? "#7dd3a0" : verdict === "Lost" ? "#e47272" : C.dim;
+
               return (
                 <div key={i} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 14 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 4 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexWrap: "wrap", gap: 4 }}>
                     <span style={{ fontFamily: SANS, fontSize: 14, fontWeight: 600, color: C.primary }}>{String(t.owner || "")} <span style={{ color: C.gold }}>↔</span> {String(t.counter_party || "")}</span>
-                    <span style={{ fontFamily: MONO, fontSize: 12, color: C.dim }}>{String(t.trade_date || "").substring(0, 10)}</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      {verdict && (
+                        <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: verdictColor, background: `${verdictColor}15`, padding: "2px 6px", borderRadius: 4 }}>
+                          {verdict}{grade ? ` (${grade})` : ""}
+                        </span>
+                      )}
+                      <span style={{ fontFamily: MONO, fontSize: 11, color: C.dim }}>{String(t.trade_date || "").substring(0, 10)}</span>
+                    </div>
                   </div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                     <div>
@@ -515,9 +527,7 @@ function TradesTab({ trades, timeline, playerName, pc }: { trades: Array<Record<
    VALUE CHART TAB — touch-friendly, no hover tooltips
    ═══════════════════════════════════════════════════════════════════════════ */
 
-type PriceHistoryData = { current_value: number | null; low_confidence: boolean; trend_data: { month: string; median_price: number; trade_count: number; high_confidence: boolean }[]; volume: { all_time: number }; trend_direction: string } | undefined;
-
-function ValueTab({ history, priceHistory }: { history: ValueHistoryPoint[]; priceHistory?: PriceHistoryData }) {
+function ValueTab({ history, priceHistory }: { history: ValueHistoryPoint[]; priceHistory?: Record<string, unknown> }) {
   if (history.length < 3) return <EmptyState text="Insufficient value history data." />;
   const [touchIdx, setTouchIdx] = useState<number | null>(null);
 
@@ -528,15 +538,19 @@ function ValueTab({ history, priceHistory }: { history: ValueHistoryPoint[]; pri
   const delta = (latest.sha_value || 0) - (earliest.sha_value || 0);
   const pctChange = earliest.sha_value ? ((delta / earliest.sha_value) * 100) : 0;
 
-  // Market price data — build monthly lookup
+  // Market price data — API shape: {current_value: {market_price, low_confidence}, trend: {monthly: [...]}, volume: {all_time}}
+  const ph = priceHistory;
   const marketByMonth: Record<string, number> = {};
-  const marketTrend = priceHistory?.trend_data || [];
-  for (const pt of marketTrend) {
+  const trendObj = (ph?.trend || {}) as Record<string, unknown>;
+  const monthlyArr = (trendObj.monthly || []) as { month: string; median_price: number }[];
+  for (const pt of monthlyArr) {
     marketByMonth[pt.month] = pt.median_price;
   }
-  const marketValue = priceHistory?.current_value ?? null;
-  const lowVolume = priceHistory?.low_confidence ?? true;
-  const totalVolume = priceHistory?.volume?.all_time ?? 0;
+  const cvObj = (ph?.current_value || {}) as Record<string, unknown>;
+  const marketValue = typeof cvObj.market_price === "number" ? cvObj.market_price : null;
+  const lowVolume = typeof cvObj.low_confidence === "boolean" ? cvObj.low_confidence : true;
+  const volObj = (ph?.volume || {}) as Record<string, unknown>;
+  const totalVolume = typeof volObj.all_time === "number" ? volObj.all_time : 0;
 
   // Valuation comparison badge
   const currentSha = latest.sha_value || 0;
@@ -605,7 +619,7 @@ function ValueTab({ history, priceHistory }: { history: ValueHistoryPoint[]; pri
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       {/* Summary cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
-        <ValueCard label="SHA VALUE" value={fmt(latest.sha_value || 0)} sub={latest.sha_pos_rank || ""} color={C.gold} />
+        <ValueCard label="DYNASTY VALUE" value={fmt(latest.sha_value || 0)} sub={latest.sha_pos_rank || ""} color={C.gold} />
         {marketValue ? (
           <ValueCard label="MARKET PRICE" value={fmt(marketValue)} sub={`${totalVolume} trades`} color="#6bb8e0" />
         ) : (
@@ -621,7 +635,7 @@ function ValueTab({ history, priceHistory }: { history: ValueHistoryPoint[]; pri
 
       {/* Chart */}
       <div>
-        <SectionLabel text="VALUE vs MARKET PRICE" />
+        <SectionLabel text="DYNASTY VALUE vs TRADE MARKET" />
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "14px 12px 10px" }}>
           {/* Inspection readout */}
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6, fontFamily: MONO, fontSize: 12, minHeight: 18 }}>
@@ -681,7 +695,7 @@ function ValueTab({ history, priceHistory }: { history: ValueHistoryPoint[]; pri
             <div style={{ display: "flex", gap: 10 }}>
               <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
                 <span style={{ width: 10, height: 1.5, background: C.gold, display: "inline-block", borderRadius: 1 }} />
-                <span style={{ color: C.gold }}>SHA</span>
+                <span style={{ color: C.gold }}>Dynasty</span>
               </span>
               {marketLine.length > 1 && (
                 <span style={{ display: "flex", alignItems: "center", gap: 3 }}>

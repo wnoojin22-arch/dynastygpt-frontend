@@ -139,7 +139,7 @@ export const getPlayerValue = (id: string, player: string, date?: string) => get
 export const getPlayerProduction = (id: string, player: string) => get<unknown>(`${L(id)}/player-production/${E(player)}`);
 export const getWhoHas = (id: string, player: string) => get<unknown>(`${L(id)}/who-has/${E(player)}`);
 export const getPointInTimeRank = (id: string, player: string, date: string) => get<unknown>(`${L(id)}/point-in-time-rank/${player}?date=${date}`);
-export const getPlayerPriceHistory = (player: string) => get<{ current_value: number | null; low_confidence: boolean; trend_data: { month: string; median_price: number; trade_count: number; high_confidence: boolean }[]; volume: { all_time: number }; trend_direction: string }>(`/api/market/player/${encodeURIComponent(player)}/price-history`);
+export const getPlayerPriceHistory = (player: string) => get<Record<string, unknown>>(`/api/market/player/${encodeURIComponent(player)}/price-history`);
 
 // ── Draft ────────────────────────────────────────────────────────────────
 export const getDraftHistory = (id: string, season?: string) => get<{ picks: unknown[] }>(`${L(id)}/draft/history${season ? `?season=${season}` : ""}`);
