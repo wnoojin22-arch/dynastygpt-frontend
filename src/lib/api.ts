@@ -6,7 +6,7 @@ import type {
   PositionalPowerEntry, HeadToHeadResponse, TradeChain,
   PlayerSignal, PlayerCard, PlayerTrend, ValueHistoryPoint,
   LeagueOverview, SyncResponse, FranchiseIntel, OwnerListItem,
-  SeasonStat, ResolvedAsset,
+  SeasonStat, ResolvedAsset, LeagueReportCardResponse,
 } from "./types";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -70,6 +70,30 @@ export const getTradeContext = (id: string, ownerA: string, ownerB: string) => p
 // ── Trade Partners ───────────────────────────────────────────────────────
 export const getTradePartners = (id: string, owner: string) => get<{ partners: TradePartner[]; my_needs: string[]; my_surplus: string[] }>(`${L(id)}/trade-partners/${E(owner)}`);
 
+// ── Dynasty Score ───────────────────────────────────────────────────────
+export const getDynastyScore = (id: string, owner: string) => get<DynastyScoreResponse>(`${L(id)}/owner/${E(owner)}/dynasty-score`);
+
+export interface DynastyScoreResponse {
+  score: number;
+  tier: {
+    label: string;
+    color: string;
+    threshold: number;
+  };
+  components: {
+    trade_win_rate: { score: number; max: number; detail: string; win_rate?: number; trades?: number };
+    value_extraction: { score: number; max: number; detail: string; avg_surplus?: number };
+    roster_construction: { score: number; max: number; detail: string; grades?: Record<string, string> };
+    draft_capital: { score: number; max: number; detail: string; net_picks?: number };
+    behavioral_intelligence: { score: number; max: number; detail: string; smart_moves?: number; bad_moves?: number };
+    activity: { score: number; max: number; detail: string; league_avg?: number; ratio?: number };
+  };
+  bullets: { type: "strength" | "weakness" | "highlight" | "warning"; text: string; component: string }[];
+  owner: string;
+  league_id: string;
+  percentile?: number;
+}
+
 // ── Owner Intel ──────────────────────────────────────────────────────────
 export const getOwnerProfile = (id: string, owner: string) => get<Record<string, unknown>>(`${L(id)}/owner/${E(owner)}/profile`);
 export const getOwnerTendencies = (id: string, owner: string) => get<Tendencies>(`${L(id)}/owner/${E(owner)}/tendencies`);
@@ -92,6 +116,9 @@ export const getActions = (id: string, owner: string) => get<{ stop: string[]; s
 // ── League Intel ─────────────────────────────────────────────────────────
 export const getLeagueIntel = (id: string) => get<{ owners: LeagueIntelOwner[] }>(`${L(id)}/league-intel`);
 
+// ── League Report Card ──────────────────────────────────────────────────
+export const getReportCard = (id: string) => get<LeagueReportCardResponse>(`${L(id)}/report-card`);
+
 // ── Positional Power ─────────────────────────────────────────────────────
 export const getPositionalPower = (id: string, pos: string) => get<{ rankings: PositionalPowerEntry[] }>(`${L(id)}/positional-power/${pos}`);
 
@@ -112,6 +139,7 @@ export const getPlayerValue = (id: string, player: string, date?: string) => get
 export const getPlayerProduction = (id: string, player: string) => get<unknown>(`${L(id)}/player-production/${E(player)}`);
 export const getWhoHas = (id: string, player: string) => get<unknown>(`${L(id)}/who-has/${E(player)}`);
 export const getPointInTimeRank = (id: string, player: string, date: string) => get<unknown>(`${L(id)}/point-in-time-rank/${player}?date=${date}`);
+export const getPlayerPriceHistory = (player: string) => get<{ current_value: number | null; low_confidence: boolean; trend_data: { month: string; median_price: number; trade_count: number; high_confidence: boolean }[]; volume: { all_time: number }; trend_direction: string }>(`/api/market/player/${encodeURIComponent(player)}/price-history`);
 
 // ── Draft ────────────────────────────────────────────────────────────────
 export const getDraftHistory = (id: string, season?: string) => get<{ picks: unknown[] }>(`${L(id)}/draft/history${season ? `?season=${season}` : ""}`);
@@ -136,6 +164,9 @@ export const getLineupEfficiency = (id: string, season = 2025) => get<{ rankings
 
 // ── Market Feed ─────────────────────────────────────────────────────────
 export const getMarketFeed = (id: string, owner: string, days = 120) => get<Record<string, unknown>>(`${L(id)}/owner/${E(owner)}/market-feed?days=${days}`);
+
+// ── Price Check ─────────────────────────────────────────────────────────
+export const getPriceCheck = (id: string, query: string, days = 180) => get<Record<string, unknown>>(`${L(id)}/price-check/${E(query)}?days=${days}`);
 
 // ── Share Image ─────────────────────────────────────────────────────────
 export const getTradeShareImageUrl = (id: string, tradeId: string) => `${API}${L(id)}/trade/${tradeId}/share-image`;

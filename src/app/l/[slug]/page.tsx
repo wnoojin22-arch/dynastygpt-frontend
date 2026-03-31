@@ -4,10 +4,11 @@ import React, { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useLeagueStore } from "@/lib/stores/league-store";
 import { useQuery } from "@tanstack/react-query";
-import { getRankings, getRecentTrades, getTrending, getOwnerProfiles, getOverview, getLeagueIntel } from "@/lib/api";
+import { getRankings, getRecentTrades, getTrending, getOwnerProfiles, getOverview, getLeagueIntel, getReportCard } from "@/lib/api";
 import { PowerRankings, RecentTrades } from "@/components/league";
 import { leaguePrefix } from "@/components/league/tokens";
 import PlayerName from "@/components/league/PlayerName";
+import type { LeagueReportCardResponse } from "@/lib/types";
 
 /* ═══════════════════════════════════════════════════════════════
    DESIGN TOKENS
@@ -411,6 +412,221 @@ function RecentTradesWidget({ trades, basePath }: { trades: { owner: string; cou
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   LEAGUE REPORT CARD
+   ═══════════════════════════════════════════════════════════════ */
+function ReportCardSkeleton() {
+  return (
+    <div>
+      <SectionHead title="LEAGUE REPORT CARD" />
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {/* Personality skeleton */}
+        <div style={{ height: 80, borderRadius: 8, background: C.elevated, border: `1px solid ${C.border}`, animation: "pulse-gold 2s ease-in-out infinite" }} />
+        {/* Activity line skeleton */}
+        <div style={{ height: 20, borderRadius: 4, background: C.elevated, width: "75%" }} />
+        {/* Three cards skeleton */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+          {[0, 1, 2].map((i) => (
+            <div key={i} style={{ height: 100, borderRadius: 8, background: C.elevated, border: `1px solid ${C.border}` }} />
+          ))}
+        </div>
+        {/* Leaderboard skeleton */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          {[0, 1, 2, 3, 4].map((i) => (
+            <div key={i} style={{ height: 28, borderRadius: 4, background: C.elevated, opacity: 1 - i * 0.15 }} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LeagueReportCard({ data }: { data: LeagueReportCardResponse }) {
+  const rc = data;
+
+  return (
+    <div>
+      <SectionHead title="LEAGUE REPORT CARD" badge={`${rc.season}`} />
+
+      {/* ── League Personality Badge ────────────────────────── */}
+      <div style={{
+        borderRadius: 8, padding: "18px 20px", marginBottom: 14,
+        background: `linear-gradient(135deg, ${C.goldDim} 0%, ${C.card} 40%, ${C.elevated} 100%)`,
+        border: `1px solid ${C.goldBorder}`,
+        position: "relative", overflow: "hidden",
+      }}>
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, ${C.gold}30, transparent)` }} />
+        <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.14em", color: C.gold, fontFamily: SANS, marginBottom: 6 }}>LEAGUE PERSONALITY</div>
+        <div style={{ fontFamily: DISPLAY, fontSize: 20, color: C.goldBright, lineHeight: 1.2, letterSpacing: "-0.01em", marginBottom: 6 }}>
+          {rc.league_personality.type.toUpperCase()}
+        </div>
+        <div style={{ fontSize: 12, color: C.dim, fontFamily: SANS, lineHeight: 1.5 }}>
+          {rc.league_personality.description}
+        </div>
+      </div>
+
+      {/* ── Activity Summary ────────────────────────────────── */}
+      <div style={{ fontSize: 13, color: C.secondary, fontFamily: SANS, lineHeight: 1.6, marginBottom: 14, padding: "0 2px" }}>
+        {rc.activity_summary.split(/(\d+[\d,%.]*)/).map((part, i) =>
+          /\d/.test(part)
+            ? <span key={i} style={{ fontWeight: 800, color: C.goldBright }}>{part}</span>
+            : <span key={i}>{part}</span>
+        )}
+      </div>
+
+      {/* ── Fun Stat Callout ────────────────────────────────── */}
+      <div style={{
+        borderLeft: `3px solid ${C.gold}`, padding: "10px 14px", marginBottom: 14,
+        background: C.goldGlow, borderRadius: "0 6px 6px 0",
+      }}>
+        <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.12em", color: C.gold, fontFamily: SANS, marginBottom: 4 }}>* FUN STAT</div>
+        <div style={{ fontSize: 12, color: C.secondary, fontFamily: SANS, fontStyle: "italic", lineHeight: 1.5 }}>
+          {rc.fun_stat}
+        </div>
+      </div>
+
+      {/* ── Three Spotlight Cards ───────────────────────────── */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 14 }}>
+        {/* Biggest Robbery */}
+        <div style={{
+          background: C.card, borderRadius: 8, overflow: "hidden",
+          border: `1px solid ${C.border}`,
+        }}>
+          <div style={{ height: 3, background: C.red }} />
+          <div style={{ padding: "10px 12px" }}>
+            <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.12em", color: C.red, fontFamily: SANS, marginBottom: 6 }}>BIGGEST ROBBERY</div>
+            {rc.biggest_robbery ? (
+              <>
+                <div style={{ fontSize: 12, fontWeight: 700, color: C.primary, fontFamily: SANS, marginBottom: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {rc.biggest_robbery.winner}
+                </div>
+                <div style={{ fontSize: 10, color: C.dim, fontFamily: SANS, marginBottom: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  got {rc.biggest_robbery.winner_got.slice(0, 2).join(", ")}
+                </div>
+                <div style={{ fontSize: 10, color: C.dim, fontFamily: SANS, marginBottom: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  robbed <span style={{ fontWeight: 600, color: C.secondary }}>{rc.biggest_robbery.loser}</span>
+                </div>
+                <div style={{ fontSize: 10, fontWeight: 800, color: C.red, fontFamily: MONO }}>
+                  {rc.biggest_robbery.sha_gap > 0 ? "+" : ""}{fmt(rc.biggest_robbery.sha_gap)} SHA gap
+                </div>
+              </>
+            ) : (
+              <div style={{ fontSize: 11, color: C.dim, fontFamily: SANS }}>No robberies detected</div>
+            )}
+          </div>
+        </div>
+
+        {/* Best Win-Win */}
+        <div style={{
+          background: C.card, borderRadius: 8, overflow: "hidden",
+          border: `1px solid ${C.border}`,
+        }}>
+          <div style={{ height: 3, background: C.green }} />
+          <div style={{ padding: "10px 12px" }}>
+            <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.12em", color: C.green, fontFamily: SANS, marginBottom: 6 }}>BEST WIN-WIN</div>
+            {rc.best_winwin ? (
+              <>
+                <div style={{ fontSize: 12, fontWeight: 700, color: C.primary, fontFamily: SANS, marginBottom: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {rc.best_winwin.side_a}
+                </div>
+                <div style={{ fontSize: 10, color: C.dim, fontFamily: SANS, marginBottom: 3 }}>
+                  <span style={{ color: C.secondary }}>+</span> {rc.best_winwin.side_a_got.slice(0, 2).join(", ")}
+                </div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: C.primary, fontFamily: SANS, marginBottom: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {rc.best_winwin.side_b}
+                </div>
+                <div style={{ fontSize: 10, color: C.dim, fontFamily: SANS }}>
+                  <span style={{ color: C.secondary }}>+</span> {rc.best_winwin.side_b_got.slice(0, 2).join(", ")}
+                </div>
+              </>
+            ) : (
+              <div style={{ fontSize: 11, color: C.dim, fontFamily: SANS }}>No win-win trades found</div>
+            )}
+          </div>
+        </div>
+
+        {/* Most Active Trader */}
+        <div style={{
+          background: C.card, borderRadius: 8, overflow: "hidden",
+          border: `1px solid ${C.border}`,
+        }}>
+          <div style={{ height: 3, background: C.gold }} />
+          <div style={{ padding: "10px 12px" }}>
+            <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.12em", color: C.gold, fontFamily: SANS, marginBottom: 6 }}>MOST ACTIVE</div>
+            {rc.most_active_trader ? (
+              <>
+                <div style={{ fontSize: 14, fontWeight: 700, color: C.primary, fontFamily: SANS, marginBottom: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {rc.most_active_trader.owner}
+                </div>
+                <div style={{ fontSize: 22, fontWeight: 900, color: C.goldBright, fontFamily: MONO, marginBottom: 2 }}>
+                  {rc.most_active_trader.trades}
+                </div>
+                <div style={{ fontSize: 10, color: C.dim, fontFamily: SANS }}>trades this season</div>
+              </>
+            ) : (
+              <div style={{ fontSize: 11, color: C.dim, fontFamily: SANS }}>No trade data</div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Trade Quality Leaderboard ──────────────────────── */}
+      {rc.quality_leaderboard.length > 0 && (
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.dim, fontFamily: SANS, marginBottom: 8 }}>TRADE QUALITY LEADERBOARD</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            {rc.quality_leaderboard.map((entry, i) => {
+              const color = i === 0 ? C.gold : i < 3 ? C.green : C.secondary;
+              const barWidth = Math.max(entry.win_pct, 5);
+              return (
+                <div key={`${entry.owner}-${i}`} style={{
+                  display: "flex", alignItems: "center", gap: 6, padding: "5px 10px", borderRadius: 4,
+                  background: i === 0 ? C.goldDim : "transparent",
+                  border: i === 0 ? `1px solid ${C.goldBorder}` : "1px solid transparent",
+                  transition: "background 0.12s",
+                }}
+                onMouseEnter={(e) => { if (i > 0) e.currentTarget.style.background = C.elevated; }}
+                onMouseLeave={(e) => { if (i > 0) e.currentTarget.style.background = "transparent"; }}>
+                  <span style={{ width: 16, fontSize: 10, fontWeight: 900, color, fontFamily: MONO, textAlign: "right", flexShrink: 0 }}>{i + 1}</span>
+                  <span style={{
+                    fontSize: 12, fontWeight: i < 3 ? 700 : 500,
+                    color: i < 3 ? C.primary : C.secondary, fontFamily: SANS,
+                    minWidth: 0, flex: 1,
+                    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                  }}>{entry.owner}</span>
+                  <div style={{ width: 50, height: 4, background: C.border, borderRadius: 2, overflow: "hidden", flexShrink: 0 }}>
+                    <div style={{ height: "100%", borderRadius: 2, width: `${barWidth}%`, background: i === 0 ? C.gold : i < 3 ? C.green : C.secondary, transition: "width 0.8s ease" }} />
+                  </div>
+                  <span style={{ fontSize: 10, fontWeight: 700, color, fontFamily: MONO, width: 34, textAlign: "right", flexShrink: 0 }}>{entry.win_pct}%</span>
+                  <span style={{ fontSize: 9, fontWeight: 600, color: entry.avg_sha_net >= 0 ? C.green : C.red, fontFamily: MONO, width: 44, textAlign: "right", flexShrink: 0 }}>
+                    {entry.avg_sha_net >= 0 ? "+" : ""}{fmt(entry.avg_sha_net)}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── Position Market ─────────────────────────────────── */}
+      {rc.position_market.hot_position && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0" }}>
+          <span style={{ fontSize: 10, fontWeight: 700, color: C.dim, fontFamily: SANS }}>Hot market:</span>
+          <span style={{
+            fontSize: 9, fontWeight: 900, letterSpacing: "0.04em",
+            color: posColor(rc.position_market.hot_position),
+            fontFamily: SANS, padding: "2px 6px", borderRadius: 3,
+            background: posColor(rc.position_market.hot_position) + "18",
+          }}>{rc.position_market.hot_position}</span>
+          <span style={{ fontSize: 11, color: C.secondary, fontFamily: SANS }}>
+            ({rc.position_market.hot_count} of {rc.total_trades} trades)
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
    LEAGUE HOME PAGE
    ═══════════════════════════════════════════════════════════════ */
 export default function LeagueHome() {
@@ -425,6 +641,7 @@ export default function LeagueHome() {
   const { data: trending } = useQuery({ queryKey: ["trending", lid], queryFn: () => getTrending(lid!), enabled: !!lid, staleTime: 10 * 60 * 1000 });
   const { data: profiles } = useQuery({ queryKey: ["profiles", lid], queryFn: () => getOwnerProfiles(lid!), enabled: !!lid, staleTime: 10 * 60 * 1000 });
   const { data: leagueIntel } = useQuery({ queryKey: ["league-intel", lid], queryFn: () => getLeagueIntel(lid!), enabled: !!lid, staleTime: 10 * 60 * 1000 });
+  const { data: reportCard, isLoading: reportCardLoading } = useQuery({ queryKey: ["report-card", lid], queryFn: () => getReportCard(lid!), enabled: !!lid, staleTime: 30 * 60 * 1000 });
 
   if (!lid) return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
@@ -462,6 +679,9 @@ export default function LeagueHome() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
             {leagueArticles.map((a, i) => <LeagueArticle key={i} {...a} />)}
           </div>
+
+          {/* League Report Card */}
+          {reportCardLoading ? <ReportCardSkeleton /> : reportCard ? <LeagueReportCard data={reportCard} /> : null}
 
           {/* League Snapshot */}
           <div>

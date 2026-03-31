@@ -416,3 +416,25 @@ export interface OwnerListItem {
   slot: number;
   platform_user_id?: string;
 }
+
+// ── League Report Card ─────────────────────────────────────────────────
+
+export interface LeagueReportCardResponse {
+  league_id: string;
+  season: number;
+  total_trades: number;
+  db_avg_trades: number;
+  activity_summary: string;
+  biggest_robbery: { trade_id: string; date: string; winner: string; loser: string; winner_got: string[]; loser_got: string[]; sha_gap: number } | null;
+  best_winwin: { trade_id: string; date: string; side_a: string; side_b: string; side_a_got: string[]; side_b_got: string[]; sha_gap: number } | null;
+  most_active_trader: { owner: string; trades: number } | null;
+  volume_by_owner: { owner: string; trades: number }[];
+  position_market: { targeted: { position: string; count: number }[]; sold: { position: string; count: number }[]; hot_position: string; hot_count: number };
+  pick_movement: { total_picks_traded: number; flow_by_owner: { owner: string; net_picks: number }[] };
+  quality_leaderboard: { owner: string; trades: number; wins: number; win_pct: number; avg_sha_net: number }[];
+  league_personality: { type: string; description: string };
+  fun_stat: string;
+  blockbusters: number;
+  panic_trades: number;
+  overpay_trades: number;
+}

@@ -10,7 +10,9 @@ import {
   getOwnerRecord, getChampionships, getOwnerProfiles,
   getRivalries, getFranchiseIntel, getActions, getOverview, getLeagueIntel,
   getOwnerTendencies, getMarketFeed, getCoachesCorner,
+  getDynastyScore, getOwners,
 } from "@/lib/api";
+import type { DynastyScoreResponse } from "@/lib/api";
 import {
   Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   ResponsiveContainer, PieChart, Pie, Cell,
@@ -20,6 +22,7 @@ import {
 import type { RosterPlayer, GradedTrade } from "@/lib/types";
 import PlayerName from "@/components/league/PlayerName";
 import { usePlayerCardStore } from "@/lib/stores/player-card-store";
+import { useTradeBuilderStore } from "@/lib/stores/trade-builder-store";
 import { ChevronRight, Plus, FileText } from "lucide-react";
 
 /* ═══════════════════════════════════════════════════════════════
@@ -234,6 +237,300 @@ function MarketIntelSection({ feed, loading }: { feed: any; loading: boolean }) 
 
 
 /* ═══════════════════════════════════════════════════════════════
+   DYNASTY SCORE CARD
+   ═══════════════════════════════════════════════════════════════ */
+const TIER_COLORS: Record<string, string> = {
+  "Elite Manager": "#7dd3a0",
+  "Sharp": "#6bb8e0",
+  "Solid": C.gold,
+  "Average": C.primary,
+  "Needs Work": "#e09c6b",
+  "Taco": "#e47272",
+};
+
+const COMPONENT_LABELS: Record<string, string> = {
+  trade_win_rate: "Trade Win Rate",
+  value_extraction: "Value Extraction",
+  roster_construction: "Roster Construction",
+  draft_capital: "Draft Capital",
+  behavioral_intelligence: "Behavioral IQ",
+  activity: "Activity",
+};
+
+function DynastyScoreCard({ lid, owner }: { lid: string; owner: string }) {
+  const [expanded, setExpanded] = useState(false);
+
+  const { data: myScore, isLoading: loadingScore, isError: errorScore } = useQuery({
+    queryKey: ["dynasty-score", lid, owner],
+    queryFn: () => getDynastyScore(lid, owner),
+    enabled: !!lid && !!owner,
+    staleTime: 1800000,
+  });
+
+  const { data: allScores, isLoading: loadingAll, isError: errorAll } = useQuery({
+    queryKey: ["dynasty-scores-all", lid],
+    queryFn: async () => {
+      const { owners } = await getOwners(lid);
+      const scores = await Promise.all(
+        owners.map(async (o) => {
+          try {
+            return await getDynastyScore(lid, o.name);
+          } catch {
+            return null;
+          }
+        })
+      );
+      return scores
+        .filter((s): s is DynastyScoreResponse => s !== null)
+        .sort((a, b) => b.score - a.score);
+    },
+    enabled: !!lid,
+    staleTime: 1800000,
+  });
+
+  // Don't render if error
+  if (errorScore && errorAll) return null;
+  if (!loadingScore && !myScore) return null;
+
+  // Compute league rank
+  const leagueRank = allScores
+    ? allScores.findIndex((s) => s.owner.toLowerCase() === owner.toLowerCase()) + 1
+    : null;
+
+  // Compute global stats from percentile
+  const percentile = myScore?.percentile;
+  const topPct = percentile != null ? Math.max(1, 100 - percentile) : null;
+  // Rough global population estimate
+  const globalManagers = percentile != null ? Math.round(myScore!.score > 0 ? 92847 : 0) : null;
+
+  const tierColor = myScore ? (TIER_COLORS[myScore.tier.label] || C.dim) : C.dim;
+
+  if (loadingScore) {
+    return (
+      <div style={{ order: -2 }}>
+        <div style={{
+          borderRadius: 6, overflow: "hidden", background: C.card,
+          border: `1px solid ${C.border}`,
+          borderTop: `2px solid ${C.goldDark}`,
+        }}>
+          <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
+            <Skel h={24} w="40%" />
+            <div style={{ display: "flex", gap: 24 }}>
+              <Skel h={48} w="30%" />
+              <Skel h={48} w="30%" />
+            </div>
+            <Skel h={16} w="60%" />
+            <Skel h={14} w="80%" />
+            <Skel h={14} w="70%" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!myScore) return null;
+
+  const bullets = (myScore.bullets || []).slice(0, 3);
+
+  return (
+    <div style={{ order: -2 }}>
+      <div style={{
+        borderRadius: 6, overflow: "hidden", background: C.card,
+        border: `1px solid ${C.border}`,
+        borderTop: `2px solid ${C.goldDark}`,
+        backgroundImage: `linear-gradient(180deg, ${C.goldGlow} 0%, transparent 40%)`,
+      }}>
+        {/* Header bar */}
+        <div style={{
+          padding: "6px 12px", borderBottom: `1px solid ${C.border}`,
+          background: C.goldDim, display: "flex", justifyContent: "space-between", alignItems: "center",
+        }}>
+          <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", color: C.gold }}>
+            DYNASTYGPT SCORE
+          </span>
+          <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>
+            {myScore.score}/850
+          </span>
+        </div>
+
+        <div style={{ padding: "14px 16px 12px" }}>
+          {/* Top row: Two big rank numbers + tier badge */}
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 32, marginBottom: 12 }}>
+            {/* League Rank */}
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: 80 }}>
+              <span style={{ fontFamily: DISPLAY, fontSize: 32, fontWeight: 900, color: C.gold, lineHeight: 1 }}>
+                {leagueRank ? `#${leagueRank}` : "—"}
+              </span>
+              <span style={{ fontFamily: SANS, fontSize: 11, color: C.dim, marginTop: 2 }}>
+                in your league
+              </span>
+            </div>
+
+            {/* Global Rank / Percentile */}
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: 100 }}>
+              <span style={{ fontFamily: DISPLAY, fontSize: 32, fontWeight: 900, color: C.primary, lineHeight: 1 }}>
+                {topPct != null ? `Top ${topPct}%` : "—"}
+              </span>
+              <span style={{ fontFamily: SANS, fontSize: 11, color: C.dim, marginTop: 2 }}>
+                {globalManagers != null ? `out of ${globalManagers.toLocaleString()} managers` : "global percentile"}
+              </span>
+            </div>
+
+            {/* Tier badge + score */}
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginLeft: "auto", gap: 4 }}>
+              <span style={{
+                fontFamily: MONO, fontSize: 11, fontWeight: 900, letterSpacing: "0.12em",
+                padding: "4px 12px", borderRadius: 4,
+                color: tierColor, background: `${tierColor}18`,
+                border: `1px solid ${tierColor}35`,
+                textTransform: "uppercase",
+              }}>
+                {myScore.tier.label}
+              </span>
+              <span style={{ fontFamily: MONO, fontSize: 20, fontWeight: 700, color: C.dim }}>
+                {myScore.score}
+              </span>
+            </div>
+          </div>
+
+          {/* Bullets */}
+          {bullets.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 10 }}>
+              {bullets.map((b, i) => {
+                const isGood = b.type === "strength" || b.type === "highlight";
+                const bulletColor = isGood ? C.green : C.red;
+                const arrow = isGood ? "▲" : "▼";
+                return (
+                  <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 6 }}>
+                    <span style={{ fontFamily: MONO, fontSize: 11, color: bulletColor, flexShrink: 0, marginTop: 1 }}>
+                      {arrow}
+                    </span>
+                    <span style={{ fontFamily: SANS, fontSize: 12, color: C.secondary, lineHeight: 1.35 }}>
+                      {b.text}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Expand/collapse toggle */}
+          <div
+            onClick={() => setExpanded(!expanded)}
+            style={{
+              fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.gold,
+              cursor: "pointer", textAlign: "center", padding: "4px 0",
+              transition: "opacity 0.15s",
+              userSelect: "none",
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.7"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}
+          >
+            {expanded ? "Hide Breakdown ▴" : "View Full Breakdown ▾"}
+          </div>
+
+          {/* Expanded content */}
+          {expanded && (
+            <div style={{ marginTop: 10, borderTop: `1px solid ${C.border}`, paddingTop: 12 }}>
+              {/* 6-component bar chart */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+                {Object.entries(myScore.components).map(([key, comp]) => {
+                  const pct = comp.max > 0 ? (comp.score / comp.max) * 100 : 0;
+                  const label = COMPONENT_LABELS[key] || key;
+                  // Color the bar based on fill percentage
+                  const barColor = pct >= 75 ? C.green : pct >= 50 ? C.gold : pct >= 30 ? C.orange : C.red;
+                  return (
+                    <div key={key}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 3 }}>
+                        <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 600, color: C.primary }}>
+                          {label}
+                        </span>
+                        <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.secondary }}>
+                          {comp.score}/{comp.max}
+                        </span>
+                      </div>
+                      <div style={{
+                        height: 6, borderRadius: 3, background: C.elevated, overflow: "hidden",
+                      }}>
+                        <div style={{
+                          height: "100%", borderRadius: 3, width: `${pct}%`,
+                          background: barColor, transition: "width 0.4s ease",
+                        }} />
+                      </div>
+                      <span style={{ fontFamily: SANS, fontSize: 10, color: C.dim, marginTop: 2, display: "block" }}>
+                        {comp.detail}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* League leaderboard */}
+              {allScores && allScores.length > 0 && (
+                <div>
+                  <div style={{
+                    fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.08em",
+                    color: C.gold, marginBottom: 8,
+                  }}>
+                    LEAGUE LEADERBOARD
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                    {allScores.map((s, idx) => {
+                      const isMe = s.owner.toLowerCase() === owner.toLowerCase();
+                      const sTierColor = TIER_COLORS[s.tier.label] || C.dim;
+                      return (
+                        <div key={s.owner} style={{
+                          display: "flex", alignItems: "center", gap: 8,
+                          padding: "5px 8px", borderRadius: 4,
+                          background: isMe ? C.goldDim : "transparent",
+                          border: isMe ? `1px solid ${C.goldBorder}` : "1px solid transparent",
+                          borderBottom: !isMe ? `1px solid ${C.white08}` : undefined,
+                        }}>
+                          <span style={{
+                            fontFamily: MONO, fontSize: 12, fontWeight: 800, color: isMe ? C.gold : C.dim,
+                            minWidth: 24, textAlign: "right",
+                          }}>
+                            {idx + 1}
+                          </span>
+                          <span style={{
+                            fontFamily: SANS, fontSize: 13, fontWeight: isMe ? 700 : 500,
+                            color: isMe ? C.gold : C.primary,
+                            flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                          }}>
+                            {s.owner}
+                          </span>
+                          <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.secondary, minWidth: 32, textAlign: "right" }}>
+                            {s.score}
+                          </span>
+                          <span style={{
+                            fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.06em",
+                            padding: "2px 6px", borderRadius: 3,
+                            color: sTierColor, background: `${sTierColor}18`,
+                            border: `1px solid ${sTierColor}30`,
+                            textTransform: "uppercase",
+                          }}>
+                            {s.tier.label}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              {loadingAll && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 8 }}>
+                  {Array.from({ length: 6 }).map((_, i) => <Skel key={i} h={28} />)}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
    DASHBOARD VIEW
    ═══════════════════════════════════════════════════════════════ */
 function DashboardView({ lid, owner }: { lid: string; owner: string }) {
@@ -338,6 +635,11 @@ function DashboardView({ lid, owner }: { lid: string; owner: string }) {
     <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
 
       {/* ══════════════════════════════════════════════════════════
+          DYNASTY SCORE — appears FIRST visually (order: -2)
+          ══════════════════════════════════════════════════════════ */}
+      <DynastyScoreCard lid={lid} owner={owner} />
+
+      {/* ══════════════════════════════════════════════════════════
           BLOCK A: COMMAND STRIP — rendered FIRST (physically after IIFE but uses CSS flexbox order)
           ══════════════════════════════════════════════════════════ */}
 
@@ -346,6 +648,7 @@ function DashboardView({ lid, owner }: { lid: string; owner: string }) {
       {(() => {
         const cc = coachesCorner as Record<string, unknown> | undefined;
         const openCard = usePlayerCardStore.getState().openPlayerCard;
+        const setIntent = useTradeBuilderStore.getState().setIntent;
 
         const rows: Array<{ tag: "sell high" | "buy low" | "upgrade"; name: string; context: string; playerName?: string }> = [];
 
@@ -446,7 +749,26 @@ function DashboardView({ lid, owner }: { lid: string; owner: string }) {
                 <div key={i} className="flex items-center flex-1 min-w-0">
                   {i > 0 && <div className="w-px self-stretch bg-white/5" />}
                   <div
-                    onClick={() => r.playerName ? openCard(r.playerName) : router.push(`/l/${currentLeagueSlug}/trades`)}
+                    onClick={() => {
+                      if (r.playerName) {
+                        if (r.tag === "sell high") {
+                          setIntent({ type: "sell", value: r.playerName });
+                        } else if (r.tag === "buy low") {
+                          setIntent({ type: "buy", value: r.playerName });
+                        } else if (r.tag === "upgrade") {
+                          // Extract position from the upgrade context (e.g. "QB room" → "QB")
+                          const pos = r.name.split(" ")[0];
+                          setIntent({ type: "position", value: pos });
+                        }
+                        router.push(`/l/${currentLeagueSlug}/trades`);
+                      } else if (r.tag === "upgrade") {
+                        const pos = r.name.split(" ")[0];
+                        setIntent({ type: "position", value: pos });
+                        router.push(`/l/${currentLeagueSlug}/trades`);
+                      } else {
+                        router.push(`/l/${currentLeagueSlug}/trades`);
+                      }
+                    }}
                     className="flex-1 min-w-0 flex items-center flex-wrap gap-x-2 gap-y-0.5 px-3.5 py-2.5 rounded-lg cursor-pointer transition-colors hover:bg-white/5"
                   >
                     <span className={`text-[11px] font-medium px-2 py-0.5 rounded shrink-0 whitespace-nowrap ${tagStyles[r.tag]}`}>

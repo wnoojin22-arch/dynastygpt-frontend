@@ -7,7 +7,7 @@ import { usePlayerCardStore } from "@/lib/stores/player-card-store";
 import { useLeagueStore } from "@/lib/stores/league-store";
 import {
   getPlayerCard, getPlayerValueHistory, getPlayerPpg,
-  getPlayerHistory, getTradesByPlayer,
+  getPlayerHistory, getTradesByPlayer, getPlayerPriceHistory,
 } from "@/lib/api";
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip as RTooltip, ResponsiveContainer, ReferenceDot,
@@ -85,6 +85,12 @@ export default function PlayerCardModal() {
     queryFn: () => getPlayerHistory(leagueId, playerName),
     enabled: isOpen && !!playerName && !!leagueId && tab === "trades",
     staleTime: 300_000,
+  });
+  const { data: priceData } = useQuery({
+    queryKey: ["player-price-history", playerName],
+    queryFn: () => getPlayerPriceHistory(playerName),
+    enabled: isOpen && !!playerName && tab === "value",
+    staleTime: 600_000,
   });
 
   const pc = card as PlayerCard | undefined;
@@ -232,7 +238,7 @@ export default function PlayerCardModal() {
               ) : tab === "trades" ? (
                 <TradesTab trades={trades} timeline={timeline} playerName={playerName} pc={pc} />
               ) : (
-                <ValueTab history={history} />
+                <ValueTab history={history} priceHistory={priceData as typeof priceData} />
               )}
             </div>
           </motion.div>
@@ -509,84 +515,182 @@ function TradesTab({ trades, timeline, playerName, pc }: { trades: Array<Record<
    VALUE CHART TAB — touch-friendly, no hover tooltips
    ═══════════════════════════════════════════════════════════════════════════ */
 
-function ValueTab({ history }: { history: ValueHistoryPoint[] }) {
+type PriceHistoryData = { current_value: number | null; low_confidence: boolean; trend_data: { month: string; median_price: number; trade_count: number; high_confidence: boolean }[]; volume: { all_time: number }; trend_direction: string } | undefined;
+
+function ValueTab({ history, priceHistory }: { history: ValueHistoryPoint[]; priceHistory?: PriceHistoryData }) {
   if (history.length < 3) return <EmptyState text="Insufficient value history data." />;
   const [touchIdx, setTouchIdx] = useState<number | null>(null);
 
+  // SHA value data
   const shaValues = history.filter(h => h.sha_value != null).map(h => h.sha_value as number);
-  const maxVal = Math.max(...shaValues, 1);
-  const minVal = Math.min(...shaValues, 0);
-  const range = maxVal - minVal || 1;
   const latest = history[history.length - 1];
   const earliest = history[0];
   const delta = (latest.sha_value || 0) - (earliest.sha_value || 0);
   const pctChange = earliest.sha_value ? ((delta / earliest.sha_value) * 100) : 0;
 
-  // Touch-to-inspect on chart
+  // Market price data — build monthly lookup
+  const marketByMonth: Record<string, number> = {};
+  const marketTrend = priceHistory?.trend_data || [];
+  for (const pt of marketTrend) {
+    marketByMonth[pt.month] = pt.median_price;
+  }
+  const marketValue = priceHistory?.current_value ?? null;
+  const lowVolume = priceHistory?.low_confidence ?? true;
+  const totalVolume = priceHistory?.volume?.all_time ?? 0;
+
+  // Valuation comparison badge
+  const currentSha = latest.sha_value || 0;
+  let valuationPct = 0;
+  let valuationLabel = "";
+  let valuationColor: string = C.dim;
+  if (marketValue && currentSha > 0) {
+    valuationPct = Math.round(((currentSha - marketValue) / marketValue) * 100);
+    if (valuationPct > 5) {
+      valuationLabel = `${valuationPct}% OVERVALUED`;
+      valuationColor = "#e47272";
+    } else if (valuationPct < -5) {
+      valuationLabel = `${Math.abs(valuationPct)}% UNDERVALUED`;
+      valuationColor = "#7dd3a0";
+    } else {
+      valuationLabel = "FAIR VALUE";
+      valuationColor = C.gold;
+    }
+  }
+
+  // Merge SHA history + market price onto same x-axis (by month)
+  // SHA points are daily, market points are monthly — interpolate market onto SHA dates
+  const chartData = history.map(h => {
+    const month = (h.date || "").substring(0, 7);
+    return { date: h.date, sha: h.sha_value || 0, market: marketByMonth[month] ?? null };
+  });
+
+  // Fixed-size viewBox so strokes don't distort
+  const W = 400;
+  const H = 160;
+  const PAD = { t: 10, b: 20, l: 0, r: 0 };
+  const plotW = W - PAD.l - PAD.r;
+  const plotH = H - PAD.t - PAD.b;
+
+  // Compute unified min/max across both series
+  const allVals = chartData.flatMap(d => [d.sha, ...(d.market != null ? [d.market] : [])]).filter(v => v > 0);
+  const maxVal = Math.max(...allVals, 1);
+  const minVal = Math.min(...allVals, 0);
+  const range = maxVal - minVal || 1;
+  const toX = (i: number) => PAD.l + (i / Math.max(chartData.length - 1, 1)) * plotW;
+  const toY = (v: number) => PAD.t + plotH - ((v - minVal) / range) * plotH;
+
+  // Touch-to-inspect
   const svgRef = useRef<SVGSVGElement>(null);
-  const handleChartTouch = useCallback((e: React.TouchEvent) => {
+  const handleChartInteraction = useCallback((clientX: number) => {
     if (!svgRef.current) return;
     const rect = svgRef.current.getBoundingClientRect();
-    const x = e.touches[0].clientX - rect.left;
-    const pct = x / rect.width;
-    const idx = Math.max(0, Math.min(history.length - 1, Math.round(pct * (history.length - 1))));
+    const pct = (clientX - rect.left) / rect.width;
+    const idx = Math.max(0, Math.min(chartData.length - 1, Math.round(pct * (chartData.length - 1))));
     setTouchIdx(idx);
-  }, [history.length]);
+  }, [chartData.length]);
 
-  const inspected = touchIdx != null ? history[touchIdx] : null;
+  const inspected = touchIdx != null ? chartData[touchIdx] : null;
+
+  // Build polylines
+  const shaLine = chartData.map((d, i) => `${toX(i)},${toY(d.sha)}`).join(" ");
+  const shaArea = (() => {
+    const pts = chartData.map((d, i) => `${toX(i)},${toY(d.sha)}`);
+    return `M${pts.join(" L")} L${toX(chartData.length - 1)},${H - PAD.b} L${PAD.l},${H - PAD.b} Z`;
+  })();
+  const marketLine = chartData
+    .map((d, i) => d.market != null ? `${toX(i)},${toY(d.market)}` : null)
+    .filter(Boolean);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       {/* Summary cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
-        <ValueCard label="CURRENT" value={fmt(latest.sha_value || 0)} sub={latest.sha_pos_rank || ""} color={C.gold} />
-        <ValueCard label="6 MO AGO" value={fmt(earliest.sha_value || 0)} sub="" color={C.dim} />
-        <ValueCard label="CHANGE" value={`${delta >= 0 ? "+" : ""}${fmt(delta)}`} sub={`${pctChange >= 0 ? "+" : ""}${pctChange.toFixed(1)}%`}
-          color={delta >= 0 ? "#7dd3a0" : "#e47272"} />
+        <ValueCard label="SHA VALUE" value={fmt(latest.sha_value || 0)} sub={latest.sha_pos_rank || ""} color={C.gold} />
+        {marketValue ? (
+          <ValueCard label="MARKET PRICE" value={fmt(marketValue)} sub={`${totalVolume} trades`} color="#6bb8e0" />
+        ) : (
+          <ValueCard label="6 MO AGO" value={fmt(earliest.sha_value || 0)} sub="" color={C.dim} />
+        )}
+        {valuationLabel ? (
+          <ValueCard label="VS MARKET" value={valuationLabel} sub={lowVolume ? "Low volume" : ""} color={valuationColor} />
+        ) : (
+          <ValueCard label="CHANGE" value={`${delta >= 0 ? "+" : ""}${fmt(delta)}`} sub={`${pctChange >= 0 ? "+" : ""}${pctChange.toFixed(1)}%`}
+            color={delta >= 0 ? "#7dd3a0" : "#e47272"} />
+        )}
       </div>
 
-      {/* Chart — touch to inspect */}
+      {/* Chart */}
       <div>
-        <SectionLabel text={`VALUE HISTORY — ${history.length} DATA POINTS`} />
-        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "16px 14px" }}>
-          {/* Touch inspection readout */}
-          {inspected && (
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, fontFamily: MONO, fontSize: 13 }}>
-              <span style={{ color: C.dim }}>{inspected.date}</span>
-              <span style={{ color: C.gold, fontWeight: 700 }}>{fmt(inspected.sha_value || 0)}</span>
-              {inspected.sha_pos_rank && <span style={{ color: C.secondary }}>{inspected.sha_pos_rank}</span>}
-            </div>
-          )}
-          <svg ref={svgRef} width="100%" viewBox={`0 0 ${history.length} 140`} preserveAspectRatio="none"
-            style={{ display: "block", touchAction: "none" }}
-            onTouchMove={handleChartTouch}
-            onTouchEnd={() => setTouchIdx(null)}>
-            {/* Area */}
+        <SectionLabel text="VALUE vs MARKET PRICE" />
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "14px 12px 10px" }}>
+          {/* Inspection readout */}
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6, fontFamily: MONO, fontSize: 12, minHeight: 18 }}>
+            {inspected ? (
+              <>
+                <span style={{ color: C.dim }}>{inspected.date}</span>
+                <span style={{ color: C.gold, fontWeight: 700 }}>{fmt(inspected.sha)}</span>
+                {inspected.market != null && <span style={{ color: "#6bb8e0", fontWeight: 700 }}>{fmt(inspected.market)}</span>}
+              </>
+            ) : (
+              <span style={{ color: C.dim, fontSize: 11 }}>Touch or hover to inspect</span>
+            )}
+          </div>
+          <svg
+            ref={svgRef}
+            viewBox={`0 0 ${W} ${H}`}
+            style={{ display: "block", width: "100%", height: "auto", maxHeight: 180, touchAction: "none", cursor: "crosshair" }}
+            onTouchMove={(e) => handleChartInteraction(e.touches[0].clientX)}
+            onTouchEnd={() => setTouchIdx(null)}
+            onMouseMove={(e) => handleChartInteraction(e.clientX)}
+            onMouseLeave={() => setTouchIdx(null)}
+          >
+            {/* SHA area gradient */}
             <defs>
               <linearGradient id="pcGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={C.gold} stopOpacity="0.25" />
-                <stop offset="100%" stopColor={C.gold} stopOpacity="0.02" />
+                <stop offset="0%" stopColor={C.gold} stopOpacity="0.18" />
+                <stop offset="100%" stopColor={C.gold} stopOpacity="0.01" />
               </linearGradient>
             </defs>
-            <path d={(() => {
-              const pts = history.map((h, i) => `${i},${125 - (((h.sha_value || 0) - minVal) / range) * 115}`);
-              return `M${pts.join(" L")} L${history.length - 1},130 L0,130 Z`;
-            })()} fill="url(#pcGrad)" />
-            {/* Line */}
-            <polyline
-              points={history.map((h, i) => `${i},${125 - (((h.sha_value || 0) - minVal) / range) * 115}`).join(" ")}
-              fill="none" stroke={C.gold} strokeWidth="2"
-            />
-            {/* Touch indicator */}
+            <path d={shaArea} fill="url(#pcGrad)" />
+            {/* SHA line — gold */}
+            <polyline points={shaLine} fill="none" stroke={C.gold} strokeWidth="1.5" strokeLinejoin="round" />
+            {/* Market line — cyan */}
+            {marketLine.length > 1 && (
+              <polyline
+                points={marketLine.join(" ")}
+                fill="none" stroke="#6bb8e0" strokeWidth="1.5" strokeLinejoin="round"
+                strokeDasharray={lowVolume ? "8,5" : "none"}
+                opacity={lowVolume ? 0.5 : 0.85}
+              />
+            )}
+            {/* Crosshair */}
             {touchIdx != null && (
-              <line x1={touchIdx} y1="0" x2={touchIdx} y2="130" stroke={C.gold} strokeWidth="1" strokeDasharray="3,3" opacity="0.5" />
+              <>
+                <line x1={toX(touchIdx)} y1={PAD.t} x2={toX(touchIdx)} y2={H - PAD.b}
+                  stroke={C.gold} strokeWidth="0.5" strokeDasharray="3,3" opacity="0.4" />
+                <circle cx={toX(touchIdx)} cy={toY(chartData[touchIdx].sha)} r="3" fill={C.gold} />
+                {chartData[touchIdx].market != null && (
+                  <circle cx={toX(touchIdx)} cy={toY(chartData[touchIdx].market!)} r="3" fill="#6bb8e0" />
+                )}
+              </>
             )}
           </svg>
-          {/* Labels */}
-          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, fontFamily: MONO, fontSize: 12, color: C.dim }}>
-            <span>{history[0]?.date || ""}</span>
-            <span style={{ color: C.secondary, fontSize: 12 }}>Touch to inspect</span>
-            <span>{history[history.length - 1]?.date || ""}</span>
+          {/* Legend */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6, fontFamily: MONO, fontSize: 10, color: C.dim }}>
+            <span>{chartData[0]?.date || ""}</span>
+            <div style={{ display: "flex", gap: 10 }}>
+              <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                <span style={{ width: 10, height: 1.5, background: C.gold, display: "inline-block", borderRadius: 1 }} />
+                <span style={{ color: C.gold }}>SHA</span>
+              </span>
+              {marketLine.length > 1 && (
+                <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                  <span style={{ width: 10, height: 1.5, background: "#6bb8e0", display: "inline-block", borderRadius: 1 }} />
+                  <span style={{ color: "#6bb8e0" }}>Market{lowVolume ? " (low vol)" : ""}</span>
+                </span>
+              )}
+            </div>
+            <span>{chartData[chartData.length - 1]?.date || ""}</span>
           </div>
         </div>
       </div>

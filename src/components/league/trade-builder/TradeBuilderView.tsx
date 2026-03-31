@@ -17,6 +17,7 @@ import AnalysisModal from "./AnalysisModal";
 import ChatPanel from "./ChatPanel";
 import PlayerName from "../PlayerName";
 import type { RosterPlayer, TradeEvaluation, SuggestedPackage, NegotiationInsight } from "./types";
+import { useTradeBuilderStore } from "@/lib/stores/trade-builder-store";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 const POSITIONS = ["QB", "RB", "WR", "TE"] as const;
@@ -290,6 +291,22 @@ export default function TradeBuilderView({ leagueId, owner }: { leagueId: string
     setGiveNames(pkg.i_give_names || []); setReceiveNames(pkg.i_receive_names || []); setSuggestedPkgs([]); setSuggestQuery("");
   }, [partner]);
   const handleClear = useCallback(() => { setSuggestedPkgs([]); setSuggestQuery(""); setGiveNames([]); setReceiveNames([]); setEvaluation(null); setShowModal(false); setActiveSellAsset(null); setError(null); }, []);
+
+  // Consume cross-page intent (from Dashboard "Your Move" cards)
+  const intentConsumed = useRef(false);
+  useEffect(() => {
+    if (intentConsumed.current) return;
+    const intent = useTradeBuilderStore.getState().consumeIntent();
+    if (!intent) return;
+    intentConsumed.current = true;
+    if (intent.type === "sell") {
+      handleSellAsset(intent.value);
+    } else if (intent.type === "buy") {
+      fireSuggest({ i_receive: [intent.value] }, `Targeting ${intent.value}`);
+    } else if (intent.type === "position") {
+      fireSuggest({ find_position: intent.value }, `Finding ${intent.value} upgrades`);
+    }
+  }, [handleSellAsset, fireSuggest]);
 
   const hasTray = giveNames.length > 0 || receiveNames.length > 0;
   const showResults = suggestedPkgs.length > 0 || suggestLoading;
