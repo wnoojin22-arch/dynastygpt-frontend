@@ -5,7 +5,7 @@ import { useUser } from "@/lib/clerk-stub";
 import { useLeagueStore } from "@/lib/stores/league-store";
 import { AnimatePresence, motion } from "framer-motion";
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API = "";
 
 const TYPES = [
   { key: "bug", emoji: "🐛", label: "Bug" },

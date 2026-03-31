@@ -19,7 +19,7 @@ import PlayerName from "../PlayerName";
 import type { RosterPlayer, TradeEvaluation, SuggestedPackage, NegotiationInsight } from "./types";
 import { useTradeBuilderStore } from "@/lib/stores/trade-builder-store";
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API = "";
 const POSITIONS = ["QB", "RB", "WR", "TE"] as const;
 const WINDOWS = ["REBUILDER", "BALANCED", "WIN-NOW"] as const;
 const MODES = ["conservative", "balanced", "aggressive"] as const;

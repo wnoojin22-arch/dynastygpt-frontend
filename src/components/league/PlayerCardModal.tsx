@@ -241,6 +241,10 @@ export default function PlayerCardModal() {
                 <ValueTab history={history} priceHistory={priceData as Record<string, unknown> | undefined} />
               )}
             </div>
+            {/* Branding bar */}
+            <div style={{ padding: "6px 20px", borderTop: `1px solid ${C.border}`, display: "flex", justifyContent: "flex-end", flexShrink: 0 }}>
+              <span style={{ fontFamily: SANS, fontSize: 10, fontWeight: 600, color: `${C.gold}50`, letterSpacing: "0.02em" }}>dynastygpt.com</span>
+            </div>
           </motion.div>
         </>
       )}
@@ -260,7 +264,7 @@ function OverviewTab({ pc, seasons, history }: { pc?: PlayerCard; seasons: Seaso
       {/* Value cards — stack on mobile, row on desktop */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
         <ValueCard label="VALUE" value={fmt(pc.sha_value)} sub={pc.sha_pos_rank} color={C.gold} />
-        <ValueCard label="DYNASTY" value={pc.dynasty_value ? fmt(pc.dynasty_value) : "—"} sub={pc.dynasty_rank ? `#${pc.dynasty_rank}` : ""} color="#6bb8e0" />
+        <ValueCard label="CONSENSUS" value={pc.dynasty_value ? fmt(pc.dynasty_value) : "—"} sub={pc.dynasty_rank ? `#${pc.dynasty_rank}` : ""} color="#6bb8e0" />
         <ValueCard label="WIN-NOW" value={pc.redraft_value ? fmt(pc.redraft_value) : "—"} sub={pc.redraft_rank ? `#${pc.redraft_rank}` : ""} color="#7dd3a0" />
       </div>
 
@@ -388,7 +392,7 @@ function OverviewTab({ pc, seasons, history }: { pc?: PlayerCard; seasons: Seaso
                   />
                 </AreaChart>
               </ResponsiveContainer>
-              {/* Current dynasty value label */}
+              {/* Current consensus value label */}
               <div style={{ textAlign: "right", fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.gold, marginTop: 4, paddingRight: 6 }}>
                 Value: {fmt(latest.sha_value || 0)}
               </div>
@@ -619,7 +623,7 @@ function ValueTab({ history, priceHistory }: { history: ValueHistoryPoint[]; pri
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       {/* Summary cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
-        <ValueCard label="DYNASTY VALUE" value={fmt(latest.sha_value || 0)} sub={latest.sha_pos_rank || ""} color={C.gold} />
+        <ValueCard label="CONSENSUS" value={fmt(latest.sha_value || 0)} sub={latest.sha_pos_rank || ""} color={C.gold} />
         {marketValue ? (
           <ValueCard label="MARKET PRICE" value={fmt(marketValue)} sub={`${totalVolume} trades`} color="#6bb8e0" />
         ) : (
@@ -635,7 +639,7 @@ function ValueTab({ history, priceHistory }: { history: ValueHistoryPoint[]; pri
 
       {/* Chart */}
       <div>
-        <SectionLabel text="DYNASTY VALUE vs TRADE MARKET" />
+        <SectionLabel text="CONSENSUS vs TRADE MARKET" />
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "14px 12px 10px" }}>
           {/* Inspection readout */}
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6, fontFamily: MONO, fontSize: 12, minHeight: 18 }}>
@@ -695,7 +699,7 @@ function ValueTab({ history, priceHistory }: { history: ValueHistoryPoint[]; pri
             <div style={{ display: "flex", gap: 10 }}>
               <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
                 <span style={{ width: 10, height: 1.5, background: C.gold, display: "inline-block", borderRadius: 1 }} />
-                <span style={{ color: C.gold }}>Dynasty</span>
+                <span style={{ color: C.gold }}>Consensus</span>
               </span>
               {marketLine.length > 1 && (
                 <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
@@ -705,6 +709,10 @@ function ValueTab({ history, priceHistory }: { history: ValueHistoryPoint[]; pri
               )}
             </div>
             <span>{chartData[chartData.length - 1]?.date || ""}</span>
+          </div>
+          {/* Watermark */}
+          <div style={{ textAlign: "right", marginTop: 4 }}>
+            <span style={{ fontFamily: SANS, fontSize: 9, color: `${C.gold}40`, fontWeight: 600 }}>dynastygpt.com</span>
           </div>
         </div>
       </div>

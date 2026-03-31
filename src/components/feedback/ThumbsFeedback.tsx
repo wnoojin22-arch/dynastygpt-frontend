@@ -4,7 +4,7 @@ import { useState, useCallback } from "react";
 import { useUser } from "@/lib/clerk-stub";
 import { useLeagueStore } from "@/lib/stores/league-store";
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API = "";
 
 const C = {
   dim: "#9596a5", green: "#7dd3a0", red: "#e47272",

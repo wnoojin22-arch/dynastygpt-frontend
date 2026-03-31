@@ -20,7 +20,7 @@ const DISPLAY = "'Archivo Black',sans-serif";
 const SERIF = "'Playfair Display',Georgia,serif";
 const SANS = "-apple-system,'Inter',system-ui,sans-serif";
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API = "";
 
 interface Message { role: 'user' | 'assistant'; content: string; }
 
