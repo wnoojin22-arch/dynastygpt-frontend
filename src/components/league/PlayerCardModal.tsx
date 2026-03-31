@@ -388,9 +388,9 @@ function OverviewTab({ pc, seasons, history }: { pc?: PlayerCard; seasons: Seaso
                   />
                 </AreaChart>
               </ResponsiveContainer>
-              {/* Current SHA label */}
+              {/* Current dynasty value label */}
               <div style={{ textAlign: "right", fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.gold, marginTop: 4, paddingRight: 6 }}>
-                SHA: {fmt(latest.sha_value || 0)}
+                Value: {fmt(latest.sha_value || 0)}
               </div>
             </div>
           </div>

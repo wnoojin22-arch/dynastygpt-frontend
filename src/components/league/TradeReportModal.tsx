@@ -75,7 +75,7 @@ function GradeCircle({ score, size = 68, label, accentOverride }: { score: numbe
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   ASSET ROW — player or pick with position + SHA
+   ASSET ROW — player or pick with position + value
    ═══════════════════════════════════════════════════════════════ */
 function AssetRow({ name, value, isPick, position }: { name: string; value?: number; isPick?: boolean; position?: string }) {
   // For picks: keep the owner name in parens — it's the differentiator in pick swaps
@@ -101,7 +101,7 @@ function AssetRow({ name, value, isPick, position }: { name: string; value?: num
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   SHA BALANCE BAR
+   VALUE BALANCE BAR
    ═══════════════════════════════════════════════════════════════ */
 function BalanceBar({ sent, received }: { sent: number; received: number }) {
   const total = sent + received || 1;
@@ -161,12 +161,19 @@ function ConfidenceBadge({ confidence, daysAgo, overall }: { confidence: string;
 /* ═══════════════════════════════════════════════════════════════
    KEY FACTOR BULLET — narrative bullet for hindsight story
    ═══════════════════════════════════════════════════════════════ */
+// Replace internal "SHA" jargon in API-generated text with user-friendly "value"
+function cleanText(s: string): string {
+  return s
+    .replace(/\bSHA\b/g, "value")
+    .replace(/\bsha\b/g, "value");
+}
+
 function FactorBullet({ text, sentiment }: { text: string; sentiment?: string }) {
   const dotColor = sentiment === "elite" ? C.gold : sentiment === "positive" ? C.green : sentiment === "negative" ? C.red : C.dim;
   return (
     <div style={{ display: "flex", gap: 6, padding: "3px 0", alignItems: "flex-start" }}>
       <span style={{ color: dotColor, fontSize: 7, marginTop: 4, flexShrink: 0 }}>◆</span>
-      <span style={{ fontFamily: SANS, fontSize: 12, color: C.secondary, lineHeight: 1.45 }}>{text}</span>
+      <span style={{ fontFamily: SANS, fontSize: 12, color: C.secondary, lineHeight: 1.45 }}>{cleanText(text)}</span>
     </div>
   );
 }
@@ -266,7 +273,7 @@ function AssetDetailCard({ asset }: { asset: Record<string, unknown> }) {
             </div>
             {(flip.flip_profit as number) != null && (
               <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: (flip.flip_profit as number) >= 0 ? C.green : C.red, marginTop: 4 }}>
-                Flip profit: {(flip.flip_profit as number) >= 0 ? "+" : ""}{fmt(flip.flip_profit as number)} SHA
+                Flip profit: {(flip.flip_profit as number) >= 0 ? "+" : ""}{fmt(flip.flip_profit as number)} value
               </div>
             )}
           </div>
@@ -325,33 +332,75 @@ export default function TradeReportModal({ leagueId, tradeId, onClose }: {
   const sideA = isNewShape ? (r?.side_a || {}) as Record<string, unknown> : oldSides[0] || {};
   const sideB = isNewShape ? (r?.side_b || {}) as Record<string, unknown> : oldSides[1] || {};
 
-  // Extract assets — distributes total SHA evenly when per-asset values unavailable
-  function parseAssets(side: Record<string, unknown>): { items: {name: string; isPick: boolean; position: string; value: number}[]; total: number } {
-    const assets = (side.assets || []) as Array<Record<string, unknown>>;
-    if (assets.length > 0) {
-      const items = assets.map(a => {
-        const vat = a.value_at_trade as Record<string, unknown> | undefined;
-        const val = Number(vat?.value || a.sha_value || a.value || 0);
-        return { name: String(a.name || ""), isPick: a.type === "pick", position: String(a.position || ""), value: val };
-      });
-      const total = Math.round(items.reduce((s, a) => s + a.value, 0));
-      return { items, total };
-    }
-    // Old shape fallback — distribute total_sha evenly across all assets
-    const playerNames = (side.players_received || side.players_sent || []) as string[];
-    const pickNames = (side.picks_received || side.picks_sent || []) as string[];
-    const totalSha = Number(side.total_sha_received || side.total_sha_sent || 0);
-    const count = playerNames.length + pickNames.length;
-    const perAsset = count > 0 ? Math.round(totalSha / count) : 0;
-    const players = playerNames.map(n => ({ name: n, isPick: false, position: "", value: perAsset }));
-    const picks = pickNames.map(n => ({ name: n, isPick: true, position: "PICK", value: perAsset }));
-    return { items: [...players, ...picks], total: Math.round(totalSha) };
+  // Build asset list from names + distribute total value evenly when per-asset values unavailable
+  type ParsedItem = { name: string; isPick: boolean; position: string; value: number };
+  function buildItems(names: string[], isPick: boolean, perAsset: number): ParsedItem[] {
+    return names.map(n => ({ name: n, isPick, position: isPick ? "PICK" : "", value: perAsset }));
+  }
+  function parseAssetsFromArray(assets: Array<Record<string, unknown>>): { items: ParsedItem[]; total: number } {
+    const items = assets.map(a => {
+      const vat = a.value_at_trade as Record<string, unknown> | undefined;
+      // Prefer PIT (point-in-time) value consistently
+      const val = Number(vat?.value ?? a.value ?? 0);
+      return { name: String(a.name || ""), isPick: a.type === "pick", position: String(a.position || ""), value: val };
+    });
+    const total = Math.round(items.reduce((s, a) => s + a.value, 0));
+    return { items, total };
   }
 
-  const aReceived = parseAssets(sideA);
-  const bReceived = parseAssets(sideB);
-  const assetsA = { sent: bReceived.items, received: aReceived.items, totalSent: bReceived.total, totalRecv: aReceived.total };
-  const assetsB = { sent: aReceived.items, received: bReceived.items, totalSent: aReceived.total, totalRecv: bReceived.total };
+  // For each side, explicitly parse SENT and RECEIVED separately.
+  // side_a.players_sent = what A sent; side_a.players_received = what A received.
+  // side_a.assets = what A RECEIVED (from deep-dive grader).
+  function parseSide(side: Record<string, unknown>): { sent: ParsedItem[]; received: ParsedItem[]; totalSent: number; totalRecv: number } {
+    const playersSent = (side.players_sent || []) as string[];
+    const picksSent = (side.picks_sent || []) as string[];
+    const playersRecv = (side.players_received || []) as string[];
+    const picksRecv = (side.picks_received || []) as string[];
+    const totalShaSent = Number(side.total_sha_sent || 0);
+    const totalShaRecv = Number(side.total_sha_received || 0);
+
+    // Use explicit sent/received fields when available
+    if (playersSent.length + picksSent.length > 0 || playersRecv.length + picksRecv.length > 0) {
+      const sentCount = playersSent.length + picksSent.length;
+      const recvCount = playersRecv.length + picksRecv.length;
+      const perSent = sentCount > 0 ? Math.round(totalShaSent / sentCount) : 0;
+      const perRecv = recvCount > 0 ? Math.round(totalShaRecv / recvCount) : 0;
+      return {
+        sent: [...buildItems(playersSent, false, perSent), ...buildItems(picksSent, true, perSent)],
+        received: [...buildItems(playersRecv, false, perRecv), ...buildItems(picksRecv, true, perRecv)],
+        totalSent: Math.round(totalShaSent),
+        totalRecv: Math.round(totalShaRecv),
+      };
+    }
+
+    // Deep-dive shape: side.assets = what this side RECEIVED with per-asset values
+    const assets = (side.assets || []) as Array<Record<string, unknown>>;
+    if (assets.length > 0) {
+      const parsed = parseAssetsFromArray(assets);
+      return { sent: [], received: parsed.items, totalSent: Math.round(totalShaSent), totalRecv: parsed.total };
+    }
+
+    return { sent: [], received: [], totalSent: 0, totalRecv: 0 };
+  }
+
+  const parsedA = parseSide(sideA);
+  const parsedB = parseSide(sideB);
+
+  // Build display: what each owner GAVE and GOT.
+  // If explicit sent/received parsed, use directly.
+  // If only received parsed (deep-dive), cross-reference: A's sent = B's received and vice versa.
+  const assetsA = {
+    sent: parsedA.sent.length > 0 ? parsedA.sent : parsedB.received,
+    received: parsedA.received.length > 0 ? parsedA.received : parsedB.sent,
+    totalSent: parsedA.sent.length > 0 ? parsedA.totalSent : parsedB.totalRecv,
+    totalRecv: parsedA.received.length > 0 ? parsedA.totalRecv : parsedB.totalSent,
+  };
+  const assetsB = {
+    sent: parsedB.sent.length > 0 ? parsedB.sent : parsedA.received,
+    received: parsedB.received.length > 0 ? parsedB.received : parsedA.sent,
+    totalSent: parsedB.sent.length > 0 ? parsedB.totalSent : parsedA.totalRecv,
+    totalRecv: parsedB.received.length > 0 ? parsedB.totalRecv : parsedA.totalSent,
+  };
 
   const tradeDate = String(r?.trade_date || sideA.trade_date || "");
   const tradeDay = (r?.trade_day || {}) as Record<string, unknown>;
@@ -552,31 +601,93 @@ export default function TradeReportModal({ leagueId, tradeId, onClose }: {
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                         {[{ owner: String(hA.owner || aOwner), factors: aMergedFactors, side: hA },
                           { owner: String(hB.owner || bOwner), factors: bMergedFactors, side: hB }].map((s, i) => {
-                          // Build contextual fallback if no factors
-                          const fallbackBullets: Array<{ text: string; sentiment?: string }> = [];
-                          if (s.factors.length === 0) {
-                            const rostered = Number(s.side.assets_rostered || 0);
-                            const cut = Number(s.side.assets_cut || 0);
-                            const flipped = Number(s.side.assets_flipped || 0);
-                            const totalProd = Number(s.side.total_production || 0);
-                            if (totalProd > 0) {
-                              fallbackBullets.push({ text: `${fmt(totalProd)} total pts delivered`, sentiment: totalProd > 100 ? "positive" : "neutral" });
-                            } else if (rostered + cut + flipped === 0) {
-                              // Likely a pick-only trade with no production yet
-                              fallbackBullets.push({ text: "Picks haven't conveyed yet — check back after the draft", sentiment: "neutral" });
-                            }
-                            if (rostered > 0) fallbackBullets.push({ text: `${rostered} asset${rostered > 1 ? "s" : ""} still on roster` });
-                            if (flipped > 0) fallbackBullets.push({ text: `${flipped} asset${flipped > 1 ? "s" : ""} flipped in subsequent trades` });
-                            if (cut > 0) fallbackBullets.push({ text: `${cut} asset${cut > 1 ? "s" : ""} cut or dropped`, sentiment: "negative" });
-                            if (fallbackBullets.length === 0) {
-                              fallbackBullets.push({ text: "Too early to tell — production data still accumulating" });
+                          // Build rich bullets from available hindsight data — always show production/status/value
+                          const bullets: Array<{ text: string; sentiment?: string }> = [];
+
+                          // 1. Start with key_factors from the grader (the narrative)
+                          for (const f of s.factors) bullets.push(f);
+
+                          // 2. Supplement with structured data the grader returned
+                          const totalProd = Number(s.side.total_production || 0);
+                          const games = Number(s.side.games || 0);
+                          const ppg = Number(s.side.ppg || 0);
+                          const rostered = Number(s.side.assets_rostered || 0);
+                          const cut = Number(s.side.assets_cut || 0);
+                          const flipped = Number(s.side.assets_flipped || 0);
+                          const chainPts = Number(s.side.chain_pts || 0);
+                          const champCount = Number(s.side.champ_count || 0);
+                          const bd = (s.side.breakdown || {}) as Record<string, number>;
+                          const remainVal = Number(s.side.remaining_value_raw || 0);
+
+                          const seen = new Set(bullets.map(b => b.text.toLowerCase()));
+
+                          // Production summary — add if not already covered by key_factors
+                          if (totalProd > 0 && !seen.has(`${fmt(totalProd)} total pts delivered`)) {
+                            const prodSentiment = ppg >= 15 ? "positive" : ppg >= 8 ? "neutral" : "negative";
+                            const prodText = games > 0
+                              ? `${fmt(totalProd)} pts produced (${games} games, ${fmtDec(ppg)} PPG)`
+                              : `${fmt(totalProd)} pts produced`;
+                            // Only add if no key_factor already mentions points
+                            if (!bullets.some(b => b.text.includes("pts") || b.text.includes("PPG"))) {
+                              bullets.push({ text: prodText, sentiment: prodSentiment });
                             }
                           }
-                          const display = s.factors.length > 0 ? s.factors : fallbackBullets;
+
+                          // Roster status — add if not already mentioned
+                          if (rostered + cut + flipped > 0 && !bullets.some(b => b.text.includes("roster") || b.text.includes("cut") || b.text.includes("flip"))) {
+                            const parts: string[] = [];
+                            if (rostered > 0) parts.push(`${rostered} still rostered`);
+                            if (flipped > 0) parts.push(`${flipped} flipped`);
+                            if (cut > 0) parts.push(`${cut} cut`);
+                            bullets.push({ text: parts.join(", "), sentiment: cut > rostered ? "negative" : rostered > 0 ? "positive" : undefined });
+                          }
+
+                          // Remaining value
+                          if (remainVal > 500 && !bullets.some(b => b.text.toLowerCase().includes("remaining") || b.text.toLowerCase().includes("current value"))) {
+                            bullets.push({ text: `${fmt(remainVal)} remaining dynasty value on roster`, sentiment: "positive" });
+                          }
+
+                          // Chain returns from flips
+                          if (chainPts > 50 && !bullets.some(b => b.text.includes("chain") || b.text.includes("flipped into"))) {
+                            bullets.push({ text: `${fmt(chainPts)} pts from subsequent flip chains`, sentiment: "positive" });
+                          }
+
+                          // Flip profit
+                          if (bd.flip_profit != null && Math.abs(bd.flip_profit) > 50 && !bullets.some(b => b.text.toLowerCase().includes("flip profit"))) {
+                            bullets.push({
+                              text: `Flip profit: ${bd.flip_profit >= 0 ? "+" : ""}${fmt(bd.flip_profit)} value`,
+                              sentiment: bd.flip_profit > 0 ? "positive" : "negative",
+                            });
+                          }
+
+                          // Championship context
+                          if (champCount > 0 && !bullets.some(b => b.text.includes("champ") || b.text.includes("title"))) {
+                            bullets.push({ text: `Won ${champCount} championship${champCount > 1 ? "s" : ""} with acquired assets`, sentiment: "elite" });
+                          }
+
+                          // Zero production fallback
+                          if (totalProd === 0 && rostered + cut + flipped === 0 && bullets.length === 0) {
+                            bullets.push({ text: "Picks haven't conveyed yet — check back after the draft" });
+                          }
+                          if (bullets.length === 0) {
+                            bullets.push({ text: "Too early to tell — production data still accumulating" });
+                          }
+
+                          // Value trajectory from trade day to now
+                          if (bd.remaining_value != null && bd.production != null) {
+                            const totalReturn = Number(s.side.return_score || 0);
+                            if (totalReturn > 0 && !bullets.some(b => b.text.includes("return score"))) {
+                              bullets.push({
+                                text: `Total return score: ${fmt(totalReturn)}`,
+                                sentiment: totalReturn > 400 ? "positive" : totalReturn > 200 ? "neutral" : "negative",
+                              });
+                            }
+                          }
+
                           return (
                             <div key={i} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, padding: "8px 10px" }}>
                               <div style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, letterSpacing: "0.06em", color: C.gold, marginBottom: 4 }}>{s.owner.toUpperCase()}</div>
-                              {display.map((f, j) => <FactorBullet key={j} text={f.text} sentiment={f.sentiment} />)}
+                              {bullets.slice(0, 6).map((f, j) => <FactorBullet key={j} text={f.text} sentiment={f.sentiment} />)}
                             </div>
                           );
                         })}

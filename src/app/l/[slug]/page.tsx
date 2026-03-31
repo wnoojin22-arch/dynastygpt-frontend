@@ -506,7 +506,7 @@ function LeagueReportCard({ data }: { data: LeagueReportCardResponse }) {
                   robbed <span style={{ fontWeight: 600, color: C.secondary }}>{rc.biggest_robbery.loser}</span>
                 </div>
                 <div style={{ fontSize: 10, fontWeight: 800, color: C.red, fontFamily: MONO }}>
-                  {rc.biggest_robbery.sha_gap > 0 ? "+" : ""}{fmt(rc.biggest_robbery.sha_gap)} SHA gap
+                  {rc.biggest_robbery.sha_gap > 0 ? "+" : ""}{fmt(rc.biggest_robbery.sha_gap)} value gap
                 </div>
               </>
             ) : (
