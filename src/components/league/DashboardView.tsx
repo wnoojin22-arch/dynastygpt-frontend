@@ -736,73 +736,72 @@ function DashboardView({ lid, owner, ownerId }: { lid: string; owner: string; ow
           }
         }
 
-        const tagStyles = {
-          "sell high": "text-red-400 bg-red-400/10",
-          "buy low": "text-emerald-400 bg-emerald-400/10",
-          "upgrade": "text-amber-400 bg-amber-400/10",
+        const glowMap = {
+          "sell high": { bg: "rgba(239,68,68,0.06)", border: "rgba(239,68,68,0.20)", shadow: "0 0 20px rgba(239,68,68,0.08)", label: "#ef4444" },
+          "buy low": { bg: "rgba(34,197,94,0.06)", border: "rgba(34,197,94,0.20)", shadow: "0 0 20px rgba(34,197,94,0.08)", label: "#22c55e" },
+          "upgrade": { bg: "rgba(245,158,11,0.06)", border: "rgba(245,158,11,0.20)", shadow: "0 0 20px rgba(245,158,11,0.08)", label: "#f59e0b" },
         };
 
-        return (
+        const handleClick = (r: typeof rows[0]) => {
+          if (r.playerName) {
+            if (r.tag === "sell high") setIntent({ type: "sell", value: r.playerName });
+            else if (r.tag === "buy low") setIntent({ type: "buy", value: r.playerName });
+            else { const pos = r.name.split(" ")[0]; setIntent({ type: "position", value: pos }); }
+          } else if (r.tag === "upgrade") {
+            setIntent({ type: "position", value: r.name.split(" ")[0] });
+          }
+          router.push(`/l/${currentLeagueSlug}/trades`);
+        };
+
+        return rows.length > 0 ? (
           <div>
-            {rows.length > 0 && (
-              <p className="text-[13px] font-medium text-secondary mb-1.5 pl-0.5">Your move</p>
-            )}
-            <div className="flex items-center rounded-xl bg-elevated/50 p-1 max-sm:flex-col max-sm:items-stretch">
-              {rows.slice(0, 3).map((r, i) => (
-                <div key={i} className="flex items-center flex-1 min-w-0 max-sm:w-full">
-                  {i > 0 && <div className="w-px self-stretch bg-white/5 max-sm:hidden" />}
+            <div className="flex items-center gap-3 mb-2">
+              <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.10em", color: C.gold }}>YOUR MOVE</span>
+              <div className="flex-1 h-px" style={{ background: C.border }} />
+            </div>
+            <div className="flex gap-2 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
+              {rows.slice(0, 4).map((r, i) => {
+                const g = glowMap[r.tag];
+                return (
                   <div
-                    onClick={() => {
-                      if (r.playerName) {
-                        if (r.tag === "sell high") {
-                          setIntent({ type: "sell", value: r.playerName });
-                        } else if (r.tag === "buy low") {
-                          setIntent({ type: "buy", value: r.playerName });
-                        } else if (r.tag === "upgrade") {
-                          // Extract position from the upgrade context (e.g. "QB room" → "QB")
-                          const pos = r.name.split(" ")[0];
-                          setIntent({ type: "position", value: pos });
-                        }
-                        router.push(`/l/${currentLeagueSlug}/trades`);
-                      } else if (r.tag === "upgrade") {
-                        const pos = r.name.split(" ")[0];
-                        setIntent({ type: "position", value: pos });
-                        router.push(`/l/${currentLeagueSlug}/trades`);
-                      } else {
-                        router.push(`/l/${currentLeagueSlug}/trades`);
-                      }
-                    }}
-                    className="flex-1 min-w-0 flex items-center flex-wrap gap-x-2 gap-y-0.5 px-3.5 py-2.5 rounded-lg cursor-pointer transition-colors hover:bg-white/5"
+                    key={i}
+                    onClick={() => handleClick(r)}
+                    className="flex-shrink-0 flex-1 min-w-[160px] max-w-[200px] rounded-lg cursor-pointer transition-all duration-150 hover:scale-[1.02]"
+                    style={{ background: g.bg, border: `1px solid ${g.border}`, boxShadow: g.shadow, padding: "8px 12px" }}
                   >
-                    <span className={`text-[11px] font-medium px-2 py-0.5 rounded shrink-0 whitespace-nowrap ${tagStyles[r.tag]}`}>
-                      {r.tag}
-                    </span>
-                    <span className="text-sm font-medium text-primary whitespace-nowrap">{r.name}</span>
-                    <span className="text-[11px] text-dim">{r.context}</span>
+                    <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.10em", color: g.label, marginBottom: 2 }}>
+                      {r.tag.toUpperCase()}
+                    </div>
+                    <div style={{ fontFamily: SANS, fontSize: 13, fontWeight: 700, color: C.primary, lineHeight: 1.2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {r.name}
+                    </div>
+                    <div style={{ fontFamily: SANS, fontSize: 10, color: C.dim, lineHeight: 1.3, marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {r.context}
+                    </div>
                   </div>
-                </div>
-              ))}
-              {/* Franchise health link + Build a trade CTA */}
-              {rows.length > 0 && <div className="w-px self-stretch bg-white/5 max-sm:hidden" />}
-              <div className="flex items-center max-sm:w-full max-sm:flex-row max-sm:justify-center">
-                <div
-                  onClick={() => router.push(`/l/${currentLeagueSlug}/intel`)}
-                  className="flex items-center gap-1.5 px-3 py-3 rounded-lg cursor-pointer transition-colors hover:bg-amber-400/10 whitespace-nowrap max-sm:flex-1 max-sm:justify-center"
-                >
-                  <FileText size={14} className="text-amber-400 shrink-0" />
-                  <span className="text-sm font-medium text-amber-400">Franchise health</span>
-                </div>
-                <div
-                  onClick={() => router.push(`/l/${currentLeagueSlug}/trades`)}
-                  className="flex items-center gap-2 px-4 py-3 rounded-lg cursor-pointer transition-colors hover:bg-amber-400/10 whitespace-nowrap max-sm:flex-1 max-sm:justify-center"
-                >
-                  <Plus size={14} className="text-amber-400 shrink-0" />
-                  <span className="text-sm font-medium text-amber-400">Build a trade</span>
-                </div>
+                );
+              })}
+              {/* Franchise health */}
+              <div
+                onClick={() => router.push(`/l/${currentLeagueSlug}/intel`)}
+                className="flex-shrink-0 flex-1 min-w-[140px] max-w-[180px] rounded-lg cursor-pointer transition-all duration-150 hover:scale-[1.02] flex items-center justify-center gap-1.5"
+                style={{ background: `${C.gold}08`, border: `1px solid ${C.gold}30`, boxShadow: `0 0 20px ${C.gold}08`, padding: "8px 12px" }}
+              >
+                <FileText size={14} style={{ color: C.gold }} />
+                <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.gold, letterSpacing: "0.06em" }}>FRANCHISE HEALTH</span>
+              </div>
+              {/* Build trade */}
+              <div
+                onClick={() => router.push(`/l/${currentLeagueSlug}/trades`)}
+                className="flex-shrink-0 flex-1 min-w-[140px] max-w-[180px] rounded-lg cursor-pointer transition-all duration-150 hover:scale-[1.02] flex items-center justify-center gap-1.5"
+                style={{ background: `${C.gold}08`, border: `1px solid ${C.gold}30`, boxShadow: `0 0 20px ${C.gold}08`, padding: "8px 12px" }}
+              >
+                <Plus size={14} style={{ color: C.gold }} />
+                <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.gold, letterSpacing: "0.06em" }}>BUILD TRADE</span>
               </div>
             </div>
           </div>
-        );
+        ) : null;
       })()}
       </div>
 
