@@ -10,7 +10,7 @@ import {
   getOwnerRecord, getChampionships, getOwnerProfiles,
   getRivalries, getFranchiseIntel, getActions, getOverview, getLeagueIntel,
   getOwnerTendencies, getMarketFeed, getCoachesCorner,
-  getDynastyScore, getOwners,
+  getDynastyScore, getOwners, getRosterValueChange,
 } from "@/lib/api";
 import type { DynastyScoreResponse } from "@/lib/api";
 import {
@@ -257,12 +257,12 @@ const COMPONENT_LABELS: Record<string, string> = {
   activity: "Activity",
 };
 
-function DynastyScoreCard({ lid, owner }: { lid: string; owner: string }) {
+function DynastyScoreCard({ lid, owner, ownerId }: { lid: string; owner: string; ownerId?: string | null }) {
   const [expanded, setExpanded] = useState(false);
 
   const { data: myScore, isLoading: loadingScore, isError: errorScore } = useQuery({
     queryKey: ["dynasty-score", lid, owner],
-    queryFn: () => getDynastyScore(lid, owner),
+    queryFn: () => getDynastyScore(lid, owner, ownerId),
     enabled: !!lid && !!owner,
     staleTime: 1800000,
   });
@@ -282,7 +282,7 @@ function DynastyScoreCard({ lid, owner }: { lid: string; owner: string }) {
       const scores = await Promise.all(
         owners.map(async (o) => {
           try {
-            return await getDynastyScore(lid, o.name);
+            return await getDynastyScore(lid, o.name, o.platform_user_id);
           } catch {
             return null;
           }
@@ -316,11 +316,13 @@ function DynastyScoreCard({ lid, owner }: { lid: string; owner: string }) {
 
   if (loadingScore) {
     return (
-      <div className="w-full" style={{ order: -2 }}>
+      <div className="w-full" style={{ order: -1 }}>
         <div style={{
           borderRadius: 6, overflow: "hidden", background: C.card,
-          border: `1px solid ${C.border}`,
           borderTop: `2px solid ${C.goldDark}`,
+          borderRight: `1px solid ${C.border}`,
+          borderBottom: `1px solid ${C.border}`,
+          borderLeft: `1px solid ${C.border}`,
         }}>
           <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
             <Skel h={24} w="40%" />
@@ -342,11 +344,13 @@ function DynastyScoreCard({ lid, owner }: { lid: string; owner: string }) {
   const bullets = (myScore.bullets || []).slice(0, 3);
 
   return (
-    <div className="w-full" style={{ order: -2 }}>
+    <div className="w-full" style={{ order: -1 }}>
       <div style={{
         borderRadius: 8, overflow: "hidden", background: C.card,
-        border: `1px solid ${C.goldBorder}`,
         borderTop: `2px solid ${C.goldDark}`,
+        borderRight: `1px solid ${C.goldBorder}`,
+        borderBottom: `1px solid ${C.goldBorder}`,
+        borderLeft: `1px solid ${C.goldBorder}`,
         backgroundImage: `linear-gradient(180deg, ${C.goldGlow} 0%, transparent 50%)`,
       }}>
         {/* Header: DYNASTYGPT MANAGER RANKS */}
@@ -531,27 +535,28 @@ function DynastyScoreCard({ lid, owner }: { lid: string; owner: string }) {
 /* ═══════════════════════════════════════════════════════════════
    DASHBOARD VIEW
    ═══════════════════════════════════════════════════════════════ */
-function DashboardView({ lid, owner }: { lid: string; owner: string }) {
+function DashboardView({ lid, owner, ownerId }: { lid: string; owner: string; ownerId?: string | null }) {
   const [hoveredPlayer, setHoveredPlayer] = useState<string | null>(null);
   const router = useRouter();
   const { currentLeagueSlug } = useLeagueStore();
 
-  const { data: roster, isLoading: loadingRoster } = useQuery({ queryKey: ["roster", lid, owner], queryFn: () => getRoster(lid, owner), enabled: !!lid && !!owner });
-  const { data: picks } = useQuery({ queryKey: ["picks", lid, owner], queryFn: () => getPicks(lid, owner), enabled: !!lid && !!owner });
-  const { data: trending } = useQuery({ queryKey: ["trending-owner", lid, owner], queryFn: () => getOwnerTrending(lid, owner), enabled: !!lid && !!owner });
-  const { data: needs } = useQuery({ queryKey: ["needs", lid, owner], queryFn: () => getOwnerNeeds(lid, owner), enabled: !!lid && !!owner });
-  const { data: graded } = useQuery({ queryKey: ["graded-owner", lid, owner], queryFn: () => getGradedTradesByOwner(lid, owner), enabled: !!lid && !!owner });
-  const { data: partners } = useQuery({ queryKey: ["partners", lid, owner], queryFn: () => getTradePartners(lid, owner), enabled: !!lid && !!owner });
+  const { data: roster, isLoading: loadingRoster } = useQuery({ queryKey: ["roster", lid, owner], queryFn: () => getRoster(lid, owner, ownerId), enabled: !!lid && !!owner });
+  const { data: picks } = useQuery({ queryKey: ["picks", lid, owner], queryFn: () => getPicks(lid, owner, ownerId), enabled: !!lid && !!owner });
+  const { data: trending } = useQuery({ queryKey: ["trending-owner", lid, owner], queryFn: () => getOwnerTrending(lid, owner, ownerId), enabled: !!lid && !!owner });
+  const { data: rosterValueChange } = useQuery({ queryKey: ["roster-value-change", lid, owner], queryFn: () => getRosterValueChange(lid, owner, ownerId), enabled: !!lid && !!owner, staleTime: 1800000 });
+  const { data: needs } = useQuery({ queryKey: ["needs", lid, owner], queryFn: () => getOwnerNeeds(lid, owner, ownerId), enabled: !!lid && !!owner });
+  const { data: graded } = useQuery({ queryKey: ["graded-owner", lid, owner], queryFn: () => getGradedTradesByOwner(lid, owner, ownerId), enabled: !!lid && !!owner });
+  const { data: partners } = useQuery({ queryKey: ["partners", lid, owner], queryFn: () => getTradePartners(lid, owner, ownerId), enabled: !!lid && !!owner });
   const { data: rankings } = useQuery({ queryKey: ["rankings", lid], queryFn: () => getRankings(lid), enabled: !!lid });
-  const { data: record } = useQuery({ queryKey: ["record", lid, owner], queryFn: () => getOwnerRecord(lid, owner), enabled: !!lid && !!owner, staleTime: 3600000 });
-  const { data: champs } = useQuery({ queryKey: ["champs", lid, owner], queryFn: () => getChampionships(lid, owner), enabled: !!lid && !!owner, staleTime: 3600000 });
+  const { data: record } = useQuery({ queryKey: ["record", lid, owner], queryFn: () => getOwnerRecord(lid, owner, ownerId), enabled: !!lid && !!owner, staleTime: 3600000 });
+  const { data: champs } = useQuery({ queryKey: ["champs", lid, owner], queryFn: () => getChampionships(lid, owner, ownerId), enabled: !!lid && !!owner, staleTime: 3600000 });
   const { data: profiles } = useQuery({ queryKey: ["profiles", lid], queryFn: () => getOwnerProfiles(lid), enabled: !!lid });
   const { data: leagueIntel } = useQuery({ queryKey: ["league-intel", lid], queryFn: () => getLeagueIntel(lid), enabled: !!lid, staleTime: 600000 });
   // ── New queries for enhanced dashboard ──
-  const { data: tendencies } = useQuery({ queryKey: ["tendencies", lid, owner], queryFn: () => getOwnerTendencies(lid, owner), enabled: !!lid && !!owner, staleTime: 600000 });
-  const { data: franchiseIntel } = useQuery({ queryKey: ["franchise-intel", lid, owner], queryFn: () => getFranchiseIntel(lid, owner), enabled: !!lid && !!owner, staleTime: 600000 });
-  const { data: marketFeed, isLoading: loadingMarket } = useQuery({ queryKey: ["market-feed", lid, owner], queryFn: () => getMarketFeed(lid, owner, 120), enabled: !!lid && !!owner, staleTime: 1800000 });
-  const { data: coachesCorner } = useQuery({ queryKey: ["coaches-corner", lid, owner], queryFn: () => getCoachesCorner(lid, owner), enabled: !!lid && !!owner, staleTime: 600000 });
+  const { data: tendencies } = useQuery({ queryKey: ["tendencies", lid, owner], queryFn: () => getOwnerTendencies(lid, owner, ownerId), enabled: !!lid && !!owner, staleTime: 600000 });
+  const { data: franchiseIntel } = useQuery({ queryKey: ["franchise-intel", lid, owner], queryFn: () => getFranchiseIntel(lid, owner, ownerId), enabled: !!lid && !!owner, staleTime: 600000 });
+  const { data: marketFeed, isLoading: loadingMarket } = useQuery({ queryKey: ["market-feed", lid, owner], queryFn: () => getMarketFeed(lid, owner, ownerId, 120), enabled: !!lid && !!owner, staleTime: 1800000 });
+  const { data: coachesCorner } = useQuery({ queryKey: ["coaches-corner", lid, owner], queryFn: () => getCoachesCorner(lid, owner, ownerId), enabled: !!lid && !!owner, staleTime: 600000 });
 
   // Match owner in rankings — exact first, then startsWith fallback for disambiguated names like "I am Sam (#1)"
   const _findOwner = (list: any[] | undefined, key = "owner") =>
@@ -564,11 +569,11 @@ function DashboardView({ lid, owner }: { lid: string; owner: string }) {
     const g = rankToGrade(n.league_rank);
     return { position: n.position, grade: g.grade, gradeColor: g.color, you: n.total_sha, league: n.league_avg };
   });
-  const wins = graded?.wins || 0, losses = graded?.losses || 0, pushes = graded?.pushes || 0;
+  const wins = graded?.wins || 0, losses = graded?.losses || 0, even = graded?.even || 0;
   const donut = [
     { name: "W", value: wins, color: C.green },
     { name: "L", value: losses, color: C.red },
-    { name: "P", value: pushes, color: "#4a4d5e" },
+    { name: "E", value: even, color: "#4a4d5e" },
   ].filter((d) => d.value > 0);
 
   function tierBadge(rank: number | undefined) {
@@ -637,9 +642,9 @@ function DashboardView({ lid, owner }: { lid: string; owner: string }) {
     <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
 
       {/* ══════════════════════════════════════════════════════════
-          DYNASTY SCORE — appears FIRST visually (order: -2)
+          DYNASTY SCORE — appears SECOND visually (order: -1), below stats ticker
           ══════════════════════════════════════════════════════════ */}
-      <DynastyScoreCard lid={lid} owner={owner} />
+      <DynastyScoreCard lid={lid} owner={owner} ownerId={ownerId} />
 
       {/* ══════════════════════════════════════════════════════════
           BLOCK A: COMMAND STRIP — rendered FIRST (physically after IIFE but uses CSS flexbox order)
@@ -812,7 +817,7 @@ function DashboardView({ lid, owner }: { lid: string; owner: string }) {
         display: "flex", alignItems: "center", gap: 0, flexWrap: "wrap",
         padding: "7px 14px", borderRadius: 6, background: C.panel,
         border: `1px solid ${C.border}`, justifyContent: "center",
-        order: -1,
+        order: -2,
       }}>
         {/* Tier badge */}
         <span style={{
@@ -934,16 +939,17 @@ function DashboardView({ lid, owner }: { lid: string; owner: string }) {
           </>
         )}
 
-        {/* Momentum from trending */}
-        {trending && trending.total_roster_delta !== 0 && (
-          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+        {/* Roster value change — format-adjusted, 30d */}
+        {rosterValueChange && rosterValueChange.delta !== 0 && (
+          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim, letterSpacing: "0.06em" }}>ROSTER VALUE</span>
             <span style={{
               fontFamily: MONO, fontSize: 11, fontWeight: 700,
-              color: trending.total_roster_delta > 0 ? C.green : C.red,
+              color: rosterValueChange.delta > 0 ? C.green : C.red,
             }}>
-              {trending.total_roster_delta > 0 ? "▲" : "▼"} {fmt(Math.abs(trending.total_roster_delta))}
+              {rosterValueChange.delta > 0 ? "▲" : "▼"} {fmt(Math.abs(rosterValueChange.delta))}
             </span>
-            <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>{trending.period_days}d</span>
+            <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>({rosterValueChange.window_days}d)</span>
           </div>
         )}
       </div>
@@ -1239,7 +1245,7 @@ function DashboardView({ lid, owner }: { lid: string; owner: string }) {
                     {[
                       { label: "W", val: wins, color: C.green },
                       { label: "L", val: losses, color: C.red },
-                      { label: "P", val: pushes, color: C.dim },
+                      { label: "E", val: even, color: C.dim },
                     ].map((row) => (
                       <div key={row.label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
                         <span style={{ width: 6, height: 6, borderRadius: "50%", background: row.color, flexShrink: 0 }} />

@@ -36,7 +36,13 @@ export default function AnalysisModal({ evaluation, owner, partner, onClose }: {
             <div style={{ fontFamily: SANS, fontSize: 15, fontWeight: 800, color: C.primary }}>{owner} ↔ {partner}</div>
             <div style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>Trade Analysis</div>
           </div>
-          <div onClick={onClose} style={{ cursor: "pointer", fontFamily: MONO, fontSize: 14, color: C.dim, padding: "4px 8px", borderRadius: 4, background: C.elevated }}>✕</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 12px", borderRadius: 20, border: "1px solid rgba(212,165,50,0.22)", background: "rgba(212,165,50,0.06)" }}>
+              <span style={{ fontFamily: SANS, fontSize: 9, fontWeight: 600, color: "#d4a532", fontStyle: "italic" }}>powered by</span>
+              <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 900, color: "#eeeef2" }}>DynastyGPT<span style={{ color: "#d4a532" }}>.com</span></span>
+            </div>
+            <div onClick={onClose} style={{ cursor: "pointer", fontFamily: MONO, fontSize: 14, color: C.dim, padding: "4px 8px", borderRadius: 4, background: C.elevated }}>✕</div>
+          </div>
         </div>
 
         {/* Recommendation banner */}
