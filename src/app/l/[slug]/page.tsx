@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useLeagueStore } from "@/lib/stores/league-store";
 import { useQuery } from "@tanstack/react-query";
@@ -8,7 +8,7 @@ import { getRankings, getRecentTrades, getTrending, getOwnerProfiles, getOvervie
 import { PowerRankings, RecentTrades } from "@/components/league";
 import { leaguePrefix } from "@/components/league/tokens";
 import PlayerName from "@/components/league/PlayerName";
-import type { LeagueReportCardResponse } from "@/lib/types";
+import type { LeagueReportCardResponse, TrendingPlayer, GradedTrade, RankingEntry } from "@/lib/types";
 
 /* ═══════════════════════════════════════════════════════════════
    DESIGN TOKENS
@@ -96,32 +96,131 @@ function InsightStrip() {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   MARKET MOVERS TICKER
+   ROTATING TICKER — cycles categories every 9s with crossfade
    ═══════════════════════════════════════════════════════════════ */
-function MarketTicker({ risers, fallers }: { risers: { player: string; sha_delta: number; position?: string }[]; fallers: { player: string; sha_delta: number; position?: string }[] }) {
-  const items = [
-    ...risers.slice(0, 8).map((r) => ({ ...r, dir: "up" as const })),
-    ...fallers.slice(0, 6).map((f) => ({ ...f, dir: "down" as const })),
-  ];
-  if (!items.length) return null;
+type TickerItem = { badge?: string; badgeColor?: string; text: string; annotation: string; annotationColor: string };
+type TickerCat = { label: string; dotColor: string; items: TickerItem[] };
 
-  const renderSet = (prefix: string) => items.map((p, i) => (
+function MarketTicker({ risers, fallers, recentTrades, rankings, reportCard }: {
+  risers: TrendingPlayer[];
+  fallers: TrendingPlayer[];
+  recentTrades?: GradedTrade[];
+  rankings?: RankingEntry[];
+  reportCard?: LeagueReportCardResponse | null;
+}) {
+  const categories = useMemo(() => {
+    const cats: TickerCat[] = [];
+
+    // MARKET MOVERS — interleaved risers & fallers
+    if (risers.length || fallers.length) {
+      const items: TickerItem[] = [];
+      const maxLen = Math.max(risers.length, fallers.length);
+      for (let i = 0; i < maxLen && items.length < 14; i++) {
+        if (i < risers.length) items.push({ badge: risers[i].position, badgeColor: posColor(risers[i].position), text: risers[i].player, annotation: `▲ +${fmt(risers[i].sha_delta)}`, annotationColor: C.green });
+        if (i < fallers.length && items.length < 14) items.push({ badge: fallers[i].position, badgeColor: posColor(fallers[i].position), text: fallers[i].player, annotation: `▼ ${fmt(fallers[i].sha_delta)}`, annotationColor: C.red });
+      }
+      cats.push({ label: "MARKET MOVERS", dotColor: C.green, items });
+    }
+
+    // TRADE MARKET — who's winning trades, notable activity
+    if (reportCard) {
+      const items: TickerItem[] = [];
+      if (reportCard.biggest_robbery) { const r = reportCard.biggest_robbery; items.push({ text: `${r.winner} fleeced ${r.loser}`, annotation: `got ${r.winner_got.slice(0, 2).join(", ")}`, annotationColor: C.green }); }
+      if (reportCard.best_winwin) { const w = reportCard.best_winwin; items.push({ text: `${w.side_a} & ${w.side_b}`, annotation: "best win-win deal", annotationColor: C.gold }); }
+      reportCard.quality_leaderboard?.slice(0, 4).forEach(q => items.push({ text: q.owner, annotation: `${Math.round(q.win_pct)}% trade win rate`, annotationColor: q.win_pct >= 60 ? C.green : C.secondary }));
+      if (reportCard.most_active_trader) items.push({ text: reportCard.most_active_trader.owner, annotation: `most active — ${reportCard.most_active_trader.trades} trades`, annotationColor: C.gold });
+      if (reportCard.blockbusters) items.push({ text: `${reportCard.blockbusters} blockbuster deals`, annotation: "this season", annotationColor: C.gold });
+      if (reportCard.panic_trades) items.push({ text: `${reportCard.panic_trades} panic trades`, annotation: "detected", annotationColor: C.red });
+      if (items.length) cats.push({ label: "TRADE MARKET", dotColor: C.gold, items });
+    }
+
+    // MANAGER RATINGS — power rankings
+    if (rankings?.length) {
+      const items: TickerItem[] = rankings.slice(0, 12).map(r => ({
+        badge: `#${r.rank}`, badgeColor: r.rank <= 3 ? C.green : r.rank <= 6 ? C.gold : r.rank <= 9 ? C.orange : C.red,
+        text: r.owner, annotation: fmt(r.total_sha), annotationColor: r.rank <= 3 ? C.green : C.gold,
+      }));
+      cats.push({ label: "MANAGER RATINGS", dotColor: C.blue, items });
+    }
+
+    // RECENT TRADES — deal summaries
+    if (recentTrades?.length) {
+      const items: TickerItem[] = recentTrades.slice(0, 8).map(t => ({
+        text: `${t.owner} → ${t.counter_party}`,
+        annotation: `${(t.players_sent || []).slice(0, 2).join(", ") || "picks"} ↔ ${(t.players_received || []).slice(0, 2).join(", ") || "picks"}`,
+        annotationColor: C.secondary,
+      }));
+      cats.push({ label: "RECENT TRADES", dotColor: C.orange, items });
+    }
+
+    // DRAFT BOARD — who's stockpiling vs selling picks
+    if (reportCard?.pick_movement && reportCard.pick_movement.total_picks_traded > 0) {
+      const pm = reportCard.pick_movement;
+      const items: TickerItem[] = [{ text: `${pm.total_picks_traded} picks changed hands`, annotation: "this season", annotationColor: C.gold }];
+      const buyers = pm.flow_by_owner?.filter(f => f.net_picks > 0).slice(0, 4) || [];
+      const sellers = pm.flow_by_owner?.filter(f => f.net_picks < 0).slice(0, 4) || [];
+      buyers.forEach(f => items.push({ text: f.owner, annotation: `stockpiling picks (+${f.net_picks} net)`, annotationColor: C.green }));
+      sellers.forEach(f => items.push({ text: f.owner, annotation: `selling picks (${f.net_picks} net)`, annotationColor: C.red }));
+      if (items.length > 1) cats.push({ label: "DRAFT BOARD", dotColor: "#a78bfa", items });
+    }
+
+    // AI INSIGHT — league personality + fun stats
+    if (reportCard) {
+      const items: TickerItem[] = [];
+      if (reportCard.league_personality) items.push({ text: reportCard.league_personality.type, annotation: reportCard.league_personality.description, annotationColor: C.secondary });
+      if (reportCard.fun_stat) items.push({ text: "Fun stat", annotation: reportCard.fun_stat, annotationColor: C.gold });
+      if (reportCard.activity_summary) items.push({ text: "Season recap", annotation: reportCard.activity_summary, annotationColor: C.secondary });
+      if (items.length) cats.push({ label: "AI INSIGHT", dotColor: C.gold, items });
+    }
+
+    return cats;
+  }, [risers, fallers, recentTrades, rankings, reportCard]);
+
+  const [catIdx, setCatIdx] = useState(0);
+  const [fading, setFading] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Measure width → constant px/s speed → transition exactly when scroll finishes
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const onePassPx = el.scrollWidth / 3;
+    const PX_PER_SEC = 55;
+    const dur = Math.max(onePassPx / PX_PER_SEC, 12);
+    el.style.animation = "none";
+    void el.offsetHeight;
+    el.style.animation = `tickerScroll ${dur}s linear 1 forwards`;
+
+    if (categories.length <= 1) return;
+    const handleEnd = () => {
+      setFading(true);
+      setTimeout(() => {
+        setCatIdx(prev => (prev + 1) % categories.length);
+        setTimeout(() => setFading(false), 50);
+      }, 700);
+    };
+    el.addEventListener("animationend", handleEnd);
+    return () => el.removeEventListener("animationend", handleEnd);
+  }, [catIdx, categories.length]);
+
+  if (!categories.length) return null;
+  const cat = categories[catIdx % categories.length];
+
+  const renderSet = (prefix: string) => cat.items.map((item, i) => (
     <span key={`${prefix}-${i}`} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: MONO, whiteSpace: "nowrap" }}>
-      {p.position && <span style={{ fontSize: 8, fontWeight: 900, letterSpacing: "0.04em", color: posColor(p.position), fontFamily: SANS, background: posColor(p.position) + "18", padding: "1px 4px", borderRadius: 2 }}>{p.position}</span>}
-      <PlayerName name={p.player} style={{ fontSize: 11, fontWeight: 700, color: C.primary }} />
-      <span style={{ fontSize: 10, fontWeight: 900, color: p.dir === "up" ? C.green : C.red }}>
-        {p.dir === "up" ? "▲" : "▼"} {p.dir === "up" ? "+" : ""}{fmt(p.sha_delta)}
-      </span>
+      {item.badge && <span style={{ fontSize: 8, fontWeight: 900, letterSpacing: "0.04em", color: item.badgeColor || C.dim, fontFamily: SANS, background: (item.badgeColor || C.dim) + "18", padding: "1px 4px", borderRadius: 2 }}>{item.badge}</span>}
+      <span style={{ fontSize: 11, fontWeight: 700, color: C.primary }}>{item.text}</span>
+      <span style={{ fontSize: 10, fontWeight: 900, color: item.annotationColor }}>{item.annotation}</span>
     </span>
   ));
 
   return (
     <div style={{ height: 32, background: C.card, borderBottom: `1px solid ${C.border}`, overflow: "hidden", display: "flex", alignItems: "center", position: "relative" }}>
       <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, zIndex: 2, display: "flex", alignItems: "center", gap: 6, padding: "0 12px", background: `linear-gradient(90deg, ${C.card} 80%, transparent 100%)` }}>
-        <div style={{ width: 6, height: 6, borderRadius: "50%", background: C.green, animation: "pulse-gold 2s ease-in-out infinite" }} />
-        <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.14em", color: C.gold, fontFamily: SANS }}>MARKET MOVERS</span>
+        <div style={{ width: 6, height: 6, borderRadius: "50%", background: cat.dotColor, animation: "pulse-gold 2s ease-in-out infinite" }} />
+        <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.14em", color: C.gold, fontFamily: SANS, transition: "opacity 0.6s ease-in-out", opacity: fading ? 0 : 1 }}>{cat.label}</span>
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 24, whiteSpace: "nowrap", width: "max-content", paddingLeft: 180, animation: "tickerScroll 70s linear infinite" }}>
+      <div ref={scrollRef} style={{ display: "flex", alignItems: "center", gap: 24, whiteSpace: "nowrap", width: "max-content", paddingLeft: 180, opacity: fading ? 0 : 1, transition: "opacity 0.6s ease-in-out" }}>
         {renderSet("a")}
         <span style={{ display: "inline-block", width: 40 }} />
         {renderSet("b")}
@@ -665,8 +764,14 @@ export default function LeagueHome() {
       {/* AI Insight Strip */}
       <InsightStrip />
 
-      {/* Market Movers Ticker */}
-      {trending && <MarketTicker risers={trending.risers || []} fallers={trending.fallers || []} />}
+      {/* Rotating Ticker */}
+      <MarketTicker
+        risers={trending?.risers || []}
+        fallers={trending?.fallers || []}
+        recentTrades={recentTrades?.trades}
+        rankings={rankings?.rankings}
+        reportCard={reportCard}
+      />
 
       {/* MAIN GRID — Content Left, Widgets Right */}
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "20px 32px 48px", display: "grid", gridTemplateColumns: "1fr 320px", gap: 24, alignItems: "start" }}>

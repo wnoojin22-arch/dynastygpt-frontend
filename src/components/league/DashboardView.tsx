@@ -267,6 +267,14 @@ function DynastyScoreCard({ lid, owner }: { lid: string; owner: string }) {
     staleTime: 1800000,
   });
 
+  const { data: overview } = useQuery({
+    queryKey: ["overview", lid],
+    queryFn: () => getOverview(lid),
+    enabled: !!lid,
+    staleTime: 3600000,
+  });
+  const leagueName = overview?.name || "";
+
   const { data: allScores, isLoading: loadingAll, isError: errorAll } = useQuery({
     queryKey: ["dynasty-scores-all", lid],
     queryFn: async () => {
@@ -302,6 +310,7 @@ function DynastyScoreCard({ lid, owner }: { lid: string; owner: string }) {
   const topPct = percentile != null ? Math.max(1, 100 - percentile) : null;
   // Rough global population estimate
   const globalManagers = percentile != null ? Math.round(myScore!.score > 0 ? 92847 : 0) : null;
+  const globalRank = topPct != null && globalManagers ? Math.max(1, Math.round((topPct / 100) * globalManagers)) : null;
 
   const tierColor = myScore ? (TIER_COLORS[myScore.tier.label] || C.dim) : C.dim;
 
@@ -335,103 +344,93 @@ function DynastyScoreCard({ lid, owner }: { lid: string; owner: string }) {
   return (
     <div style={{ order: -2 }}>
       <div style={{
-        borderRadius: 6, overflow: "hidden", background: C.card,
-        border: `1px solid ${C.border}`,
+        borderRadius: 8, overflow: "hidden", background: C.card,
+        border: `1px solid ${C.goldBorder}`,
         borderTop: `2px solid ${C.goldDark}`,
-        backgroundImage: `linear-gradient(180deg, ${C.goldGlow} 0%, transparent 40%)`,
+        backgroundImage: `linear-gradient(180deg, ${C.goldGlow} 0%, transparent 50%)`,
       }}>
-        {/* Header bar */}
+        {/* Header: DYNASTYGPT MANAGER RANKS */}
         <div style={{
-          padding: "6px 12px", borderBottom: `1px solid ${C.border}`,
-          background: C.goldDim, display: "flex", justifyContent: "space-between", alignItems: "center",
+          padding: "5px 12px", borderBottom: `1px solid ${C.border}`,
+          background: C.goldDim,
         }}>
-          <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", color: C.gold }}>
-            DYNASTYGPT SCORE
-          </span>
-          <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>
-            {myScore.score}/850
+          <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.10em", color: C.gold }}>
+            DYNASTYGPT MANAGER RANKS
           </span>
         </div>
 
-        <div style={{ padding: "14px 16px 12px" }}>
-          {/* Top row: Two big rank numbers + tier badge */}
-          <div style={{ display: "flex", alignItems: "flex-start", gap: 32, marginBottom: 12 }}>
-            {/* League Rank */}
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: 80 }}>
-              <span style={{ fontFamily: DISPLAY, fontSize: 32, fontWeight: 900, color: C.gold, lineHeight: 1 }}>
-                {leagueRank ? `#${leagueRank}` : "—"}
-              </span>
-              <span style={{ fontFamily: SANS, fontSize: 11, color: C.dim, marginTop: 2 }}>
-                in your league
-              </span>
-            </div>
-
-            {/* Global Rank / Percentile */}
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: 100 }}>
-              <span style={{ fontFamily: DISPLAY, fontSize: 32, fontWeight: 900, color: C.primary, lineHeight: 1 }}>
-                {topPct != null ? `Top ${topPct}%` : "—"}
-              </span>
-              <span style={{ fontFamily: SANS, fontSize: 11, color: C.dim, marginTop: 2 }}>
-                {globalManagers != null ? `out of ${globalManagers.toLocaleString()} managers` : "global percentile"}
-              </span>
-            </div>
-
-            {/* Tier badge + score */}
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginLeft: "auto", gap: 4 }}>
+        {/* Score body — two rows, compact */}
+        <div style={{ padding: "10px 14px 8px" }}>
+          {/* Row 1: #X League Name · #X DynastyGPT · Top X% of N · tier */}
+          <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 6, flexWrap: "wrap" }}>
+            {/* League rank */}
+            <span style={{ fontFamily: DISPLAY, fontSize: 20, fontWeight: 900, color: C.gold, lineHeight: 1 }}>
+              #{leagueRank || "—"}
+            </span>
+            <span style={{ fontFamily: DISPLAY, fontSize: 14, letterSpacing: "-0.3px", background: `linear-gradient(180deg, ${C.goldBright}, ${C.gold}, ${C.goldDark})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+              {leagueName || "League"}
+            </span>
+            <span style={{ color: C.dim, fontSize: 11 }}>·</span>
+            {/* DynastyGPT rank */}
+            <span style={{ fontFamily: DISPLAY, fontSize: 20, fontWeight: 900, color: C.gold, lineHeight: 1 }}>
+              #{globalRank?.toLocaleString() || "—"}
+            </span>
+            <span style={{ fontFamily: DISPLAY, fontSize: 14, letterSpacing: "-0.3px", background: `linear-gradient(180deg, ${C.goldBright}, ${C.gold}, ${C.goldDark})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+              DynastyGPT
+            </span>
+            <span style={{ color: C.dim, fontSize: 11 }}>·</span>
+            {/* Percentile */}
+            <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 600, color: C.secondary }}>
+              Top {topPct ?? "—"}% of {globalManagers?.toLocaleString() ?? "—"}
+            </span>
+            {/* Tier badge + score — pushed right */}
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: "auto", flexShrink: 0 }}>
               <span style={{
-                fontFamily: MONO, fontSize: 11, fontWeight: 900, letterSpacing: "0.12em",
-                padding: "4px 12px", borderRadius: 4,
+                fontFamily: MONO, fontSize: 10, fontWeight: 900, letterSpacing: "0.10em",
+                padding: "3px 10px", borderRadius: 4,
                 color: tierColor, background: `${tierColor}18`,
                 border: `1px solid ${tierColor}35`,
                 textTransform: "uppercase",
               }}>
                 {myScore.tier.label}
               </span>
-              <span style={{ fontFamily: MONO, fontSize: 20, fontWeight: 700, color: C.dim }}>
-                {myScore.score}
-              </span>
+              <span style={{ fontFamily: MONO, fontSize: 18, fontWeight: 700, color: C.dim }}>{myScore.score}</span>
             </div>
           </div>
 
-          {/* Bullets */}
+          {/* Row 2: Bullets */}
           {bullets.length > 0 && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 10 }}>
-              {bullets.map((b, i) => {
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {bullets.slice(0, 3).map((b, i) => {
                 const isGood = b.type === "strength" || b.type === "highlight";
                 const bulletColor = isGood ? C.green : C.red;
-                const arrow = isGood ? "▲" : "▼";
                 return (
-                  <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 6 }}>
-                    <span style={{ fontFamily: MONO, fontSize: 11, color: bulletColor, flexShrink: 0, marginTop: 1 }}>
-                      {arrow}
-                    </span>
-                    <span style={{ fontFamily: SANS, fontSize: 12, color: C.secondary, lineHeight: 1.35 }}>
-                      {b.text}
-                    </span>
-                  </div>
+                  <span key={i} style={{ fontFamily: SANS, fontSize: 11, color: bulletColor, lineHeight: 1.3 }}>
+                    {isGood ? "▲" : "▼"} {b.text}
+                  </span>
                 );
               })}
             </div>
           )}
+        </div>
 
-          {/* Expand/collapse toggle */}
-          <div
-            onClick={() => setExpanded(!expanded)}
-            style={{
-              fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.gold,
-              cursor: "pointer", textAlign: "center", padding: "4px 0",
-              transition: "opacity 0.15s",
-              userSelect: "none",
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.7"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}
-          >
-            {expanded ? "Hide Breakdown ▴" : "View Full Breakdown ▾"}
-          </div>
+        {/* Bottom border with "View Full Report" breaking the line */}
+        <div
+          onClick={() => setExpanded(!expanded)}
+          style={{ display: "flex", alignItems: "center", cursor: "pointer", userSelect: "none", padding: "0 12px" }}
+          onMouseEnter={(e) => { e.currentTarget.querySelector("span")!.style.opacity = "0.7"; }}
+          onMouseLeave={(e) => { e.currentTarget.querySelector("span")!.style.opacity = "1"; }}
+        >
+          <div style={{ flex: 1, height: 1, background: C.goldBorder }} />
+          <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: "0.08em", color: C.gold, padding: "0 10px", textShadow: `0 0 10px ${C.gold}30`, whiteSpace: "nowrap" }}>
+            {expanded ? "HIDE ▴" : "VIEW FULL REPORT ▾"}
+          </span>
+          <div style={{ flex: 1, height: 1, background: C.goldBorder }} />
+        </div>
 
           {/* Expanded content */}
           {expanded && (
-            <div style={{ marginTop: 10, borderTop: `1px solid ${C.border}`, paddingTop: 12 }}>
+            <div style={{ borderTop: `1px solid ${C.border}`, padding: "10px 12px" }}>
               {/* 6-component bar chart */}
               <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
                 {Object.entries(myScore.components).map(([key, comp]) => {
@@ -524,7 +523,6 @@ function DynastyScoreCard({ lid, owner }: { lid: string; owner: string }) {
               )}
             </div>
           )}
-        </div>
       </div>
     </div>
   );
@@ -582,9 +580,13 @@ function DashboardView({ lid, owner }: { lid: string; owner: string }) {
   }
   const tier = tierBadge(myRank?.rank);
 
-  // Most recent season from record.seasons
+  // Most recent season with actual games played
   const seasons: any[] = (record as any)?.seasons || [];
-  const latestSeason = seasons.length > 0 ? seasons[seasons.length - 1] : null;
+  const currentYear = new Date().getFullYear();
+  const currentSeason = seasons.find((s: any) => Number(s.season) === currentYear && (s.wins > 0 || s.losses > 0));
+  const lastPlayed = [...seasons].reverse().find((s: any) => s.wins > 0 || s.losses > 0);
+  const latestSeason = currentSeason || lastPlayed || null;
+  const isOffseason = !currentSeason && lastPlayed && Number(lastPlayed.season) < currentYear;
   // season_finishes from champs (API extension)
   const seasonFinishes: any[] = (champs as any)?.season_finishes || [];
   const latestFinish = latestSeason
@@ -821,8 +823,15 @@ function DashboardView({ lid, owner }: { lid: string; owner: string }) {
         {/* Divider */}
         <div style={{ width: 1, height: 16, background: C.borderLt, margin: "0 12px" }} />
 
-        {/* Most recent season */}
-        {latestSeason && (
+        {/* Season record */}
+        {isOffseason ? (
+          <>
+            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <span style={{ fontFamily: MONO, fontSize: 10, color: C.gold, letterSpacing: "0.06em" }}>{currentYear} OFFSEASON</span>
+            </div>
+            <div style={{ width: 1, height: 16, background: C.borderLt, margin: "0 12px" }} />
+          </>
+        ) : latestSeason ? (
           <>
             <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
               <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim, letterSpacing: "0.06em" }}>{latestSeason.season}</span>
@@ -833,7 +842,7 @@ function DashboardView({ lid, owner }: { lid: string; owner: string }) {
             </div>
             <div style={{ width: 1, height: 16, background: C.borderLt, margin: "0 12px" }} />
           </>
-        )}
+        ) : null}
 
         {/* All-time record */}
         {record && (
@@ -995,8 +1004,8 @@ function DashboardView({ lid, owner }: { lid: string; owner: string }) {
                         color: pk.is_own_pick ? C.gold : "#8B5CF6",
                         border: `1px solid ${pk.is_own_pick ? C.goldBorder : "rgba(139,92,246,0.25)"}`,
                       }}>
-                        R{pk.round}
-                        {!pk.is_own_pick && <span style={{ opacity: 0.6, marginLeft: 2 }}>({pk.original_owner.slice(0, 5)})</span>}
+                        {pk.slot_label || (pk.slot ? `${pk.round}.${String(pk.slot).padStart(2, '0')}` : `R${pk.round}`)}
+                        {pk.sha_value > 0 && <span style={{ opacity: 0.7, marginLeft: 3, fontSize: 9 }}>{fmt(pk.sha_value)}</span>}
                       </span>
                     ))}
                   </div>
@@ -1135,7 +1144,7 @@ function DashboardView({ lid, owner }: { lid: string; owner: string }) {
                           color: pk.is_own_pick ? C.gold : "#8B5CF6",
                           border: `1px solid ${pk.is_own_pick ? C.goldBorder : "rgba(139,92,246,0.25)"}`,
                         }}>
-                          {year} R{pk.round}
+                          {pk.slot_label ? `${year} ${pk.slot_label}` : `${year} R${pk.round}`}
                           {!pk.is_own_pick && <span style={{ opacity: 0.6, marginLeft: 2 }}>({pk.original_owner.slice(0, 4)})</span>}
                         </span>
                       ))
@@ -1191,7 +1200,8 @@ function DashboardView({ lid, owner }: { lid: string; owner: string }) {
                           <span key={`rc-${year}-${i}`} style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 4,
                             background: pk.is_own_pick ? C.goldDim : "rgba(139,92,246,0.10)", color: pk.is_own_pick ? C.gold : "#8B5CF6",
                             border: `1px solid ${pk.is_own_pick ? C.goldBorder : "rgba(139,92,246,0.25)"}` }}>
-                            R{pk.round}{!pk.is_own_pick && <span style={{ opacity: 0.6, marginLeft: 2 }}>({pk.original_owner.slice(0, 5)})</span>}
+                            {pk.slot_label || (pk.slot ? `${pk.round}.${String(pk.slot).padStart(2, '0')}` : `R${pk.round}`)}
+                            {pk.sha_value > 0 && <span style={{ opacity: 0.7, marginLeft: 3, fontSize: 9 }}>{fmt(pk.sha_value)}</span>}
                           </span>
                         ))}
                       </div>
