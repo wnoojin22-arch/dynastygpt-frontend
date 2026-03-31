@@ -25,7 +25,7 @@ interface Props {
 export default function ThumbsFeedback({ prompt, tradeId, suggestionId, context }: Props) {
   const [voted, setVoted] = useState<"up" | "down" | null>(null);
   const { user } = useUser();
-  const { currentLeagueId, currentOwner, currentOwnerId } = useLeagueStore();
+  const { currentLeagueId, currentOwner } = useLeagueStore();
 
   const submit = useCallback(async (vote: "up" | "down") => {
     if (voted) return; // already voted
@@ -39,7 +39,6 @@ export default function ThumbsFeedback({ prompt, tradeId, suggestionId, context 
           email: user?.primaryEmailAddress?.emailAddress,
           league_id: currentLeagueId,
           owner_name: currentOwner,
-          owner_user_id: currentOwnerId,
           page_url: typeof window !== "undefined" ? window.location.href : "",
           feedback_type: vote === "up" ? "thumbs_up" : "thumbs_down",
           message: prompt,
@@ -52,7 +51,7 @@ export default function ThumbsFeedback({ prompt, tradeId, suggestionId, context 
     } catch {
       // silent — micro-feedback is non-critical
     }
-  }, [voted, user, currentLeagueId, currentOwner, currentOwnerId, prompt, tradeId, suggestionId, context]);
+  }, [voted, user, currentLeagueId, currentOwner, prompt, tradeId, suggestionId, context]);
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0" }}>

@@ -6,18 +6,16 @@ interface SavedLeague {
   slug: string;
   name: string;
   owner: string | null;
-  ownerId: string | null;
 }
 
 interface LeagueState {
   currentLeagueId: string | null;
   currentLeagueSlug: string | null;
   currentOwner: string | null;
-  currentOwnerId: string | null;
   savedLeagues: SavedLeague[];
 
   setLeague: (id: string, slug: string, name: string) => void;
-  setOwner: (owner: string, userId?: string | null) => void;
+  setOwner: (owner: string) => void;
   clearLeague: () => void;
 }
 
@@ -27,30 +25,28 @@ export const useLeagueStore = create<LeagueState>()(
       currentLeagueId: null,
       currentLeagueSlug: null,
       currentOwner: null,
-      currentOwnerId: null,
       savedLeagues: [],
 
       setLeague: (id, slug, name) => {
         const existing = get().savedLeagues;
         const updated = existing.some((l) => l.id === id)
           ? existing.map((l) => (l.id === id ? { ...l, slug, name } : l))
-          : [...existing, { id, slug, name, owner: null, ownerId: null }];
+          : [...existing, { id, slug, name, owner: null }];
         set({ currentLeagueId: id, currentLeagueSlug: slug, savedLeagues: updated });
       },
 
-      setOwner: (owner, userId = null) => {
+      setOwner: (owner) => {
         const { currentLeagueId, savedLeagues } = get();
         set({
           currentOwner: owner,
-          currentOwnerId: userId ?? null,
           savedLeagues: savedLeagues.map((l) =>
-            l.id === currentLeagueId ? { ...l, owner, ownerId: userId ?? null } : l
+            l.id === currentLeagueId ? { ...l, owner } : l
           ),
         });
       },
 
       clearLeague: () =>
-        set({ currentLeagueId: null, currentLeagueSlug: null, currentOwner: null, currentOwnerId: null }),
+        set({ currentLeagueId: null, currentLeagueSlug: null, currentOwner: null }),
     }),
     { name: "dynastygpt-league" }
   )

@@ -547,10 +547,10 @@ function BuildTradeCTA() {
    MAIN COMPONENT — 7-section grid layout
    ═══════════════════════════════════════════════════════════════ */
 
-export default function CoachesCorner({ leagueId, owner, ownerId }: { leagueId: string; owner: string; ownerId?: string | null }) {
+export default function CoachesCorner({ leagueId, owner }: { leagueId: string; owner: string }) {
   const { data: cc, isLoading } = useQuery({
     queryKey: ["coaches-corner-v2", leagueId, owner],
-    queryFn: () => getCoachesCorner(leagueId, owner, ownerId),
+    queryFn: () => getCoachesCorner(leagueId, owner),
     enabled: !!owner,
   });
 

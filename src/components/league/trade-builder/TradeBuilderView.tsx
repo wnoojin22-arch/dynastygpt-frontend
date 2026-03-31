@@ -133,7 +133,7 @@ function ResultsPanel({ packages, loading, query, onBuild, onBack }: { packages:
 /* ═══════════════════════════════════════════════════════════════
    MAIN VIEW — Three-state adaptive workspace (Shadynasty exact port)
    ═══════════════════════════════════════════════════════════════ */
-export default function TradeBuilderView({ leagueId, owner, ownerId }: { leagueId: string; owner: string; ownerId?: string | null }) {
+export default function TradeBuilderView({ leagueId, owner }: { leagueId: string; owner: string }) {
   const [partner, setPartner] = useState("");
   const [myWindow, setMyWindow] = useState<string | null>(null);
   const [theirWindow, setTheirWindow] = useState<string | null>(null);
@@ -154,9 +154,9 @@ export default function TradeBuilderView({ leagueId, owner, ownerId }: { leagueI
 
   // Data
   const { data: ownersData } = useQuery({ queryKey: ["owners", leagueId], queryFn: () => getOwners(leagueId), enabled: !!leagueId, staleTime: 600000 });
-  const { data: ownerRoster } = useQuery({ queryKey: ["roster", leagueId, owner], queryFn: () => getRoster(leagueId, owner, ownerId), enabled: !!owner });
+  const { data: ownerRoster } = useQuery({ queryKey: ["roster", leagueId, owner], queryFn: () => getRoster(leagueId, owner), enabled: !!owner });
   const { data: partnerRoster } = useQuery({ queryKey: ["roster", leagueId, partner], queryFn: () => getRoster(leagueId, partner), enabled: !!partner });
-  const { data: ownerPicks } = useQuery({ queryKey: ["picks", leagueId, owner], queryFn: () => getPicks(leagueId, owner, ownerId), enabled: !!owner, staleTime: 300000 });
+  const { data: ownerPicks } = useQuery({ queryKey: ["picks", leagueId, owner], queryFn: () => getPicks(leagueId, owner), enabled: !!owner, staleTime: 300000 });
   const { data: partnerPicks } = useQuery({ queryKey: ["picks", leagueId, partner], queryFn: () => getPicks(leagueId, partner), enabled: !!partner, staleTime: 300000 });
   const { data: leagueIntel } = useQuery({ queryKey: ["league-intel", leagueId], queryFn: () => getLeagueIntel(leagueId), enabled: !!leagueId, staleTime: 600000 });
 
@@ -211,7 +211,7 @@ export default function TradeBuilderView({ leagueId, owner, ownerId }: { leagueI
     setAnalyzing(true); setError(null);
     try {
       const res = await fetch(`${API}/api/league/${leagueId}/trade-builder/evaluate`, { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ owner, partner, i_give: giveNames, i_receive: receiveNames, mode, window_override: myWindow ? toBackend(myWindow) : null, partner_window_override: theirWindow ? toBackend(theirWindow) : null, user_id: ownerId || undefined }) });
+        body: JSON.stringify({ owner, partner, i_give: giveNames, i_receive: receiveNames, mode, window_override: myWindow ? toBackend(myWindow) : null, partner_window_override: theirWindow ? toBackend(theirWindow) : null }) });
       const data = await res.json();
       if (!res.ok) { setError(data.error || "Failed"); } else {
         const ev = data as TradeEvaluation;
@@ -225,58 +225,48 @@ export default function TradeBuilderView({ leagueId, owner, ownerId }: { leagueI
         }
       }
     } catch (e: unknown) { setError(e instanceof Error ? e.message : "Failed"); } finally { setAnalyzing(false); }
-  }, [owner, partner, giveNames, receiveNames, mode, myWindow, theirWindow, leagueId, ownerId]);
+  }, [owner, partner, giveNames, receiveNames, mode, myWindow, theirWindow, leagueId]);
 
-  // Suggest — calls the V2 trade engine with intent-mode detection
+  // Suggest — calls the trade engine for algorithmic suggestions with AI narration
   const fireSuggest = useCallback(async (body: Record<string, unknown>, query: string) => {
     setSuggestLoading(true); setSuggestedPkgs([]); setSuggestQuery(query); setError(null);
     try {
-      // Separate sell-side asset from acquire-side target
-      const sellAsset = (body.sell_asset as string) || undefined;
-      const targetAsset = (body.i_receive as string[])?.[0] || undefined;
+      // Asset is optional — backend will auto-pick from roster if not provided
+      const asset = (body.sell_asset as string) || (body.i_receive as string[])?.[0] || undefined;
       const findPosition = (body.find_position as string) || undefined;
 
-      const res = await fetch(`${API}/api/league/${leagueId}/v2/trade-engine/generate`, {
+      const res = await fetch(`${API}/api/league/${leagueId}/trade-engine/generate`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          owner,
-          asset: sellAsset || undefined,
-          target_asset: targetAsset || undefined,
-          mode,
-          partner: (body.partner as string) || undefined,
-          find_position: findPosition || undefined,
-          user_id: ownerId || undefined,
-        }),
+        body: JSON.stringify({ owner, asset: asset || undefined, mode, partner: body.partner || undefined, find_position: findPosition || undefined }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error || data.detail || "Failed"); setSuggestLoading(false); return; }
 
-      // Map V2 response to SuggestedPackage format
+      // Map trade engine response to SuggestedPackage format
       const packages: SuggestedPackage[] = (data.packages || []).map((p: Record<string, unknown>) => {
+        const scoring = (p.scoring || {}) as Record<string, unknown>;
         const give = (p.give || []) as Array<Record<string, unknown>>;
         const receive = (p.receive || []) as Array<Record<string, unknown>>;
-        const balance = (p.sha_balance || {}) as Record<string, unknown>;
-        const confidence = (p.confidence as number) || 0;
         return {
           partner: p.partner as string,
           i_give: give,
           i_receive: receive,
           i_give_names: give.map((a) => a.name as string),
           i_receive_names: receive.map((a) => a.name as string),
-          sha_balance: balance,
-          acceptance_likelihood: confidence,
-          owner_trade_grade: { grade: confidence >= 70 ? "A" : confidence >= 50 ? "B" : confidence >= 30 ? "C" : "D", score: confidence, verdict: "" },
+          sha_balance: {},
+          acceptance_likelihood: (scoring.acceptance_likelihood as number) || 0,
+          owner_trade_grade: { grade: (scoring.grade as string) || "?", score: (scoring.grade_score as number) || 0, verdict: (scoring.grade_verdict as string) || "" },
           negotiation_insights: [],
-          combined_score: confidence,
+          combined_score: (scoring.combined_score as number) || 0,
           pitch: (p.rationale as string) || "",
-          narrative: (p.rationale as string) || "",
-          tier: "",
-          market_comparison: "",
+          narrative: (p.narrative as string) || "",
+          tier: (p.tier as string) || "",
+          market_comparison: (p.market_comparison as string) || "",
         } as unknown as SuggestedPackage;
       });
       setSuggestedPkgs(packages);
     } catch (e: unknown) { setError(e instanceof Error ? e.message : "Failed"); } finally { setSuggestLoading(false); }
-  }, [owner, mode, leagueId, ownerId]);
+  }, [owner, mode, leagueId]);
 
   const handleSellAsset = useCallback((name: string) => { setActiveSellAsset(name); fireSuggest({ sell_asset: name }, `Selling ${name}`); }, [fireSuggest]);
   const handleFindPosition = useCallback((pos: string) => {

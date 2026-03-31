@@ -116,14 +116,14 @@ function Spot({ r, label, lc, isNem }: { r: MappedRival | null; label: string; l
 
 /* ═══════════════════════════════════════════════════════════════ */
 
-export default function RivalsView({ leagueId, owner, ownerId }: {
-  leagueId: string; owner: string; ownerId?: string | null;
+export default function RivalsView({ leagueId, owner }: {
+  leagueId: string; owner: string;
 }) {
   const [expanded, setExpanded] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["rivals", leagueId, owner],
-    queryFn: () => getRivalries(leagueId, owner, ownerId),
+    queryFn: () => getRivalries(leagueId, owner),
     enabled: !!owner,
   });
 

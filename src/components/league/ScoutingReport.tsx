@@ -34,12 +34,12 @@ const INTEL_COLORS: Record<string, string> = {
   CAUTION: "#6bb8e0",
 };
 
-export default function ScoutingReport({ leagueId, owner, ownerId }: {
-  leagueId: string; owner: string; ownerId?: string | null;
+export default function ScoutingReport({ leagueId, owner }: {
+  leagueId: string; owner: string;
 }) {
   const { data, isLoading, error } = useQuery({
     queryKey: ["scouting-report", leagueId, owner],
-    queryFn: () => getScoutingReport(leagueId, owner, ownerId),
+    queryFn: () => getScoutingReport(leagueId, owner),
     enabled: !!owner && !!leagueId,
     staleTime: 10 * 60 * 1000,
   });

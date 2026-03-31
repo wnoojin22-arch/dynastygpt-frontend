@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getGradedTradesByOwner, getTradeChains, getGradedTrades, getOverview, getOwnerProfile, getOwners } from "@/lib/api";
+import { getGradedTradesByOwner, getTradeChains, getGradedTrades, getOverview, getOwnerProfile } from "@/lib/api";
 import { useLeagueStore } from "@/lib/stores/league-store";
 import LeagueTradesView from "./LeagueTradesView";
 import TradeReportModal from "./TradeReportModal";
@@ -138,7 +138,7 @@ const TRADE_CSS = `
 /* ═══════════════════════════════════════════════════════════════
    COMPONENT
    ═══════════════════════════════════════════════════════════════ */
-export default function MyTradesView({ leagueId, owner: ownerProp, ownerId }: { leagueId: string; owner: string | null; ownerId?: string | null }) {
+export default function MyTradesView({ leagueId, owner: ownerProp }: { leagueId: string; owner: string | null }) {
   const [mainTab, setMainTab] = useState<'log' | 'league'>('log');
   const [historyTab, setHistoryTab] = useState<'log' | 'profile'>('log');
   const [reportTradeId, setReportTradeId] = useState<string | null>(null);
@@ -152,18 +152,12 @@ export default function MyTradesView({ leagueId, owner: ownerProp, ownerId }: { 
     queryFn: () => getOverview(leagueId),
     enabled: !!leagueId,
   });
-  const { data: ownersFullData } = useQuery({
-    queryKey: ["owners", leagueId],
-    queryFn: () => getOwners(leagueId),
-    enabled: !!leagueId,
-    staleTime: 600000,
-  });
   const ownerList: string[] = overviewData?.owners || [];
   const owner = ownerProp;
 
   const { data, isLoading } = useQuery({
     queryKey: ["my-trades", leagueId, owner],
-    queryFn: () => getGradedTradesByOwner(leagueId, owner!, ownerId),
+    queryFn: () => getGradedTradesByOwner(leagueId, owner!),
     enabled: !!owner,
   });
   const { data: chainData } = useQuery({
@@ -173,7 +167,7 @@ export default function MyTradesView({ leagueId, owner: ownerProp, ownerId }: { 
   });
   const { data: profileData } = useQuery({
     queryKey: ["owner-profile", leagueId, owner],
-    queryFn: () => getOwnerProfile(leagueId, owner!, ownerId),
+    queryFn: () => getOwnerProfile(leagueId, owner!),
     enabled: !!owner && historyTab === 'profile',
   });
 
@@ -202,11 +196,7 @@ export default function MyTradesView({ leagueId, owner: ownerProp, ownerId }: { 
       <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', paddingRight: 14 }}>
         <select
           value={owner || ''}
-          onChange={(e) => {
-            const name = e.target.value;
-            const match = ownersFullData?.owners?.find((o: { name: string; platform_user_id?: string }) => o.name === name);
-            setOwner(name, match?.platform_user_id ?? null);
-          }}
+          onChange={(e) => setOwner(e.target.value)}
           style={{
             fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: '6px 12px',
             borderRadius: 4, background: C.elevated, color: owner ? C.gold : C.dim,
@@ -246,20 +236,12 @@ export default function MyTradesView({ leagueId, owner: ownerProp, ownerId }: { 
 
   type TradeHighlight = { trade_id: string; date: string; partner: string; letter: string; score: number; gave: string; got: string; verdict: string };
   const tradeStats = useMemo((): {
-    wins: number; losses: number; even: number;
+    wins: number; losses: number; pushes: number; winWins: number; tooEarly: number;
     bestTrade: TradeHighlight | null; worstTrade: TradeHighlight | null;
     avgScore: number; avgLetter: string; graded: number; decided: number; winPct: number;
     myVerdicts: Record<string, string>; myLetters: Record<string, string>;
   } => {
-    // Use canonical record from API (compute_trade_record on backend)
-    const wins = data?.wins ?? 0;
-    const losses = data?.losses ?? 0;
-    const even = data?.even ?? 0;
-    const winRate = data?.win_rate ?? 0;
-    const decided = wins + losses;
-    const winPct = Math.round(winRate * 100);
-    const graded = wins + losses + even;
-
+    let wins = 0, losses = 0, pushes = 0, winWins = 0, tooEarly = 0;
     let bestTrade: TradeHighlight | null = null;
     let worstTrade: TradeHighlight | null = null;
     let bestScore = -1, worstScore = 999;
@@ -277,6 +259,13 @@ export default function MyTradesView({ leagueId, owner: ownerProp, ownerId }: { 
       if (myLetter) myLetters[t.trade_id] = myLetter;
       if (myVerdict) myVerdicts[t.trade_id] = myVerdict;
       if (myScore) myScores.push(Number(myScore));
+
+      const v = (t.verdict || '').toLowerCase();
+      if (v.includes('win-win')) winWins++;
+      else if (myVerdict === 'Won' || myVerdict === 'Slight Edge' || (myVerdict || '').toLowerCase().includes('robbery')) wins++;
+      else if (myVerdict === 'Lost' || myVerdict === 'Slight Loss') losses++;
+      else if (myVerdict === 'Push') pushes++;
+      else tooEarly++;
 
       // API returns trades from this owner's perspective — sent = what they gave, received = what they got
       const gave = fmtAssets(t.players_sent, t.picks_sent);
@@ -298,9 +287,12 @@ export default function MyTradesView({ leagueId, owner: ownerProp, ownerId }: { 
 
     const avgScore = myScores.length > 0 ? Math.round(myScores.reduce((a, b) => a + b, 0) / myScores.length) : 0;
     const avgLetter = toLetter(avgScore);
+    const graded = wins + losses + pushes + winWins + tooEarly;
+    const decided = wins + losses + pushes + winWins;
+    const winPct = decided > 0 ? Math.round(((wins + winWins) / decided) * 100) : 0;
 
-    return { wins, losses, even, bestTrade, worstTrade, avgScore, avgLetter, graded, decided, winPct, myVerdicts, myLetters };
-  }, [rawTrades, owner, data]);
+    return { wins, losses, pushes, winWins, tooEarly, bestTrade, worstTrade, avgScore, avgLetter, graded, decided, winPct, myVerdicts, myLetters };
+  }, [rawTrades, owner]);
 
   const chains = useMemo(() => (chainData?.chains || []).filter((ch: TradeChain) =>
     ch.owner?.toLowerCase() === (owner || '').toLowerCase() && ch.flipped_to
@@ -335,7 +327,7 @@ export default function MyTradesView({ leagueId, owner: ownerProp, ownerId }: { 
   );
 
   // Destructure stats for use in render
-  const { wins, losses, even, bestTrade, worstTrade, avgScore, avgLetter, graded, decided, winPct, myVerdicts, myLetters } = tradeStats;
+  const { wins, losses, pushes, winWins, tooEarly, bestTrade, worstTrade, avgScore, avgLetter, graded, decided, winPct, myVerdicts, myLetters } = tradeStats;
 
   // Trader identity
   const posAcquired: Record<string, number> = { QB: 0, RB: 0, WR: 0, TE: 0, PICKS: 0 };
@@ -409,7 +401,9 @@ export default function MyTradesView({ leagueId, owner: ownerProp, ownerId }: { 
                 {[
                   { n: wins, label: 'WON', color: C.green },
                   { n: losses, label: 'LOST', color: C.red },
-                  { n: even, label: 'EVEN', color: C.secondary },
+                  { n: pushes, label: 'PUSH', color: C.secondary },
+                  { n: winWins, label: 'WIN-WIN', color: '#4ade80' },
+                  { n: tooEarly, label: 'DEVELOPING', color: C.gold },
                 ].map(({ n, label, color }) => (
                   <div key={label} style={{ textAlign: 'center', minWidth: 40 }}>
                     <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 800, color }}>{n}</div>
@@ -753,9 +747,10 @@ export default function MyTradesView({ leagueId, owner: ownerProp, ownerId }: { 
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px 12px', borderRight: `1px solid ${C.border}` }}>
                   <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, letterSpacing: '0.15em', color: C.dim, marginBottom: 8 }}>TRADE RECORD</span>
                   {[
-                    { label: 'WON', n: (trading.record as Record<string,number>)?.wins || 0, color: C.green },
-                    { label: 'LOST', n: (trading.record as Record<string,number>)?.losses || 0, color: C.red },
-                    { label: 'EVEN', n: (trading.record as Record<string,number>)?.even || 0, color: C.secondary },
+                    { label: 'WINS', n: (trading.record as Record<string,number>)?.wins || 0, color: C.green },
+                    { label: 'WIN-WIN', n: (trading.record as Record<string,number>)?.win_wins || 0, color: '#5eead4' },
+                    { label: 'LOSSES', n: (trading.record as Record<string,number>)?.losses || 0, color: C.red },
+                    { label: 'PUSH', n: (trading.record as Record<string,number>)?.pushes || 0, color: C.blue },
                   ].map(({ label, n, color }) => (
                     <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '2px 0' }}>
                       <div style={{ width: 8, height: 8, borderRadius: 2, background: color, flexShrink: 0 }} />

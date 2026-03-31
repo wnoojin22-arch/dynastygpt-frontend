@@ -303,17 +303,6 @@ export interface OwnerTrendingResponse {
   fallers: TrendingPlayer[];
 }
 
-export interface RosterValueChangeResponse {
-  owner: string;
-  window_days: number;
-  format: string;
-  current_total: number;
-  previous_total: number;
-  delta: number;
-  risers: { name: string; position: string; current_value: number; delta: number }[];
-  fallers: { name: string; position: string; current_value: number; delta: number }[];
-}
-
 // ── League Intel ────────────────────────────────────────────────────────
 
 export interface LeagueIntelOwner {
@@ -426,30 +415,6 @@ export interface OwnerListItem {
   name: string;
   slot: number;
   platform_user_id?: string;
-}
-
-// ── Global Player Rankings ─────────────────────────────────────────────
-
-export interface GlobalPlayerRanking {
-  player_name: string;
-  name_clean: string;
-  position: string;
-  team: string;
-  age: number | null;
-  sha_value: number;
-  ktc_value: number;
-  dynasty_value: number;
-  redraft_value: number;
-  sha_overall_rank: number | null;
-  sha_pos_rank: string;
-  dynasty_rank: number | null;
-  redraft_rank: number | null;
-}
-
-export interface GlobalPlayerRankingsResponse {
-  count: number;
-  snapshot_date: string | null;
-  players: GlobalPlayerRanking[];
 }
 
 // ── League Report Card ─────────────────────────────────────────────────

@@ -2,12 +2,11 @@ import type {
   RosterResponse, PicksResponse, StandingEntry, RankingEntry,
   OwnerProfile, OwnerRecord, Championships, Tendencies, OwnerNeeds,
   GradedTrade, TradeGradeResponse, Rival, TradePartner,
-  TrendingResponse, OwnerTrendingResponse, RosterValueChangeResponse, LeagueIntelOwner,
+  TrendingResponse, OwnerTrendingResponse, LeagueIntelOwner,
   PositionalPowerEntry, HeadToHeadResponse, TradeChain,
   PlayerSignal, PlayerCard, PlayerTrend, ValueHistoryPoint,
   LeagueOverview, SyncResponse, FranchiseIntel, OwnerListItem,
   SeasonStat, ResolvedAsset, LeagueReportCardResponse,
-  GlobalPlayerRankingsResponse,
 } from "./types";
 
 const API = "";
@@ -36,8 +35,6 @@ async function post<T>(path: string, body?: unknown): Promise<T> {
 
 const L = (id: string) => `/api/league/${id}`;
 const E = (s: string) => encodeURIComponent(s);
-/** Prefer user_id for API calls; fall back to display name */
-const O = (owner: string, userId?: string | null) => E(userId || owner);
 
 // ── Sync & League ────────────────────────────────────────────────────────
 export const syncLeague = (id: string) => get<SyncResponse>(`${L(id)}/sync`);
@@ -47,17 +44,17 @@ export const getRankings = (id: string) => get<{ rankings: RankingEntry[] }>(`${
 export const getOwners = (id: string) => get<{ owners: OwnerListItem[] }>(`${L(id)}/owners`);
 
 // ── Roster ───────────────────────────────────────────────────────────────
-export const getRoster = (id: string, owner: string, userId?: string | null) => get<RosterResponse>(`${L(id)}/roster/${O(owner, userId)}`);
-export const getIdealLineupSHA = (id: string, owner: string, userId?: string | null) => get<unknown>(`${L(id)}/roster/${O(owner, userId)}/ideal-lineup`);
+export const getRoster = (id: string, owner: string) => get<RosterResponse>(`${L(id)}/roster/${E(owner)}`);
+export const getIdealLineupSHA = (id: string, owner: string) => get<unknown>(`${L(id)}/roster/${E(owner)}/ideal-lineup`);
 
 // ── Picks ────────────────────────────────────────────────────────────────
-export const getPicks = (id: string, owner: string, userId?: string | null) => get<PicksResponse>(`${L(id)}/picks/${O(owner, userId)}`);
+export const getPicks = (id: string, owner: string) => get<PicksResponse>(`${L(id)}/picks/${E(owner)}`);
 
 // ── Trades ───────────────────────────────────────────────────────────────
 export const getTrades = (id: string) => get<{ trades: unknown[] }>(`${L(id)}/trades`);
 export const getRecentTrades = (id: string, limit = 10) => get<{ trades: GradedTrade[] }>(`${L(id)}/trades/recent?limit=${limit}`);
 export const getGradedTrades = (id: string) => get<{ trades: GradedTrade[] }>(`${L(id)}/graded-trades`);
-export const getGradedTradesByOwner = (id: string, owner: string, userId?: string | null) => get<{ trades: GradedTrade[]; wins: number; losses: number; even: number; win_rate: number }>(`${L(id)}/graded-trades/${O(owner, userId)}`);
+export const getGradedTradesByOwner = (id: string, owner: string) => get<{ trades: GradedTrade[]; wins: number; losses: number; pushes: number; win_rate: number }>(`${L(id)}/graded-trades/${E(owner)}`);
 export const getTradesByPlayer = (id: string, player: string) => get<{ trades: unknown[] }>(`${L(id)}/trades/player/${E(player)}`);
 export const gradeTrade = (id: string, body: { side_a: { owner: string; assets: string[] }; side_b: { owner: string; assets: string[] } }) => post<TradeGradeResponse>(`${L(id)}/trade/grade`, body);
 export const getTradeReport = (id: string, tradeId: string) => get<unknown>(`${L(id)}/trade/${tradeId}/report`);
@@ -65,16 +62,16 @@ export const getTradeHindsight = (id: string, tradeId: string) => get<unknown>(`
 export const getVerdictCache = (id: string) => get<{ verdicts: Record<string, unknown> }>(`${L(id)}/verdict-cache`);
 
 // ── Trade Builder ────────────────────────────────────────────────────────
-export const getTradeBuilderSuggestions = (id: string, owner: string, userId?: string | null) => get<unknown>(`${L(id)}/trade-builder/${O(owner, userId)}`);
-export const getTradeBuilderTargets = (id: string, owner: string, userId?: string | null) => get<unknown>(`${L(id)}/trade-builder/${O(owner, userId)}/targets`);
+export const getTradeBuilderSuggestions = (id: string, owner: string) => get<unknown>(`${L(id)}/trade-builder/${E(owner)}`);
+export const getTradeBuilderTargets = (id: string, owner: string) => get<unknown>(`${L(id)}/trade-builder/${owner}/targets`);
 export const evaluateTrade = (id: string, body: { i_give: string[]; i_receive: string[] }) => post<unknown>(`${L(id)}/trade-builder/evaluate`, body);
-export const getTradeContext = (id: string, ownerA: string, ownerB: string, userIdA?: string | null, userIdB?: string | null) => post<unknown>(`${L(id)}/trade/context?owner_a=${E(userIdA || ownerA)}&owner_b=${E(userIdB || ownerB)}`);
+export const getTradeContext = (id: string, ownerA: string, ownerB: string) => post<unknown>(`${L(id)}/trade/context?owner_a=${ownerA}&owner_b=${ownerB}`);
 
 // ── Trade Partners ───────────────────────────────────────────────────────
-export const getTradePartners = (id: string, owner: string, userId?: string | null) => get<{ partners: TradePartner[]; my_needs: string[]; my_surplus: string[] }>(`${L(id)}/trade-partners/${O(owner, userId)}`);
+export const getTradePartners = (id: string, owner: string) => get<{ partners: TradePartner[]; my_needs: string[]; my_surplus: string[] }>(`${L(id)}/trade-partners/${E(owner)}`);
 
 // ── Dynasty Score ───────────────────────────────────────────────────────
-export const getDynastyScore = (id: string, owner: string, userId?: string | null) => get<DynastyScoreResponse>(`${L(id)}/owner/${O(owner, userId)}/dynasty-score`);
+export const getDynastyScore = (id: string, owner: string) => get<DynastyScoreResponse>(`${L(id)}/owner/${E(owner)}/dynasty-score`);
 
 export interface DynastyScoreResponse {
   score: number;
@@ -98,23 +95,23 @@ export interface DynastyScoreResponse {
 }
 
 // ── Owner Intel ──────────────────────────────────────────────────────────
-export const getOwnerProfile = (id: string, owner: string, userId?: string | null) => get<Record<string, unknown>>(`${L(id)}/owner/${O(owner, userId)}/profile`);
-export const getOwnerTendencies = (id: string, owner: string, userId?: string | null) => get<Tendencies>(`${L(id)}/owner/${O(owner, userId)}/tendencies`);
-export const getOwnerTradeHistory = (id: string, owner: string, userId?: string | null) => get<{ trades: unknown[] }>(`${L(id)}/owner/${O(owner, userId)}/trade-history`);
+export const getOwnerProfile = (id: string, owner: string) => get<Record<string, unknown>>(`${L(id)}/owner/${E(owner)}/profile`);
+export const getOwnerTendencies = (id: string, owner: string) => get<Tendencies>(`${L(id)}/owner/${E(owner)}/tendencies`);
+export const getOwnerTradeHistory = (id: string, owner: string) => get<{ trades: unknown[] }>(`${L(id)}/owner/${E(owner)}/trade-history`);
 export const getOwnerProfiles = (id: string) => get<{ profiles: OwnerProfile[] }>(`${L(id)}/owner-profiles`);
-export const getOwnerRecord = (id: string, owner: string, userId?: string | null) => get<OwnerRecord>(`${L(id)}/owner-record/${O(owner, userId)}`);
-export const getChampionships = (id: string, owner: string, userId?: string | null) => get<Championships>(`${L(id)}/championships/${O(owner, userId)}`);
-export const getOwnerNeeds = (id: string, owner: string, userId?: string | null) => get<{ needs: OwnerNeeds[] }>(`${L(id)}/owner-needs/${O(owner, userId)}`);
+export const getOwnerRecord = (id: string, owner: string) => get<OwnerRecord>(`${L(id)}/owner-record/${E(owner)}`);
+export const getChampionships = (id: string, owner: string) => get<Championships>(`${L(id)}/championships/${E(owner)}`);
+export const getOwnerNeeds = (id: string, owner: string) => get<{ needs: OwnerNeeds[] }>(`${L(id)}/owner-needs/${E(owner)}`);
 
 // ── Rivalries ────────────────────────────────────────────────────────────
-export const getRivalries = (id: string, owner: string, userId?: string | null) => get<{ rivals: Rival[] }>(`${L(id)}/rivalries/${O(owner, userId)}`);
-export const getHeadToHead = (id: string, o1: string, o2: string, uid1?: string | null, uid2?: string | null) => get<HeadToHeadResponse>(`${L(id)}/head-to-head/${O(o1, uid1)}/${O(o2, uid2)}`);
+export const getRivalries = (id: string, owner: string) => get<{ rivals: Rival[] }>(`${L(id)}/rivalries/${E(owner)}`);
+export const getHeadToHead = (id: string, o1: string, o2: string) => get<HeadToHeadResponse>(`${L(id)}/head-to-head/${E(o1)}/${E(o2)}`);
 
 // ── Franchise Intel ──────────────────────────────────────────────────────
-export const getFranchiseIntel = (id: string, owner: string, userId?: string | null) => get<FranchiseIntel>(`${L(id)}/intel/${O(owner, userId)}`);
-export const getCoachesCorner = (id: string, owner: string, userId?: string | null) => get<unknown>(`${L(id)}/intel/${O(owner, userId)}/coaches-corner`);
-export const getGmVerdict = (id: string, owner: string, userId?: string | null) => get<unknown>(`${L(id)}/intel/${O(owner, userId)}/gm-verdict`);
-export const getActions = (id: string, owner: string, userId?: string | null) => get<{ stop: string[]; start: string[]; keep: string[] }>(`${L(id)}/intel/${O(owner, userId)}/actions`);
+export const getFranchiseIntel = (id: string, owner: string) => get<FranchiseIntel>(`${L(id)}/intel/${E(owner)}`);
+export const getCoachesCorner = (id: string, owner: string) => get<unknown>(`${L(id)}/intel/${owner}/coaches-corner`);
+export const getGmVerdict = (id: string, owner: string) => get<unknown>(`${L(id)}/intel/${owner}/gm-verdict`);
+export const getActions = (id: string, owner: string) => get<{ stop: string[]; start: string[]; keep: string[] }>(`${L(id)}/intel/${owner}/actions`);
 
 // ── League Intel ─────────────────────────────────────────────────────────
 export const getLeagueIntel = (id: string) => get<{ owners: LeagueIntelOwner[] }>(`${L(id)}/league-intel`);
@@ -127,8 +124,7 @@ export const getPositionalPower = (id: string, pos: string) => get<{ rankings: P
 
 // ── Trending ─────────────────────────────────────────────────────────────
 export const getTrending = (id: string, days = 7) => get<TrendingResponse>(`${L(id)}/trending?days=${days}`);
-export const getOwnerTrending = (id: string, owner: string, userId?: string | null, days = 7) => get<OwnerTrendingResponse>(`${L(id)}/trending/${O(owner, userId)}?days=${days}`);
-export const getRosterValueChange = (id: string, owner: string, userId?: string | null, days = 30) => get<RosterValueChangeResponse>(`${L(id)}/roster-value-change/${O(owner, userId)}?days=${days}`);
+export const getOwnerTrending = (id: string, owner: string, days = 7) => get<OwnerTrendingResponse>(`${L(id)}/trending/${E(owner)}?days=${days}`);
 
 // ── Player ───────────────────────────────────────────────────────────────
 export const getPlayerSignals = (id: string) => get<{ signals: PlayerSignal[] }>(`${L(id)}/player-signals`);
@@ -147,7 +143,7 @@ export const getPlayerPriceHistory = (player: string) => get<Record<string, unkn
 
 // ── Draft ────────────────────────────────────────────────────────────────
 export const getDraftHistory = (id: string, season?: string) => get<{ picks: unknown[] }>(`${L(id)}/draft/history${season ? `?season=${season}` : ""}`);
-export const getDraftAnalysis = (id: string, owner: string, userId?: string | null) => get<unknown>(`${L(id)}/draft/analysis/${O(owner, userId)}`);
+export const getDraftAnalysis = (id: string, owner: string) => get<unknown>(`${L(id)}/draft/analysis/${E(owner)}`);
 
 // ── Rankings ─────────────────────────────────────────────────────────────
 export const getDynastyRanks = (id: string) => get<{ rankings: unknown[] }>(`${L(id)}/dynasty-ranks`);
@@ -157,17 +153,17 @@ export const getRedraftRanks = (id: string) => get<{ rankings: unknown[] }>(`${L
 export const getTradeChains = (id: string) => get<{ chains: TradeChain[] }>(`${L(id)}/trade-chains`);
 
 // ── AI ───────────────────────────────────────────────────────────────────
-export const aiChat = (id: string, message: string, owner?: string, userId?: string | null) => post<{ response: string }>(`${L(id)}/ai/chat`, { message, owner: userId || owner });
-export const getScoutingReport = (id: string, owner: string, userId?: string | null) => get<{ report: string; owner: string; sha_rank: number; total_sha: number }>(`${L(id)}/ai/scouting-report/${O(owner, userId)}`);
+export const aiChat = (id: string, message: string, owner?: string) => post<{ response: string }>(`${L(id)}/ai/chat`, { message, owner });
+export const getScoutingReport = (id: string, owner: string) => get<{ report: string; owner: string; sha_rank: number; total_sha: number }>(`${L(id)}/ai/scouting-report/${E(owner)}`);
 export const getAiTradeCommentary = (id: string, tradeId: string) => post<unknown>(`${L(id)}/ai/trade-commentary?trade_id=${tradeId}`);
-export const getAiTradeIntel = (id: string, owner: string, userId?: string | null) => post<unknown>(`${L(id)}/ai/trade-intel?owner=${O(owner, userId)}`);
+export const getAiTradeIntel = (id: string, owner: string) => post<unknown>(`${L(id)}/ai/trade-intel?owner=${E(owner)}`);
 
 // ── Lineup Efficiency ────────────────────────────────────────────────────
-export const getIdealLineup = (id: string, owner: string, userId?: string | null, season = 2025) => get<Record<string, unknown>>(`${L(id)}/ideal-lineup/${O(owner, userId)}?season=${season}`);
+export const getIdealLineup = (id: string, owner: string, season = 2025) => get<Record<string, unknown>>(`${L(id)}/ideal-lineup/${E(owner)}?season=${season}`);
 export const getLineupEfficiency = (id: string, season = 2025) => get<{ rankings: Array<Record<string, unknown>> }>(`${L(id)}/lineup-efficiency?season=${season}`);
 
 // ── Market Feed ─────────────────────────────────────────────────────────
-export const getMarketFeed = (id: string, owner: string, userId?: string | null, days = 120) => get<Record<string, unknown>>(`${L(id)}/owner/${O(owner, userId)}/market-feed?days=${days}`);
+export const getMarketFeed = (id: string, owner: string, days = 120) => get<Record<string, unknown>>(`${L(id)}/owner/${E(owner)}/market-feed?days=${days}`);
 
 // ── Price Check ─────────────────────────────────────────────────────────
 export const getPriceCheck = (id: string, query: string, days = 180) => get<Record<string, unknown>>(`${L(id)}/price-check/${E(query)}?days=${days}`);
@@ -183,9 +179,6 @@ const U = (uid: string) => `/api/user/${uid}`;
 export const getUserLeagues = (uid: string) => get<{ user_id: string; display_name: string; leagues: { league_id: string; league_name: string; season: string; display_name: string }[] }>(`${U(uid)}/leagues`);
 export const getUserTrades = (uid: string, leagueId?: string) => get<{ trades: unknown[] }>(`${U(uid)}/trades${leagueId ? `?league_id=${leagueId}` : ""}`);
 export const getUserProfile = (uid: string) => get<{ user_id: string; display_name: string; leagues: unknown[]; total_trades: number }>(`${U(uid)}/profile`);
-
-// ── Global Player Rankings (no league required) ─────────────────────
-export const getGlobalPlayerRankings = () => get<GlobalPlayerRankingsResponse>("/api/market/player-rankings");
 
 // ── Admin ────────────────────────────────────────────────────────────────
 export const enrichTrades = (id: string) => get<unknown>(`${L(id)}/trades/enrich`);

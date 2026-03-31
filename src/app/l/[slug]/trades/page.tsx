@@ -15,7 +15,7 @@ export default function TradesPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
-  const { currentLeagueId: lid, currentOwner: owner, currentOwnerId } = useLeagueStore();
+  const { currentLeagueId: lid, currentOwner: owner } = useLeagueStore();
   const activeTab = searchParams.get("tab") || "builder";
 
   const setTab = (tab: string) => {
@@ -62,7 +62,7 @@ export default function TradesPage() {
       <div className="flex-1 overflow-y-auto min-h-0">
         {activeTab === "builder" && (
           owner ? (
-            <TradeBuilderView leagueId={lid} owner={owner} ownerId={currentOwnerId} />
+            <TradeBuilderView leagueId={lid} owner={owner} />
           ) : (
             <div className="flex items-center justify-center h-64">
               <p className="font-sans text-sm text-dim">Select an owner from the header to use the trade builder.</p>
@@ -71,7 +71,7 @@ export default function TradesPage() {
         )}
         {activeTab === "my-trades" && (
           owner ? (
-            <MyTradesView leagueId={lid} owner={owner} ownerId={currentOwnerId} />
+            <MyTradesView leagueId={lid} owner={owner} />
           ) : (
             <div className="flex items-center justify-center h-64">
               <p className="font-sans text-sm text-dim">Select an owner from the header to view your trades.</p>
@@ -79,7 +79,7 @@ export default function TradesPage() {
           )
         )}
         {activeTab === "league" && (
-          <MyTradesView leagueId={lid} owner={null} ownerId={null} />
+          <MyTradesView leagueId={lid} owner={null} />
         )}
       </div>
     </div>

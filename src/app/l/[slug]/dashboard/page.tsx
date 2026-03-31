@@ -6,7 +6,7 @@ import { getOverview } from "@/lib/api";
 import DashboardView from "@/components/league/DashboardView";
 
 export default function DashboardPage() {
-  const { currentLeagueId: lid, currentOwner: owner, currentOwnerId: ownerId } = useLeagueStore();
+  const { currentLeagueId: lid, currentOwner: owner } = useLeagueStore();
 
   if (!lid) return (
     <div className="flex items-center justify-center h-full">
@@ -23,5 +23,5 @@ export default function DashboardPage() {
     </div>
   );
 
-  return <DashboardView lid={lid} owner={owner} ownerId={ownerId} />;
+  return <DashboardView lid={lid} owner={owner} />;
 }
