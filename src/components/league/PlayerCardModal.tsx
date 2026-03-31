@@ -152,14 +152,18 @@ export default function PlayerCardModal() {
               @keyframes pulse-gold{0%,100%{opacity:1}50%{opacity:.3}}
             `}</style>
 
-            {/* ── Drag handle (mobile) ── */}
-            <div style={{ display: "flex", justifyContent: "center", padding: "8px 0 4px" }}
-              className="sm:hidden">
-              <div style={{ width: 36, height: 4, borderRadius: 2, background: C.borderLt }} />
+            {/* ── Top bar — branding + close, own row above everything ── */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 10, padding: "8px 12px 0", flexShrink: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "3px 10px", borderRadius: 14, border: `1px solid ${C.goldBorder}`, background: C.goldGlow }}>
+                <span style={{ fontSize: 7, fontWeight: 600, color: C.gold, fontFamily: SANS, fontStyle: "italic" }}>powered by</span>
+                <span style={{ fontSize: 10, fontWeight: 900, color: C.primary, fontFamily: SANS }}>DynastyGPT<span style={{ color: C.gold }}>.com</span></span>
+              </div>
+              <button onClick={closePlayerCard}
+                style={{ background: C.elevated, border: `1px solid ${C.border}`, borderRadius: 8, cursor: "pointer", padding: "6px 8px", color: C.dim, fontSize: 14, lineHeight: 1, flexShrink: 0 }}>✕</button>
             </div>
 
             {/* ── Header — Sleeper headshot + bio ── */}
-            <div style={{ padding: "12px 20px 16px", display: "flex", alignItems: "center", gap: 16, borderBottom: `1px solid ${C.border}` }}>
+            <div style={{ padding: "8px 20px 16px", display: "flex", alignItems: "center", gap: 16, borderBottom: `1px solid ${C.border}` }}>
               {/* Headshot from Sleeper CDN, falls back to initials */}
               <div style={{
                 width: 68, height: 68, borderRadius: "50%", flexShrink: 0,
@@ -181,7 +185,7 @@ export default function PlayerCardModal() {
                 )}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontFamily: SANS, fontSize: 20, fontWeight: 700, color: C.primary, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <div style={{ fontFamily: SANS, fontSize: 20, fontWeight: 700, color: C.primary, lineHeight: 1.2 }}>
                   {pc?.player || playerName}
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 5, flexWrap: "wrap" }}>
@@ -211,9 +215,6 @@ export default function PlayerCardModal() {
                   </div>
                 )}
               </div>
-              {/* Close */}
-              <button onClick={closePlayerCard}
-                style={{ background: C.elevated, border: `1px solid ${C.border}`, borderRadius: 8, cursor: "pointer", padding: "8px 10px", color: C.dim, fontSize: 16, lineHeight: 1, flexShrink: 0 }}>✕</button>
             </div>
 
             {/* ── Tabs — touch-friendly ── */}
@@ -546,21 +547,22 @@ function ValueTab({ history, priceHistory }: { history: ValueHistoryPoint[]; pri
   const lowVolume = typeof cvObj.low_confidence === "boolean" ? cvObj.low_confidence : true;
   const volObj = (ph?.volume || {}) as Record<string, unknown>;
   const totalVolume = typeof volObj.all_time === "number" ? volObj.all_time : 0;
+  const vol90d = typeof volObj.last_90d === "number" ? volObj.last_90d : 0;
   const trendObj = (ph?.trend || {}) as Record<string, unknown>;
   const signal = typeof trendObj.signal === "string" ? trendObj.signal.toUpperCase() : null;
   const formatLabel = typeof (ph as Record<string, unknown>)?.format === "string" ? (ph as Record<string, unknown>).format as string : null;
 
-  // Valuation comparison
+  // Valuation comparison: market > consensus = OVERVALUED, market < consensus = UNDERVALUED
   const currentSha = latest.sha_value || 0;
   let valuationPct = 0;
   let valuationLabel = "";
   let valuationColor: string = C.dim;
   if (marketValue && currentSha > 0) {
-    valuationPct = Math.round(((currentSha - marketValue) / marketValue) * 100);
-    if (valuationPct > 5) {
+    valuationPct = Math.round(((marketValue - currentSha) / currentSha) * 100);
+    if (valuationPct > 10) {
       valuationLabel = `${valuationPct}% OVERVALUED`;
       valuationColor = "#e47272";
-    } else if (valuationPct < -5) {
+    } else if (valuationPct < -10) {
       valuationLabel = `${Math.abs(valuationPct)}% UNDERVALUED`;
       valuationColor = "#7dd3a0";
     } else {
@@ -578,7 +580,7 @@ function ValueTab({ history, priceHistory }: { history: ValueHistoryPoint[]; pri
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
         <ValueCard label="CONSENSUS" value={fmt(currentSha)} sub={latest.sha_pos_rank || ""} color={C.gold} />
         {marketValue ? (
-          <ValueCard label="MARKET PRICE" value={fmt(marketValue)} sub={`${totalVolume} trades`} color="#6bb8e0" />
+          <ValueCard label="MARKET PRICE" value={fmt(marketValue)} sub={vol90d > 0 ? `${vol90d} trades · 90d` : `${totalVolume} trades`} color="#6bb8e0" />
         ) : (
           <ValueCard label="6 MO AGO" value={fmt(earliest.sha_value || 0)} sub="" color={C.dim} />
         )}
@@ -644,7 +646,7 @@ function ValueTab({ history, priceHistory }: { history: ValueHistoryPoint[]; pri
               fontFamily: MONO, fontSize: 11, color: C.dim,
               borderTop: `1px solid ${C.border}`, paddingTop: 10,
             }}>
-              <span>{totalVolume.toLocaleString()} trades</span>
+              <span>{totalVolume.toLocaleString()} trades {totalVolume > 0 ? "· All time" : ""}</span>
               {signal && (
                 <>
                   <span style={{ color: C.border }}>·</span>
