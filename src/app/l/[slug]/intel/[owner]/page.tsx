@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   getOwnerProfile, getRivalries, getOwnerRecord, getChampionships,
   getOwnerNeeds, getRoster, getGradedTradesByOwner, getDraftHistory, getDraftAnalysis,
+  getOwners,
 } from "@/lib/api";
 import { ScoutingReport, RivalsView, TradeReportModal } from "@/components/league";
 import { TradeAssetList } from "@/components/league/TradeAssets";
@@ -61,14 +62,18 @@ export default function OwnerDetailPage({ params }: { params: Promise<{ owner: s
   const [tab, setTab] = useState<TabId>("overview");
   const [reportTradeId, setReportTradeId] = useState<string | null>(null);
 
-  const { data: profile } = useQuery({ queryKey: ["owner-profile", lid, ownerName], queryFn: () => getOwnerProfile(lid!, ownerName), enabled: !!lid });
-  const { data: record } = useQuery({ queryKey: ["record", lid, ownerName], queryFn: () => getOwnerRecord(lid!, ownerName), enabled: !!lid });
-  const { data: champs } = useQuery({ queryKey: ["champs", lid, ownerName], queryFn: () => getChampionships(lid!, ownerName), enabled: !!lid });
-  const { data: needs } = useQuery({ queryKey: ["needs", lid, ownerName], queryFn: () => getOwnerNeeds(lid!, ownerName), enabled: !!lid });
-  const { data: roster } = useQuery({ queryKey: ["roster", lid, ownerName], queryFn: () => getRoster(lid!, ownerName), enabled: !!lid });
-  const { data: graded } = useQuery({ queryKey: ["graded-owner", lid, ownerName], queryFn: () => getGradedTradesByOwner(lid!, ownerName), enabled: !!lid && (tab === "trades" || tab === "overview") });
+  // Look up userId for this owner from the owners list
+  const { data: ownersData } = useQuery({ queryKey: ["owners", lid], queryFn: () => getOwners(lid!), enabled: !!lid, staleTime: 600000 });
+  const ownerUserId = ownersData?.owners?.find((o: { name: string; platform_user_id?: string }) => o.name === ownerName)?.platform_user_id ?? null;
+
+  const { data: profile } = useQuery({ queryKey: ["owner-profile", lid, ownerName], queryFn: () => getOwnerProfile(lid!, ownerName, ownerUserId), enabled: !!lid });
+  const { data: record } = useQuery({ queryKey: ["record", lid, ownerName], queryFn: () => getOwnerRecord(lid!, ownerName, ownerUserId), enabled: !!lid });
+  const { data: champs } = useQuery({ queryKey: ["champs", lid, ownerName], queryFn: () => getChampionships(lid!, ownerName, ownerUserId), enabled: !!lid });
+  const { data: needs } = useQuery({ queryKey: ["needs", lid, ownerName], queryFn: () => getOwnerNeeds(lid!, ownerName, ownerUserId), enabled: !!lid });
+  const { data: roster } = useQuery({ queryKey: ["roster", lid, ownerName], queryFn: () => getRoster(lid!, ownerName, ownerUserId), enabled: !!lid });
+  const { data: graded } = useQuery({ queryKey: ["graded-owner", lid, ownerName], queryFn: () => getGradedTradesByOwner(lid!, ownerName, ownerUserId), enabled: !!lid && (tab === "trades" || tab === "overview") });
   const { data: draft } = useQuery({ queryKey: ["draft-history", lid], queryFn: () => getDraftHistory(lid!), enabled: !!lid && tab === "draft" });
-  const { data: draftAnalysis } = useQuery({ queryKey: ["draft-analysis", lid, ownerName], queryFn: () => getDraftAnalysis(lid!, ownerName), enabled: !!lid && tab === "draft" });
+  const { data: draftAnalysis } = useQuery({ queryKey: ["draft-analysis", lid, ownerName], queryFn: () => getDraftAnalysis(lid!, ownerName, ownerUserId), enabled: !!lid && tab === "draft" });
 
   if (!lid) return <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}><p style={{ fontFamily: MONO, fontSize: 13, color: C.dim }}>No league loaded</p></div>;
 
@@ -112,7 +117,7 @@ export default function OwnerDetailPage({ params }: { params: Promise<{ owner: s
       {/* OVERVIEW */}
       {tab === "overview" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {lid && <ScoutingReport leagueId={lid} owner={ownerName} />}
+          {lid && <ScoutingReport leagueId={lid} owner={ownerName} ownerId={ownerUserId} />}
 
           {/* Stats grid */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8 }}>
@@ -224,7 +229,7 @@ export default function OwnerDetailPage({ params }: { params: Promise<{ owner: s
 
       {/* RIVALS */}
       {tab === "rivals" && lid && (
-        <RivalsView leagueId={lid} owner={ownerName} />
+        <RivalsView leagueId={lid} owner={ownerName} ownerId={ownerUserId} />
       )}
 
       {/* SEASONS */}

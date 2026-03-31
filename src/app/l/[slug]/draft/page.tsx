@@ -34,10 +34,10 @@ function DCard({ label, right, children }: { label: string; right?: React.ReactN
 }
 
 export default function DraftPage() {
-  const { currentLeagueId: lid, currentOwner: owner } = useLeagueStore();
+  const { currentLeagueId: lid, currentOwner: owner, currentOwnerId } = useLeagueStore();
 
   const { data: history } = useQuery({ queryKey: ["draft-history", lid], queryFn: () => getDraftHistory(lid!), enabled: !!lid });
-  const { data: analysis } = useQuery({ queryKey: ["draft-analysis", lid, owner], queryFn: () => getDraftAnalysis(lid!, owner!), enabled: !!lid && !!owner });
+  const { data: analysis } = useQuery({ queryKey: ["draft-analysis", lid, owner], queryFn: () => getDraftAnalysis(lid!, owner!, currentOwnerId), enabled: !!lid && !!owner });
 
   if (!lid) return <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}><p style={{ fontFamily: MONO, fontSize: 13, color: C.dim }}>No league loaded</p></div>;
 

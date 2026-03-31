@@ -34,7 +34,7 @@ export default function FeedbackWidget() {
   const [pulse, setPulse] = useState(true);
   const fileRef = useRef<HTMLInputElement>(null);
   const { user } = useUser();
-  const { currentLeagueId, currentOwner } = useLeagueStore();
+  const { currentLeagueId, currentOwner, currentOwnerId } = useLeagueStore();
 
   // Stop pulsing after 3 visits
   useEffect(() => {
@@ -56,6 +56,7 @@ export default function FeedbackWidget() {
           email: user?.primaryEmailAddress?.emailAddress,
           league_id: currentLeagueId,
           owner_name: currentOwner,
+          owner_user_id: currentOwnerId,
           page_url: window.location.href,
           feedback_type: type,
           message: message.trim(),
@@ -77,7 +78,7 @@ export default function FeedbackWidget() {
     } finally {
       setSubmitting(false);
     }
-  }, [type, message, images, user, currentLeagueId, currentOwner]);
+  }, [type, message, images, user, currentLeagueId, currentOwner, currentOwnerId]);
 
   const handleFileSelect = useCallback(async (files: FileList | null) => {
     if (!files || images.length >= 3) return;

@@ -245,29 +245,29 @@ function CoachesGradeRow({ pos, grade, isWeakest }: { pos: string; grade: string
 /* ═══════════════════════════════════════════════════════════════
    FRANCHISE INTEL — Two-tab layout matching Shadynasty
    ═══════════════════════════════════════════════════════════════ */
-export default function FranchiseIntel({ leagueId, owner }: {
-  leagueId: string; owner: string; leagueName?: string;
+export default function FranchiseIntel({ leagueId, owner, ownerId }: {
+  leagueId: string; owner: string; ownerId?: string | null; leagueName?: string;
 }) {
   const [tab, setTab] = useState<"report" | "coaches">("report");
 
   const { data: intel, isLoading } = useQuery({
     queryKey: ["franchise-intel", leagueId, owner],
-    queryFn: () => getFranchiseIntel(leagueId, owner),
+    queryFn: () => getFranchiseIntel(leagueId, owner, ownerId),
     enabled: !!owner,
   });
   const { data: coaches } = useQuery({
     queryKey: ["coaches-corner", leagueId, owner],
-    queryFn: () => getCoachesCorner(leagueId, owner),
+    queryFn: () => getCoachesCorner(leagueId, owner, ownerId),
     enabled: !!owner,
   });
   const { data: gmVerdict } = useQuery({
     queryKey: ["gm-verdict", leagueId, owner],
-    queryFn: () => getGmVerdict(leagueId, owner),
+    queryFn: () => getGmVerdict(leagueId, owner, ownerId),
     enabled: !!owner,
   });
   const { data: actions } = useQuery({
     queryKey: ["actions", leagueId, owner],
-    queryFn: () => getActions(leagueId, owner),
+    queryFn: () => getActions(leagueId, owner, ownerId),
     enabled: !!owner,
   });
 
@@ -467,7 +467,7 @@ export default function FranchiseIntel({ leagueId, owner }: {
         /* ═══════════════════════════════════════════════════════════════
            COACHES CORNER TAB — Full GM Dashboard (7 sections)
            ═══════════════════════════════════════════════════════════════ */
-        <CoachesCorner leagueId={leagueId} owner={owner} />
+        <CoachesCorner leagueId={leagueId} owner={owner} ownerId={ownerId} />
       )}
     </div>
   );
