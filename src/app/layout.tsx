@@ -1,7 +1,11 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 // import { ClerkProvider } from "@clerk/nextjs"; // Bypassed for local dev
 import { Providers } from "@/lib/providers";
 import "./globals.css";
+
+export const viewport: Viewport = {
+  themeColor: "#06080d",
+};
 
 export const metadata: Metadata = {
   title: "DynastyGPT — AI-Powered Dynasty Intelligence",
