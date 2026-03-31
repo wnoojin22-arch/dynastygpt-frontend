@@ -300,9 +300,16 @@ function DynastyScoreCard({ lid, owner }: { lid: string; owner: string }) {
   if (errorScore && errorAll) return null;
   if (!loadingScore && !myScore) return null;
 
-  // Compute league rank
+  // Compute league rank — try exact match, then normalize quotes/whitespace
   const leagueRank = allScores
-    ? allScores.findIndex((s) => s.owner.toLowerCase() === owner.toLowerCase()) + 1
+    ? (() => {
+        const ol = owner.toLowerCase().replace(/[\u2018\u2019\u201C\u201D]/g, "'").trim();
+        const idx = allScores.findIndex((s) => {
+          const sl = s.owner.toLowerCase().replace(/[\u2018\u2019\u201C\u201D]/g, "'").trim();
+          return sl === ol;
+        });
+        return idx >= 0 ? idx + 1 : null;
+      })()
     : null;
 
   // Compute global stats from percentile
@@ -964,7 +971,7 @@ function DashboardView({ lid, owner }: { lid: string; owner: string }) {
                 <RadarChart data={radarData} margin={{ top: 8, right: 18, bottom: 8, left: 18 }}>
                   <PolarGrid stroke="rgba(255,255,255,0.06)" />
                   <PolarAngleAxis dataKey="position" tick={(props: any) => {
-                    const d = radarData[props.payload.index];
+                    const d = radarData.find((r: any) => r.position === props.payload.value);
                     if (!d) return <text x={props.x} y={props.y} textAnchor="middle" fill={C.dim} fontSize={10}>{props.payload.value}</text>;
                     return (
                       <g>
@@ -1172,7 +1179,7 @@ function DashboardView({ lid, owner }: { lid: string; owner: string }) {
                     <RadarChart data={radarData} margin={{ top: 8, right: 18, bottom: 8, left: 18 }}>
                       <PolarGrid stroke="rgba(255,255,255,0.06)" />
                       <PolarAngleAxis dataKey="position" tick={(props: any) => {
-                        const d = radarData[props.payload.index];
+                        const d = radarData.find((r: any) => r.position === props.payload.value);
                         if (!d) return <text x={props.x} y={props.y} textAnchor="middle" fill={C.dim} fontSize={10}>{props.payload.value}</text>;
                         return (<g><text x={props.x} y={props.y - 5} textAnchor="middle" fill={POS[d.position] || C.dim} fontSize={11} fontFamily="'JetBrains Mono', monospace" fontWeight={700}>{d.position}</text><text x={props.x} y={props.y + 9} textAnchor="middle" fill={d.gradeColor} fontSize={14} fontFamily="'Archivo Black', sans-serif" fontWeight={900}>{d.grade}</text></g>);
                       }} />

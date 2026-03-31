@@ -864,7 +864,7 @@ export default function LeagueHome() {
       />
 
       {/* MAIN GRID — Content Left, Widgets Right */}
-      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "20px 32px 48px", display: "grid", gridTemplateColumns: "1fr 320px", gap: 24, alignItems: "start" }}>
+      <div className="mobile-stack" style={{ maxWidth: 1200, margin: "0 auto", padding: "20px 32px 48px", display: "grid", gridTemplateColumns: "1fr 320px", gap: 24, alignItems: "start" }}>
         {/* LEFT COLUMN — continuous content feed, no section breaks between hero + articles */}
         <div style={{ display: "flex", flexDirection: "column", gap: 16, animation: "fadeUp 0.5s ease 0.1s both" }}>
           {/* Hero Article */}

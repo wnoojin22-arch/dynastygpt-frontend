@@ -218,7 +218,9 @@
 
   /* ── Extended touch targets ── */
   button, a, select, [role="button"],
-  [onclick], [class*="cursor-pointer"] > * {
+  [onclick], [class*="cursor-pointer"],
+  div[style*="cursor: pointer"],
+  div[style*="cursor: \"pointer\""] {
     min-height: 44px;
   }
 
@@ -407,11 +409,14 @@
   }
 }
 
-/* Disable hover effects on touch devices */
+/* Neutralize JS-driven hover effects on touch devices.
+   Inline onMouseEnter/onMouseLeave set style.background, transform, borderColor, etc.
+   These CSS rules override those mutations so touch users don't see sticky hovers. */
 @media (hover: none) {
-  [style*="onMouseEnter"],
-  [style*="onmouseenter"] {
-    pointer-events: auto;
+  div[style*="cursor: pointer"],
+  div[style*="cursor: \"pointer\""],
+  [class*="cursor-pointer"] {
+    transform: none !important;
   }
 }
 

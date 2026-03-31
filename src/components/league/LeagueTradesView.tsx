@@ -103,7 +103,7 @@ export default function LeagueTradesView({ leagueId }: { leagueId: string }) {
       tradeCount[t.owner] = (tradeCount[t.owner] || 0) + 1;
       tradeCount[t.counter_party] = (tradeCount[t.counter_party] || 0) + 1;
       const v = t.verdict?.toLowerCase() || "";
-      if (v.includes("win-win")) winWins++;
+      if (v.includes("win-win") || v === "push") winWins++;
       if (v.includes("robbery")) {
         robberies++;
         const winner = t.side_a_verdict?.toLowerCase().includes("robbery") ? t.side_a_owner : t.side_b_owner;
@@ -136,9 +136,8 @@ export default function LeagueTradesView({ leagueId }: { leagueId: string }) {
     if (yearFilter !== "all" && !t.date?.startsWith(yearFilter)) return false;
     if (verdictFilter !== "all") {
       const v = t.verdict?.toLowerCase() || "";
-      if (verdictFilter === "Win-Win" && !v.includes("win-win")) return false;
+      if (verdictFilter === "Even" && !v.includes("win-win") && !v.includes("push")) return false;
       if (verdictFilter === "ROBBERY" && !v.includes("robbery")) return false;
-      if (verdictFilter === "Push" && !v.includes("push")) return false;
       if (verdictFilter === "One Winner" && !v.includes("won") && !v.includes("edge")) return false;
     }
     return true;
@@ -157,7 +156,7 @@ export default function LeagueTradesView({ leagueId }: { leagueId: string }) {
         <div style={{ width: 1, height: 16, background: C.border }} />
         <span style={{ fontFamily: MONO, fontSize: 13, color: C.secondary }}><span style={{ fontWeight: 800, color: C.primary, fontSize: 15 }}>{stats.total}</span> graded</span>
         <div style={{ width: 1, height: 16, background: C.border }} />
-        <span style={{ fontFamily: MONO, fontSize: 13, color: C.secondary }}><span style={{ fontWeight: 800, color: C.green, fontSize: 15 }}>{stats.winWins}</span> win-wins</span>
+        <span style={{ fontFamily: MONO, fontSize: 13, color: C.secondary }}><span style={{ fontWeight: 800, color: C.green, fontSize: 15 }}>{stats.winWins}</span> even</span>
         <div style={{ width: 1, height: 16, background: C.border }} />
         <span style={{ fontFamily: MONO, fontSize: 13, color: C.secondary }}><span style={{ fontWeight: 800, color: "#ff4444", fontSize: 15 }}>{stats.robberies}</span> robberies</span>
       </div>
@@ -171,7 +170,7 @@ export default function LeagueTradesView({ leagueId }: { leagueId: string }) {
           {stats.robberName && <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}><span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 700, color: C.green }}>{stats.robberName}</span><span style={{ fontFamily: MONO, fontSize: 9, color: C.green, padding: "1px 6px", borderRadius: 3, background: C.greenDim }}>{stats.robberCount} robbed</span></div>}
           {stats.victimName && <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 700, color: C.red }}>{stats.victimName}</span><span style={{ fontFamily: MONO, fontSize: 9, color: C.red, padding: "1px 6px", borderRadius: 3, background: C.redDim }}>{stats.victimCount} victim</span></div>}
         </StatBox>
-        <StatBox label="WIN-WIN RATE" color={C.gold}><div style={{ fontFamily: MONO, fontSize: 28, fontWeight: 800, color: C.green }}>{stats.winWinPct}%</div><div style={{ height: 5, borderRadius: 3, background: C.elevated, overflow: "hidden", marginTop: 4 }}><div style={{ height: "100%", borderRadius: 3, background: C.green, width: `${stats.winWinPct}%` }} /></div></StatBox>
+        <StatBox label="EVEN RATE" color={C.gold}><div style={{ fontFamily: MONO, fontSize: 28, fontWeight: 800, color: C.green }}>{stats.winWinPct}%</div><div style={{ height: 5, borderRadius: 3, background: C.elevated, overflow: "hidden", marginTop: 4 }}><div style={{ height: "100%", borderRadius: 3, background: C.green, width: `${stats.winWinPct}%` }} /></div></StatBox>
       </div>
 
       {/* FILTERS */}
@@ -187,7 +186,7 @@ export default function LeagueTradesView({ leagueId }: { leagueId: string }) {
         </select>
         <select value={verdictFilter} onChange={(e) => setVerdictFilter(e.target.value)} style={selStyle(verdictFilter !== "all")}>
           <option value="all" style={{ background: C.card }}>All Verdicts</option>
-          {["Win-Win", "ROBBERY", "Push", "One Winner"].map((v) => <option key={v} value={v} style={{ background: C.card }}>{v}</option>)}
+          {["Even", "ROBBERY", "One Winner"].map((v) => <option key={v} value={v} style={{ background: C.card }}>{v}</option>)}
         </select>
         {hasFilter && <span onClick={() => { setOwnerFilter("all"); setYearFilter("all"); setVerdictFilter("all"); }} style={{ fontFamily: MONO, fontSize: 9, color: C.red, cursor: "pointer", padding: "3px 8px", borderRadius: 3, background: C.redDim }}>✕ CLEAR</span>}
         <div style={{ flex: 1 }} />

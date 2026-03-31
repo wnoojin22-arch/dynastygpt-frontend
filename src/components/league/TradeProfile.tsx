@@ -478,12 +478,9 @@ export default function TradeProfile({ ownerName, profile }: {
             <span className="font-sans text-[10px] font-bold tracking-widest text-dim mb-3">TRADE RECORD</span>
             <div className="grid grid-cols-3 gap-x-3 gap-y-1.5 w-full">
               {[
-                { label: "WINS", value: record.wins || 0, color: "#7dd3a0" },
-                { label: "WIN-WIN", value: record.win_wins || 0, color: "#5eead4" },
-                { label: "LOSSES", value: record.losses || 0, color: "#e47272" },
-                ...(record.robberies_committed > 0 ? [{ label: "ROB'D", value: record.robberies_committed, color: "#f87171" }] : []),
-                ...(record.robberies_suffered > 0 ? [{ label: "VICTIM", value: record.robberies_suffered, color: "#e09c6b" }] : []),
-                { label: "PUSH", value: record.pushes || 0, color: "#6bb8e0" },
+                { label: "WON", value: record.wins || 0, color: "#7dd3a0" },
+                { label: "LOST", value: record.losses || 0, color: "#e47272" },
+                { label: "EVEN", value: record.even || 0, color: "#6bb8e0" },
               ].map((r) => (
                 <React.Fragment key={r.label}>
                   <div className="flex items-center gap-1.5 col-span-2">
