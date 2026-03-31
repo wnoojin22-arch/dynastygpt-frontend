@@ -282,11 +282,15 @@ export default function MyTradesView({ leagueId, owner: ownerProp, ownerId }: { 
       const gave = fmtAssets(t.players_sent, t.picks_sent);
       const got = fmtAssets(t.players_received, t.picks_received);
 
-      if (myScore > 0 && myScore > bestScore) {
+      // Skip low-value swaps (bench players, waiver wire) for best/worst highlights
+      // Trades with very few assets on both sides are noise, not highlights
+      const assetCount = (t.players_sent?.length ?? 0) + (t.players_received?.length ?? 0) + (t.picks_sent?.length ?? 0) + (t.picks_received?.length ?? 0);
+      const isSubstantial = assetCount >= 2;
+      if (myScore > 0 && myScore > bestScore && isSubstantial) {
         bestScore = myScore;
         bestTrade = { trade_id: t.trade_id, date: t.date || '', partner, letter: myLetter || toLetter(myScore), score: myScore, gave, got, verdict: myVerdict || '' };
       }
-      if (myScore > 0 && myScore < worstScore) {
+      if (myScore > 0 && myScore < worstScore && isSubstantial) {
         worstScore = myScore;
         worstTrade = { trade_id: t.trade_id, date: t.date || '', partner, letter: myLetter || toLetter(myScore), score: myScore, gave, got, verdict: myVerdict || '' };
       }
