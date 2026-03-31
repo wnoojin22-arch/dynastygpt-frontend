@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useLeagueStore } from "@/lib/stores/league-store";
 import PlayerCardModal from "@/components/league/PlayerCardModal";
-import { useQuery } from "@tanstack/react-query";
-import { getOwners, getOverview, getRankings } from "@/lib/api";
-import { Home, LayoutGrid, Search, Zap, BarChart3 } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { getOwners, getOverview, getRankings, syncLeague } from "@/lib/api";
+import { Home, LayoutGrid, Search, Zap, BarChart3, RefreshCw } from "lucide-react";
 
 /* ═══════════════════════════════════════════════════════════════
    DESIGN TOKENS
@@ -196,11 +196,31 @@ function BottomTabBar({ basePath, pathname }: { basePath: string; pathname: stri
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   HEADER BAR
+   SYNC — auto-resync stale leagues, manual resync button
+   Localhost: stale after 1 hour. Production: stale after 24 hours.
    ═══════════════════════════════════════════════════════════════ */
-function HeaderBar({ owner, owners, onOwnerChange, leagueName }: {
-  owner: string | null; owners: { name: string }[];
-  onOwnerChange: (v: string) => void; leagueName: string;
+const IS_DEV = typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+const STALE_MS = IS_DEV ? 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+
+function getSyncKey(leagueId: string) { return `dgpt_sync_ts_${leagueId}`; }
+
+function isSyncStale(leagueId: string): boolean {
+  const ts = localStorage.getItem(getSyncKey(leagueId));
+  if (!ts) return true;
+  return Date.now() - Number(ts) > STALE_MS;
+}
+
+function markSynced(leagueId: string) {
+  localStorage.setItem(getSyncKey(leagueId), String(Date.now()));
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   HEADER BAR — with Resync button
+   ═══════════════════════════════════════════════════════════════ */
+function HeaderBar({ owner, owners, onOwnerChange, leagueName, syncing, onResync }: {
+  owner: string | null; owners: Record<string, unknown>[];
+  onOwnerChange: (name: string, userId?: string | null) => void; leagueName: string;
+  syncing: boolean; onResync: () => void;
 }) {
   return (
     <div style={{
@@ -245,7 +265,11 @@ function HeaderBar({ owner, owners, onOwnerChange, leagueName }: {
       {/* Owner Select */}
       <select
         value={owner || ""}
-        onChange={(e) => onOwnerChange(e.target.value)}
+        onChange={(e) => {
+          const val = e.target.value;
+          const match = owners.find((o) => String(o.name) === val);
+          onOwnerChange(val, match ? String(match.platform_user_id || "") || null : null);
+        }}
         className="flex-1 sm:flex-none min-w-0"
         style={{
           padding: "5px 10px", borderRadius: 4,
@@ -260,6 +284,29 @@ function HeaderBar({ owner, owners, onOwnerChange, leagueName }: {
           <option key={String(o.platform_user_id || o.slot || i)} value={String(o.name)} style={{ background: C.card }}>{String(o.name)}</option>
         ))}
       </select>
+
+      {/* Resync Button */}
+      <button
+        onClick={onResync}
+        disabled={syncing}
+        title={syncing ? "Syncing..." : "Resync league data"}
+        className="shrink-0"
+        style={{
+          display: "flex", alignItems: "center", gap: 5,
+          padding: "5px 10px", borderRadius: 4,
+          border: `1px solid ${syncing ? C.gold : C.border}`,
+          background: syncing ? `${C.gold}12` : "transparent",
+          color: syncing ? C.gold : C.dim,
+          fontSize: 11, fontFamily: MONO, fontWeight: 700,
+          letterSpacing: "0.05em", cursor: syncing ? "wait" : "pointer",
+          transition: "all 0.15s",
+        }}
+        onMouseEnter={(e) => { if (!syncing) { e.currentTarget.style.borderColor = C.gold; e.currentTarget.style.color = C.gold; } }}
+        onMouseLeave={(e) => { if (!syncing) { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.dim; } }}
+      >
+        <RefreshCw size={12} style={{ animation: syncing ? "spin 1s linear infinite" : "none" }} />
+        <span className="hidden sm:inline">{syncing ? "SYNCING" : "RESYNC"}</span>
+      </button>
 
       <div style={{ flex: 1 }} />
 
@@ -282,8 +329,12 @@ function HeaderBar({ owner, owners, onOwnerChange, leagueName }: {
    ═══════════════════════════════════════════════════════════════ */
 export default function LeagueLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { currentLeagueId, currentOwner, setOwner } = useLeagueStore();
+  const queryClient = useQueryClient();
+  const { currentLeagueId, currentOwner, currentOwnerId, setOwner } = useLeagueStore();
   const slug = pathname.split("/")[2] || "";
+  const [syncing, setSyncing] = useState(false);
+  const [syncBanner, setSyncBanner] = useState<string | null>(null);
+  const autoSyncRef = useRef(false);
 
   const { data: overview } = useQuery({
     queryKey: ["overview", currentLeagueId],
@@ -304,6 +355,44 @@ export default function LeagueLayout({ children }: { children: React.ReactNode }
     staleTime: 10 * 60 * 1000,
   });
 
+  // ── Sync handler (used by both auto-sync and manual button) ──
+  const doSync = useCallback(async (reason: string) => {
+    if (!currentLeagueId || syncing) return;
+    setSyncing(true);
+    setSyncBanner(`Syncing latest data... (${reason})`);
+    try {
+      const res = await syncLeague(currentLeagueId);
+      markSynced(currentLeagueId);
+      // Invalidate all league queries to refresh with new data
+      queryClient.invalidateQueries({ queryKey: ["overview", currentLeagueId] });
+      queryClient.invalidateQueries({ queryKey: ["owners", currentLeagueId] });
+      queryClient.invalidateQueries({ queryKey: ["rankings", currentLeagueId] });
+      queryClient.invalidateQueries({ queryKey: ["roster"] });
+      queryClient.invalidateQueries({ queryKey: ["picks"] });
+      queryClient.invalidateQueries({ queryKey: ["league-intel", currentLeagueId] });
+      queryClient.invalidateQueries({ queryKey: ["trades"] });
+      setSyncBanner(`Synced: ${res.trades} trades, ${res.owners} owners, ${res.enriched_trades} enriched`);
+      setTimeout(() => setSyncBanner(null), 4000);
+    } catch (e) {
+      setSyncBanner(`Sync failed: ${e instanceof Error ? e.message : "unknown error"}`);
+      setTimeout(() => setSyncBanner(null), 5000);
+    } finally {
+      setSyncing(false);
+    }
+  }, [currentLeagueId, syncing, queryClient]);
+
+  // ── Auto-sync on league load if stale ──
+  useEffect(() => {
+    if (!currentLeagueId || autoSyncRef.current) return;
+    if (isSyncStale(currentLeagueId)) {
+      autoSyncRef.current = true;
+      doSync("auto — data stale");
+    }
+  }, [currentLeagueId, doSync]);
+
+  // Reset auto-sync ref when league changes
+  useEffect(() => { autoSyncRef.current = false; }, [currentLeagueId]);
+
   const owners = ownersData?.owners || [];
   const basePath = `/l/${slug}`;
   const myRank = rankings?.rankings?.find((r) => r.owner.toLowerCase() === (currentOwner || "").toLowerCase());
@@ -313,7 +402,7 @@ export default function LeagueLayout({ children }: { children: React.ReactNode }
       display: "flex", height: "100vh", overflow: "hidden",
       background: C.bg, color: C.primary, fontFamily: SANS,
     }}>
-      <style>{`@keyframes pulse-gold{0%,100%{opacity:1}50%{opacity:.3}}`}</style>
+      <style>{`@keyframes pulse-gold{0%,100%{opacity:1}50%{opacity:.3}} @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
 
       {/* ── Icon Sidebar ── */}
       <IconSidebar basePath={basePath} pathname={pathname} owner={currentOwner} shaRank={myRank?.rank || 0} />
@@ -322,10 +411,27 @@ export default function LeagueLayout({ children }: { children: React.ReactNode }
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
         <HeaderBar
           owner={currentOwner}
-          owners={owners}
-          onOwnerChange={setOwner}
+          owners={owners as unknown as Record<string, unknown>[]}
+          onOwnerChange={(name, userId) => setOwner(name, userId)}
           leagueName={overview?.name || ""}
+          syncing={syncing}
+          onResync={() => doSync("manual")}
         />
+
+        {/* Sync banner */}
+        {syncBanner && (
+          <div style={{
+            padding: "6px 16px", fontSize: 12, fontFamily: MONO, fontWeight: 600,
+            letterSpacing: "0.03em", flexShrink: 0, display: "flex", alignItems: "center", gap: 8,
+            background: syncing ? `${C.gold}10` : `${C.green}10`,
+            borderBottom: `1px solid ${syncing ? C.goldBorder : `${C.green}30`}`,
+            color: syncing ? C.gold : C.green,
+          }}>
+            {syncing && <RefreshCw size={11} style={{ animation: "spin 1s linear infinite" }} />}
+            {syncBanner}
+          </div>
+        )}
+
         <main className="pb-16 sm:pb-0" style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
           {children}
         </main>

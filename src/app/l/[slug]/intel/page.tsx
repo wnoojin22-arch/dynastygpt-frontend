@@ -16,7 +16,7 @@ export default function IntelPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
-  const { currentLeagueId: lid, currentOwner: owner } = useLeagueStore();
+  const { currentLeagueId: lid, currentOwner: owner, currentOwnerId } = useLeagueStore();
   const activeTab = searchParams.get("tab") || "my-franchise";
 
   const setTab = (tab: string) => {
@@ -58,7 +58,7 @@ export default function IntelPage() {
       <div className="flex-1 overflow-y-auto min-h-0">
         {activeTab === "my-franchise" && (
           owner ? (
-            <FranchiseIntel leagueId={lid} owner={owner} />
+            <FranchiseIntel leagueId={lid} owner={owner} ownerId={currentOwnerId} />
           ) : (
             <div className="flex items-center justify-center h-64">
               <p className="font-sans text-sm text-dim">Select an owner from the header to view franchise intel.</p>

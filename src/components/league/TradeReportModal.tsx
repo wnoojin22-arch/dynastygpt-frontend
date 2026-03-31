@@ -24,6 +24,7 @@ function getVerdictStyle(v: string) {
   return m[v]||{color:C.dim,bg:'transparent',border:C.border};
 }
 function ordinal(n:number){if(!n||isNaN(n))return'—';const s=['th','st','nd','rd'];const v=n%100;return n+(s[(v-20)%10]||s[v]||s[0]);}
+function noSHA(s:string){return s.replace(/\bSHA\b/gi,'value').replace(/\bsha\b/g,'value');}
 
 /* ═══ LOADING ═══ */
 function LoadingSequence(){const[phase,setPhase]=useState(0);const[systems,setSystems]=useState<Array<{label:string;status:string}>>([]);const checks=[{label:"COLLECTING RECEIPTS",delay:0},{label:"GATHERING TRADE DAY INTEL",delay:350},{label:"TRACKING ASSETS",delay:700},{label:"GATHERING HINDSIGHT INTEL",delay:1050},{label:"MEASURING IMPACT",delay:1400},{label:"GENERATING VERDICT",delay:1750}];useEffect(()=>{const t=[setTimeout(()=>setPhase(1),100),setTimeout(()=>setPhase(2),400),setTimeout(()=>setPhase(3),800)];return()=>t.forEach(clearTimeout);},[]);useEffect(()=>{if(phase>=3)checks.forEach(s=>{setTimeout(()=>setSystems(p=>[...p,{label:s.label,status:"ONLINE"}]),s.delay);});},[phase]);return(<div style={{padding:60,display:'flex',flexDirection:'column',alignItems:'center',gap:24,minHeight:400}}>{phase>=1&&<div style={{position:'relative',width:80,height:80,borderRadius:'50%',border:`1px solid ${C.gold}20`}}><div style={{position:'absolute',top:'50%',left:'50%',width:'50%',height:2,transformOrigin:'0 50%',background:`linear-gradient(90deg, ${C.gold}80, transparent)`,animation:'radarSweep 2s linear infinite'}}/></div>}{phase>=2&&<div style={{textAlign:'center'}}><div style={{fontFamily:MONO,fontSize:14,fontWeight:800,letterSpacing:'0.35em',color:C.goldBright}}>TRADE REPORT</div></div>}{phase>=3&&<div style={{width:320,display:'flex',flexDirection:'column',gap:4}}>{systems.map((sys,i)=>(<div key={i} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'5px 0',fontFamily:MONO,fontSize:10}}><div style={{display:'flex',alignItems:'center',gap:8}}><div style={{width:5,height:5,borderRadius:'50%',background:C.green,boxShadow:`0 0 6px ${C.green}60`}}/><span style={{color:C.dim,letterSpacing:'0.08em'}}>{sys.label}</span></div><span style={{color:C.green,fontWeight:700,fontSize:9}}>ONLINE</span></div>))}</div>}</div>);}
@@ -51,7 +52,7 @@ function GradeFactorCard({factor}:{factor:any}){
   const s=sm[factor.sentiment]||sm.neutral;
   return(<div style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',borderRadius:6,background:s.bg,border:`1px solid ${s.border}`,marginBottom:4}}>
     <span style={{fontSize:12,flexShrink:0,color:s.color,fontWeight:900,width:20,textAlign:'center'}}>{s.icon}</span>
-    <div style={{flex:1,minWidth:0}}><div style={{fontFamily:SANS,fontSize:12,fontWeight:700,color:s.color}}>{factor.title}</div><div style={{fontFamily:SANS,fontSize:10,color:C.dim,marginTop:1,lineHeight:1.3}}>{factor.detail}</div></div>
+    <div style={{flex:1,minWidth:0}}><div style={{fontFamily:SANS,fontSize:12,fontWeight:700,color:s.color}}>{noSHA(factor.title)}</div><div style={{fontFamily:SANS,fontSize:10,color:C.dim,marginTop:1,lineHeight:1.3}}>{noSHA(factor.detail||'')}</div></div>
     {factor.value&&<span style={{fontFamily:MONO,fontSize:12,fontWeight:900,color:s.color,flexShrink:0}}>{factor.value}</span>}
   </div>);
 }
@@ -138,7 +139,7 @@ function FullReport({reportData,hindsightData,onClose}:{reportData:any;hindsight
     // Grade factors first (most specific)
     for(const gf of gradeFactors.slice(0,2)){
       const col=gf.sentiment==='elite'?C.goldBright:gf.sentiment==='positive'?C.green:gf.sentiment==='negative'?C.red:C.secondary;
-      bullets.push({text:`${gf.title}${gf.value?' — '+gf.value:''}`,color:col});
+      bullets.push({text:noSHA(`${gf.title}${gf.value?' — '+gf.value:''}`),color:col});
     }
     // Fall back to key factors if no grade factors
     if(!bullets.length){for(const kf of keyFactors.slice(0,2)){bullets.push({text:kf,color:C.secondary});}}
@@ -185,9 +186,11 @@ function FullReport({reportData,hindsightData,onClose}:{reportData:any;hindsight
 
     {/* ═══════ TAB 1: GRADE — compact, screenshotable ═══════ */}
     {tab==='grade'&&(<>
-      {/* TRADE DAY — compact */}
-      <div style={{padding:'12px 24px 0'}}>
-        <div style={{fontFamily:MONO,fontSize:10,fontWeight:800,letterSpacing:'0.20em',color:'#5eead4',marginBottom:10}}>TRADE DAY</div>
+      {/* TRADE DAY — compact, centered label */}
+      <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:16,padding:'12px 24px 0'}}>
+        <div style={{flex:1,height:1,background:'linear-gradient(90deg, transparent, #5eead430)'}}/>
+        <span style={{fontFamily:MONO,fontSize:11,fontWeight:900,letterSpacing:'0.25em',color:'#5eead4'}}>TRADE DAY</span>
+        <div style={{flex:1,height:1,background:'linear-gradient(90deg, #5eead430, transparent)'}}/>
       </div>
       <div style={gp}>
         {[{label:ownerA,td:tdA,assets:aAssets,total:aTotal},{label:ownerB,td:tdB,assets:bAssets,total:bTotal}].map((side,idx)=>(
@@ -310,7 +313,7 @@ export default function TradeReportModal({ leagueId, tradeId, onClose }: {
   return(<>
     <style>{`@keyframes fadeIn{from{opacity:0}to{opacity:1}}@keyframes modalSlideIn{from{opacity:0;transform:scale(0.97) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}@keyframes radarSweep{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
     <div onClick={onClose} style={{position:'fixed',inset:0,zIndex:9999,background:'rgba(0,0,0,0.85)',backdropFilter:'blur(8px)',display:'flex',alignItems:'center',justifyContent:'center',animation:'fadeIn 0.2s ease'}}>
-      <div onClick={(e)=>e.stopPropagation()} style={{width:'94vw',maxWidth:1140,maxHeight:'92vh',overflowY:'auto',background:C.bg,border:`1px solid ${C.border}`,borderRadius:12,animation:'modalSlideIn 0.25s ease'}}>
+      <div onClick={(e)=>e.stopPropagation()} style={{width:'94vw',maxWidth:900,maxHeight:'92vh',overflowY:'auto',background:C.bg,border:`1px solid ${C.border}`,borderRadius:12,animation:'modalSlideIn 0.25s ease'}}>
         {isLoading?<LoadingSequence/>:hasReport?<FullReport reportData={r} hindsightData={hindsight} onClose={onClose}/>:(
           <div style={{padding:40,textAlign:'center'}}><div style={{fontFamily:MONO,fontSize:12,color:C.red,marginBottom:8}}>Failed to load report</div><div style={{fontFamily:MONO,fontSize:10,color:C.dim}}>Trade ID: {tradeId}</div><div onClick={onClose} style={{marginTop:16,fontFamily:MONO,fontSize:11,color:C.gold,cursor:'pointer',padding:'6px 16px',borderRadius:4,border:`1px solid ${C.goldBorder}`,background:C.goldDim,display:'inline-block'}}>CLOSE</div></div>
         )}
