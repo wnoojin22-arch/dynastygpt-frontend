@@ -205,6 +205,7 @@ const STALE_MS = IS_DEV ? 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
 function getSyncKey(leagueId: string) { return `dgpt_sync_ts_${leagueId}`; }
 
 function isSyncStale(leagueId: string): boolean {
+  if (!IS_DEV) return false; // Never auto-sync on production
   const ts = localStorage.getItem(getSyncKey(leagueId));
   if (!ts) return true;
   return Date.now() - Number(ts) > STALE_MS;
@@ -374,8 +375,8 @@ export default function LeagueLayout({ children }: { children: React.ReactNode }
       setSyncBanner(`Synced: ${res.trades} trades, ${res.owners} owners, ${res.enriched_trades} enriched`);
       setTimeout(() => setSyncBanner(null), 4000);
     } catch (e) {
-      setSyncBanner(`Sync failed: ${e instanceof Error ? e.message : "unknown error"}`);
-      setTimeout(() => setSyncBanner(null), 5000);
+      console.warn("[sync] failed:", e instanceof Error ? e.message : e);
+      setSyncBanner(null);
     } finally {
       setSyncing(false);
     }
