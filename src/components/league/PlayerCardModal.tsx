@@ -21,21 +21,22 @@ import { C, SANS, MONO, DISPLAY, fmt, posColor } from "./tokens";
    Desktop: centered modal with max-width
    ═══════════════════════════════════════════════════════════════════════════ */
 
-type Tab = "overview" | "trades" | "value";
+type Tab = "overview" | "trades" | "market" | "value";
 const TABS: { key: Tab; label: string }[] = [
   { key: "overview", label: "OVERVIEW" },
   { key: "trades", label: "TRADES" },
+  { key: "market", label: "MARKET" },
   { key: "value", label: "VALUE" },
 ];
 
 export default function PlayerCardModal() {
-  const { isOpen, playerName, closePlayerCard } = usePlayerCardStore();
+  const { isOpen, playerName, defaultTab, closePlayerCard } = usePlayerCardStore();
   const leagueId = useLeagueStore((s) => s.currentLeagueId) || "";
   const [tab, setTab] = useState<Tab>("overview");
   const contentRef = useRef<HTMLDivElement>(null);
 
-  // Reset on new player
-  useEffect(() => { setTab("overview"); if (contentRef.current) contentRef.current.scrollTop = 0; }, [playerName]);
+  // Reset on new player — use defaultTab if provided
+  useEffect(() => { setTab((defaultTab as Tab) || "overview"); if (contentRef.current) contentRef.current.scrollTop = 0; }, [playerName, defaultTab]);
 
   // Escape key to close
   useEffect(() => {
@@ -89,7 +90,7 @@ export default function PlayerCardModal() {
   const { data: priceData } = useQuery({
     queryKey: ["player-price-history", playerName],
     queryFn: () => getPlayerPriceHistory(playerName),
-    enabled: isOpen && !!playerName && tab === "value",
+    enabled: isOpen && !!playerName && (tab === "value" || tab === "market"),
     staleTime: 600_000,
   });
 
@@ -238,6 +239,8 @@ export default function PlayerCardModal() {
                 <OverviewTab pc={pc} seasons={seasons} history={history} />
               ) : tab === "trades" ? (
                 <TradesTab trades={trades} timeline={timeline} playerName={playerName} pc={pc} />
+              ) : tab === "market" ? (
+                <MarketTab priceHistory={priceData as Record<string, unknown> | undefined} pc={pc} />
               ) : (
                 <ValueTab history={history} priceHistory={priceData as Record<string, unknown> | undefined} />
               )}
@@ -521,6 +524,198 @@ function TradesTab({ trades, timeline, playerName, pc }: { trades: Array<Record<
                 </div>
               );
             })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MARKET TAB — real trade data across all leagues
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+function MarketTab({ priceHistory, pc }: { priceHistory?: Record<string, unknown>; pc?: PlayerCard }) {
+  if (!priceHistory) return <EmptyState text="No trade market data available for this player." />;
+
+  const ph = priceHistory;
+  const cvObj = (ph.current_value || {}) as Record<string, unknown>;
+  const marketPrice = typeof cvObj.market_price === "number" ? cvObj.market_price : null;
+  const basedOn = typeof cvObj.based_on_trades === "number" ? cvObj.based_on_trades : 0;
+  const lowConf = typeof cvObj.low_confidence === "boolean" ? cvObj.low_confidence : true;
+  const shaValue = pc?.sha_value || (typeof cvObj.sha_value === "number" ? cvObj.sha_value : null);
+
+  const sigObj = (ph.signal || {}) as Record<string, unknown>;
+  const signal = typeof sigObj.indicator === "string" ? sigObj.indicator.toUpperCase() : "HOLD";
+  const signalPct = typeof sigObj.strength_pct === "number" ? sigObj.strength_pct : 0;
+  const med30 = typeof sigObj.median_30d === "number" ? sigObj.median_30d : null;
+  const med90 = typeof sigObj.median_90d === "number" ? sigObj.median_90d : null;
+
+  const volObj = (ph.volume || {}) as Record<string, unknown>;
+  const vol30 = typeof volObj.last_30d === "number" ? volObj.last_30d : 0;
+  const vol90 = typeof volObj.last_90d === "number" ? volObj.last_90d : 0;
+  const volAll = typeof volObj.all_time === "number" ? volObj.all_time : 0;
+
+  const trendObj = (ph.trend || {}) as Record<string, unknown>;
+  const trendDir = typeof trendObj.direction === "string" ? trendObj.direction : "stable";
+  const monthly = Array.isArray(trendObj.monthly) ? trendObj.monthly as Array<Record<string, unknown>> : [];
+
+  const packages = Array.isArray(ph.common_packages) ? ph.common_packages as Array<Record<string, unknown>> : [];
+  const comparables = Array.isArray(ph.comparable_players) ? ph.comparable_players as Array<Record<string, unknown>> : [];
+
+  const signalColor = signal === "BUY" ? "#7dd3a0" : signal === "SELL" ? "#e47272" : C.gold;
+  const trendColor = trendDir === "rising" ? "#7dd3a0" : trendDir === "falling" ? "#e47272" : C.dim;
+
+  // vs consensus
+  let vsPct = 0;
+  if (marketPrice && shaValue && shaValue > 0) {
+    vsPct = Math.round(((marketPrice - shaValue) / shaValue) * 100);
+  }
+  const vsColor = vsPct > 10 ? "#7dd3a0" : vsPct < -10 ? "#e47272" : C.gold;
+  const vsLabel = vsPct > 10 ? "SELL WINDOW" : vsPct < -10 ? "BUY WINDOW" : "FAIR VALUE";
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      {/* Signal + Price */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px", borderTop: `2px solid ${signalColor}30` }}>
+          <div style={{ fontFamily: MONO, fontSize: 10, color: C.dim, letterSpacing: "0.06em", marginBottom: 4 }}>SIGNAL</div>
+          <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 800, color: signalColor }}>{signal}</div>
+          <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim, marginTop: 2 }}>
+            {signalPct > 0 ? "+" : ""}{signalPct.toFixed(1)}% 30d momentum
+          </div>
+        </div>
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px", borderTop: `2px solid #6bb8e030` }}>
+          <div style={{ fontFamily: MONO, fontSize: 10, color: C.dim, letterSpacing: "0.06em", marginBottom: 4 }}>MARKET PRICE</div>
+          <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 800, color: "#6bb8e0" }}>{marketPrice ? fmt(marketPrice) : "—"}</div>
+          <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim, marginTop: 2 }}>
+            {basedOn} trades{lowConf ? " · low vol" : " · 90d"}
+          </div>
+        </div>
+      </div>
+
+      {/* vs Consensus */}
+      {marketPrice && shaValue ? (
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px", textAlign: "center" }}>
+          <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim, letterSpacing: "0.04em", marginBottom: 6 }}>MARKET vs CONSENSUS</div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+            <span style={{ fontFamily: MONO, fontSize: 14, color: C.gold }}>{fmt(shaValue)}</span>
+            <span style={{ fontFamily: MONO, fontSize: 12, color: C.dim }}>→</span>
+            <span style={{ fontFamily: MONO, fontSize: 14, color: "#6bb8e0" }}>{fmt(marketPrice)}</span>
+            <span style={{
+              fontFamily: MONO, fontSize: 12, fontWeight: 800, color: vsColor,
+              background: `${vsColor}15`, padding: "3px 8px", borderRadius: 4, border: `1px solid ${vsColor}30`,
+            }}>
+              {vsPct > 0 ? "+" : ""}{vsPct}% · {vsLabel}
+            </span>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Volume + Trend */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+        <div>
+          <SectionLabel text="TRADE VOLUME" />
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 12px", display: "flex", flexDirection: "column", gap: 6 }}>
+            {[{ label: "30 DAYS", val: vol30 }, { label: "90 DAYS", val: vol90 }, { label: "ALL TIME", val: volAll }].map(v => (
+              <div key={v.label} style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ fontFamily: MONO, fontSize: 11, color: C.dim }}>{v.label}</span>
+                <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.secondary }}>{v.val}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div>
+          <SectionLabel text="PRICE TREND" />
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 12px" }}>
+            <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 700, color: trendColor, textTransform: "uppercase", marginBottom: 6 }}>
+              {trendDir === "rising" ? "Rising" : trendDir === "falling" ? "Falling" : trendDir === "stable" ? "Stable" : "—"}
+            </div>
+            {med30 && med90 ? (
+              <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim }}>
+                30d: {fmt(med30)} · 90d: {fmt(med90)}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </div>
+
+      {/* Monthly sparkline */}
+      {monthly.length >= 3 && (
+        <div>
+          <SectionLabel text="MONTHLY MEDIAN PRICE" />
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px" }}>
+            <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 48 }}>
+              {(() => {
+                const prices = monthly.map(m => typeof m.median_price === "number" ? m.median_price : 0);
+                const max = Math.max(...prices, 1);
+                return monthly.map((m, i) => {
+                  const p = typeof m.median_price === "number" ? m.median_price : 0;
+                  const h = Math.max(4, (p / max) * 44);
+                  const highConf = typeof m.high_confidence === "boolean" ? m.high_confidence : false;
+                  return (
+                    <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                      <div style={{
+                        width: "100%", maxWidth: 28, height: h, borderRadius: 3,
+                        background: highConf ? "#6bb8e0" : `#6bb8e040`,
+                      }} />
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
+              <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>{String(monthly[0]?.month || "")}</span>
+              <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>{String(monthly[monthly.length - 1]?.month || "")}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Common packages */}
+      {packages.length > 0 && (
+        <div>
+          <SectionLabel text="COMMON TRADE PACKAGES" />
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {packages.slice(0, 4).map((pkg, i) => {
+              const pct = typeof pkg.percentage === "number" ? pkg.percentage : 0;
+              const count = typeof pkg.count === "number" ? pkg.count : 0;
+              const example = Array.isArray(pkg.example) ? pkg.example as string[] : [];
+              return (
+                <div key={i} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 12px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.secondary }}>{String(pkg.structure || "")}</span>
+                    <span style={{ fontFamily: MONO, fontSize: 11, color: C.dim }}>{pct}% · {count} trades</span>
+                  </div>
+                  {example.length > 0 && (
+                    <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim, marginTop: 4 }}>
+                      e.g. {example.slice(0, 3).join(", ")}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Comparable players */}
+      {comparables.length > 0 && (
+        <div>
+          <SectionLabel text="SIMILAR VALUE PLAYERS" />
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {comparables.slice(0, 6).map((comp, i) => (
+              <div key={i} style={{
+                background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, padding: "6px 10px",
+                display: "flex", alignItems: "center", gap: 6,
+              }}>
+                <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: posColor(String(comp.position || "")), background: `${posColor(String(comp.position || ""))}18`, padding: "1px 5px", borderRadius: 3 }}>
+                  {String(comp.position || "")}
+                </span>
+                <span style={{ fontFamily: SANS, fontSize: 12, color: C.secondary }}>{String(comp.name || "")}</span>
+                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.gold }}>{fmt(typeof comp.sha_value === "number" ? comp.sha_value : 0)}</span>
+              </div>
+            ))}
           </div>
         </div>
       )}

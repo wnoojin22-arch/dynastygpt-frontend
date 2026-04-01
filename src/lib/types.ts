@@ -22,6 +22,7 @@ export interface RosterPlayer {
   ktc_value: number;
   dynasty_value: number;
   redraft_value: number;
+  mkt_vs_pct: number | null;
 }
 
 export interface PlayerSignal {

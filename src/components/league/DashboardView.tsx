@@ -24,6 +24,8 @@ import PlayerName from "@/components/league/PlayerName";
 import { usePlayerCardStore } from "@/lib/stores/player-card-store";
 import { useTradeBuilderStore } from "@/lib/stores/trade-builder-store";
 import { ChevronRight, Plus, FileText } from "lucide-react";
+import { useIsMobile } from "@/hooks/useIsMobile";
+import DashboardMobile from "@/components/league/DashboardMobile";
 
 /* ═══════════════════════════════════════════════════════════════
    DESIGN TOKENS
@@ -352,66 +354,40 @@ function DynastyScoreCard({ lid, owner, ownerId }: { lid: string; owner: string;
         {/* Header: DYNASTYGPT MANAGER RANKS */}
         <div style={{
           padding: "5px 12px", borderBottom: `1px solid ${C.border}`,
-          background: C.goldDim,
+          background: C.goldDim, textAlign: "center",
         }}>
           <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.10em", color: C.gold }}>
             DYNASTYGPT MANAGER RANKS
           </span>
         </div>
 
-        {/* Score body — two rows, compact */}
+        {/* Score body */}
         <div style={{ padding: "10px 14px 8px" }}>
-          {/* Row 1: #X League Name · #X DynastyGPT · Top X% of N · tier */}
-          <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 6, flexWrap: "wrap" }}>
-            {/* League rank */}
-            <span style={{ fontFamily: DISPLAY, fontSize: 20, fontWeight: 900, color: C.gold, lineHeight: 1 }}>
-              #{leagueRank || "—"}
-            </span>
-            <span style={{ fontFamily: DISPLAY, fontSize: 14, letterSpacing: "-0.3px", background: `linear-gradient(180deg, ${C.goldBright}, ${C.gold}, ${C.goldDark})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-              {leagueName || "League"}
-            </span>
-            <span style={{ color: C.dim, fontSize: 11 }}>·</span>
-            {/* DynastyGPT rank */}
-            <span style={{ fontFamily: DISPLAY, fontSize: 20, fontWeight: 900, color: C.gold, lineHeight: 1 }}>
-              #{globalRank?.toLocaleString() || "—"}
-            </span>
-            <span style={{ fontFamily: DISPLAY, fontSize: 14, letterSpacing: "-0.3px", background: `linear-gradient(180deg, ${C.goldBright}, ${C.gold}, ${C.goldDark})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-              DynastyGPT
-            </span>
-            <span style={{ color: C.dim, fontSize: 11 }}>·</span>
-            {/* Percentile */}
-            <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 600, color: C.secondary }}>
-              Top {topPct ?? "—"}% of {globalManagers?.toLocaleString() ?? "—"}
-            </span>
-            {/* Tier badge + score — pushed right */}
-            <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: "auto", flexShrink: 0 }}>
-              <span style={{
-                fontFamily: MONO, fontSize: 10, fontWeight: 900, letterSpacing: "0.10em",
-                padding: "3px 10px", borderRadius: 4,
-                color: tierColor, background: `${tierColor}18`,
-                border: `1px solid ${tierColor}35`,
-                textTransform: "uppercase",
-              }}>
-                {myScore.tier.label}
+          {/* Left: league rank — Right: global rank */}
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
+            {/* Left side */}
+            <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+              <span style={{ fontFamily: DISPLAY, fontSize: 20, fontWeight: 900, color: C.gold, lineHeight: 1 }}>
+                #{leagueRank || "—"}
               </span>
-              <span style={{ fontFamily: MONO, fontSize: 18, fontWeight: 700, color: C.dim }}>{myScore.score}</span>
+              <span style={{ fontFamily: DISPLAY, fontSize: 14, letterSpacing: "-0.3px", background: `linear-gradient(180deg, ${C.goldBright}, ${C.gold}, ${C.goldDark})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+                {leagueName || "League"}
+              </span>
+            </div>
+            {/* Right side */}
+            <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+              <span style={{ fontFamily: DISPLAY, fontSize: 20, fontWeight: 900, color: C.gold, lineHeight: 1 }}>
+                #{globalRank?.toLocaleString() || "—"}
+              </span>
+              <span style={{ fontFamily: DISPLAY, fontSize: 14, letterSpacing: "-0.3px", background: `linear-gradient(180deg, ${C.goldBright}, ${C.gold}, ${C.goldDark})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+                DynastyGPT
+              </span>
+              <span style={{ color: C.dim, fontSize: 11 }}>·</span>
+              <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 600, color: C.secondary }}>
+                Top {topPct ?? "—"}% of {globalManagers?.toLocaleString() ?? "—"}
+              </span>
             </div>
           </div>
-
-          {/* Row 2: Bullets */}
-          {bullets.length > 0 && (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-              {bullets.slice(0, 3).map((b, i) => {
-                const isGood = b.type === "strength" || b.type === "highlight";
-                const bulletColor = isGood ? C.green : C.red;
-                return (
-                  <span key={i} style={{ fontFamily: SANS, fontSize: 11, color: bulletColor, lineHeight: 1.3 }}>
-                    {isGood ? "▲" : "▼"} {b.text}
-                  </span>
-                );
-              })}
-            </div>
-          )}
         </div>
 
         {/* Bottom border with "View Full Report" breaking the line */}
@@ -534,6 +510,7 @@ function DynastyScoreCard({ lid, owner, ownerId }: { lid: string; owner: string;
 function DashboardView({ lid, owner, ownerId }: { lid: string; owner: string; ownerId?: string | null }) {
   const [hoveredPlayer, setHoveredPlayer] = useState<string | null>(null);
   const router = useRouter();
+  const openPlayerCard = usePlayerCardStore((s) => s.openPlayerCard);
   const { currentLeagueSlug } = useLeagueStore();
 
   const { data: roster, isLoading: loadingRoster } = useQuery({ queryKey: ["roster", lid, owner], queryFn: () => getRoster(lid, owner, ownerId), enabled: !!lid && !!owner });
@@ -638,181 +615,12 @@ function DashboardView({ lid, owner, ownerId }: { lid: string; owner: string; ow
     <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
 
       {/* ══════════════════════════════════════════════════════════
-          DYNASTY SCORE — appears SECOND visually (order: -1), below stats ticker
-          ══════════════════════════════════════════════════════════ */}
-      <DynastyScoreCard lid={lid} owner={owner} ownerId={ownerId} />
-
-      {/* ══════════════════════════════════════════════════════════
-          BLOCK A: COMMAND STRIP — rendered FIRST (physically after IIFE but uses CSS flexbox order)
-          ══════════════════════════════════════════════════════════ */}
-
-      {/* ── Your move — Linear-style suggestion rows ── */}
-      <div style={{ display: "contents" }}>
-      {(() => {
-        const cc = coachesCorner as Record<string, unknown> | undefined;
-        const openCard = usePlayerCardStore.getState().openPlayerCard;
-        const setIntent = useTradeBuilderStore.getState().setIntent;
-
-        const rows: Array<{ tag: "sell high" | "buy low" | "upgrade"; name: string; context: string; playerName?: string }> = [];
-
-        // ── Pull from coaches corner — single source of truth ──
-        const moveNow = ((cc?.move_now || []) as Array<Record<string, unknown>>);
-        const sellHigh = ((cc?.sell_high || []) as Array<Record<string, unknown>>);
-        const buyLow = ((cc?.buy_low || []) as Array<Record<string, unknown>>);
-
-        // Build owned-player set for buy-low safety filter
-        const bp = (roster as any)?.by_position || {};
-        const ownedSet = new Set<string>();
-        for (const pos of ["QB", "RB", "WR", "TE"]) {
-          for (const p of (bp[pos] || [])) ownedSet.add(String(p.name || "").toLowerCase().trim());
-        }
-        const safeBuyLow = buyLow.filter(t => !ownedSet.has(String(t.name || t.player || "").toLowerCase().trim()));
-
-        // 1. Sell signals
-        for (const item of moveNow.slice(0, 2)) {
-          const name = String(item.name || "");
-          const signal = String(item.signal || item.reason || "");
-          const pos = String(item.position || "");
-          const hasATH = signal.includes("ATH");
-          const hasDeclining = signal.includes("declining");
-          const hasAge = signal.includes("age");
-          rows.push({
-            tag: "sell high",
-            name,
-            context: `${pos} · ${hasATH ? "near all-time high value" : hasDeclining ? "production trending down" : hasAge ? "aging asset window" : signal.slice(0, 50)}`,
-            playerName: name,
-          });
-        }
-
-        // 2. Positional needs — find a sell candidate NOT already shown in sell rows
-        const usedNames = new Set(rows.map(r => r.name.toLowerCase()));
-        const myIntelData = leagueIntel?.owners?.find((o: any) =>
-          o.owner.toLowerCase() === owner.toLowerCase() || o.owner.toLowerCase().replace(/\s*\(#\d+\)/, "") === owner.toLowerCase());
-        const criticalNeeds = (myIntelData?.positional_needs || []) as string[];
-        if (criticalNeeds.length > 0 && rows.length < 3) {
-          const pos = criticalNeeds[0];
-          const pg = myIntelData?.positional_grades?.[pos] || "WEAK";
-          if (pg === "CRITICAL" || pg === "WEAK") {
-            const sellCandidate = sellHigh.find((s) =>
-              String(s.action) === "SELL"
-              && String(s.position) !== pos
-              && !usedNames.has(String(s.name || "").toLowerCase())
-            );
-            if (sellCandidate) {
-              rows.push({
-                tag: "upgrade",
-                name: `${pos} via ${sellCandidate.name}`,
-                context: `${sellCandidate.position} is sellable — convert to a ${pos} upgrade`,
-                playerName: String(sellCandidate.name),
-              });
-            } else {
-              rows.push({
-                tag: "upgrade",
-                name: `${pos} room`,
-                context: `graded ${pg} — find an upgrade in the trade builder`,
-              });
-            }
-          }
-        }
-
-        // 3. Buy-low
-        if (rows.length < 3) {
-          for (const target of safeBuyLow.slice(0, 1)) {
-            const name = String(target.name || target.player || "");
-            const pos = String(target.position || "");
-            const age = target.age ? String(target.age) : "";
-            const trend = String(target.trend || "");
-            // Clean context: position + age/trend signal, no owner names, no SHA
-            const ctx = age && trend === "ascending"
-              ? `young ${pos} · ascending value`
-              : trend === "ascending"
-              ? `${pos} · ascending value`
-              : age
-              ? `${pos} · ${age} yrs old, undervalued`
-              : `${pos} · undervalued`;
-            if (name) {
-              rows.push({ tag: "buy low", name, context: ctx, playerName: name });
-            }
-          }
-        }
-
-        const glowMap = {
-          "sell high": { bg: "rgba(239,68,68,0.06)", border: "rgba(239,68,68,0.20)", shadow: "0 0 20px rgba(239,68,68,0.08)", label: "#ef4444" },
-          "buy low": { bg: "rgba(34,197,94,0.06)", border: "rgba(34,197,94,0.20)", shadow: "0 0 20px rgba(34,197,94,0.08)", label: "#22c55e" },
-          "upgrade": { bg: "rgba(245,158,11,0.06)", border: "rgba(245,158,11,0.20)", shadow: "0 0 20px rgba(245,158,11,0.08)", label: "#f59e0b" },
-        };
-
-        const handleClick = (r: typeof rows[0]) => {
-          if (r.playerName) {
-            if (r.tag === "sell high") setIntent({ type: "sell", value: r.playerName });
-            else if (r.tag === "buy low") setIntent({ type: "buy", value: r.playerName });
-            else { const pos = r.name.split(" ")[0]; setIntent({ type: "position", value: pos }); }
-          } else if (r.tag === "upgrade") {
-            setIntent({ type: "position", value: r.name.split(" ")[0] });
-          }
-          router.push(`/l/${currentLeagueSlug}/trades`);
-        };
-
-        return rows.length > 0 ? (
-          <div>
-            <div className="flex items-center gap-3 mb-2">
-              <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.10em", color: C.gold }}>YOUR MOVE</span>
-              <div className="flex-1 h-px" style={{ background: C.border }} />
-            </div>
-            <div className="flex gap-2 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
-              {rows.slice(0, 4).map((r, i) => {
-                const g = glowMap[r.tag];
-                return (
-                  <div
-                    key={i}
-                    onClick={() => handleClick(r)}
-                    className="flex-shrink-0 flex-1 min-w-[160px] max-w-[200px] rounded-lg cursor-pointer transition-all duration-150 hover:scale-[1.02]"
-                    style={{ background: g.bg, border: `1px solid ${g.border}`, boxShadow: g.shadow, padding: "8px 12px" }}
-                  >
-                    <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.10em", color: g.label, marginBottom: 2 }}>
-                      {r.tag.toUpperCase()}
-                    </div>
-                    <div style={{ fontFamily: SANS, fontSize: 13, fontWeight: 700, color: C.primary, lineHeight: 1.2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                      {r.name}
-                    </div>
-                    <div style={{ fontFamily: SANS, fontSize: 10, color: C.dim, lineHeight: 1.3, marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                      {r.context}
-                    </div>
-                  </div>
-                );
-              })}
-              {/* Franchise health */}
-              <div
-                onClick={() => router.push(`/l/${currentLeagueSlug}/intel`)}
-                className="flex-shrink-0 flex-1 min-w-[140px] max-w-[180px] rounded-lg cursor-pointer transition-all duration-150 hover:scale-[1.02] flex items-center justify-center gap-1.5"
-                style={{ background: `${C.gold}08`, border: `1px solid ${C.gold}30`, boxShadow: `0 0 20px ${C.gold}08`, padding: "8px 12px" }}
-              >
-                <FileText size={14} style={{ color: C.gold }} />
-                <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.gold, letterSpacing: "0.06em" }}>FRANCHISE HEALTH</span>
-              </div>
-              {/* Build trade */}
-              <div
-                onClick={() => router.push(`/l/${currentLeagueSlug}/trades`)}
-                className="flex-shrink-0 flex-1 min-w-[140px] max-w-[180px] rounded-lg cursor-pointer transition-all duration-150 hover:scale-[1.02] flex items-center justify-center gap-1.5"
-                style={{ background: `${C.gold}08`, border: `1px solid ${C.gold}30`, boxShadow: `0 0 20px ${C.gold}08`, padding: "8px 12px" }}
-              >
-                <Plus size={14} style={{ color: C.gold }} />
-                <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.gold, letterSpacing: "0.06em" }}>BUILD TRADE</span>
-              </div>
-            </div>
-          </div>
-        ) : null;
-      })()}
-      </div>
-
-      {/* ══════════════════════════════════════════════════════════
-          COMMAND STRIP — tells you WHO you are (MUST BE FIRST VISUALLY)
+          FULL WIDTH TOP: STATS TICKER
           ══════════════════════════════════════════════════════════ */}
       <div className="mobile-col" style={{
         display: "flex", alignItems: "center", gap: 0, flexWrap: "wrap",
         padding: "7px 14px", borderRadius: 6, background: C.panel,
         border: `1px solid ${C.border}`, justifyContent: "center",
-        order: -2,
       }}>
         {/* Tier badge */}
         <span style={{
@@ -861,8 +669,6 @@ function DashboardView({ lid, owner, ownerId }: { lid: string; owner: string; ow
             <div className="hidden sm:block" style={{ width: 1, height: 16, background: C.borderLt, margin: "0 12px" }} />
           </>
         )}
-
-        {/* PPG removed — data inaccurate, needs recalculation */}
 
         {/* Playoffs */}
         {champs && (
@@ -949,228 +755,367 @@ function DashboardView({ lid, owner, ownerId }: { lid: string; owner: string; ow
         )}
       </div>
 
-      {/* REPORT CARD + HERO rows removed — Radar+DraftCapital moved into right column below */}
-
       {/* ══════════════════════════════════════════════════════════
-          RADAR + DRAFT CAPITAL — now inside the right column (rendered below)
+          ROW: MANAGER RANKS (left) + ACTION BOXES (right) — same height
           ══════════════════════════════════════════════════════════ */}
-
-      {/* HIDDEN: content moved to right column of two-column grid */}
-      <div style={{ display: "none" }}>
-        {/* Positional Radar — visual centerpiece */}
-        <DCard label="POSITIONAL RADAR">
-          {radarData.length > 0 ? (
-            <>
-              <ResponsiveContainer width="100%" height={190}>
-                <RadarChart data={radarData} margin={{ top: 8, right: 18, bottom: 8, left: 18 }}>
-                  <PolarGrid stroke="rgba(255,255,255,0.06)" />
-                  <PolarAngleAxis dataKey="position" tick={(props: any) => {
-                    const d = radarData.find((r: any) => r.position === props.payload.value);
-                    if (!d) return <text x={props.x} y={props.y} textAnchor="middle" fill={C.dim} fontSize={10}>{props.payload.value}</text>;
-                    return (
-                      <g>
-                        <text x={props.x} y={props.y - 5} textAnchor="middle" fill={POS[d.position] || C.dim} fontSize={11} fontFamily="'JetBrains Mono', monospace" fontWeight={700}>{d.position}</text>
-                        <text x={props.x} y={props.y + 9} textAnchor="middle" fill={d.gradeColor} fontSize={14} fontFamily="'Archivo Black', sans-serif" fontWeight={900}>{d.grade}</text>
-                      </g>
-                    );
-                  }} />
-                  <PolarRadiusAxis tick={false} axisLine={false} />
-                  <Radar name="You" dataKey="you" stroke={C.gold} fill={C.gold} fillOpacity={0.2} strokeWidth={2} />
-                  <Radar name="League" dataKey="league" stroke="#4a4d5e" fill="#4a4d5e" fillOpacity={0.08} strokeWidth={1} />
-                </RadarChart>
-              </ResponsiveContainer>
-              <div style={{ display: "flex", justifyContent: "center", gap: 14, marginTop: 2 }}>
-                {[{ label: "You", color: C.gold }, { label: "Lg Avg", color: "#4a4d5e" }].map((leg) => (
-                  <span key={leg.label} style={{ display: "flex", alignItems: "center", gap: 4, fontFamily: MONO, fontSize: 10, color: leg.color }}>
-                    <span style={{ width: 7, height: 7, borderRadius: "50%", background: leg.color, display: "inline-block" }} />
-                    {leg.label}
-                  </span>
-                ))}
-              </div>
-            </>
-          ) : <Skel h={190} />}
-        </DCard>
-
-        {/* Draft Capital */}
-        <DCard label="DRAFT CAPITAL">
-          {picks ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {Object.entries(picks.by_year).map(([year, yp]: [string, any]) => (
-                <div key={year}>
-                  <p style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.dim, marginBottom: 4, letterSpacing: "0.06em" }}>{year}</p>
-                  <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-                    {yp.map((pk: any, i: number) => (
-                      <span key={`${year}-${i}`} style={{
-                        fontFamily: MONO, fontSize: 10, fontWeight: 700,
-                        padding: "2px 7px", borderRadius: 4,
-                        background: pk.is_own_pick ? C.goldDim : "rgba(139,92,246,0.10)",
-                        color: pk.is_own_pick ? C.gold : "#8B5CF6",
-                        border: `1px solid ${pk.is_own_pick ? C.goldBorder : "rgba(139,92,246,0.25)"}`,
-                      }}>
-                        {pk.slot_label || (pk.slot ? `${pk.round}.${String(pk.slot).padStart(2, '0')}` : `R${pk.round}`)}
-                        {pk.sha_value > 0 && <span style={{ opacity: 0.7, marginLeft: 3, fontSize: 9 }}>{fmt(pk.sha_value)}</span>}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ))}
-              <p style={{ fontFamily: MONO, fontSize: 10, color: C.dim, marginTop: 2 }}>
-                {picks.total_picks} picks ·{" "}
-                <span style={{ color: C.gold }}>{fmt(picks.total_sha_value)} value</span>
-              </p>
-            </div>
-          ) : <Skel h={80} />}
-        </DCard>
+      <div className="mobile-stack" style={{ display: "grid", gridTemplateColumns: "55fr 45fr", gap: 10, alignItems: "stretch" }}>
+        <DynastyScoreCard lid={lid} owner={owner} ownerId={ownerId} />
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, alignItems: "stretch" }}>
+          {/* BUILD TRADE */}
+          <div
+            onClick={() => router.push(`/l/${currentLeagueSlug}/trades`)}
+            className="cursor-pointer transition-all duration-200 hover:scale-[1.03]"
+            style={{
+              background: `linear-gradient(135deg, ${C.card} 0%, rgba(212,165,50,0.08) 100%)`,
+              border: `1px solid ${C.goldBorder}`,
+              borderTop: `2px solid ${C.gold}`,
+              borderRadius: 8,
+              padding: "12px 16px",
+              display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3,
+              boxShadow: `0 4px 24px rgba(212,165,50,0.08), inset 0 1px 0 rgba(212,165,50,0.10)`,
+            }}
+          >
+            <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.gold, letterSpacing: "0.10em", textAlign: "center" }}>BUILD TRADE</span>
+            <span style={{ fontFamily: SANS, fontSize: 9, color: C.dim, textAlign: "center", lineHeight: 1.3 }}>Find your next move</span>
+          </div>
+          {/* FRANCHISE HEALTH */}
+          <div
+            onClick={() => router.push(`/l/${currentLeagueSlug}/intel`)}
+            className="cursor-pointer transition-all duration-200 hover:scale-[1.03]"
+            style={{
+              background: `linear-gradient(135deg, ${C.card} 0%, rgba(107,184,224,0.06) 100%)`,
+              border: `1px solid rgba(107,184,224,0.20)`,
+              borderTop: `2px solid ${C.blue}`,
+              borderRadius: 8,
+              padding: "12px 16px",
+              display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3,
+              boxShadow: `0 4px 24px rgba(107,184,224,0.06), inset 0 1px 0 rgba(107,184,224,0.08)`,
+            }}
+          >
+            <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.blue, letterSpacing: "0.10em", textAlign: "center" }}>FRANCHISE HEALTH</span>
+            <span style={{ fontFamily: SANS, fontSize: 9, color: C.dim, textAlign: "center", lineHeight: 1.3 }}>Know where your franchise stands</span>
+          </div>
+          {/* SCOUTING REPORTS */}
+          <div
+            onClick={() => router.push(`/l/${currentLeagueSlug}/rankings`)}
+            className="cursor-pointer transition-all duration-200 hover:scale-[1.03]"
+            style={{
+              background: `linear-gradient(135deg, ${C.card} 0%, rgba(125,211,160,0.06) 100%)`,
+              border: `1px solid rgba(125,211,160,0.20)`,
+              borderTop: `2px solid ${C.green}`,
+              borderRadius: 8,
+              padding: "12px 16px",
+              display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3,
+              boxShadow: `0 4px 24px rgba(125,211,160,0.06), inset 0 1px 0 rgba(125,211,160,0.08)`,
+            }}
+          >
+            <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.green, letterSpacing: "0.10em", textAlign: "center" }}>SCOUTING REPORTS</span>
+            <span style={{ fontFamily: SANS, fontSize: 9, color: C.dim, textAlign: "center", lineHeight: 1.3 }}>Know your league before you trade</span>
+          </div>
+        </div>
       </div>
 
       {/* ══════════════════════════════════════════════════════════
-          ROW 4: TWO-COLUMN WORKING AREA — Roster + Market Intel (order 4)
+          TWO COLUMNS: LEFT 55% / RIGHT 45%
           ══════════════════════════════════════════════════════════ */}
-      <div className="mobile-stack" style={{ display: "grid", gridTemplateColumns: "55fr 45fr", gap: 10, /* order removed */ }}>
+      <div className="mobile-stack" style={{ display: "grid", gridTemplateColumns: "55fr 45fr", gap: 10 }}>
 
         {/* ──────────────────────────────────────────────────────
-            LEFT — ROSTER & ASSETS
+            LEFT COLUMN — Roster
             ────────────────────────────────────────────────────── */}
-        <DCard
-          label="ROSTER & ASSETS"
-          right={<span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>{roster?.roster_size || 0} players</span>}
-        >
-          {loadingRoster ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {Array.from({ length: 14 }).map((_, i) => <Skel key={i} h={22} />)}
-            </div>
-          ) : (
-            <div>
-              {/* Column headers */}
-              <div className="max-sm:!grid-cols-[1.8fr_0.6fr_0.55fr]" style={{
-                display: "grid", gridTemplateColumns: "1.8fr 0.6fr 0.55fr 0.55fr",
-                padding: "0 8px 5px", marginBottom: 2,
-              }}>
-                {["PLAYER", "VALUE", "POS RK", "30D"].map((h) => (
-                  <span key={h} className={h === "30D" ? "hidden sm:block" : ""} style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.06em", color: C.dim, textAlign: h === "PLAYER" ? "left" : "center" }}>{h}</span>
-                ))}
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <DCard
+            label="ROSTER & ASSETS"
+            right={<span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>{roster?.roster_size || 0} players</span>}
+          >
+            {loadingRoster ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {Array.from({ length: 14 }).map((_, i) => <Skel key={i} h={22} />)}
               </div>
+            ) : (
+              <div>
+                {/* Column headers */}
+                <div className="max-sm:!grid-cols-[1.8fr_0.6fr_0.55fr]" style={{
+                  display: "grid", gridTemplateColumns: "1.8fr 0.6fr 0.55fr 0.45fr 0.45fr",
+                  padding: "0 8px 5px", marginBottom: 2,
+                }}>
+                  {["PLAYER", "VALUE", "POS RK", "30D", "TRADE MKT"].map((h) => (
+                    <span key={h} className={h === "30D" || h === "TRADE MKT" ? "hidden sm:block" : ""} style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.06em", color: C.dim, textAlign: h === "PLAYER" ? "left" : "center" }}>{h}</span>
+                  ))}
+                </div>
 
-              {(["QB", "RB", "WR", "TE"] as const).map((pos) => {
-                const players: RosterPlayer[] = roster?.by_position?.[pos] || [];
-                if (!players.length) return null;
-                const posNeed = needs?.needs?.find((n: any) => n.position === pos);
-                const pg = posNeed ? rankToGrade(posNeed.league_rank) : null;
-                const posOrdinal = posNeed ? ordinal(posNeed.league_rank) : null;
-                return (
-                  <div key={pos} style={{ marginBottom: 4 }}>
-                    {/* Position group header */}
+                {(["QB", "RB", "WR", "TE"] as const).map((pos) => {
+                  const players: RosterPlayer[] = roster?.by_position?.[pos] || [];
+                  if (!players.length) return null;
+                  const posNeed = needs?.needs?.find((n: any) => n.position === pos);
+                  const pg = posNeed ? rankToGrade(posNeed.league_rank) : null;
+                  const posOrdinal = posNeed ? ordinal(posNeed.league_rank) : null;
+                  return (
+                    <div key={pos} style={{ marginBottom: 4 }}>
+                      {/* Position group header */}
+                      <div style={{
+                        display: "flex", alignItems: "center", gap: 8,
+                        padding: "4px 8px", background: C.elevated,
+                        borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`,
+                      }}>
+                        <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 900, color: POS[pos], letterSpacing: "0.08em" }}>{pos}</span>
+                        <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>{players.length}</span>
+                        {pg && posOrdinal && (
+                          <span style={{
+                            marginLeft: "auto", fontFamily: MONO, fontSize: 10, fontWeight: 800,
+                            padding: "1px 7px", borderRadius: 3,
+                            color: pg.color, background: `${pg.color}18`,
+                            border: `1px solid ${pg.color}30`,
+                          }}>
+                            {posOrdinal} — {pg.grade}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Player rows */}
+                      {players.map((p: RosterPlayer, idx: number) => {
+                        const isTop = idx === 0;
+                        const t30 = (p as any).trend_30d;
+                        const trendColor = t30?.direction === "up" ? C.green : t30?.direction === "down" ? C.red : C.dim;
+                        const trendVal = t30?.delta ? `${t30.delta > 0 ? "▲" : "▼"} ${Math.abs(t30.delta)}` : "—";
+                        const mkt = p.mkt_vs_pct;
+                        const mktColor = mkt == null ? C.dim : mkt > 0 ? C.green : mkt < 0 ? C.red : C.dim;
+                        const mktLabel = mkt == null ? "—" : `${mkt > 0 ? "+" : ""}${Math.round(mkt)}%`;
+                        const isHovered = hoveredPlayer === `${pos}-${idx}`;
+                        return (
+                          <div key={p.name_clean} className="max-sm:!grid-cols-[1.8fr_0.6fr_0.55fr]" style={{
+                            display: "grid", gridTemplateColumns: "1.8fr 0.6fr 0.55fr 0.45fr 0.45fr",
+                            padding: "4px 8px",
+                            borderLeft: isTop ? `3px solid ${C.gold}` : `3px solid transparent`,
+                            borderBottom: `1px solid ${C.white08}`,
+                            background: isHovered ? C.elevated : "transparent",
+                            cursor: "pointer",
+                            transition: "background 0.12s ease",
+                          }}
+                            onMouseEnter={() => setHoveredPlayer(`${pos}-${idx}`)}
+                            onMouseLeave={() => setHoveredPlayer(null)}>
+                            <div style={{ display: "flex", alignItems: "baseline", gap: 5, overflow: "hidden" }}>
+                              <PlayerName name={p.name} style={{ fontSize: 13, fontWeight: 500, color: isTop ? C.primary : C.secondary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} />
+                              {p.age && (
+                                <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim, flexShrink: 0 }}>{p.age}</span>
+                              )}
+                            </div>
+                            <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, textAlign: "center", color: C.gold, alignSelf: "center" }}>
+                              {fmt(p.sha_value)}
+                            </span>
+                            <span style={{
+                              fontFamily: MONO, fontSize: 10, textAlign: "center", alignSelf: "center",
+                              padding: "1px 4px", borderRadius: 3,
+                              color: posRankColor(p.sha_pos_rank),
+                              background: `${posRankColor(p.sha_pos_rank)}15`,
+                            }}>
+                              {safe(p.sha_pos_rank)}
+                            </span>
+                            <span className="hidden sm:block" style={{ fontFamily: MONO, fontSize: 10, textAlign: "center", alignSelf: "center", color: trendColor, fontWeight: t30?.delta ? 700 : 400 }}>
+                              {trendVal}
+                            </span>
+                            <span className="hidden sm:block" onClick={(e) => { e.stopPropagation(); if (mkt != null) openPlayerCard(p.name, "market"); }} style={{ fontFamily: MONO, fontSize: 10, textAlign: "center", alignSelf: "center", color: mktColor, fontWeight: mkt != null ? 700 : 400, cursor: mkt != null ? "pointer" : "default", borderRadius: 3, padding: "1px 3px", transition: "background 0.12s" }} onMouseEnter={(e) => { if (mkt != null) (e.currentTarget as HTMLElement).style.background = `${mktColor}15`; }} onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
+                              {mktLabel}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+
+                {/* Draft picks appended */}
+                {picks && picks.total_picks > 0 && (
+                  <div style={{ marginTop: 6 }}>
                     <div style={{
                       display: "flex", alignItems: "center", gap: 8,
                       padding: "4px 8px", background: C.elevated,
                       borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`,
                     }}>
-                      <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 900, color: POS[pos], letterSpacing: "0.08em" }}>{pos}</span>
-                      <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>{players.length}</span>
-                      {pg && posOrdinal && (
-                        <span style={{
-                          marginLeft: "auto", fontFamily: MONO, fontSize: 10, fontWeight: 800,
-                          padding: "1px 7px", borderRadius: 3,
-                          color: pg.color, background: `${pg.color}18`,
-                          border: `1px solid ${pg.color}30`,
-                        }}>
-                          {posOrdinal} — {pg.grade}
-                        </span>
+                      <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 900, color: POS["PICK"], letterSpacing: "0.08em" }}>PICKS</span>
+                      <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>{picks.total_picks}</span>
+                      <span style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 10, color: C.gold }}>{fmt(picks.total_sha_value)} value</span>
+                    </div>
+                    <div style={{ padding: "6px 8px", display: "flex", gap: 5, flexWrap: "wrap" }}>
+                      {Object.entries(picks.by_year).flatMap(([year, yp]: [string, any]) =>
+                        yp.map((pk: any, i: number) => (
+                          <span key={`${year}-${i}`} style={{
+                            fontFamily: MONO, fontSize: 10, fontWeight: 700,
+                            padding: "2px 6px", borderRadius: 4,
+                            background: pk.is_own_pick ? C.goldDim : "rgba(139,92,246,0.10)",
+                            color: pk.is_own_pick ? C.gold : "#8B5CF6",
+                            border: `1px solid ${pk.is_own_pick ? C.goldBorder : "rgba(139,92,246,0.25)"}`,
+                          }}>
+                            {pk.slot_label ? `${year} ${pk.slot_label}` : `${year} R${pk.round}`}
+                            {!pk.is_own_pick && <span style={{ opacity: 0.6, marginLeft: 2 }}>({pk.original_owner.slice(0, 4)})</span>}
+                          </span>
+                        ))
                       )}
                     </div>
-
-                    {/* Player rows */}
-                    {players.map((p: RosterPlayer, idx: number) => {
-                      const isTop = idx === 0;
-                      const t30 = (p as any).trend_30d;
-                      const trendColor = t30?.direction === "up" ? C.green : t30?.direction === "down" ? C.red : C.dim;
-                      const trendVal = t30?.delta ? `${t30.delta > 0 ? "▲" : "▼"} ${Math.abs(t30.delta)}` : "—";
-                      const isHovered = hoveredPlayer === `${pos}-${idx}`;
-                      return (
-                        <div key={p.name_clean} className="max-sm:!grid-cols-[1.8fr_0.6fr_0.55fr]" style={{
-                          display: "grid", gridTemplateColumns: "1.8fr 0.6fr 0.55fr 0.55fr",
-                          padding: "4px 8px",
-                          borderLeft: isTop ? `3px solid ${C.gold}` : `3px solid transparent`,
-                          borderBottom: `1px solid ${C.white08}`,
-                          background: isHovered ? C.elevated : "transparent",
-                          cursor: "pointer",
-                          transition: "background 0.12s ease",
-                        }}
-                          onMouseEnter={() => setHoveredPlayer(`${pos}-${idx}`)}
-                          onMouseLeave={() => setHoveredPlayer(null)}>
-                          <div style={{ display: "flex", alignItems: "baseline", gap: 5, overflow: "hidden" }}>
-                            <PlayerName name={p.name} style={{ fontSize: 13, fontWeight: 500, color: isTop ? C.primary : C.secondary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} />
-                            {p.age && (
-                              <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim, flexShrink: 0 }}>{p.age}</span>
-                            )}
-                          </div>
-                          <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, textAlign: "center", color: C.gold, alignSelf: "center" }}>
-                            {fmt(p.sha_value)}
-                          </span>
-                          <span style={{
-                            fontFamily: MONO, fontSize: 10, textAlign: "center", alignSelf: "center",
-                            padding: "1px 4px", borderRadius: 3,
-                            color: posRankColor(p.sha_pos_rank),
-                            background: `${posRankColor(p.sha_pos_rank)}15`,
-                          }}>
-                            {safe(p.sha_pos_rank)}
-                          </span>
-                          <span className="hidden sm:block" style={{ fontFamily: MONO, fontSize: 10, textAlign: "center", alignSelf: "center", color: trendColor, fontWeight: t30?.delta ? 700 : 400 }}>
-                            {trendVal}
-                          </span>
-                        </div>
-                      );
-                    })}
                   </div>
-                );
-              })}
-
-              {/* Draft picks appended */}
-              {picks && picks.total_picks > 0 && (
-                <div style={{ marginTop: 6 }}>
-                  <div style={{
-                    display: "flex", alignItems: "center", gap: 8,
-                    padding: "4px 8px", background: C.elevated,
-                    borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`,
-                  }}>
-                    <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 900, color: POS["PICK"], letterSpacing: "0.08em" }}>PICKS</span>
-                    <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>{picks.total_picks}</span>
-                    <span style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 10, color: C.gold }}>{fmt(picks.total_sha_value)} value</span>
-                  </div>
-                  <div style={{ padding: "6px 8px", display: "flex", gap: 5, flexWrap: "wrap" }}>
-                    {Object.entries(picks.by_year).flatMap(([year, yp]: [string, any]) =>
-                      yp.map((pk: any, i: number) => (
-                        <span key={`${year}-${i}`} style={{
-                          fontFamily: MONO, fontSize: 10, fontWeight: 700,
-                          padding: "2px 6px", borderRadius: 4,
-                          background: pk.is_own_pick ? C.goldDim : "rgba(139,92,246,0.10)",
-                          color: pk.is_own_pick ? C.gold : "#8B5CF6",
-                          border: `1px solid ${pk.is_own_pick ? C.goldBorder : "rgba(139,92,246,0.25)"}`,
-                        }}>
-                          {pk.slot_label ? `${year} ${pk.slot_label}` : `${year} R${pk.round}`}
-                          {!pk.is_own_pick && <span style={{ opacity: 0.6, marginLeft: 2 }}>({pk.original_owner.slice(0, 4)})</span>}
-                        </span>
-                      ))
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </DCard>
+                )}
+              </div>
+            )}
+          </DCard>
+        </div>
 
         {/* ──────────────────────────────────────────────────────
-            RIGHT — STACKED PANELS
+            RIGHT COLUMN — Actions, Your Move, Radar, Market, Trades
             ────────────────────────────────────────────────────── */}
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
 
-          {/* Positional Radar + Draft Capital — side by side at top of right column */}
+          {/* ROW 1: YOUR MOVE + POSITIONAL RADAR */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            {/* YOUR MOVE — vertical compact pills */}
+            {(() => {
+              const cc = coachesCorner as Record<string, unknown> | undefined;
+              const setIntent = useTradeBuilderStore.getState().setIntent;
+
+              const rows: Array<{ tag: "sell high" | "buy low" | "upgrade"; name: string; context: string; playerName?: string }> = [];
+
+              const moveNow = ((cc?.move_now || []) as Array<Record<string, unknown>>);
+              const sellHigh = ((cc?.sell_high || []) as Array<Record<string, unknown>>);
+              const buyLow = ((cc?.buy_low || []) as Array<Record<string, unknown>>);
+
+              const bp = (roster as any)?.by_position || {};
+              const ownedSet = new Set<string>();
+              for (const pos of ["QB", "RB", "WR", "TE"]) {
+                for (const p of (bp[pos] || [])) ownedSet.add(String(p.name || "").toLowerCase().trim());
+              }
+              const safeBuyLow = buyLow.filter(t => !ownedSet.has(String(t.name || t.player || "").toLowerCase().trim()));
+
+              for (const item of moveNow.slice(0, 2)) {
+                const name = String(item.name || "");
+                const signal = String(item.signal || item.reason || "");
+                const pos = String(item.position || "");
+                const hasATH = signal.includes("ATH");
+                const hasDeclining = signal.includes("declining");
+                const hasAge = signal.includes("age");
+                rows.push({
+                  tag: "sell high",
+                  name,
+                  context: `${pos} · ${hasATH ? "near all-time high value" : hasDeclining ? "production trending down" : hasAge ? "aging asset window" : signal.slice(0, 50)}`,
+                  playerName: name,
+                });
+              }
+
+              const usedNames = new Set(rows.map(r => r.name.toLowerCase()));
+              const myIntelData = leagueIntel?.owners?.find((o: any) =>
+                o.owner.toLowerCase() === owner.toLowerCase() || o.owner.toLowerCase().replace(/\s*\(#\d+\)/, "") === owner.toLowerCase());
+              const criticalNeeds = (myIntelData?.positional_needs || []) as string[];
+              if (criticalNeeds.length > 0 && rows.length < 3) {
+                const pos = criticalNeeds[0];
+                const pg = myIntelData?.positional_grades?.[pos] || "WEAK";
+                if (pg === "CRITICAL" || pg === "WEAK") {
+                  const sellCandidate = sellHigh.find((s) =>
+                    String(s.action) === "SELL"
+                    && String(s.position) !== pos
+                    && !usedNames.has(String(s.name || "").toLowerCase())
+                  );
+                  if (sellCandidate) {
+                    rows.push({
+                      tag: "upgrade",
+                      name: `${pos} via ${sellCandidate.name}`,
+                      context: `${sellCandidate.position} is sellable — convert to a ${pos} upgrade`,
+                      playerName: String(sellCandidate.name),
+                    });
+                  } else {
+                    rows.push({
+                      tag: "upgrade",
+                      name: `${pos} room`,
+                      context: `graded ${pg} — find an upgrade in the trade builder`,
+                    });
+                  }
+                }
+              }
+
+              if (rows.length < 3) {
+                for (const target of safeBuyLow.slice(0, 1)) {
+                  const name = String(target.name || target.player || "");
+                  const pos = String(target.position || "");
+                  const age = target.age ? String(target.age) : "";
+                  const trend = String(target.trend || "");
+                  const ctx = age && trend === "ascending"
+                    ? `young ${pos} · ascending value`
+                    : trend === "ascending"
+                    ? `${pos} · ascending value`
+                    : age
+                    ? `${pos} · ${age} yrs old, undervalued`
+                    : `${pos} · undervalued`;
+                  if (name) {
+                    rows.push({ tag: "buy low", name, context: ctx, playerName: name });
+                  }
+                }
+              }
+
+              const glowMap = {
+                "sell high": { bg: "rgba(239,68,68,0.06)", border: "rgba(239,68,68,0.20)", shadow: "0 0 20px rgba(239,68,68,0.08)", label: "#ef4444" },
+                "buy low": { bg: "rgba(34,197,94,0.06)", border: "rgba(34,197,94,0.20)", shadow: "0 0 20px rgba(34,197,94,0.08)", label: "#22c55e" },
+                "upgrade": { bg: "rgba(245,158,11,0.06)", border: "rgba(245,158,11,0.20)", shadow: "0 0 20px rgba(245,158,11,0.08)", label: "#f59e0b" },
+              };
+
+              const handleClick = (r: typeof rows[0]) => {
+                if (r.playerName) {
+                  if (r.tag === "sell high") setIntent({ type: "sell", value: r.playerName });
+                  else if (r.tag === "buy low") setIntent({ type: "buy", value: r.playerName });
+                  else { const pos = r.name.split(" ")[0]; setIntent({ type: "position", value: pos }); }
+                } else if (r.tag === "upgrade") {
+                  setIntent({ type: "position", value: r.name.split(" ")[0] });
+                }
+                router.push(`/l/${currentLeagueSlug}/trades`);
+              };
+
+              return (
+                <DCard label="YOUR MOVE">
+                  {rows.length > 0 ? (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                      {rows.slice(0, 4).map((r, i) => {
+                        const g = glowMap[r.tag];
+                        return (
+                          <div
+                            key={i}
+                            onClick={() => handleClick(r)}
+                            className="cursor-pointer transition-all duration-150 hover:scale-[1.01]"
+                            style={{
+                              display: "flex", alignItems: "center", gap: 8,
+                              padding: "6px 10px", borderRadius: 6,
+                              background: g.bg, border: `1px solid ${g.border}`,
+                              borderLeft: `3px solid ${g.label}`,
+                            }}
+                          >
+                            <span style={{
+                              fontFamily: MONO, fontSize: 8, fontWeight: 900, letterSpacing: "0.10em",
+                              color: g.label, padding: "2px 6px", borderRadius: 3,
+                              background: `${g.label}15`, flexShrink: 0,
+                            }}>
+                              {r.tag.toUpperCase()}
+                            </span>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 700, color: C.primary, lineHeight: 1.2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                {r.name}
+                              </div>
+                              <div style={{ fontFamily: SANS, fontSize: 10, color: C.dim, lineHeight: 1.2, marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                {r.context}
+                              </div>
+                            </div>
+                            <ChevronRight size={12} style={{ color: C.dim, flexShrink: 0, opacity: 0.5 }} />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p style={{ fontFamily: MONO, fontSize: 11, color: C.dim, padding: 4 }}>No moves right now</p>
+                  )}
+                </DCard>
+              );
+            })()}
+
+            {/* POSITIONAL RADAR */}
             <DCard label="POSITIONAL RADAR">
               {radarData.length > 0 ? (
                 <>
-                  <ResponsiveContainer width="100%" height={190}>
-                    <RadarChart data={radarData} margin={{ top: 8, right: 18, bottom: 8, left: 18 }}>
+                  <ResponsiveContainer width="100%" height={200}>
+                    <RadarChart data={radarData} margin={{ top: 10, right: 30, bottom: 10, left: 30 }}>
                       <PolarGrid stroke="rgba(255,255,255,0.06)" />
                       <PolarAngleAxis dataKey="position" tick={(props: any) => {
                         const d = radarData.find((r: any) => r.position === props.payload.value);
@@ -1190,116 +1135,14 @@ function DashboardView({ lid, owner, ownerId }: { lid: string; owner: string; ow
                     ))}
                   </div>
                 </>
-              ) : <Skel h={190} />}
-            </DCard>
-            <DCard label="DRAFT CAPITAL">
-              {picks ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {Object.entries(picks.by_year).map(([year, yp]: [string, any]) => (
-                    <div key={year}>
-                      <p style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.dim, marginBottom: 4, letterSpacing: "0.06em" }}>{year}</p>
-                      <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-                        {yp.map((pk: any, i: number) => (
-                          <span key={`rc-${year}-${i}`} style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 4,
-                            background: pk.is_own_pick ? C.goldDim : "rgba(139,92,246,0.10)", color: pk.is_own_pick ? C.gold : "#8B5CF6",
-                            border: `1px solid ${pk.is_own_pick ? C.goldBorder : "rgba(139,92,246,0.25)"}` }}>
-                            {pk.slot_label || (pk.slot ? `${pk.round}.${String(pk.slot).padStart(2, '0')}` : `R${pk.round}`)}
-                            {pk.sha_value > 0 && <span style={{ opacity: 0.7, marginLeft: 3, fontSize: 9 }}>{fmt(pk.sha_value)}</span>}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                  <p style={{ fontFamily: MONO, fontSize: 10, color: C.dim, marginTop: 2 }}>
-                    {picks.total_picks} picks · <span style={{ color: C.gold }}>{fmt(picks.total_sha_value)} value</span>
-                  </p>
-                </div>
-              ) : <Skel h={80} />}
+              ) : <Skel h={200} />}
             </DCard>
           </div>
 
-          {/* Market Intel (scrollable, compact) */}
-          <div className="mobile-maxh" style={{ maxHeight: 500, overflowY: "auto", borderRadius: 8 }}>
-            <MarketIntelSection feed={marketFeed as any} loading={loadingMarket} />
-          </div>
+          {/* ROW 3: REAL TRADES · YOUR PLAYERS — hero section, most vertical space */}
+          <MarketIntelSection feed={marketFeed as any} loading={loadingMarket} />
 
-          {/* Row 2: Trade Grades donut + Trade Intelligence */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            {/* Trade Grades donut */}
-            <DCard label="TRADE GRADES">
-              {donut.length > 0 ? (
-                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                  <ResponsiveContainer width={88} height={88}>
-                    <PieChart>
-                      <Pie data={donut} dataKey="value" innerRadius={24} outerRadius={40} paddingAngle={3} strokeWidth={0}>
-                        {donut.map((d, i) => <Cell key={i} fill={d.color} />)}
-                      </Pie>
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 5, fontFamily: MONO, fontSize: 12 }}>
-                    {[
-                      { label: "W", val: wins, color: C.green },
-                      { label: "L", val: losses, color: C.red },
-                      { label: "E", val: even, color: C.dim },
-                    ].map((row) => (
-                      <div key={row.label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <span style={{ width: 6, height: 6, borderRadius: "50%", background: row.color, flexShrink: 0 }} />
-                        <span style={{ color: row.color }}>{row.label}</span>
-                        <span style={{ fontWeight: 700, color: C.primary }}>{row.val}</span>
-                      </div>
-                    ))}
-                    <p style={{ fontSize: 10, color: C.dim, marginTop: 2 }}>
-                      Rate:{" "}
-                      <span style={{ color: C.gold, fontWeight: 700 }}>
-                        {graded?.win_rate ? `${(graded.win_rate * 100).toFixed(0)}%` : "—"}
-                      </span>
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <p style={{ fontFamily: MONO, fontSize: 12, color: C.dim }}>No graded trades</p>
-              )}
-            </DCard>
-
-            {/* Trade Intelligence */}
-            <DCard label="TRADE INTELLIGENCE">
-              {partners ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                  {partners.partners.slice(0, 5).map((p: any, i: number) => (
-                    <div key={`${p.owner}-${i}`} style={{
-                      display: "flex", alignItems: "center", justifyContent: "space-between",
-                      padding: "4px 5px", borderRadius: 4,
-                      borderBottom: `1px solid ${C.white08}`,
-                      cursor: "pointer", transition: "background 0.12s ease",
-                    }}
-                      onMouseEnter={(e) => { e.currentTarget.style.background = C.elevated; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
-                      <span style={{ fontSize: 12, fontWeight: 500, color: C.primary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 90 }}>
-                        {p.owner}
-                      </span>
-                      <div style={{ display: "flex", gap: 3, flexShrink: 0 }}>
-                        {p.badges.slice(0, 2).map((b: string) => {
-                          const isBest = b === "BEST FIT";
-                          const isSurplus = b.includes("SURPLUS");
-                          return (
-                            <span key={b} style={{
-                              fontFamily: MONO, fontSize: 9, fontWeight: 700,
-                              padding: "1px 4px", borderRadius: 3,
-                              background: isBest ? C.greenDim : isSurplus ? "rgba(107,184,224,0.10)" : "rgba(149,150,165,0.10)",
-                              color: isBest ? C.green : isSurplus ? C.blue : C.dim,
-                              border: `1px solid ${isBest ? "rgba(125,211,160,0.25)" : isSurplus ? "rgba(107,184,224,0.25)" : "rgba(149,150,165,0.15)"}`,
-                            }}>{b}</span>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : <Skel h={100} />}
-            </DCard>
-          </div>
-
-          {/* Row 3: Recent Trades */}
+          {/* ROW 4: RECENT TRADES */}
           <DCard label="RECENT TRADES">
             {graded?.trades && graded.trades.length > 0 ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -1372,7 +1215,7 @@ function DashboardView({ lid, owner, ownerId }: { lid: string; owner: string; ow
       </div>
 
       {/* ══════════════════════════════════════════════════════════
-          FULL-WIDTH BELOW BOTH COLUMNS
+          FULL WIDTH BOTTOM: Two charts side by side 50/50
           ══════════════════════════════════════════════════════════ */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
 
@@ -1545,4 +1388,10 @@ function DashboardView({ lid, owner, ownerId }: { lid: string; owner: string; ow
   );
 }
 
-export default DashboardView;
+function DashboardViewRouter({ lid, owner, ownerId }: { lid: string; owner: string; ownerId?: string | null }) {
+  const isMobile = useIsMobile();
+  if (isMobile) return <DashboardMobile lid={lid} owner={owner} ownerId={ownerId} />;
+  return <DashboardView lid={lid} owner={owner} ownerId={ownerId} />;
+}
+
+export default DashboardViewRouter;

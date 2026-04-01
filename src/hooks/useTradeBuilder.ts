@@ -1,0 +1,555 @@
+"use client";
+
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { getRoster, getLeagueIntel, getOwners, getPicks } from "@/lib/api";
+import { useTradeBuilderStore } from "@/lib/stores/trade-builder-store";
+import type {
+  RosterPlayer,
+  TradeEvaluation,
+  SuggestedPackage,
+  NegotiationInsight,
+} from "@/components/league/trade-builder/types";
+
+const API = "";
+const API_DIRECT = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const MODES = ["conservative", "balanced", "aggressive"] as const;
+export type TradeMode = (typeof MODES)[number];
+
+export interface UseTradeBuilderReturn {
+  // Data
+  myRoster: RosterPlayer[];
+  theirRoster: RosterPlayer[];
+  otherOwners: { name: string }[];
+  myIntel: Record<string, unknown> | undefined;
+  theirIntel: Record<string, unknown> | undefined;
+  myGrades: Record<string, string>;
+  theirGrades: Record<string, string>;
+  computedOW: string;
+  computedPW: string;
+  leagueIntel: unknown;
+
+  // State
+  partner: string;
+  setPartner: (v: string) => void;
+  myWindow: string | null;
+  setMyWindow: (v: string | null) => void;
+  theirWindow: string | null;
+  setTheirWindow: (v: string | null) => void;
+  mode: string;
+  setMode: (v: string) => void;
+  giveNames: string[];
+  setGiveNames: React.Dispatch<React.SetStateAction<string[]>>;
+  receiveNames: string[];
+  setReceiveNames: React.Dispatch<React.SetStateAction<string[]>>;
+  evaluation: TradeEvaluation | null;
+  setEvaluation: (v: TradeEvaluation | null) => void;
+  showModal: boolean;
+  setShowModal: (v: boolean) => void;
+  analyzing: boolean;
+  suggestedPkgs: SuggestedPackage[];
+  suggestLoading: boolean;
+  suggestQuery: string;
+  activeSellAsset: string | null;
+  error: string | null;
+  setError: (v: string | null) => void;
+  chatCollapsed: boolean;
+  setChatCollapsed: React.Dispatch<React.SetStateAction<boolean>>;
+  chatInjection: string | null;
+
+  // Computed
+  hasTray: boolean;
+  showResults: boolean;
+
+  // Actions
+  toggleGive: (n: string) => void;
+  toggleReceive: (n: string) => void;
+  handleAnalyze: () => Promise<void>;
+  handleSellAsset: (name: string) => void;
+  handleFindPosition: (pos: string) => void;
+  handleSuggestWithPartner: () => void;
+  handleTargetPlayer: (name: string) => void;
+  buildPackage: (pkg: SuggestedPackage) => void;
+  handleClear: () => void;
+  fireSuggest: (body: Record<string, unknown>, query: string) => Promise<void>;
+}
+
+const toBackend = (w: string) => (w === "WIN-NOW" ? "CONTENDER" : w);
+const toDisplay = (w: string) => (w === "CONTENDER" ? "WIN-NOW" : w);
+
+function buildRoster(data: unknown, picksData?: unknown): RosterPlayer[] {
+  const all: RosterPlayer[] = [];
+  if (data) {
+    const d = data as Record<string, unknown>;
+    const bp = d.by_position as
+      | Record<string, Array<Record<string, unknown>>>
+      | undefined;
+    if (bp) {
+      for (const pos of ["QB", "RB", "WR", "TE"] as const) {
+        for (const p of bp[pos] || []) {
+          all.push({
+            name: String(p.name || ""),
+            name_clean: String(p.name_clean || ""),
+            position: pos,
+            sha_value: Number(p.sha_value || 0),
+            sha_pos_rank: String(p.sha_pos_rank || ""),
+            age: p.age ? Number(p.age) : null,
+          });
+        }
+      }
+    }
+  }
+  if (picksData) {
+    const pd = picksData as Record<string, unknown>;
+    const picks = (pd.picks || []) as Array<Record<string, unknown>>;
+    for (const pk of picks) {
+      const label = `${pk.season} Rd ${pk.round}${pk.is_own_pick ? "" : ` (${pk.original_owner})`}`;
+      all.push({
+        name: label,
+        name_clean: String(pk.season) + "_" + String(pk.round),
+        position: "PICK",
+        sha_value: Number(pk.sha_value || 0),
+        sha_pos_rank: "",
+        age: null,
+      });
+    }
+  }
+  return all;
+}
+
+export function useTradeBuilder({
+  leagueId,
+  owner,
+  ownerId,
+}: {
+  leagueId: string;
+  owner: string;
+  ownerId?: string | null;
+}): UseTradeBuilderReturn {
+  const [partner, setPartner] = useState("");
+  const [myWindow, setMyWindow] = useState<string | null>(null);
+  const [theirWindow, setTheirWindow] = useState<string | null>(null);
+  const [mode, setMode] = useState("balanced");
+  const [giveNames, setGiveNames] = useState<string[]>([]);
+  const [receiveNames, setReceiveNames] = useState<string[]>([]);
+  const [evaluation, setEvaluation] = useState<TradeEvaluation | null>(null);
+  const [showModal, setShowModal] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [suggestedPkgs, setSuggestedPkgs] = useState<SuggestedPackage[]>([]);
+  const [suggestLoading, setSuggestLoading] = useState(false);
+  const [suggestQuery, setSuggestQuery] = useState("");
+  const [activeSellAsset, setActiveSellAsset] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [chatCollapsed, setChatCollapsed] = useState(false);
+  const [chatInjection, setChatInjection] = useState<string | null>(null);
+  const buildingRef = useRef(false);
+
+  // Data queries
+  const { data: ownersData } = useQuery({
+    queryKey: ["owners", leagueId],
+    queryFn: () => getOwners(leagueId),
+    enabled: !!leagueId,
+    staleTime: 600000,
+  });
+  const { data: ownerRoster } = useQuery({
+    queryKey: ["roster", leagueId, owner],
+    queryFn: () => getRoster(leagueId, owner, ownerId),
+    enabled: !!owner,
+  });
+  const { data: partnerRoster } = useQuery({
+    queryKey: ["roster", leagueId, partner],
+    queryFn: () => getRoster(leagueId, partner),
+    enabled: !!partner,
+  });
+  const { data: ownerPicks } = useQuery({
+    queryKey: ["picks", leagueId, owner],
+    queryFn: () => getPicks(leagueId, owner, ownerId),
+    enabled: !!owner,
+    staleTime: 300000,
+  });
+  const { data: partnerPicks } = useQuery({
+    queryKey: ["picks", leagueId, partner],
+    queryFn: () => getPicks(leagueId, partner),
+    enabled: !!partner,
+    staleTime: 300000,
+  });
+  const { data: leagueIntel } = useQuery({
+    queryKey: ["league-intel", leagueId],
+    queryFn: () => getLeagueIntel(leagueId),
+    enabled: !!leagueId,
+    staleTime: 600000,
+  });
+
+  const myRoster = useMemo(
+    () => buildRoster(ownerRoster, ownerPicks),
+    [ownerRoster, ownerPicks],
+  );
+  const theirRoster = useMemo(
+    () => buildRoster(partnerRoster, partnerPicks),
+    [partnerRoster, partnerPicks],
+  );
+  const otherOwners = useMemo(
+    () =>
+      (ownersData?.owners || []).filter(
+        (o: { name: string }) =>
+          o.name.toLowerCase() !== owner.toLowerCase(),
+      ),
+    [ownersData, owner],
+  );
+  const myIntel = useMemo(
+    () =>
+      (leagueIntel as Record<string, unknown[]> | undefined)?.owners?.find(
+        (o: unknown) =>
+          (o as { owner: string }).owner.toLowerCase() ===
+          owner.toLowerCase(),
+      ) as Record<string, unknown> | undefined,
+    [leagueIntel, owner],
+  );
+  const theirIntel = useMemo(
+    () =>
+      (leagueIntel as Record<string, unknown[]> | undefined)?.owners?.find(
+        (o: unknown) =>
+          (o as { owner: string }).owner.toLowerCase() ===
+          partner.toLowerCase(),
+      ) as Record<string, unknown> | undefined,
+    [leagueIntel, partner],
+  );
+  const myGrades = useMemo(
+    () => ((myIntel?.positional_grades || {}) as Record<string, string>),
+    [myIntel],
+  );
+  const theirGrades = useMemo(
+    () => ((theirIntel?.positional_grades || {}) as Record<string, string>),
+    [theirIntel],
+  );
+  const computedOW = toDisplay(String(myIntel?.window || "BALANCED"));
+  const computedPW = toDisplay(String(theirIntel?.window || "BALANCED"));
+
+  // Clear on partner change (unless building from package)
+  useEffect(() => {
+    if (buildingRef.current) {
+      buildingRef.current = false;
+      return;
+    }
+    setGiveNames([]);
+    setReceiveNames([]);
+    setEvaluation(null);
+    setShowModal(false);
+    setSuggestedPkgs([]);
+    setSuggestQuery("");
+    setError(null);
+  }, [partner]);
+
+  // Toggle
+  const toggleGive = useCallback((n: string) => {
+    setGiveNames((p) => (p.includes(n) ? p.filter((x) => x !== n) : [...p, n]));
+    setEvaluation(null);
+    setShowModal(false);
+    setSuggestedPkgs([]);
+  }, []);
+  const toggleReceive = useCallback((n: string) => {
+    setReceiveNames((p) =>
+      p.includes(n) ? p.filter((x) => x !== n) : [...p, n],
+    );
+    setEvaluation(null);
+    setShowModal(false);
+  }, []);
+
+  // Analyze
+  const handleAnalyze = useCallback(async () => {
+    if (!partner || !giveNames.length || !receiveNames.length) return;
+    setAnalyzing(true);
+    setError(null);
+    try {
+      const res = await fetch(
+        `${API}/api/league/${leagueId}/trade-builder/evaluate`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            owner,
+            partner,
+            i_give: giveNames,
+            i_receive: receiveNames,
+            mode,
+            window_override: myWindow ? toBackend(myWindow) : null,
+            partner_window_override: theirWindow ? toBackend(theirWindow) : null,
+            user_id: ownerId || undefined,
+          }),
+        },
+      );
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Failed");
+      } else {
+        const ev = data as TradeEvaluation;
+        setEvaluation(ev);
+        setShowModal(true);
+        const g = ev.owner_grade;
+        const acc = ev.acceptance?.acceptance_likelihood;
+        if (g) {
+          const injection = `${giveNames.join(", ")} to ${partner} for ${receiveNames.join(", ")}\nGrade: ${g.grade} (${g.score}) — ${g.verdict}${acc ? `. ${acc}% acceptance likelihood` : ""}${g.reasons?.[0] ? `\n${g.reasons[0]}` : ""}\n${Date.now()}`;
+          setChatInjection(injection);
+        }
+      }
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed");
+    } finally {
+      setAnalyzing(false);
+    }
+  }, [
+    owner,
+    partner,
+    giveNames,
+    receiveNames,
+    mode,
+    myWindow,
+    theirWindow,
+    leagueId,
+    ownerId,
+  ]);
+
+  // Suggest — calls V2 trade engine
+  const fireSuggest = useCallback(
+    async (body: Record<string, unknown>, query: string) => {
+      setSuggestLoading(true);
+      setSuggestedPkgs([]);
+      setSuggestQuery(query);
+      setError(null);
+      try {
+        const sellAsset = (body.sell_asset as string) || undefined;
+        const targetAsset = (body.i_receive as string[])?.[0] || undefined;
+        const findPosition = (body.find_position as string) || undefined;
+
+        const res = await fetch(
+          `${API_DIRECT}/api/league/${leagueId}/v2/trade-engine/generate`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              owner,
+              asset: sellAsset || undefined,
+              target_asset: targetAsset || undefined,
+              mode,
+              partner: (body.partner as string) || undefined,
+              find_position: findPosition || undefined,
+              user_id: ownerId || undefined,
+            }),
+          },
+        );
+        const data = await res.json();
+        if (!res.ok) {
+          setError(data.error || data.detail || "Failed");
+          setSuggestLoading(false);
+          return;
+        }
+
+        const mapAsset = (a: Record<string, unknown>) => ({
+          ...a,
+          name: String(a.name || ""),
+          position: String(a.position || ""),
+          is_pick: Boolean(a.is_pick),
+          age: a.age != null ? Number(a.age) : null,
+          sha: Number(a.sha_value || a.sha || 0),
+          dynasty: Number(a.sha_value || a.sha || 0),
+          winnow: 0,
+          sha_positional_rank: String(a.sha_pos_rank || a.sha_positional_rank || ""),
+          sha_pos_rank_num: 0,
+          error: null,
+        });
+
+        const packages: SuggestedPackage[] = (
+          data.packages || []
+        ).map((p: Record<string, unknown>) => {
+          const give = ((p.give || []) as Array<Record<string, unknown>>).map(mapAsset);
+          const receive = ((p.receive || []) as Array<Record<string, unknown>>).map(mapAsset);
+          const balance = (p.sha_balance || {}) as Record<string, unknown>;
+          const confidence = (p.confidence as number) || 0;
+          return {
+            partner: p.partner as string,
+            i_give: give,
+            i_receive: receive,
+            i_give_names: give.map((a) => a.name as string),
+            i_receive_names: receive.map((a) => a.name as string),
+            sha_balance: balance,
+            acceptance_likelihood: confidence,
+            owner_trade_grade: {
+              grade:
+                confidence >= 70
+                  ? "A"
+                  : confidence >= 50
+                    ? "B"
+                    : confidence >= 30
+                      ? "C"
+                      : "D",
+              score: confidence,
+              verdict: "",
+            },
+            negotiation_insights: [],
+            combined_score: confidence,
+            pitch: (p.rationale as string) || "",
+            narrative: (p.rationale as string) || "",
+            tier: "",
+            market_comparison: "",
+          } as unknown as SuggestedPackage;
+        });
+        setSuggestedPkgs(packages);
+      } catch (e: unknown) {
+        setError(e instanceof Error ? e.message : "Failed");
+      } finally {
+        setSuggestLoading(false);
+      }
+    },
+    [owner, mode, leagueId, ownerId],
+  );
+
+  const handleSellAsset = useCallback(
+    (name: string) => {
+      setActiveSellAsset(name);
+      fireSuggest({ sell_asset: name }, `Selling ${name}`);
+    },
+    [fireSuggest],
+  );
+
+  const handleFindPosition = useCallback(
+    (pos: string) => {
+      fireSuggest(
+        {
+          sell_asset: activeSellAsset || undefined,
+          find_position: pos,
+          partner: partner || undefined,
+        },
+        activeSellAsset
+          ? `Trading ${activeSellAsset} for a ${pos}`
+          : `Finding ${pos} upgrades`,
+      );
+    },
+    [fireSuggest, partner, activeSellAsset],
+  );
+
+  const handleSuggestWithPartner = useCallback(() => {
+    fireSuggest(
+      {
+        sell_asset: activeSellAsset || undefined,
+        partner: partner || undefined,
+      },
+      activeSellAsset
+        ? partner
+          ? `Best trades with ${partner} for ${activeSellAsset}`
+          : `Exploring trades for ${activeSellAsset}`
+        : partner
+          ? `Best trades with ${partner}`
+          : `Best available trades`,
+    );
+  }, [fireSuggest, partner, activeSellAsset]);
+
+  const handleTargetPlayer = useCallback(
+    (name: string) => {
+      if (!partner) return;
+      setActiveSellAsset(null);
+      fireSuggest(
+        { i_receive: [name], partner },
+        `Targeting ${name} from ${partner}`,
+      );
+    },
+    [fireSuggest, partner],
+  );
+
+  const buildPackage = useCallback(
+    (pkg: SuggestedPackage) => {
+      if (!partner && pkg.partner) {
+        buildingRef.current = true;
+        setPartner(pkg.partner);
+      }
+      setGiveNames(pkg.i_give_names || []);
+      setReceiveNames(pkg.i_receive_names || []);
+      setSuggestedPkgs([]);
+      setSuggestQuery("");
+    },
+    [partner],
+  );
+
+  const handleClear = useCallback(() => {
+    setSuggestedPkgs([]);
+    setSuggestQuery("");
+    setGiveNames([]);
+    setReceiveNames([]);
+    setEvaluation(null);
+    setShowModal(false);
+    setActiveSellAsset(null);
+    setError(null);
+  }, []);
+
+  // Consume cross-page intent (from Dashboard "Your Move" cards)
+  const intentConsumed = useRef(false);
+  useEffect(() => {
+    if (intentConsumed.current) return;
+    const intent = useTradeBuilderStore.getState().consumeIntent();
+    if (!intent) return;
+    intentConsumed.current = true;
+    if (intent.type === "sell") {
+      handleSellAsset(intent.value);
+    } else if (intent.type === "buy") {
+      fireSuggest({ i_receive: [intent.value] }, `Targeting ${intent.value}`);
+    } else if (intent.type === "position") {
+      fireSuggest(
+        { find_position: intent.value },
+        `Finding ${intent.value} upgrades`,
+      );
+    }
+  }, [handleSellAsset, fireSuggest]);
+
+  const hasTray = giveNames.length > 0 || receiveNames.length > 0;
+  const showResults = suggestedPkgs.length > 0 || suggestLoading;
+
+  return {
+    myRoster,
+    theirRoster,
+    otherOwners,
+    myIntel,
+    theirIntel,
+    myGrades,
+    theirGrades,
+    computedOW,
+    computedPW,
+    leagueIntel,
+    partner,
+    setPartner,
+    myWindow,
+    setMyWindow,
+    theirWindow,
+    setTheirWindow,
+    mode,
+    setMode,
+    giveNames,
+    setGiveNames,
+    receiveNames,
+    setReceiveNames,
+    evaluation,
+    setEvaluation,
+    showModal,
+    setShowModal,
+    analyzing,
+    suggestedPkgs,
+    suggestLoading,
+    suggestQuery,
+    activeSellAsset,
+    error,
+    setError,
+    chatCollapsed,
+    setChatCollapsed,
+    chatInjection,
+    hasTray,
+    showResults,
+    toggleGive,
+    toggleReceive,
+    handleAnalyze,
+    handleSellAsset,
+    handleFindPosition,
+    handleSuggestWithPartner,
+    handleTargetPlayer,
+    buildPackage,
+    handleClear,
+    fireSuggest,
+  };
+}
