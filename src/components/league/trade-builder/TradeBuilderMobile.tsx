@@ -502,9 +502,9 @@ export default function TradeBuilderMobile({
                     <div className="flex gap-2">
                       <button
                         onClick={() => {
-                          buildPackage(pkg);
+                          setSelectedPkg(pkg);
                           removeFromQueue(idx);
-                          setToast("Loaded to builder");
+                          setMobileState("build");
                         }}
                         className="flex-1 py-2 rounded-lg font-mono text-[10px] font-bold tracking-wider text-[#06080d]"
                         style={{ background: "linear-gradient(135deg, #8b6914, #d4a532)" }}

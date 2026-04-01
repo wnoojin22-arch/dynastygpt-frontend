@@ -52,7 +52,7 @@ export default function OpponentsGrid() {
       </div>
 
       {/* Owner Grid */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 10 }}>
+      <div className="grid gap-2.5 grid-cols-1 sm:grid-cols-[repeat(auto-fill,minmax(280px,1fr))]">
         {owners.map((p) => {
           const ownerIntel = intelMap.get(p.owner.toLowerCase());
           const grades = ownerIntel?.positional_grades || {};

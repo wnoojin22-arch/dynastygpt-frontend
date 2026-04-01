@@ -259,7 +259,7 @@ function FullReport({reportData,hindsightData,onClose}:{reportData:any;hindsight
         ))}
       </div>):(<div style={{padding:'20px 24px',textAlign:'center'}}><span style={{fontFamily:SERIF,fontSize:14,fontStyle:'italic',color:C.goldBright}}>Hindsight available after league sync</span></div>)}
       {/* Watermark */}
-      <div style={{textAlign:'right',padding:'4px 24px 12px'}}><span style={{fontFamily:SANS,fontSize:9,color:`${C.gold}40`,fontWeight:600}}>dynastygpt.com</span></div>
+      <div style={{textAlign:'right',padding:'4px 24px 12px'}}><span style={{fontFamily:SANS,fontSize:10,color:`${C.gold}60`,fontWeight:700,letterSpacing:'0.02em'}}>dynastygpt.com</span></div>
     </>)}
 
     {/* ═══════ TAB 2: DETAILS — full deep dive ═══════ */}
@@ -313,7 +313,8 @@ export default function TradeReportModal({ leagueId, tradeId, onClose }: {
   return(<>
     <style>{`@keyframes fadeIn{from{opacity:0}to{opacity:1}}@keyframes modalSlideIn{from{opacity:0;transform:scale(0.97) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}@keyframes radarSweep{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
     <div onClick={onClose} style={{position:'fixed',inset:0,zIndex:9999,background:'rgba(0,0,0,0.85)',backdropFilter:'blur(8px)',display:'flex',alignItems:'center',justifyContent:'center',animation:'fadeIn 0.2s ease'}}>
-      <div onClick={(e)=>e.stopPropagation()} style={{width:'94vw',maxWidth:900,maxHeight:'92vh',overflowY:'auto',background:C.bg,border:`1px solid ${C.border}`,borderRadius:12,animation:'modalSlideIn 0.25s ease'}}>
+      <div onClick={(e)=>e.stopPropagation()} style={{width:'94vw',maxWidth:900,maxHeight:'92vh',overflowY:'auto',background:C.bg,border:`1px solid ${C.border}`,borderRadius:12,animation:'modalSlideIn 0.25s ease',position:'relative'}}>
+        <div style={{position:'absolute',top:10,right:16,zIndex:10}}><span style={{fontFamily:SANS,fontSize:10,fontWeight:700,color:`${C.gold}60`,letterSpacing:'0.02em'}}>dynastygpt.com</span></div>
         {isLoading?<LoadingSequence/>:hasReport?<FullReport reportData={r} hindsightData={hindsight} onClose={onClose}/>:(
           <div style={{padding:40,textAlign:'center'}}><div style={{fontFamily:MONO,fontSize:12,color:C.red,marginBottom:8}}>Failed to load report</div><div style={{fontFamily:MONO,fontSize:10,color:C.dim}}>Trade ID: {tradeId}</div><div onClick={onClose} style={{marginTop:16,fontFamily:MONO,fontSize:11,color:C.gold,cursor:'pointer',padding:'6px 16px',borderRadius:4,border:`1px solid ${C.goldBorder}`,background:C.goldDim,display:'inline-block'}}>CLOSE</div></div>
         )}

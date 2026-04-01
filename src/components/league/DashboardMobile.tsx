@@ -11,7 +11,9 @@ import {
   getMarketFeed, getCoachesCorner, getRosterValueChange,
 } from "@/lib/api";
 import type { DynastyScoreResponse } from "@/lib/api";
-import { Plus, FileText, ChevronRight, Activity, Share2 } from "lucide-react";
+import { Plus, FileText, ChevronRight, Activity, Share2, TrendingUp, TrendingDown, Search } from "lucide-react";
+import { useTradeBuilderStore } from "@/lib/stores/trade-builder-store";
+import { usePlayerCardStore } from "@/lib/stores/player-card-store";
 
 /* ── Design tokens (shared with desktop) ── */
 const C = {
@@ -56,37 +58,58 @@ function ManagerCard({
   bullets: { type: string; text: string }[];
 }) {
   const [flipped, setFlipped] = useState(false);
+  const [shareModal, setShareModal] = useState(false);
+  const [shareImage, setShareImage] = useState<string | null>(null);
+  const [shareBlob, setShareBlob] = useState<Blob | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const didLongPress = useRef(false);
   const tierColor = TIER_COLORS[myScore.tier.label] || C.dim;
 
   const handleShare = useCallback(async () => {
     try {
-      // Dynamic import — html2canvas loaded only when sharing
-      const mod = await import("html2canvas" as string);
-      const html2canvas = mod.default || mod;
+      const html2canvas = (await import("html2canvas")).default;
       if (!cardRef.current) return;
+      // Make sure front face is showing for the screenshot
       const canvas = await html2canvas(cardRef.current, {
         backgroundColor: "#06080d",
         scale: 2,
+        useCORS: true,
       });
-      canvas.toBlob(async (blob: Blob | null) => {
-        if (!blob) return;
-        const file = new File([blob], "dynastygpt-card.png", { type: "image/png" });
-        if (navigator.share) {
-          await navigator.share({ files: [file], title: "My DynastyGPT Manager Card" });
-        } else {
-          await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
-        }
+      const dataUrl = canvas.toDataURL("image/png");
+      setShareImage(dataUrl);
+      canvas.toBlob((blob: Blob | null) => {
+        if (blob) setShareBlob(blob);
       });
-    } catch { /* ignore share cancellation */ }
+      setShareModal(true);
+    } catch { /* ignore */ }
   }, []);
 
+  const doNativeShare = useCallback(async () => {
+    if (!shareBlob) return;
+    try {
+      const file = new File([shareBlob], "dynastygpt-card.png", { type: "image/png" });
+      if (navigator.share) {
+        await navigator.share({ files: [file], title: "My DynastyGPT Manager Card" });
+      } else {
+        await navigator.clipboard.write([new ClipboardItem({ "image/png": shareBlob })]);
+      }
+    } catch { /* user cancelled */ }
+    setShareModal(false);
+  }, [shareBlob]);
+
   const onTouchStart = () => {
-    longPressTimer.current = setTimeout(handleShare, 600);
+    didLongPress.current = false;
+    longPressTimer.current = setTimeout(() => {
+      didLongPress.current = true;
+      handleShare();
+    }, 500);
   };
   const onTouchEnd = () => {
     if (longPressTimer.current) clearTimeout(longPressTimer.current);
+  };
+  const onCardClick = () => {
+    if (!didLongPress.current) setFlipped(!flipped);
   };
 
   const COMPONENT_LABELS: Record<string, string> = {
@@ -98,7 +121,7 @@ function ManagerCard({
   return (
     <div
       style={{ perspective: 1000, margin: "0 12px" }}
-      onClick={() => setFlipped(!flipped)}
+      onClick={onCardClick}
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
       onTouchCancel={onTouchEnd}
@@ -245,6 +268,49 @@ function ManagerCard({
           </div>
         </div>
       </div>
+
+      {/* ── SHARE MODAL ── */}
+      {shareModal && (
+        <div
+          onClick={() => setShareModal(false)}
+          style={{
+            position: "fixed", inset: 0, zIndex: 9999,
+            background: "rgba(0,0,0,0.90)", backdropFilter: "blur(12px)",
+            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+            padding: 24, gap: 20,
+          }}
+        >
+          <div onClick={(e) => e.stopPropagation()} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16, maxWidth: 360 }}>
+            <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", color: C.gold, textTransform: "uppercase" }}>
+              Share Your Dynasty Score
+            </span>
+            {shareImage && (
+              <img src={shareImage} alt="Manager Card" style={{ width: "100%", borderRadius: 12, border: `1px solid ${C.goldBorder}` }} />
+            )}
+            <span style={{ fontFamily: SANS, fontSize: 10, color: `${C.gold}60`, fontWeight: 700 }}>dynastygpt.com</span>
+            <button
+              onClick={doNativeShare}
+              style={{
+                width: "100%", padding: "14px 0", borderRadius: 12,
+                fontFamily: MONO, fontSize: 12, fontWeight: 800, letterSpacing: "0.10em",
+                color: "#06080d", background: "linear-gradient(135deg, #8b6914, #d4a532)",
+                border: "none", cursor: "pointer",
+              }}
+            >
+              SHARE
+            </button>
+            <button
+              onClick={() => setShareModal(false)}
+              style={{
+                fontFamily: MONO, fontSize: 10, color: C.dim, background: "none",
+                border: "none", cursor: "pointer", letterSpacing: "0.08em",
+              }}
+            >
+              CLOSE
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -346,13 +412,6 @@ export default function DashboardMobile({ lid, owner, ownerId }: { lid: string; 
     tickerLine2.push({ label: "TITLES", value: String(champs.championships), color: champs.championships > 0 ? C.gold : undefined });
   }
 
-  /* ── Quick access pills ── */
-  const pills = [
-    { label: "Your Players", stat: `${marketTradeCount} real trades`, gold: true, route: "intel" },
-    { label: "Roster", stat: `${roster?.roster_size || 0} players`, gold: false, route: "intel" },
-    { label: "Rankings", stat: myRank ? `Overall #${myRank.rank}` : "View", gold: false, route: "rankings" },
-    { label: "Coaches Corner", stat: `${sellCount} sell · ${holdCount} hold`, gold: false, route: "intel" },
-  ];
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "10px 0 80px", background: C.bg }}>
@@ -399,79 +458,134 @@ export default function DashboardMobile({ lid, owner, ownerId }: { lid: string; 
         />
       )}
 
-      {/* ── 3. ACTION GRID 2x2 ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, padding: "0 12px" }}>
+      {/* ── 3. ACTION GRID — 2x2 ── */}
+      <div className="grid grid-cols-2 gap-2.5 px-3">
         {[
           { label: "BUILD TRADE", sub: "Find your next move", icon: Plus, color: C.gold, route: "trades" },
-          { label: "FRANCHISE", sub: "Know where you stand", icon: Activity, color: C.green, route: "intel" },
-          { label: "SCOUTING", sub: "Know your league", icon: FileText, color: C.blue, route: "rankings" },
-          { label: "YOUR MOVES", sub: "Sell high, buy low", icon: ChevronRight, color: C.red, route: "intel" },
+          { label: "FRANCHISE", sub: "Know where you stand", icon: Activity, color: C.green, route: "intel?tab=my-franchise" },
+          { label: "SCOUTING", sub: "Scout your opponents", icon: Search, color: C.blue, route: "intel?tab=opponents" },
+          { label: "RANKINGS", sub: "See the full league", icon: FileText, color: C.orange, route: "rankings" },
         ].map((btn) => {
           const Icon = btn.icon;
           return (
             <button
               key={btn.label}
               onClick={() => nav(btn.route)}
+              className="flex flex-col items-center justify-center gap-1 py-3 px-2 rounded-xl active:scale-95 transition-transform"
               style={{
-                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                gap: 3, padding: "12px 8px",
-                borderRadius: 10, background: C.card,
+                background: C.card,
                 border: `1px solid ${btn.color}25`,
                 borderTop: `2px solid ${btn.color}60`,
               }}
             >
-              <Icon size={18} style={{ color: btn.color }} />
-              <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.10em", color: btn.color }}>{btn.label}</span>
-              <span style={{ fontFamily: SANS, fontSize: 9, color: C.dim }}>{btn.sub}</span>
+              <Icon size={16} style={{ color: btn.color }} />
+              <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.10em", color: btn.color }}>{btn.label}</span>
+              <span style={{ fontFamily: SANS, fontSize: 8, color: C.dim }}>{btn.sub}</span>
             </button>
           );
         })}
       </div>
 
-      {/* ── 4. QUICK ACCESS ── */}
-      <div style={{ padding: "0 12px" }}>
-        <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, letterSpacing: "0.10em", color: C.dim, textTransform: "uppercase", display: "block", marginBottom: 6 }}>
-          Quick Access
-        </span>
-        {/* Hero pill: Your Players — full width */}
-        <button
-          onClick={() => nav("intel")}
-          style={{
-            display: "flex", alignItems: "center", justifyContent: "space-between",
-            width: "100%", padding: "10px 16px", borderRadius: 10, marginBottom: 8,
-            background: `linear-gradient(135deg, ${C.card} 0%, rgba(212,165,50,0.08) 100%)`,
-            border: `1px solid ${C.goldBorder}`,
-            borderLeft: `3px solid ${C.gold}`,
-          }}
-        >
-          <div style={{ textAlign: "left" }}>
-            <span style={{ fontFamily: SANS, fontSize: 14, fontWeight: 700, color: C.primary, display: "block" }}>Your Players</span>
-            <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 600, color: C.gold }}>{marketTradeCount} real trades</span>
+      {/* ── 4. YOUR MOVES — sell high / buy low cards inline ── */}
+      {(() => {
+        const cc = coachesCorner as Record<string, unknown> | undefined;
+        const moveNow = ((cc?.move_now || cc?.sell_high || []) as any[]).slice(0, 3);
+        const buyLowItems = ((cc?.buy_low || []) as any[]).slice(0, 2);
+        const setIntent = useTradeBuilderStore.getState().setIntent;
+        const openCard = usePlayerCardStore.getState().openPlayerCard;
+        if (!moveNow.length && !buyLowItems.length) return null;
+        return (
+          <div style={{ padding: "0 12px" }}>
+            <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, letterSpacing: "0.10em", color: C.dim, textTransform: "uppercase", display: "block", marginBottom: 6 }}>
+              Your Moves
+            </span>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              {moveNow.map((item: any, i: number) => {
+                const name = String(item.name || item.player || "");
+                const pos = String(item.position || "");
+                const signal = String(item.signal || item.reason || "").slice(0, 60);
+                const pc = pos === "QB" ? "#e47272" : pos === "RB" ? "#6bb8e0" : pos === "WR" ? "#7dd3a0" : "#e09c6b";
+                return (
+                  <button key={i} onClick={() => { setIntent({ type: "sell", value: name }); nav("trades"); }}
+                    style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, borderLeft: `3px solid ${C.red}`, textAlign: "left", width: "100%" }}>
+                    <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, padding: "2px 5px", borderRadius: 3, color: "#fff", background: C.red + "30", border: `1px solid ${C.red}40` }}>SELL</span>
+                    <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, color: pc, background: pc + "18", padding: "1px 4px", borderRadius: 3 }}>{pos}</span>
+                    <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 600, color: C.primary, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</span>
+                    <span style={{ fontFamily: SANS, fontSize: 9, color: C.dim, maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{signal}</span>
+                  </button>
+                );
+              })}
+              {buyLowItems.map((item: any, i: number) => {
+                const name = String(item.name || item.player || "");
+                const pos = String(item.position || "");
+                const reason = String(item.reason || "").slice(0, 60);
+                const pc = pos === "QB" ? "#e47272" : pos === "RB" ? "#6bb8e0" : pos === "WR" ? "#7dd3a0" : "#e09c6b";
+                return (
+                  <button key={`buy-${i}`} onClick={() => { setIntent({ type: "buy", value: name }); nav("trades"); }}
+                    style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, borderLeft: `3px solid ${C.green}`, textAlign: "left", width: "100%" }}>
+                    <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, padding: "2px 5px", borderRadius: 3, color: "#fff", background: C.green + "30", border: `1px solid ${C.green}40` }}>BUY</span>
+                    <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, color: pc, background: pc + "18", padding: "1px 4px", borderRadius: 3 }}>{pos}</span>
+                    <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 600, color: C.primary, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</span>
+                    <span style={{ fontFamily: SANS, fontSize: 9, color: C.dim, maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{reason}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
-          <ChevronRight size={16} style={{ color: C.gold }} />
+        );
+      })()}
+
+      {/* ── 5. YOUR PLAYERS — real trades with your roster ── */}
+      {(() => {
+        const items = (marketFeed?.market_feed || []) as any[];
+        if (!items.length) return null;
+        const openCard = usePlayerCardStore.getState().openPlayerCard;
+        return (
+          <div style={{ padding: "0 12px" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+              <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, letterSpacing: "0.10em", color: C.gold, textTransform: "uppercase" }}>
+                Real Trades · Your Players
+              </span>
+              <span style={{ fontFamily: MONO, fontSize: 8, color: C.dim }}>{marketTradeCount} trades</span>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+              {items.slice(0, 5).map((item: any, i: number) => {
+                const pos = String(item.position || "");
+                const pc = pos === "QB" ? "#e47272" : pos === "RB" ? "#6bb8e0" : pos === "WR" ? "#7dd3a0" : "#e09c6b";
+                const mostRecent = item.trades?.[0]?.days_ago;
+                return (
+                  <button key={i} onClick={() => openCard(item.player, "trades")}
+                    style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, borderLeft: `3px solid ${pc}`, textAlign: "left", width: "100%" }}>
+                    <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, color: pc, background: pc + "18", padding: "1px 5px", borderRadius: 3 }}>{pos}</span>
+                    <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 600, color: C.primary, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.player}</span>
+                    <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.gold }}>{item.pos_rank || ""}</span>
+                    <span style={{
+                      fontFamily: MONO, fontSize: 8, fontWeight: 800, padding: "2px 5px", borderRadius: 3,
+                      color: item.recent_trades >= 5 ? C.green : item.recent_trades >= 3 ? C.gold : C.secondary,
+                      background: item.recent_trades >= 5 ? C.green + "15" : item.recent_trades >= 3 ? C.goldDim : "rgba(255,255,255,0.04)",
+                    }}>
+                      {item.recent_trades} trades
+                    </span>
+                    {mostRecent != null && <span style={{ fontFamily: MONO, fontSize: 8, color: C.dim }}>{mostRecent}d</span>}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── 6. QUICK NAV — compact row ── */}
+      <div className="flex gap-2 px-3 pb-2">
+        <button onClick={() => nav("trades?tab=my-trades")} className="flex-1 py-2.5 rounded-lg text-center" style={{ background: C.card, border: `1px solid ${C.border}` }}>
+          <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.primary, letterSpacing: "0.06em" }}>My Trades</span>
         </button>
-        {/* Secondary pills — horizontal scroll */}
-        <div style={{
-          overflowX: "auto", whiteSpace: "nowrap", WebkitOverflowScrolling: "touch",
-          scrollbarWidth: "none", margin: "0 -12px", padding: "0 12px",
-        }}>
-          <div style={{ display: "inline-flex", gap: 8 }}>
-            {pills.filter((p) => !p.gold).map((p) => (
-              <button
-                key={p.label}
-                onClick={() => nav(p.route)}
-                style={{
-                  display: "inline-flex", flexDirection: "column", alignItems: "flex-start",
-                  padding: "8px 14px", borderRadius: 8, whiteSpace: "nowrap",
-                  background: C.card, border: `1px solid ${C.border}`,
-                }}
-              >
-                <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 600, color: C.primary }}>{p.label}</span>
-                <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>{p.stat}</span>
-              </button>
-            ))}
-          </div>
-        </div>
+        <button onClick={() => nav("trades?tab=league")} className="flex-1 py-2.5 rounded-lg text-center" style={{ background: C.card, border: `1px solid ${C.border}` }}>
+          <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.primary, letterSpacing: "0.06em" }}>League Trades</span>
+        </button>
+        <button onClick={() => nav("intel?tab=draft")} className="flex-1 py-2.5 rounded-lg text-center" style={{ background: C.card, border: `1px solid ${C.border}` }}>
+          <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.primary, letterSpacing: "0.06em" }}>Draft Room</span>
+        </button>
       </div>
     </div>
   );

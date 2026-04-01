@@ -218,6 +218,11 @@ export default function PlayerCardModal() {
               </div>
             </div>
 
+            {/* Branding — top right for screenshots */}
+            <div style={{ position: "absolute", top: 10, right: 16, zIndex: 10 }}>
+              <span style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, color: `${C.gold}60`, letterSpacing: "0.02em" }}>dynastygpt.com</span>
+            </div>
+
             {/* ── Tabs — touch-friendly ── */}
             <div style={{ display: "flex", borderBottom: `1px solid ${C.border}` }}>
               {TABS.map((t) => (
@@ -265,8 +270,8 @@ function OverviewTab({ pc, seasons, history }: { pc?: PlayerCard; seasons: Seaso
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      {/* Value cards — stack on mobile, row on desktop */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+      {/* Value cards — 2-col on mobile, 3-col on desktop */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
         <ValueCard label="LEAGUE VALUE" value={fmt(pc.sha_value)} sub={pc.sha_pos_rank} color={C.gold} />
         <ValueCard label="DYNASTY" value={pc.dynasty_value ? fmt(pc.dynasty_value) : "—"} sub={pc.dynasty_rank ? `#${pc.dynasty_rank}` : ""} color="#6bb8e0" />
         <ValueCard label="WIN-NOW" value={pc.redraft_value ? fmt(pc.redraft_value) : "—"} sub={pc.redraft_rank ? `#${pc.redraft_rank}` : ""} color="#7dd3a0" />
