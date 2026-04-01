@@ -50,7 +50,7 @@ export default function ChatPanel({ leagueId, owner, activeTrade, suggestedPacka
   useEffect(() => {
     if (injectedMessage && injectedMessage !== lastInjectedRef.current) {
       lastInjectedRef.current = injectedMessage;
-      const clean = injectedMessage.replace(/\n\d{13}$/, '');
+      const clean = injectedMessage.replace(/\n\d{13}$/, '').replace(/\*\*/g, '');
       setMessages(prev => [...prev, { role: 'assistant', content: clean }]);
     }
   }, [injectedMessage]);
@@ -98,9 +98,10 @@ export default function ChatPanel({ leagueId, owner, activeTrade, suggestedPacka
           try {
             const parsed = JSON.parse(data);
             if (parsed.text) {
+              const clean = parsed.text.replace(/\*\*/g, '');
               setMessages(prev => {
                 const u = [...prev];
-                u[u.length - 1] = { ...u[u.length - 1], content: u[u.length - 1].content + parsed.text };
+                u[u.length - 1] = { ...u[u.length - 1], content: u[u.length - 1].content + clean };
                 return u;
               });
             }
