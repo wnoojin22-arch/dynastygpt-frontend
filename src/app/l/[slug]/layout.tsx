@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useLeagueStore } from "@/lib/stores/league-store";
 import PlayerCardModal from "@/components/league/PlayerCardModal";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { getOwners, getOverview, getRankings, syncLeague } from "@/lib/api";
+import { getOwners, getOverview, getRankings, syncLeague, getLeagueBySlug } from "@/lib/api";
 import { Home, LayoutGrid, Search, Zap, BarChart3, RefreshCw } from "lucide-react";
 
 /* ═══════════════════════════════════════════════════════════════
@@ -311,9 +311,49 @@ function HeaderBar({ owner, owners, onOwnerChange, leagueName, syncing, onResync
 export default function LeagueLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const queryClient = useQueryClient();
-  const { currentLeagueId, currentOwner, setOwner } = useLeagueStore();
+  const { currentLeagueId, currentLeagueSlug, currentOwner, setLeague, setOwner, savedLeagues } = useLeagueStore();
   const slug = pathname.split("/")[2] || "";
   const [syncing, setSyncing] = useState(false);
+  const hydrating = useRef(false);
+
+  // ── Auto-hydrate league from URL slug when store is empty ──
+  // Zustand persist hydrates async — we need to wait for it before checking.
+  const [storeReady, setStoreReady] = useState(false);
+  useEffect(() => {
+    // Zustand persist fires onRehydrateStorage after loading from localStorage.
+    // On first render all values are defaults (null). We wait one tick for hydration.
+    const unsub = useLeagueStore.persist.onFinishHydration(() => setStoreReady(true));
+    // If already hydrated (fast path), set immediately
+    if (useLeagueStore.persist.hasHydrated()) setStoreReady(true);
+    return unsub;
+  }, []);
+
+  useEffect(() => {
+    if (!storeReady) return;
+    if (currentLeagueId || !slug || hydrating.current) return;
+
+    // First: check savedLeagues (localStorage) for a match — instant, no API call
+    const saved = savedLeagues.find((l) => l.slug === slug);
+    if (saved) {
+      setLeague(saved.id, saved.slug, saved.name);
+      if (saved.owner) setOwner(saved.owner, saved.ownerId);
+      return;
+    }
+
+    // Second: call API to resolve slug → league_id
+    hydrating.current = true;
+    getLeagueBySlug(slug)
+      .then((data) => {
+        setLeague(data.league_id, slug, data.name);
+        if (data.owners?.length && !currentOwner) {
+          setOwner(data.owners[0].name, data.owners[0].user_id);
+        }
+      })
+      .catch(() => {
+        // Slug not found — user will see empty state
+      })
+      .finally(() => { hydrating.current = false; });
+  }, [storeReady, slug, currentLeagueId, savedLeagues, setLeague, setOwner, currentOwner]);
 
   const { data: overview } = useQuery({
     queryKey: ["overview", currentLeagueId],

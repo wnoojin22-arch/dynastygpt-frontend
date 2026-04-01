@@ -344,12 +344,12 @@ function DynastyScoreCard({ lid, owner, ownerId }: { lid: string; owner: string;
   return (
     <div className="w-full" style={{ order: -1 }}>
       <div style={{
-        borderRadius: 8, overflow: "hidden", background: C.card,
+        borderRadius: 8, overflow: "hidden",
+        background: `linear-gradient(180deg, ${C.goldGlow} 0%, transparent 50%), ${C.card}`,
         borderTop: `2px solid ${C.goldDark}`,
         borderRight: `1px solid ${C.goldBorder}`,
         borderBottom: `1px solid ${C.goldBorder}`,
         borderLeft: `1px solid ${C.goldBorder}`,
-        backgroundImage: `linear-gradient(180deg, ${C.goldGlow} 0%, transparent 50%)`,
       }}>
         {/* Header: DYNASTYGPT MANAGER RANKS */}
         <div style={{

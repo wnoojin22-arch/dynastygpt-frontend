@@ -12,7 +12,6 @@ import type {
 } from "@/components/league/trade-builder/types";
 
 const API = "";
-const API_DIRECT = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 const MODES = ["conservative", "balanced", "aggressive"] as const;
 export type TradeMode = (typeof MODES)[number];
 
@@ -322,7 +321,7 @@ export function useTradeBuilder({
         const findPosition = (body.find_position as string) || undefined;
 
         const res = await fetch(
-          `${API_DIRECT}/api/league/${leagueId}/v2/trade-engine/generate`,
+          `${API}/api/league/${leagueId}/v2/trade-engine/generate`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },

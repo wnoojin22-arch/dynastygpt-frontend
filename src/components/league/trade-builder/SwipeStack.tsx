@@ -13,7 +13,7 @@ import type { SuggestedPackage, TradeAsset } from "./types";
 
 const SWIPE_THRESHOLD = 120;
 const ROTATION_FACTOR = 15; // max degrees of rotation at full drag
-const TRACK_URL = `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/swipes/track`;
+const TRACK_URL = "/api/swipes/track";
 
 /** Fire-and-forget swipe tracking — never blocks UI */
 function trackSwipe(

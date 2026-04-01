@@ -41,6 +41,7 @@ const O = (owner: string, userId?: string | null) => E(userId || owner);
 
 // ── Sync & League ────────────────────────────────────────────────────────
 export const syncLeague = (id: string) => get<SyncResponse>(`${L(id)}/sync`);
+export const getLeagueBySlug = (slug: string) => get<{ league_id: string; name: string; slug: string; owners: { name: string; user_id: string | null }[] }>(`${L("by-slug")}/${slug}`);
 export const getOverview = (id: string) => get<LeagueOverview>(`${L(id)}/overview`);
 export const getStandings = (id: string) => get<{ standings: StandingEntry[] }>(`${L(id)}/standings`);
 export const getRankings = (id: string) => get<{ rankings: RankingEntry[] }>(`${L(id)}/rankings`);

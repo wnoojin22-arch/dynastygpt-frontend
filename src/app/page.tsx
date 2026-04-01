@@ -65,17 +65,18 @@ function ShieldLogo({ size = 28 }: { size?: number }) {
 /* ═══════════════════════════════════════════════════════════════
    HEADER — Logo + League ID Input (sticky)
    ═══════════════════════════════════════════════════════════════ */
-function Header({ leagueId, setLeagueId, onSync, syncing, error }: {
+function Header({ leagueId, setLeagueId, onSync, syncing, error, status }: {
   leagueId: string; setLeagueId: (v: string) => void;
-  onSync: () => void; syncing: boolean; error: string | null;
+  onSync: () => void; syncing: boolean; error: string | null; status: string | null;
 }) {
   return (
     <header style={{
-      height: 52, background: T.panel, borderBottom: `1px solid ${T.border}`,
-      display: 'flex', alignItems: 'center', padding: '0 20px', gap: 14,
+      background: T.panel, borderBottom: `1px solid ${T.border}`,
+      padding: '10px 16px',
       flexShrink: 0, position: 'sticky', top: 0, zIndex: 50,
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+      {/* Logo row */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
         <ShieldLogo size={28} />
         <div style={{ display: 'flex', alignItems: 'baseline', lineHeight: 1 }}>
           <span style={{ fontFamily: DISPLAY, fontSize: 20, color: '#fff', letterSpacing: '-0.5px' }}>DYNASTY</span>
@@ -86,17 +87,18 @@ function Header({ leagueId, setLeagueId, onSync, syncing, error }: {
           }}>GPT</span>
         </div>
       </div>
-      <div style={{ flex: 1 }} />
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      {/* Input row — full width on mobile */}
+      <div style={{ display: 'flex', gap: 8 }}>
         <input
-          type="text" placeholder="Enter Sleeper League ID..."
+          type="text" placeholder="Paste Sleeper League ID..."
+          inputMode="numeric"
           value={leagueId}
           onChange={(e) => setLeagueId(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') onSync(); }}
           style={{
-            width: 240, padding: '7px 12px', borderRadius: 6,
+            flex: 1, minWidth: 0, padding: '14px 12px', borderRadius: 8,
             border: `1px solid ${error ? T.red + '60' : T.borderLt}`,
-            background: T.elevated, color: T.text, fontSize: 12,
+            background: T.elevated, color: T.text, fontSize: 16,
             fontFamily: MONO, fontWeight: 500, outline: 'none',
             transition: 'border-color 0.2s',
           }}
@@ -105,15 +107,23 @@ function Header({ leagueId, setLeagueId, onSync, syncing, error }: {
         />
         <button onClick={onSync} disabled={syncing || !leagueId.trim()}
           style={{
-            padding: '7px 18px', borderRadius: 6, border: 'none',
+            padding: '14px 20px', borderRadius: 8, border: 'none',
             cursor: syncing ? 'wait' : 'pointer',
             background: syncing ? T.elevated : `linear-gradient(135deg, ${T.goldDark}, ${T.gold})`,
             color: syncing ? T.textDim : T.bg,
-            fontSize: 11, fontFamily: SANS, fontWeight: 800, letterSpacing: '0.06em',
+            fontSize: 13, fontFamily: SANS, fontWeight: 800, letterSpacing: '0.06em',
             transition: 'all 0.2s', opacity: !leagueId.trim() ? 0.4 : 1,
-          }}>{syncing ? 'SYNCING...' : 'ENTER LEAGUE'}</button>
+            WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation',
+            flexShrink: 0,
+          }}>{syncing ? 'SYNCING...' : 'GO'}</button>
       </div>
-      {error && <span style={{ fontSize: 10, color: T.red, fontFamily: MONO }}>{error}</span>}
+      {/* Status / error feedback */}
+      {(error || status) && (
+        <div style={{ marginTop: 8, fontSize: 11, fontFamily: MONO, fontWeight: 600 }}>
+          {error && <span style={{ color: T.red }}>{error}</span>}
+          {status && !error && <span style={{ color: T.gold }}>{status}</span>}
+        </div>
+      )}
     </header>
   );
 }
@@ -356,29 +366,34 @@ export default function LandingPage() {
   const [leagueId, setLeagueId] = useState('');
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
 
   const handleSync = useCallback(async () => {
     const id = leagueId.trim();
     if (!id) return;
     setSyncing(true);
     setError(null);
+    setStatus("Connecting...");
     try {
-      // Try fast overview first — if league exists in DB, navigate immediately
-      // The layout auto-sync will refresh data in the background
       let name = "";
       try {
+        setStatus("Loading league data...");
         const overview = await getOverview(id);
         name = overview.name || id;
+        setStatus("Found: " + name);
       } catch {
-        // League not in DB yet — must sync first (first-time entry)
+        setStatus("First sync — pulling from Sleeper...");
         const res = await syncLeague(id);
         name = res.name || id;
+        setStatus("Synced: " + name);
       }
       const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
       setLeague(id, slug, name);
-      router.push(`/l/${slug}`);
+      setStatus("Navigating to dashboard...");
+      router.push(`/l/${slug}/dashboard`);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to sync league');
+      setError(err instanceof Error ? err.message : 'Failed — check the league ID');
+      setStatus(null);
       setSyncing(false);
     }
   }, [leagueId, setLeague, router]);
@@ -391,7 +406,7 @@ export default function LandingPage() {
         @keyframes pulse-gold { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
       `}</style>
 
-      <Header leagueId={leagueId} setLeagueId={setLeagueId} onSync={handleSync} syncing={syncing} error={error} />
+      <Header leagueId={leagueId} setLeagueId={setLeagueId} onSync={handleSync} syncing={syncing} error={error} status={status} />
       <MarketTicker />
 
       {/* ═══ HERO (tight — not full viewport) ═══ */}
@@ -408,7 +423,7 @@ export default function LandingPage() {
             AI-POWERED DYNASTY INTELLIGENCE
           </div>
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 20, flexWrap: 'wrap' }}>
-            <h1 style={{ fontSize: 38, fontWeight: 900, color: T.text, fontFamily: DISPLAY, letterSpacing: '-0.02em', margin: 0, lineHeight: 1.05 }}>
+            <h1 style={{ fontSize: 'clamp(22px, 5vw, 38px)', fontWeight: 900, color: T.text, fontFamily: DISPLAY, letterSpacing: '-0.02em', margin: 0, lineHeight: 1.05 }}>
               The Platform That Actually Knows{' '}
               <span style={{ background: 'linear-gradient(180deg, #f5e6a3 0%, #d4a532 40%, #8b6914 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', filter: 'drop-shadow(0 0 24px rgba(212,165,50,0.2))' }}>Your League</span>
             </h1>
@@ -420,7 +435,7 @@ export default function LandingPage() {
       </div>
 
       {/* ═══ MAIN GRID — Content Left, Widgets Right (Shadynasty layout) ═══ */}
-      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '24px 32px 48px', display: 'grid', gridTemplateColumns: '1fr 320px', gap: 24, alignItems: 'start' }}>
+      <div className="grid grid-cols-1 sm:grid-cols-[1fr_320px]" style={{ maxWidth: 1200, margin: '0 auto', padding: '24px 16px 48px', gap: 24, alignItems: 'start' }}>
         {/* LEFT COLUMN — content feed */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24, animation: 'fadeUp 0.5s ease 0.1s both' }}>
           {/* Featured Article */}
@@ -461,10 +476,10 @@ export default function LandingPage() {
               <input type="text" placeholder="League ID..." value={leagueId}
                 onChange={(e) => setLeagueId(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') handleSync(); }}
-                style={{ flex: 1, padding: '7px 10px', borderRadius: 4, border: `1px solid ${T.borderLt}`, background: T.elevated, color: T.text, fontSize: 11, fontFamily: MONO, outline: 'none' }}
+                style={{ flex: 1, padding: '12px 10px', minHeight: 48, borderRadius: 4, border: `1px solid ${T.borderLt}`, background: T.elevated, color: T.text, fontSize: 12, fontFamily: MONO, outline: 'none' }}
               />
               <button onClick={handleSync} disabled={syncing || !leagueId.trim()}
-                style={{ padding: '7px 14px', borderRadius: 4, border: 'none', cursor: 'pointer', background: `linear-gradient(135deg, ${T.goldDark}, ${T.gold})`, color: T.bg, fontSize: 10, fontWeight: 800, fontFamily: SANS, letterSpacing: '0.04em', opacity: !leagueId.trim() ? 0.4 : 1 }}>
+                style={{ padding: '12px 14px', minHeight: 48, borderRadius: 4, border: 'none', cursor: 'pointer', background: `linear-gradient(135deg, ${T.goldDark}, ${T.gold})`, color: T.bg, fontSize: 11, fontWeight: 800, fontFamily: SANS, letterSpacing: '0.04em', opacity: !leagueId.trim() ? 0.4 : 1, WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}>
                 {syncing ? '...' : 'GO →'}
               </button>
             </div>
