@@ -11,9 +11,9 @@ import {
   getMarketFeed, getCoachesCorner, getRosterValueChange,
 } from "@/lib/api";
 import type { DynastyScoreResponse } from "@/lib/api";
-import { Plus, FileText, ChevronRight, Activity, Share2, TrendingUp, TrendingDown, Search } from "lucide-react";
+import { Plus, FileText, ChevronRight, Activity, Share2, Search } from "lucide-react";
 import { useTradeBuilderStore } from "@/lib/stores/trade-builder-store";
-import { usePlayerCardStore } from "@/lib/stores/player-card-store";
+import MarketIntelSection from "@/components/league/MarketIntelSection";
 
 /* ── Design tokens (shared with desktop) ── */
 const C = {
@@ -336,7 +336,7 @@ export default function DashboardMobile({ lid, owner, ownerId }: { lid: string; 
     queryFn: async () => { const d = await getAllDynastyScores(lid); return d.scores; },
     enabled: !!lid, staleTime: 1800000,
   });
-  const { data: marketFeed } = useQuery({ queryKey: ["market-feed", lid, owner], queryFn: () => getMarketFeed(lid, owner, ownerId, 120), enabled: !!lid && !!owner, staleTime: 1800000 });
+  const { data: marketFeed, isLoading: loadingMarket } = useQuery({ queryKey: ["market-feed", lid, owner], queryFn: () => getMarketFeed(lid, owner, ownerId, 120), enabled: !!lid && !!owner, staleTime: 1800000 });
   const { data: coachesCorner } = useQuery({ queryKey: ["coaches-corner", lid, owner], queryFn: () => getCoachesCorner(lid, owner, ownerId), enabled: !!lid && !!owner, staleTime: 600000 });
   const { data: rosterValueChange } = useQuery({ queryKey: ["roster-value-change", lid, owner], queryFn: () => getRosterValueChange(lid, owner, ownerId), enabled: !!lid && !!owner, staleTime: 1800000 });
 
@@ -486,13 +486,12 @@ export default function DashboardMobile({ lid, owner, ownerId }: { lid: string; 
         })}
       </div>
 
-      {/* ── 4. YOUR MOVES — sell high / buy low cards inline ── */}
+      {/* ── 4. YOUR MOVES — sell high / buy low from coaches corner ── */}
       {(() => {
         const cc = coachesCorner as Record<string, unknown> | undefined;
         const moveNow = ((cc?.move_now || cc?.sell_high || []) as any[]).slice(0, 3);
         const buyLowItems = ((cc?.buy_low || []) as any[]).slice(0, 2);
         const setIntent = useTradeBuilderStore.getState().setIntent;
-        const openCard = usePlayerCardStore.getState().openPlayerCard;
         if (!moveNow.length && !buyLowItems.length) return null;
         return (
           <div style={{ padding: "0 12px" }}>
@@ -535,57 +534,9 @@ export default function DashboardMobile({ lid, owner, ownerId }: { lid: string; 
         );
       })()}
 
-      {/* ── 5. YOUR PLAYERS — real trades with your roster ── */}
-      {(() => {
-        const items = (marketFeed?.market_feed || []) as any[];
-        if (!items.length) return null;
-        const openCard = usePlayerCardStore.getState().openPlayerCard;
-        return (
-          <div style={{ padding: "0 12px" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-              <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, letterSpacing: "0.10em", color: C.gold, textTransform: "uppercase" }}>
-                Real Trades · Your Players
-              </span>
-              <span style={{ fontFamily: MONO, fontSize: 8, color: C.dim }}>{marketTradeCount} trades</span>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-              {items.slice(0, 5).map((item: any, i: number) => {
-                const pos = String(item.position || "");
-                const pc = pos === "QB" ? "#e47272" : pos === "RB" ? "#6bb8e0" : pos === "WR" ? "#7dd3a0" : "#e09c6b";
-                const mostRecent = item.trades?.[0]?.days_ago;
-                return (
-                  <button key={i} onClick={() => openCard(item.player, "trades")}
-                    style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, borderLeft: `3px solid ${pc}`, textAlign: "left", width: "100%" }}>
-                    <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, color: pc, background: pc + "18", padding: "1px 5px", borderRadius: 3 }}>{pos}</span>
-                    <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 600, color: C.primary, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.player}</span>
-                    <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.gold }}>{item.pos_rank || ""}</span>
-                    <span style={{
-                      fontFamily: MONO, fontSize: 8, fontWeight: 800, padding: "2px 5px", borderRadius: 3,
-                      color: item.recent_trades >= 5 ? C.green : item.recent_trades >= 3 ? C.gold : C.secondary,
-                      background: item.recent_trades >= 5 ? C.green + "15" : item.recent_trades >= 3 ? C.goldDim : "rgba(255,255,255,0.04)",
-                    }}>
-                      {item.recent_trades} trades
-                    </span>
-                    {mostRecent != null && <span style={{ fontFamily: MONO, fontSize: 8, color: C.dim }}>{mostRecent}d</span>}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        );
-      })()}
-
-      {/* ── 6. QUICK NAV — compact row ── */}
-      <div className="flex gap-2 px-3 pb-2">
-        <button onClick={() => nav("trades?tab=my-trades")} className="flex-1 py-2.5 rounded-lg text-center" style={{ background: C.card, border: `1px solid ${C.border}` }}>
-          <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.primary, letterSpacing: "0.06em" }}>My Trades</span>
-        </button>
-        <button onClick={() => nav("trades?tab=league")} className="flex-1 py-2.5 rounded-lg text-center" style={{ background: C.card, border: `1px solid ${C.border}` }}>
-          <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.primary, letterSpacing: "0.06em" }}>League Trades</span>
-        </button>
-        <button onClick={() => nav("intel?tab=draft")} className="flex-1 py-2.5 rounded-lg text-center" style={{ background: C.card, border: `1px solid ${C.border}` }}>
-          <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.primary, letterSpacing: "0.06em" }}>Draft Room</span>
-        </button>
+      {/* ── 5. REAL TRADES · YOUR PLAYERS — exact same component as desktop ── */}
+      <div style={{ padding: "0 12px" }}>
+        <MarketIntelSection feed={marketFeed} loading={loadingMarket} />
       </div>
     </div>
   );
