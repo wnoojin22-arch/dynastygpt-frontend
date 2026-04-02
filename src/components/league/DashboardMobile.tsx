@@ -237,35 +237,7 @@ export default function DashboardMobile({ lid, owner, ownerId }: { lid: string; 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "10px 0 80px", background: C.bg }}>
 
-      {/* ── 1. STATS TICKER — two fixed lines ── */}
-      <div style={{ padding: "0 12px", display: "flex", flexDirection: "column", gap: 2 }}>
-        {[tickerLine1, tickerLine2].map((line, lineIdx) => (
-          <div key={lineIdx} style={{ display: "flex", alignItems: "center", gap: 0, flexWrap: "wrap", justifyContent: "center" }}>
-            {line.map((t, i) => (
-              <div key={i} style={{ display: "flex", alignItems: "center", gap: 4, padding: "2px 0" }}>
-                {i > 0 && <div style={{ width: 1, height: 12, background: C.borderLt, margin: "0 8px" }} />}
-                {t.badge ? (
-                  <span style={{
-                    fontFamily: MONO, fontSize: 9, fontWeight: 900, letterSpacing: "0.10em",
-                    padding: "2px 7px", borderRadius: 3,
-                    color: t.color || C.dim, background: `${t.color || C.dim}18`,
-                    border: `1px solid ${t.color || C.dim}40`,
-                  }}>{t.label}</span>
-                ) : t.label && !t.value ? (
-                  <span style={{ fontFamily: MONO, fontSize: 9, color: C.gold, letterSpacing: "0.06em" }}>{t.label}</span>
-                ) : (
-                  <>
-                    <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim, letterSpacing: "0.06em" }}>{t.label}</span>
-                    <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: t.color || C.primary }}>{t.value}</span>
-                  </>
-                )}
-              </div>
-            ))}
-          </div>
-        ))}
-      </div>
-
-      {/* ── 2. MANAGER CARD ── */}
+      {/* ── MANAGER CARD ── */}
       {myScore && (
         <>
           <ManagerCardMobile
@@ -276,6 +248,9 @@ export default function DashboardMobile({ lid, owner, ownerId }: { lid: string; 
             globalRank={globalRank}
             topPct={topPct}
             bullets={bullets}
+            record={record || null}
+            champs={champs || null}
+            badges={(tendencies as any)?.badges || []}
             onTap={() => setShowCardModal(true)}
             onLongPress={() => setShowCardModal(true)}
           />
