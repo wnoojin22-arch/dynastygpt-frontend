@@ -94,15 +94,17 @@ function MyDraftProfileTab({ seasons, owner }: { seasons: any[]; owner: string }
     }
 
     const total = myPicks.length;
+    const evaluated = myPicks.filter(p => p.label !== "Too Early").length;
     const stars = myPicks.filter(p => p.label === "Star").length;
     const hits = myPicks.filter(p => p.label === "Hit").length;
     const busts = myPicks.filter(p => p.label === "Bust").length;
     const misses = myPicks.filter(p => p.label === "Miss").length;
-    const hitRate = total > 0 ? Math.round((stars + hits) / total * 100) : 0;
+    const hitRate = evaluated > 0 ? Math.round((stars + hits) / evaluated * 100) : 0;
 
-    // Hit rate by round
+    // Hit rate by round (exclude Too Early)
     const byRound: Record<number, { total: number; hits: number }> = {};
     for (const p of myPicks) {
+      if (p.label === "Too Early") continue;
       if (!byRound[p.round]) byRound[p.round] = { total: 0, hits: 0 };
       byRound[p.round].total++;
       if (p.label === "Star" || p.label === "Hit") byRound[p.round].hits++;
@@ -111,9 +113,10 @@ function MyDraftProfileTab({ seasons, owner }: { seasons: any[]; owner: string }
       .map(([r, s]) => ({ round: Number(r), ...s, rate: s.total > 0 ? Math.round(s.hits / s.total * 100) : 0 }))
       .sort((a, b) => a.round - b.round);
 
-    // Hit rate by position
+    // Hit rate by position (exclude Too Early)
     const byPos: Record<string, { total: number; hits: number }> = {};
     for (const p of myPicks) {
+      if (p.label === "Too Early") continue;
       const pos = p.position || "?";
       if (!byPos[pos]) byPos[pos] = { total: 0, hits: 0 };
       byPos[pos].total++;
@@ -159,7 +162,7 @@ function MyDraftProfileTab({ seasons, owner }: { seasons: any[]; owner: string }
       {/* Hit rate by round */}
       <DCard label="HIT RATE BY ROUND">
         <div className="flex gap-1.5">
-          {profile.roundStats.map((r) => (
+          {profile.roundStats.filter((r) => r.round <= 4).map((r) => (
             <div key={r.round} className="flex-1" style={{ textAlign: "center", padding: "6px 2px", borderRadius: 6, background: C.elevated, border: `1px solid ${C.border}` }}>
               <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: hrColor(r.rate) }}>{r.rate}%</div>
               <div style={{ fontFamily: MONO, fontSize: 8, color: C.dim, marginTop: 2 }}>RD {r.round}</div>
@@ -392,6 +395,7 @@ function ScoutingTab({ seasons, owner }: { seasons: any[]; owner: string }) {
         if (!stats[o]) stats[o] = { total: 0, stars: 0, hits: 0, busts: 0, misses: 0, positions: {}, bestPick: null, worstPick: null };
         const st = stats[o];
         st.total++;
+        if (p.label === "Too Early") { st.total--; continue; }
         if (p.label === "Star") st.stars++;
         if (p.label === "Hit") st.hits++;
         if (p.label === "Bust") st.busts++;
@@ -729,7 +733,7 @@ function LeagueDraftTab({ seasons, owner }: { seasons: any[]; owner: string }) {
       {/* League hit rate by round */}
       <DCard label="LEAGUE HIT RATE BY ROUND">
         <div className="flex gap-1.5">
-          {stats.roundStats.map((r) => (
+          {stats.roundStats.filter((r) => r.round <= 4).map((r) => (
             <div key={r.round} className="flex-1" style={{ textAlign: "center", padding: "6px 2px", borderRadius: 6, background: C.elevated, border: `1px solid ${C.border}` }}>
               <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: hrColor(r.rate) }}>{r.rate}%</div>
               <div style={{ fontFamily: MONO, fontSize: 8, color: C.dim, marginTop: 2 }}>RD {r.round}</div>
