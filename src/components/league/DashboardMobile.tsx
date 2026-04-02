@@ -11,7 +11,7 @@ import {
   getMarketFeed, getCoachesCorner, getRosterValueChange,
 } from "@/lib/api";
 import type { DynastyScoreResponse } from "@/lib/api";
-import { Plus, FileText, ChevronRight, ChevronDown, Activity, Search, X } from "lucide-react";
+import { Plus, FileText, ChevronRight, ChevronDown, Activity, Search, X, BarChart3, Users } from "lucide-react";
 import { useTradeBuilderStore } from "@/lib/stores/trade-builder-store";
 import { usePlayerCardStore } from "@/lib/stores/player-card-store";
 import { motion, AnimatePresence } from "framer-motion";
@@ -337,29 +337,31 @@ export default function DashboardMobile({ lid, owner, ownerId }: { lid: string; 
         </>
       )}
 
-      {/* ── 3. ACTION GRID — 2x2 ── */}
-      <div className="grid grid-cols-2 gap-2.5 px-3">
+      {/* ── 3. ACTION GRID — 3x2 ── */}
+      <div className="grid grid-cols-3 gap-2 px-3">
         {[
           { label: "BUILD TRADE", sub: "Find your next move", icon: Plus, color: C.gold, route: "trades" },
-          { label: "FRANCHISE", sub: "Know where you stand", icon: Activity, color: C.green, route: "intel?tab=my-franchise" },
-          { label: "DRAFT ROOM", sub: "Picks, grades & intel", icon: Search, color: C.blue, route: "draft" },
-          { label: "RANKINGS", sub: "See the full league", icon: FileText, color: C.orange, route: "rankings" },
+          { label: "FRANCHISE", sub: "Where you stand", icon: Activity, color: C.green, route: "intel?tab=my-franchise" },
+          { label: "SCOUTING", sub: "Scout opponents", icon: Search, color: C.blue, route: "intel?tab=opponents" },
+          { label: "DRAFT ROOM", sub: "Picks & grades", icon: FileText, color: "#b39ddb", route: "draft" },
+          { label: "RANKINGS", sub: "Full league", icon: BarChart3, color: C.orange, route: "rankings" },
+          { label: "YOUR ROSTER", sub: "Players & values", icon: Users, color: C.blue, route: "dashboard" },
         ].map((btn) => {
           const Icon = btn.icon;
           return (
             <button
               key={btn.label}
               onClick={() => nav(btn.route)}
-              className="flex flex-col items-center justify-center gap-1 py-3 px-2 rounded-xl active:scale-95 transition-transform"
+              className="flex flex-col items-center justify-center gap-1 py-2.5 px-1 rounded-xl active:scale-95 transition-transform"
               style={{
                 background: C.card,
                 border: `1px solid ${btn.color}25`,
                 borderTop: `2px solid ${btn.color}60`,
               }}
             >
-              <Icon size={16} style={{ color: btn.color }} />
-              <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.10em", color: btn.color }}>{btn.label}</span>
-              <span style={{ fontFamily: SANS, fontSize: 8, color: C.dim }}>{btn.sub}</span>
+              <Icon size={14} style={{ color: btn.color }} />
+              <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, letterSpacing: "0.08em", color: btn.color }}>{btn.label}</span>
+              <span style={{ fontFamily: SANS, fontSize: 7, color: C.dim }}>{btn.sub}</span>
             </button>
           );
         })}
