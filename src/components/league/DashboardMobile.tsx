@@ -165,6 +165,7 @@ export default function DashboardMobile({ lid, owner, ownerId }: { lid: string; 
   const router = useRouter();
   const { currentLeagueSlug } = useLeagueStore();
   const nav = (path: string) => router.push(`/l/${currentLeagueSlug}/${path}`);
+  const openPlayerCard = usePlayerCardStore((s) => s.openPlayerCard);
 
   /* ── Data hooks (shared with desktop) ── */
   const { data: overview } = useQuery({ queryKey: ["overview", lid], queryFn: () => getOverview(lid), enabled: !!lid, staleTime: 3600000 });
@@ -345,13 +346,13 @@ export default function DashboardMobile({ lid, owner, ownerId }: { lid: string; 
           { label: "SCOUTING", sub: "Scout opponents", icon: Search, color: C.blue, route: "intel?tab=opponents" },
           { label: "DRAFT ROOM", sub: "Picks & grades", icon: FileText, color: "#b39ddb", route: "draft" },
           { label: "RANKINGS", sub: "Full league", icon: BarChart3, color: C.orange, route: "rankings" },
-          { label: "YOUR ROSTER", sub: "Players & values", icon: Users, color: C.blue, route: "dashboard" },
+          { label: "YOUR ROSTER", sub: "Players & values", icon: Users, color: C.blue, route: "__roster" },
         ].map((btn) => {
           const Icon = btn.icon;
           return (
             <button
               key={btn.label}
-              onClick={() => nav(btn.route)}
+              onClick={() => btn.route === "__roster" ? document.getElementById("mobile-roster")?.scrollIntoView({ behavior: "smooth" }) : nav(btn.route)}
               className="flex flex-col items-center justify-center gap-1 py-2.5 px-1 rounded-xl active:scale-95 transition-transform"
               style={{
                 background: C.card,
@@ -372,6 +373,71 @@ export default function DashboardMobile({ lid, owner, ownerId }: { lid: string; 
 
       {/* ── 5. YOUR MOVES — pill ── */}
       <MovesPill coachesCorner={coachesCorner} nav={nav} sleeperIdMap={sleeperIdMap} />
+
+      {/* ── 6. ROSTER — full roster with values ── */}
+      <div id="mobile-roster" style={{ padding: "0 12px" }}>
+        <div style={{
+          borderRadius: 12, overflow: "hidden",
+          background: C.card, border: `1px solid ${C.border}`,
+        }}>
+          {/* Header */}
+          <div style={{
+            padding: "8px 12px", borderBottom: `1px solid ${C.border}`,
+            background: C.goldDim, display: "flex", justifyContent: "space-between", alignItems: "center",
+          }}>
+            <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", color: C.gold }}>ROSTER & ASSETS</span>
+            <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>
+              {roster ? Object.values((roster as any)?.by_position || {}).reduce((s: number, arr: any) => s + (arr?.length || 0), 0) : 0} players
+            </span>
+          </div>
+
+          {/* Position groups */}
+          {(["QB", "RB", "WR", "TE"] as const).map((pos) => {
+            const players: any[] = (roster as any)?.by_position?.[pos] || [];
+            if (!players.length) return null;
+            const pc = pos === "QB" ? "#e47272" : pos === "RB" ? "#6bb8e0" : pos === "WR" ? "#7dd3a0" : "#e09c6b";
+            return (
+              <div key={pos}>
+                {/* Position header */}
+                <div style={{
+                  display: "flex", alignItems: "center", gap: 6,
+                  padding: "4px 12px", background: C.elevated,
+                  borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`,
+                }}>
+                  <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 900, color: pc, letterSpacing: "0.08em" }}>{pos}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>{players.length}</span>
+                </div>
+                {/* Player rows */}
+                {players.map((p: any, idx: number) => {
+                  const isTop = idx === 0;
+                  const t30 = p.trend_30d;
+                  const trendColor = t30?.direction === "up" ? C.green : t30?.direction === "down" ? C.red : C.dim;
+                  const trendVal = t30?.delta ? `${t30.delta > 0 ? "▲" : "▼"}${Math.abs(t30.delta)}` : "";
+                  return (
+                    <div key={p.name_clean || idx}
+                      onClick={() => openPlayerCard(p.name)}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 6, padding: "5px 12px",
+                        borderLeft: isTop ? `3px solid ${C.gold}` : "3px solid transparent",
+                        borderBottom: "1px solid rgba(255,255,255,0.06)", cursor: "pointer",
+                      }}
+                    >
+                      <PlayerHeadshot name={p.name} position={pos} size={24} sleeperIdMap={sleeperIdMap} />
+                      <div style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
+                        <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: isTop ? 700 : 500, color: isTop ? C.primary : C.secondary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block" }}>{p.name}</span>
+                      </div>
+                      {p.age && <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim, flexShrink: 0 }}>{p.age}</span>}
+                      <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.gold, flexShrink: 0, minWidth: 38, textAlign: "right" }}>{fmt(Math.round(p.sha_value || 0))}</span>
+                      <span style={{ fontFamily: MONO, fontSize: 9, color: pc, flexShrink: 0, minWidth: 30, textAlign: "right" }}>{p.sha_pos_rank || ""}</span>
+                      {trendVal && <span style={{ fontFamily: MONO, fontSize: 8, color: trendColor, flexShrink: 0 }}>{trendVal}</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
