@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import { useLeagueStore } from "@/lib/stores/league-store";
 import { usePlayerCardStore } from "@/lib/stores/player-card-store";
 import { useQuery } from "@tanstack/react-query";
 import { getRankings, getLeagueIntel, getOverview, getPositionalPower, getGlobalPlayerRankings } from "@/lib/api";
-import { C, SANS, MONO, DISPLAY, SERIF, fmt, posColor, leaguePrefix } from "@/components/league/tokens";
+import { C, SANS, MONO, SERIF, fmt, posColor, leaguePrefix } from "@/components/league/tokens";
 import type { GlobalPlayerRanking, PositionalPowerEntry } from "@/lib/types";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import { Search, X, ChevronDown } from "lucide-react";
 
 /* ═══════════════════════════════════════════════════════════════
@@ -23,11 +24,11 @@ function ordinal(n: number) { const s = ["th", "st", "nd", "rd"]; const v = n % 
 
 const POS_COLORS: Record<string, string> = { QB: "#e47272", RB: "#6bb8e0", WR: "#7dd3a0", TE: "#e09c6b" };
 
-function TierBadge({ tier }: { tier: { label: string; color: string } }) {
+function TierBadge({ tier, compact }: { tier: { label: string; color: string }; compact?: boolean }) {
   return (
     <span style={{
-      fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.06em",
-      padding: "2px 8px", borderRadius: 4,
+      fontFamily: MONO, fontSize: compact ? 8 : 9, fontWeight: 800, letterSpacing: "0.06em",
+      padding: compact ? "1px 5px" : "2px 8px", borderRadius: 4,
       background: `${tier.color}15`, color: tier.color,
       border: `1px solid ${tier.color}30`, whiteSpace: "nowrap",
     }}>{tier.label}</span>
@@ -37,11 +38,39 @@ function TierBadge({ tier }: { tier: { label: string; color: string } }) {
 function Crown({ size = 16 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
-      style={{ display: "inline-block", verticalAlign: "middle", marginRight: 4, marginBottom: 2 }}>
+      style={{ display: "inline-block", verticalAlign: "middle", marginRight: 2, marginBottom: 1 }}>
       <path d="M2 18L4 8L8 12L12 4L16 12L20 8L22 18H2Z" fill={C.gold} opacity="0.9"/>
       <path d="M2 18L4 8L8 12L12 4L16 12L20 8L22 18H2Z" stroke={C.goldBright} strokeWidth="1" fill="none"/>
       <circle cx="4" cy="8" r="1.5" fill={C.goldBright}/><circle cx="12" cy="4" r="1.5" fill={C.goldBright}/><circle cx="20" cy="8" r="1.5" fill={C.goldBright}/>
     </svg>
+  );
+}
+
+function PillTabs({ tabs, active, onChange, compact }: {
+  tabs: { id: string; label: string; color?: string }[];
+  active: string; onChange: (id: string) => void;
+  compact?: boolean;
+}) {
+  return (
+    <div style={{ display: "flex", gap: compact ? 3 : 4, flexWrap: "wrap" }}>
+      {tabs.map((t) => {
+        const act = active === t.id;
+        const c = t.color || C.gold;
+        return (
+          <button key={t.id} onClick={() => onChange(t.id)}
+            style={{
+              fontFamily: MONO, fontSize: compact ? 10 : 11, fontWeight: 800,
+              letterSpacing: "0.06em",
+              padding: compact ? "4px 10px" : "5px 14px",
+              borderRadius: 4, cursor: "pointer", border: "none",
+              background: act ? `${c}20` : "transparent",
+              color: act ? c : C.dim,
+              outline: act ? `1px solid ${c}40` : `1px solid ${C.border}`,
+              transition: "all 0.15s",
+            }}>{t.label}</button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -52,7 +81,7 @@ function GlowTabs({ tabs, active, onChange, size = "md" }: {
 }) {
   const s = size === "lg" ? { px: 28, py: 10, fs: 15, ls: "0.12em" }
     : size === "md" ? { px: 20, py: 8, fs: 13, ls: "0.10em" }
-    : { px: 16, py: 6, fs: 11, ls: "0.08em" };
+    : { px: 14, py: 6, fs: 11, ls: "0.08em" };
   return (
     <div style={{ display: "flex", gap: 0, borderBottom: `1px solid ${C.borderLt}` }}>
       {tabs.map((t) => {
@@ -89,9 +118,9 @@ function Skel({ n = 6, h = 40 }: { n?: number; h?: number }) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   SECTION 1: TEAM POWER (existing code — preserved exactly)
+   SECTION 1: TEAM POWER
    ═══════════════════════════════════════════════════════════════ */
-function TeamPower({ lid, overview }: { lid: string; overview: any }) {
+function TeamPower({ lid, overview, mobile }: { lid: string; overview: any; mobile: boolean }) {
   const [mode, setMode] = useState("league");
 
   const { data: rankings } = useQuery({ queryKey: ["rankings", lid], queryFn: () => getRankings(lid), enabled: !!lid, staleTime: 600000 });
@@ -131,12 +160,66 @@ function TeamPower({ lid, overview }: { lid: string; overview: any }) {
   if (!teams.length) return <Skel />;
 
   const maxVal = teams[0]?.value || 1;
+
+  if (mobile) {
+    return (
+      <div>
+        <div style={{ marginBottom: 10 }}>
+          <GlowTabs size="sm" tabs={tabs} active={mode} onChange={setMode} />
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+          {teams.map((t, i) => {
+            const isChamp = i === 0;
+            const tier = getTier(t.rank);
+            const pct = Math.round((t.value / maxVal) * 100);
+            return (
+              <div key={t.rank} className="rk-row" style={{
+                display: "flex", alignItems: "center", gap: 8,
+                padding: isChamp ? "7px 10px" : "5px 10px",
+                borderRadius: 5, position: "relative", overflow: "hidden",
+                background: isChamp ? C.goldDim : i % 2 === 0 ? C.card : "transparent",
+                border: isChamp ? `1px solid ${C.goldBorder}` : "1px solid transparent",
+              }}>
+                {/* Pct bar behind */}
+                <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${pct}%`, background: `${tier.color}06`, pointerEvents: "none" }} />
+                {/* Rank */}
+                <span style={{
+                  fontFamily: MONO, fontWeight: 900, fontSize: isChamp ? 15 : 13,
+                  color: tier.color, minWidth: 24, textAlign: "center",
+                  display: "flex", alignItems: "center", gap: 1, position: "relative", zIndex: 1,
+                }}>
+                  {isChamp && <Crown size={13} />}
+                  {ordinal(t.rank)}
+                </span>
+                {/* Name */}
+                <div style={{
+                  flex: 1, minWidth: 0, position: "relative", zIndex: 1,
+                  fontFamily: SANS, fontSize: isChamp ? 13 : 12, fontWeight: 700,
+                  color: C.primary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                }}>{t.owner}</div>
+                {/* Value */}
+                <span style={{
+                  fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.secondary,
+                  position: "relative", zIndex: 1, flexShrink: 0,
+                }}>{fmt(t.value)}</span>
+                {/* Tier badge */}
+                <div style={{ position: "relative", zIndex: 1, flexShrink: 0 }}>
+                  <TierBadge tier={tier} compact />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  /* ── Desktop layout (unchanged) ── */
   const top3 = teams.slice(0, 3);
   const rest = teams.slice(3);
 
   return (
     <div>
-      {/* Mode Tabs */}
       <div style={{ marginBottom: 12 }}>
         <GlowTabs size="sm" tabs={tabs} active={mode} onChange={setMode} />
       </div>
@@ -221,12 +304,18 @@ function TeamPower({ lid, overview }: { lid: string; overview: any }) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   SECTION 2: POSITIONAL POWER (ported from Shadynasty)
+   SECTION 2: POSITIONAL POWER
    ═══════════════════════════════════════════════════════════════ */
 const POS_TABS = ["QB", "RB", "WR", "TE"];
+const POS_MODES = [
+  { id: "overall", label: "OVERALL" },
+  { id: "dynasty", label: "DYNASTY" },
+  { id: "winnow", label: "WIN-NOW" },
+];
 
-function PositionalPower({ lid }: { lid: string }) {
+function PositionalPower({ lid, mobile }: { lid: string; mobile: boolean }) {
   const [pos, setPos] = useState("QB");
+  const [posMode, setPosMode] = useState("overall");
   const [expanded, setExpanded] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
@@ -236,39 +325,144 @@ function PositionalPower({ lid }: { lid: string }) {
     staleTime: 600_000,
   });
 
-  const teams = data?.rankings || [];
+  const { data: intel } = useQuery({
+    queryKey: ["league-intel", lid],
+    queryFn: () => getLeagueIntel(lid),
+    enabled: !!lid,
+    staleTime: 600_000,
+  });
+
+  // Re-sort by dynasty or win-now rank when in those modes
+  const teams = useMemo(() => {
+    const base = data?.rankings || [];
+    if (posMode === "overall" || !intel?.owners?.length) return base;
+
+    const intelMap = new Map(
+      (intel.owners || []).map((o: any) => [o.owner.toLowerCase(), o])
+    );
+    return [...base].sort((a, b) => {
+      const aIntel = intelMap.get(a.owner.toLowerCase()) as any;
+      const bIntel = intelMap.get(b.owner.toLowerCase()) as any;
+      if (!aIntel || !bIntel) return a.rank - b.rank;
+      const aR = posMode === "dynasty" ? (aIntel.dynasty_rank || 99) : (aIntel.win_now_rank || 99);
+      const bR = posMode === "dynasty" ? (bIntel.dynasty_rank || 99) : (bIntel.win_now_rank || 99);
+      return aR - bR;
+    }).map((t, i) => ({ ...t, rank: i + 1 }));
+  }, [data, intel, posMode]);
+
   const posCol = POS_COLORS[pos] || C.dim;
+  const maxSha = teams[0]?.total_sha || 1;
 
   return (
     <div>
-      {/* Position tabs */}
-      <div style={{ display: "flex", gap: 4, marginBottom: 12 }}>
-        {POS_TABS.map((p) => {
-          const act = pos === p;
-          const c = POS_COLORS[p] || C.dim;
-          return (
-            <button key={p} onClick={() => { setPos(p); setExpanded(null); }}
-              style={{
-                fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.06em",
-                padding: "6px 16px", borderRadius: 4, cursor: "pointer", border: "none",
-                background: act ? `${c}20` : "transparent",
-                color: act ? c : C.dim,
-                outline: act ? `1px solid ${c}40` : `1px solid ${C.border}`,
-                transition: "all 0.15s",
-              }}>{p}</button>
-          );
-        })}
+      {/* Position tabs + mode filter */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 10 }}>
+        <div style={{ display: "flex", gap: mobile ? 3 : 4 }}>
+          {POS_TABS.map((p) => {
+            const act = pos === p;
+            const c = POS_COLORS[p] || C.dim;
+            return (
+              <button key={p} onClick={() => { setPos(p); setExpanded(null); }}
+                style={{
+                  fontFamily: MONO, fontSize: mobile ? 10 : 11, fontWeight: 800, letterSpacing: "0.06em",
+                  padding: mobile ? "5px 12px" : "6px 16px", borderRadius: 4, cursor: "pointer", border: "none",
+                  background: act ? `${c}20` : "transparent",
+                  color: act ? c : C.dim,
+                  outline: act ? `1px solid ${c}40` : `1px solid ${C.border}`,
+                  transition: "all 0.15s",
+                }}>{p}</button>
+            );
+          })}
+        </div>
+        <PillTabs
+          tabs={POS_MODES.map(m => ({ ...m, color: m.id === "overall" ? C.gold : m.id === "dynasty" ? C.green : C.orange }))}
+          active={posMode} onChange={setPosMode} compact={mobile}
+        />
       </div>
 
-      {isLoading ? <Skel n={12} h={44} /> : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+      {isLoading ? <Skel n={12} h={mobile ? 36 : 44} /> : (
+        <div style={{ display: "flex", flexDirection: "column", gap: mobile ? 1 : 2 }}>
           {teams.map((t, i) => {
             const isChamp = t.rank === 1;
             const tier = getTier(t.rank);
             const isExp = expanded === t.owner;
             const starters = (t.players || []).slice(0, 3);
-            const bench = (t.players || []).slice(3, 7);
+            const bench = (t.players || []).slice(3, mobile ? 5 : 7);
+            const pct = Math.round((t.total_sha / maxSha) * 100);
 
+            if (mobile) {
+              return (
+                <React.Fragment key={t.owner}>
+                  <div
+                    onClick={() => setExpanded(isExp ? null : t.owner)}
+                    className="rk-row"
+                    style={{
+                      display: "flex", alignItems: "center", gap: 8,
+                      padding: "6px 10px",
+                      borderRadius: isExp ? "5px 5px 0 0" : 5,
+                      background: isChamp ? C.goldDim : i % 2 === 0 ? C.card : "transparent",
+                      border: isChamp ? `1px solid ${C.goldBorder}` : "1px solid transparent",
+                      position: "relative", overflow: "hidden",
+                    }}>
+                    <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${pct}%`, background: `${posCol}06`, pointerEvents: "none" }} />
+                    <span style={{
+                      fontFamily: MONO, fontSize: isChamp ? 14 : 12, fontWeight: 900,
+                      color: isChamp ? C.gold : tier.color, minWidth: 20, textAlign: "center",
+                      display: "flex", alignItems: "center", gap: 1, position: "relative", zIndex: 1,
+                    }}>
+                      {isChamp && <Crown size={12} />}{t.rank}
+                    </span>
+                    <div style={{ flex: 1, minWidth: 0, position: "relative", zIndex: 1 }}>
+                      <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 700, color: C.primary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.owner}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {starters.map(p => p.name.split(" ").pop()).join(" · ")}
+                      </div>
+                    </div>
+                    <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: posCol, position: "relative", zIndex: 1, flexShrink: 0 }}>{fmt(t.total_sha)}</span>
+                    <ChevronDown size={12} style={{
+                      color: C.dim, transition: "transform 0.2s", flexShrink: 0,
+                      transform: isExp ? "rotate(180deg)" : "rotate(0deg)",
+                      position: "relative", zIndex: 1,
+                    }} />
+                  </div>
+                  {isExp && (
+                    <div style={{
+                      background: C.card, borderRadius: "0 0 5px 5px",
+                      border: `1px solid ${C.border}`, borderTop: "none",
+                      padding: "8px 10px", marginBottom: 2,
+                    }}>
+                      {starters.map((p, j) => (
+                        <div key={j} style={{
+                          display: "flex", alignItems: "center", gap: 6, padding: "3px 4px",
+                          background: j % 2 === 0 ? "transparent" : C.white08, borderRadius: 3,
+                        }}>
+                          <span style={{ fontFamily: MONO, fontSize: 9, color: j < 2 ? posCol : C.dim, fontWeight: 700, width: 14 }}>{j + 1}</span>
+                          <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 600, color: C.primary, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</span>
+                          <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>{p.age || ""}</span>
+                          <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: posCol }}>{fmt(p.sha_value)}</span>
+                        </div>
+                      ))}
+                      {bench.length > 0 && (
+                        <>
+                          <div style={{ height: 1, background: C.border, margin: "6px 0" }} />
+                          {bench.map((p, j) => (
+                            <div key={j} style={{
+                              display: "flex", alignItems: "center", gap: 6, padding: "2px 4px", opacity: 0.5,
+                            }}>
+                              <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim, width: 14 }}>{j + starters.length + 1}</span>
+                              <span style={{ fontFamily: SANS, fontSize: 11, color: C.secondary, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</span>
+                              <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>{fmt(p.sha_value)}</span>
+                            </div>
+                          ))}
+                        </>
+                      )}
+                    </div>
+                  )}
+                </React.Fragment>
+              );
+            }
+
+            /* ── Desktop row ── */
             return (
               <React.Fragment key={t.owner}>
                 <div
@@ -281,7 +475,6 @@ function PositionalPower({ lid }: { lid: string }) {
                     background: isChamp ? C.goldDim : i % 2 === 0 ? C.card : `${C.elevated}90`,
                     border: isChamp ? `1px solid ${C.goldBorder}` : `1px solid transparent`,
                   }}>
-                  {/* Rank */}
                   <span style={{
                     fontFamily: MONO, fontSize: isChamp ? 17 : 14, fontWeight: 900,
                     color: isChamp ? C.gold : tier.color, textAlign: "center",
@@ -289,34 +482,28 @@ function PositionalPower({ lid }: { lid: string }) {
                   }}>
                     {isChamp && <Crown size={14} />}{t.rank}
                   </span>
-                  {/* Owner + starter names */}
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 700, color: C.primary, lineHeight: 1.2 }}>{t.owner}</div>
                     <div style={{ fontFamily: MONO, fontSize: 10, color: C.dim, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {starters.map(p => p.name.split(" ").pop()).join(" · ")}
                     </div>
                   </div>
-                  {/* Total value */}
                   <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 700, color: posCol, textAlign: "right" }}>{fmt(t.total_sha)}</span>
-                  {/* Bar */}
                   <div style={{ height: 3, borderRadius: 2, background: C.border, overflow: "hidden" }}>
-                    <div className="rk-bar" style={{ height: "100%", borderRadius: 2, background: posCol, width: `${teams[0] ? (t.total_sha / teams[0].total_sha) * 100 : 0}%`, animationDelay: `${i * 0.06}s` }} />
+                    <div className="rk-bar" style={{ height: "100%", borderRadius: 2, background: posCol, width: `${pct}%`, animationDelay: `${i * 0.06}s` }} />
                   </div>
-                  {/* Expand chevron */}
                   <ChevronDown size={14} style={{
                     color: C.dim, transition: "transform 0.2s",
                     transform: isExp ? "rotate(180deg)" : "rotate(0deg)",
                   }} />
                 </div>
 
-                {/* Expanded roster */}
                 {isExp && (
                   <div style={{
                     background: C.card, borderRadius: "0 0 6px 6px",
                     border: `1px solid ${C.border}`, borderTop: "none",
                     padding: "10px 14px", marginBottom: 4,
                   }}>
-                    {/* Starters */}
                     <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: posCol, letterSpacing: "0.10em", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
                       <div style={{ width: 5, height: 5, borderRadius: "50%", background: posCol }} /> STARTERS
                     </div>
@@ -324,8 +511,7 @@ function PositionalPower({ lid }: { lid: string }) {
                       <div key={j} style={{
                         display: "grid", gridTemplateColumns: "20px 1fr 50px 60px",
                         alignItems: "center", gap: 6, padding: "4px 6px",
-                        background: j % 2 === 0 ? "transparent" : C.white08,
-                        borderRadius: 3,
+                        background: j % 2 === 0 ? "transparent" : C.white08, borderRadius: 3,
                       }}>
                         <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>{j + 1}</span>
                         <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 600, color: C.primary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</span>
@@ -333,7 +519,6 @@ function PositionalPower({ lid }: { lid: string }) {
                         <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: posCol, textAlign: "right" }}>{fmt(p.sha_value)}</span>
                       </div>
                     ))}
-                    {/* Bench */}
                     {bench.length > 0 && (
                       <>
                         <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.dim, letterSpacing: "0.10em", marginTop: 10, marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
@@ -364,8 +549,7 @@ function PositionalPower({ lid }: { lid: string }) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   SECTION 3: PLAYER RANKINGS (ported from Shadynasty Players)
-   Global player search + full ranked table with position filters
+   SECTION 3: PLAYER RANKINGS
    ═══════════════════════════════════════════════════════════════ */
 type PlayerMode = "overall" | "dynasty" | "winnow";
 
@@ -390,7 +574,7 @@ function getVal(p: GlobalPlayerRanking, mode: PlayerMode): number {
   return p.sha_value;
 }
 
-function PlayerRankings({ overview }: { overview: any }) {
+function PlayerRankings({ overview, mobile }: { overview: any; mobile: boolean }) {
   const { openPlayerCard } = usePlayerCardStore();
   const [mode, setMode] = useState<PlayerMode>("overall");
   const [posFilter, setPosFilter] = useState("ALL");
@@ -407,13 +591,11 @@ function PlayerRankings({ overview }: { overview: any }) {
   const is1QB = overview?.format && !overview.format.is_superflex;
   const allPlayers = data?.players || [];
 
-  // Apply 1QB format adjustment to QBs
   const formatAdjusted = useMemo(() => {
     if (!is1QB) return allPlayers;
     return allPlayers.map((p) => p.position !== "QB" ? p : { ...p, sha_value: Math.round(p.sha_value * 0.73) });
   }, [allPlayers, is1QB]);
 
-  // Close dropdown on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setFocused(false);
@@ -422,7 +604,6 @@ function PlayerRankings({ overview }: { overview: any }) {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  // Debounced search for dropdown suggestions
   const [debounced, setDebounced] = useState("");
   useEffect(() => { const t = setTimeout(() => setDebounced(search), 150); return () => clearTimeout(t); }, [search]);
 
@@ -432,7 +613,6 @@ function PlayerRankings({ overview }: { overview: any }) {
     return formatAdjusted.filter(p => p.player_name.toLowerCase().includes(q)).slice(0, 8);
   }, [debounced, formatAdjusted]);
 
-  // Filtered + sorted players for table
   const filtered = useMemo(() => {
     const sq = search.toLowerCase().trim();
     let list = formatAdjusted;
@@ -441,18 +621,17 @@ function PlayerRankings({ overview }: { overview: any }) {
     return [...list].sort((a, b) => getRank(a, mode) - getRank(b, mode)).slice(0, MAX_PLAYERS);
   }, [formatAdjusted, posFilter, search, mode]);
 
-  // Determine column headers based on mode
   const valKey = mode === "overall" ? "VALUE" : mode === "dynasty" ? "DYNASTY" : "WIN-NOW";
   const showTierBreaks = posFilter === "ALL" && !search;
 
   return (
     <div>
-      {/* Search + Position filters */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 12 }}>
-        {/* Search bar with auto-suggest */}
+      {/* Search + filters */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 10 }}>
+        {/* Search bar */}
         <div ref={wrapRef} style={{ position: "relative" }}>
           <div style={{
-            display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderRadius: 6,
+            display: "flex", alignItems: "center", gap: 8, padding: mobile ? "6px 10px" : "8px 12px", borderRadius: 6,
             background: C.card,
             border: `1px solid ${focused ? C.gold : C.border}`,
             boxShadow: focused ? `0 0 0 1px ${C.gold}30` : "none",
@@ -461,7 +640,7 @@ function PlayerRankings({ overview }: { overview: any }) {
             <Search size={14} style={{ color: focused ? C.gold : C.dim, flexShrink: 0 }} />
             <input type="text" value={search} onChange={e => setSearch(e.target.value)} onFocus={() => setFocused(true)}
               placeholder="Search any player..."
-              style={{ flex: 1, background: "transparent", border: "none", outline: "none", fontFamily: SANS, fontSize: 13, fontWeight: 500, color: C.primary }} />
+              style={{ flex: 1, background: "transparent", border: "none", outline: "none", fontFamily: SANS, fontSize: mobile ? 12 : 13, fontWeight: 500, color: C.primary }} />
             {search && <button onClick={() => setSearch("")} style={{ background: "none", border: "none", cursor: "pointer", padding: 0 }}><X size={14} style={{ color: C.dim }} /></button>}
           </div>
           {/* Suggest dropdown */}
@@ -478,13 +657,13 @@ function PlayerRankings({ overview }: { overview: any }) {
                     onClick={() => { openPlayerCard(p.player_name); setFocused(false); }}
                     className="rk-dense"
                     style={{
-                      display: "flex", alignItems: "center", gap: 10, padding: "8px 14px", cursor: "pointer",
+                      display: "flex", alignItems: "center", gap: mobile ? 6 : 10, padding: mobile ? "6px 10px" : "8px 14px", cursor: "pointer",
                       borderBottom: i < suggestions.length - 1 ? `1px solid ${C.border}` : "none",
                     }}>
                     <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, padding: "2px 6px", borderRadius: 3, background: `${pc}15`, color: pc, border: `1px solid ${pc}30` }}>{p.position}</span>
-                    <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 700, color: C.primary, flex: 1 }}>{p.player_name}</span>
+                    <span style={{ fontFamily: SANS, fontSize: mobile ? 12 : 13, fontWeight: 700, color: C.primary, flex: 1 }}>{p.player_name}</span>
                     <span style={{ fontFamily: MONO, fontSize: 11, color: C.dim }}>{p.team || "FA"}</span>
-                    <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.gold }}>{fmt(getVal(p, mode))}</span>
+                    <span style={{ fontFamily: MONO, fontSize: mobile ? 11 : 13, fontWeight: 800, color: C.gold }}>{fmt(getVal(p, mode))}</span>
                   </div>
                 );
               })}
@@ -492,49 +671,36 @@ function PlayerRankings({ overview }: { overview: any }) {
           )}
         </div>
 
-        {/* Position pills + mode tabs */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
-          <div style={{ display: "flex", gap: 4 }}>
-            {POS_FILTERS.map((p) => {
-              const act = posFilter === p;
-              const c = p === "ALL" ? C.gold : posColor(p);
-              return (
-                <button key={p} onClick={() => setPosFilter(p)}
-                  style={{
-                    fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.06em",
-                    padding: "4px 12px", borderRadius: 4, cursor: "pointer", border: "none",
-                    background: act ? `${c}20` : "transparent",
-                    color: act ? c : C.dim,
-                    outline: act ? `1px solid ${c}40` : `1px solid ${C.border}`,
-                    transition: "all 0.15s",
-                  }}>{p}</button>
-              );
-            })}
-          </div>
-          <GlowTabs size="sm" tabs={PLAYER_MODE_TABS} active={mode} onChange={(id) => setMode(id as PlayerMode)} />
-        </div>
+        {/* Position pills */}
+        <PillTabs
+          tabs={POS_FILTERS.map(p => ({ id: p, label: p, color: p === "ALL" ? C.gold : posColor(p) }))}
+          active={posFilter} onChange={setPosFilter} compact={mobile}
+        />
+
+        {/* Mode tabs */}
+        <GlowTabs size="sm" tabs={PLAYER_MODE_TABS} active={mode} onChange={(id) => setMode(id as PlayerMode)} />
       </div>
 
       {/* Table header */}
       <div style={{
-        display: "grid", gridTemplateColumns: "0.8fr 4fr 1.2fr 1.5fr",
-        alignItems: "center", gap: 8, padding: "10px 20px",
+        display: "grid", gridTemplateColumns: mobile ? "28px 1fr 40px 56px" : "0.8fr 4fr 1.2fr 1.5fr",
+        alignItems: "center", gap: mobile ? 6 : 8, padding: mobile ? "8px 10px" : "10px 20px",
         position: "sticky", top: 0, zIndex: 2,
         background: C.panel, borderBottom: `1px solid ${C.border}`,
       }}>
-        <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", color: C.dim }}>RK</span>
-        <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", color: C.dim }}>PLAYER</span>
-        <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", color: C.dim, textAlign: "center" }}>POS RK</span>
-        <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", color: C.gold, textAlign: "right" }}>{valKey}</span>
+        <span style={{ fontFamily: MONO, fontSize: mobile ? 9 : 10, fontWeight: 800, letterSpacing: "0.08em", color: C.dim }}>RK</span>
+        <span style={{ fontFamily: MONO, fontSize: mobile ? 9 : 10, fontWeight: 800, letterSpacing: "0.08em", color: C.dim }}>PLAYER</span>
+        <span style={{ fontFamily: MONO, fontSize: mobile ? 9 : 10, fontWeight: 800, letterSpacing: "0.08em", color: C.dim, textAlign: "center" }}>POS</span>
+        <span style={{ fontFamily: MONO, fontSize: mobile ? 9 : 10, fontWeight: 800, letterSpacing: "0.08em", color: C.gold, textAlign: "right" }}>{valKey}</span>
       </div>
 
       {/* Player rows */}
-      {isLoading ? <Skel n={20} h={44} /> : filtered.length === 0 ? (
+      {isLoading ? <Skel n={20} h={mobile ? 36 : 44} /> : filtered.length === 0 ? (
         <div style={{ padding: "40px 20px", textAlign: "center", fontFamily: MONO, fontSize: 13, color: C.dim }}>
           {search ? "No players match your search" : "No player data available"}
         </div>
       ) : (
-        <div style={{ maxHeight: 680, overflowY: "auto" }}>
+        <div style={{ maxHeight: mobile ? "calc(100vh - 280px)" : 680, overflowY: "auto" }}>
           {filtered.map((p, idx) => {
             const rank = getRank(p, mode);
             const value = getVal(p, mode);
@@ -542,14 +708,13 @@ function PlayerRankings({ overview }: { overview: any }) {
             const isEven = idx % 2 === 0;
             const pc = posColor(p.position);
 
-            // Tier break
             const prevRank = idx > 0 ? getRank(filtered[idx - 1], mode) : 0;
             const tierBreak = showTierBreaks ? Object.keys(PLAYER_TIER_BREAKS).map(Number).find(tb => prevRank < tb && rank >= tb) : undefined;
 
             return (
               <React.Fragment key={p.player_name + p.position}>
                 {tierBreak != null && (
-                  <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 20px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, padding: mobile ? "6px 10px" : "8px 20px" }}>
                     <div style={{ height: 1, flex: 1, background: C.border }} />
                     <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.16em", color: C.dim }}>{PLAYER_TIER_BREAKS[tierBreak]}</span>
                     <div style={{ height: 1, flex: 1, background: C.border }} />
@@ -558,41 +723,38 @@ function PlayerRankings({ overview }: { overview: any }) {
                 <div className="rk-dense"
                   onClick={() => openPlayerCard(p.player_name)}
                   style={{
-                    display: "grid", gridTemplateColumns: "0.8fr 4fr 1.2fr 1.5fr",
-                    alignItems: "center", gap: 8, padding: "10px 20px", cursor: "pointer",
+                    display: "grid", gridTemplateColumns: mobile ? "28px 1fr 40px 56px" : "0.8fr 4fr 1.2fr 1.5fr",
+                    alignItems: "center", gap: mobile ? 6 : 8, padding: mobile ? "6px 10px" : "10px 20px", cursor: "pointer",
                     background: isEven ? C.card : `${C.elevated}90`,
                     borderBottom: `1px solid ${C.white08}`,
                   }}>
                   {/* Rank */}
                   <span style={{
-                    fontFamily: MONO, fontSize: 17, fontWeight: 900,
+                    fontFamily: MONO, fontSize: mobile ? 13 : 17, fontWeight: 900,
                     color: isElite ? C.gold : C.dim,
                     textShadow: isElite ? `0 0 12px ${C.gold}40` : "none",
                   }}>{rank <= 999 ? rank : "\u2014"}</span>
-                  {/* Player + Position + Age */}
+                  {/* Player */}
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, overflow: "hidden" }}>
-                      <div className="hover:text-gold transition-colors"
-                        style={{ fontFamily: SANS, fontSize: 15, fontWeight: 700, color: C.primary, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {p.player_name}
-                      </div>
-                      <span style={{
-                        fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.04em",
-                        padding: "2px 8px", borderRadius: 4, flexShrink: 0,
-                        background: `${pc}15`, color: pc, border: `1px solid ${pc}30`,
-                      }}>{p.position}</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 4, overflow: "hidden" }}>
+                      <div style={{
+                        fontFamily: SANS, fontSize: mobile ? 12 : 15, fontWeight: 700, color: C.primary, lineHeight: 1.2,
+                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                      }}>{p.player_name}</div>
                     </div>
-                    <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim, marginTop: 2, lineHeight: 1, display: "flex", gap: 8 }}>
+                    <div style={{ fontFamily: MONO, fontSize: mobile ? 9 : 11, color: C.dim, marginTop: 1, lineHeight: 1, display: "flex", gap: 6 }}>
                       <span>{p.team || "FA"}</span>
-                      {p.age != null && <span>{p.age} yrs</span>}
+                      {p.age != null && <span>{p.age}y</span>}
                     </div>
                   </div>
-                  {/* Pos Rank */}
-                  <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: C.secondary, textAlign: "center" }}>
-                    {p.sha_pos_rank || "\u2014"}
-                  </span>
+                  {/* Pos badge */}
+                  <span style={{
+                    fontFamily: MONO, fontSize: mobile ? 9 : 10, fontWeight: 800,
+                    padding: "2px 5px", borderRadius: 3, textAlign: "center",
+                    background: `${pc}15`, color: pc, border: `1px solid ${pc}30`,
+                  }}>{p.position}{mobile ? "" : ` ${p.sha_pos_rank?.replace(p.position, "") || ""}`}</span>
                   {/* Value */}
-                  <span style={{ fontFamily: MONO, fontSize: 15, fontWeight: 800, color: C.gold, textAlign: "right" }}>
+                  <span style={{ fontFamily: MONO, fontSize: mobile ? 12 : 15, fontWeight: 800, color: C.gold, textAlign: "right" }}>
                     {fmt(value)}
                   </span>
                 </div>
@@ -601,7 +763,7 @@ function PlayerRankings({ overview }: { overview: any }) {
           })}
           {filtered.length >= MAX_PLAYERS && (
             <div style={{ padding: "12px 20px", textAlign: "center", fontFamily: MONO, fontSize: 10, color: C.dim }}>
-              Top {MAX_PLAYERS} shown \u00B7 Use search to find specific players
+              Top {MAX_PLAYERS} shown &middot; Use search to find specific players
             </div>
           )}
         </div>
@@ -611,7 +773,7 @@ function PlayerRankings({ overview }: { overview: any }) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   RANKINGS PAGE — 3 sub-tabs matching Shadynasty layout
+   RANKINGS PAGE — 3 sub-tabs
    ═══════════════════════════════════════════════════════════════ */
 const SUB_TABS = [
   { id: "team", label: "TEAM POWER" },
@@ -622,13 +784,14 @@ const SUB_TABS = [
 export default function RankingsPage() {
   const { currentLeagueId: lid } = useLeagueStore();
   const [subTab, setSubTab] = useState("team");
+  const mobile = useIsMobile();
 
   const { data: overview } = useQuery({ queryKey: ["overview", lid], queryFn: () => getOverview(lid!), enabled: !!lid, staleTime: 3600000 });
 
   if (!lid) return <div style={{ padding: 40, textAlign: "center", fontFamily: MONO, fontSize: 13, color: C.dim }}>No league loaded</div>;
 
   return (
-    <div style={{ padding: "16px 20px" }}>
+    <div style={{ padding: mobile ? "12px 10px" : "16px 20px" }}>
       <style>{`
         @keyframes rk-barFill { from { width: 0%; } }
         @keyframes rk-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
@@ -641,19 +804,19 @@ export default function RankingsPage() {
       `}</style>
 
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-        <span style={{ fontFamily: SERIF, fontSize: 24, fontWeight: 900, fontStyle: "italic", color: C.goldBright }}>Power Rankings</span>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: mobile ? 10 : 16 }}>
+        <span style={{ fontFamily: SERIF, fontSize: mobile ? 20 : 24, fontWeight: 900, fontStyle: "italic", color: C.goldBright }}>Power Rankings</span>
       </div>
 
-      {/* Sub-tabs: TEAM POWER | POSITIONAL | PLAYERS */}
-      <div style={{ marginBottom: 16 }}>
-        <GlowTabs tabs={SUB_TABS} active={subTab} onChange={setSubTab} />
+      {/* Sub-tabs */}
+      <div style={{ marginBottom: mobile ? 10 : 16 }}>
+        <GlowTabs tabs={SUB_TABS} active={subTab} onChange={setSubTab} size={mobile ? "sm" : "md"} />
       </div>
 
       {/* Content */}
-      {subTab === "team" && <TeamPower lid={lid} overview={overview} />}
-      {subTab === "positional" && <PositionalPower lid={lid} />}
-      {subTab === "players" && <PlayerRankings overview={overview} />}
+      {subTab === "team" && <TeamPower lid={lid} overview={overview} mobile={mobile} />}
+      {subTab === "positional" && <PositionalPower lid={lid} mobile={mobile} />}
+      {subTab === "players" && <PlayerRankings overview={overview} mobile={mobile} />}
     </div>
   );
 }
