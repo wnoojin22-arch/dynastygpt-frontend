@@ -428,27 +428,39 @@ function DynastyScoreCard({ lid, owner, ownerId }: { lid: string; owner: string;
 
             return (
               <div style={{ borderTop: `1px solid ${C.border}`, padding: "8px 12px 10px" }}>
-                {/* 2x2 stats grid */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 10 }}>
+
+                {/* TITLES — full width hero pill, gold glow, centered */}
+                <div style={{
+                  textAlign: "center", padding: "10px 0", marginBottom: 8, borderRadius: 8,
+                  background: `linear-gradient(135deg, rgba(139,105,20,0.15), rgba(212,165,50,0.10))`,
+                  border: `1.5px solid ${C.goldBorder}`,
+                  boxShadow: `0 0 20px rgba(212,165,50,0.08), inset 0 0 30px rgba(212,165,50,0.04)`,
+                }}>
+                  <div style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, letterSpacing: "0.12em", color: C.dim, marginBottom: 2 }}>CHAMPIONSHIPS</div>
+                  <div style={{ fontFamily: MONO, fontSize: 28, fontWeight: 900, color: C.gold, lineHeight: 1 }}>
+                    {parseInt(titles) > 0 ? `${titles}x CHAMPION` : "0 TITLES"}
+                  </div>
+                </div>
+
+                {/* RECORD / PLAYOFFS / WIN% — 3 boxes in a row */}
+                <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
                   {[
                     { val: `${wins}-${losses}`, label: "RECORD" },
-                    { val: `${winPctNum}%`, label: "WIN%" },
                     { val: playoffApps, label: "PLAYOFFS" },
-                    { val: titles, label: "TITLES", gold: parseInt(titles) > 0 },
+                    { val: `${winPctNum}%`, label: "WIN%" },
                   ].map((s) => (
                     <div key={s.label} style={{
-                      padding: "6px 8px", borderRadius: 6,
+                      flex: 1, textAlign: "center", padding: "6px 4px", borderRadius: 6,
                       background: C.elevated, border: `1px solid ${C.border}`,
-                      borderLeft: s.gold ? `3px solid ${C.gold}` : `1px solid ${C.border}`,
                     }}>
-                      <div style={{ fontFamily: MONO, fontSize: 7, fontWeight: 700, letterSpacing: "0.08em", color: C.dim }}>{s.label}</div>
-                      <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 800, color: s.gold ? C.gold : C.primary, lineHeight: 1, marginTop: 1 }}>{s.val}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 7, fontWeight: 700, letterSpacing: "0.08em", color: C.dim, marginBottom: 2 }}>{s.label}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: C.primary, lineHeight: 1 }}>{s.val}</div>
                     </div>
                   ))}
                 </div>
 
                 {/* Component bars — tight */}
-                <div style={{ marginBottom: 10 }}>
+                <div style={{ marginBottom: 8 }}>
                   {Object.entries(myScore.components).map(([key, comp]) => {
                     const pct = comp.max > 0 ? (comp.score / comp.max) * 100 : 0;
                     const label = COMPONENT_LABELS[key] || key;
@@ -472,20 +484,18 @@ function DynastyScoreCard({ lid, owner, ownerId }: { lid: string; owner: string;
                   </div>
                 )}
 
-                {/* Share button */}
+                {/* SHARE FOR BRAGGING RIGHTS button */}
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    // Open the manager card modal for sharing
                     setExpanded(false);
-                    // Trigger the modal via the same mechanism used by ManagerCardMobile
                     window.dispatchEvent(new CustomEvent("open-manager-card"));
                   }}
                   style={{
-                    width: "100%", padding: "10px 0", borderRadius: 8, border: "none",
+                    width: "100%", padding: "12px 0", borderRadius: 8, border: "none",
                     background: `linear-gradient(135deg, ${C.goldDark}, ${C.gold})`,
-                    fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.08em",
-                    color: C.bg, cursor: "pointer",
+                    fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.08em",
+                    color: C.bg, cursor: "pointer", textAlign: "center",
                   }}
                 >
                   SHARE FOR BRAGGING RIGHTS ↗
