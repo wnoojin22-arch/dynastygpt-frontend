@@ -404,101 +404,128 @@ function DynastyScoreCard({ lid, owner, ownerId }: { lid: string; owner: string;
           <div style={{ flex: 1, height: 1, background: C.goldBorder }} />
         </div>
 
-          {/* Expanded content */}
-          {expanded && (
-            <div style={{ borderTop: `1px solid ${C.border}`, padding: "10px 12px" }}>
-              {/* 6-component bar chart */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
-                {Object.entries(myScore.components).map(([key, comp]) => {
-                  const pct = comp.max > 0 ? (comp.score / comp.max) * 100 : 0;
-                  const label = COMPONENT_LABELS[key] || key;
-                  // Color the bar based on fill percentage
-                  const barColor = pct >= 75 ? C.green : pct >= 50 ? C.gold : pct >= 30 ? C.orange : C.red;
-                  return (
-                    <div key={key}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 3 }}>
-                        <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 600, color: C.primary }}>
-                          {label}
-                        </span>
-                        <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.secondary }}>
-                          {comp.score}/{comp.max}
-                        </span>
-                      </div>
-                      <div style={{
-                        height: 6, borderRadius: 3, background: C.elevated, overflow: "hidden",
-                      }}>
-                        <div style={{
-                          height: "100%", borderRadius: 3, width: `${pct}%`,
-                          background: barColor, transition: "width 0.4s ease",
-                        }} />
-                      </div>
-                      <span style={{ fontFamily: SANS, fontSize: 10, color: C.dim, marginTop: 2, display: "block" }}>
-                        {comp.detail}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
+          {/* Expanded content — compact, fits one screen */}
+          {expanded && (() => {
+            // Parse record stats from component details (no regex — simple string parsing)
+            const comps = myScore.components as Record<string, { score: number; max: number; detail: string }>;
+            const wr = comps.winning_record?.detail || "";
+            const cp = comps.championship_pedigree?.detail || "";
+            // "35-35 career (50.0%), 2/6 winning seasons"
+            const wrParts = wr.split(" career");
+            const wrRecord = wrParts[0] || "—";
+            const wrPctStart = wr.indexOf("(");
+            const wrPctEnd = wr.indexOf("%)");
+            const winPctNum = wrPctStart >= 0 && wrPctEnd > wrPctStart ? wr.slice(wrPctStart + 1, wrPctEnd) : "—";
+            const wrDash = wrRecord.indexOf("-");
+            const wins = wrDash > 0 ? wrRecord.slice(0, wrDash) : "—";
+            const losses = wrDash > 0 ? wrRecord.slice(wrDash + 1) : "—";
+            // "2x champion, 2/6 playoff appearances"
+            const cpX = cp.indexOf("x ");
+            const titles = cpX > 0 ? cp.slice(0, cpX) : "0";
+            const cpSlash = cp.indexOf("/");
+            const cpSpace = cp.indexOf(" playoff");
+            const playoffApps = cpSlash > 0 && cpSpace > cpSlash ? cp.slice(cpSlash - 1, cpSpace) : "—";
 
-              {/* League leaderboard */}
-              {allScores && allScores.length > 0 && (
-                <div>
-                  <div style={{
-                    fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.08em",
-                    color: C.gold, marginBottom: 8,
-                  }}>
-                    LEAGUE LEADERBOARD
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                    {allScores.map((s, idx) => {
-                      const isMe = s.owner.toLowerCase() === owner.toLowerCase();
-                      const sTierColor = TIER_COLORS[s.tier.label] || C.dim;
-                      return (
-                        <div key={s.owner} style={{
-                          display: "flex", alignItems: "center", gap: 8,
-                          padding: "5px 8px", borderRadius: 4,
-                          background: isMe ? C.goldDim : "transparent",
-                          border: isMe ? `1px solid ${C.goldBorder}` : "1px solid transparent",
-                          borderBottom: !isMe ? `1px solid ${C.white08}` : undefined,
-                        }}>
-                          <span style={{
-                            fontFamily: MONO, fontSize: 12, fontWeight: 800, color: isMe ? C.gold : C.dim,
-                            minWidth: 24, textAlign: "right",
-                          }}>
-                            {idx + 1}
-                          </span>
-                          <span style={{
-                            fontFamily: SANS, fontSize: 13, fontWeight: isMe ? 700 : 500,
-                            color: isMe ? C.gold : C.primary,
-                            flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                          }}>
-                            {s.owner}
-                          </span>
-                          <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.secondary, minWidth: 32, textAlign: "right" }}>
-                            {s.score}
-                          </span>
-                          <span style={{
-                            fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.06em",
-                            padding: "2px 6px", borderRadius: 3,
-                            color: sTierColor, background: `${sTierColor}18`,
-                            border: `1px solid ${sTierColor}30`,
-                            textTransform: "uppercase",
-                          }}>
-                            {s.tier.label}
-                          </span>
+            return (
+              <div style={{ borderTop: `1px solid ${C.border}`, padding: "8px 12px 10px" }}>
+                {/* 2x2 stats grid */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 10 }}>
+                  {[
+                    { val: `${wins}-${losses}`, label: "RECORD" },
+                    { val: `${winPctNum}%`, label: "WIN%" },
+                    { val: playoffApps, label: "PLAYOFFS" },
+                    { val: titles, label: "TITLES", gold: parseInt(titles) > 0 },
+                  ].map((s) => (
+                    <div key={s.label} style={{
+                      padding: "6px 8px", borderRadius: 6,
+                      background: C.elevated, border: `1px solid ${C.border}`,
+                      borderLeft: s.gold ? `3px solid ${C.gold}` : `1px solid ${C.border}`,
+                    }}>
+                      <div style={{ fontFamily: MONO, fontSize: 7, fontWeight: 700, letterSpacing: "0.08em", color: C.dim }}>{s.label}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 800, color: s.gold ? C.gold : C.primary, lineHeight: 1, marginTop: 1 }}>{s.val}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Component bars — tight */}
+                <div style={{ marginBottom: 10 }}>
+                  {Object.entries(myScore.components).map(([key, comp]) => {
+                    const pct = comp.max > 0 ? (comp.score / comp.max) * 100 : 0;
+                    const label = COMPONENT_LABELS[key] || key;
+                    const barColor = pct >= 75 ? C.green : pct >= 50 ? C.gold : pct >= 30 ? C.orange : C.red;
+                    return (
+                      <div key={key} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
+                        <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 600, color: C.dim, width: 80, textAlign: "right", flexShrink: 0 }}>{label}</span>
+                        <div style={{ flex: 1, height: 5, borderRadius: 3, background: C.elevated, overflow: "hidden" }}>
+                          <div style={{ height: "100%", borderRadius: 3, width: `${pct}%`, background: barColor }} />
                         </div>
-                      );
-                    })}
+                        <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.secondary, width: 28, textAlign: "right", flexShrink: 0 }}>{comp.score}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Insight */}
+                {bullets.length > 0 && (
+                  <div style={{ fontFamily: SANS, fontSize: 10, color: C.gold, textAlign: "center", marginBottom: 8 }}>
+                    {bullets.map((b) => b.text).join(" · ")}
                   </div>
-                </div>
-              )}
-              {loadingAll && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 8 }}>
-                  {Array.from({ length: 6 }).map((_, i) => <Skel key={i} h={28} />)}
-                </div>
-              )}
-            </div>
-          )}
+                )}
+
+                {/* Share button */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    // Open the manager card modal for sharing
+                    setExpanded(false);
+                    // Trigger the modal via the same mechanism used by ManagerCardMobile
+                    window.dispatchEvent(new CustomEvent("open-manager-card"));
+                  }}
+                  style={{
+                    width: "100%", padding: "10px 0", borderRadius: 8, border: "none",
+                    background: `linear-gradient(135deg, ${C.goldDark}, ${C.gold})`,
+                    fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.08em",
+                    color: C.bg, cursor: "pointer",
+                  }}
+                >
+                  SHARE FOR BRAGGING RIGHTS ↗
+                </button>
+
+                {/* League leaderboard — compact */}
+                {allScores && allScores.length > 0 && (
+                  <div style={{ marginTop: 10 }}>
+                    <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.08em", color: C.gold, marginBottom: 4 }}>
+                      LEAGUE LEADERBOARD
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+                      {allScores.map((s, idx) => {
+                        const isMe = s.owner.toLowerCase() === owner.toLowerCase();
+                        const sTierColor = TIER_COLORS[s.tier.label] || C.dim;
+                        return (
+                          <div key={s.owner} style={{
+                            display: "flex", alignItems: "center", gap: 6,
+                            padding: "3px 6px", borderRadius: 3,
+                            background: isMe ? C.goldDim : "transparent",
+                            borderBottom: `1px solid ${C.white08}`,
+                          }}>
+                            <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: isMe ? C.gold : C.dim, minWidth: 18, textAlign: "right" }}>{idx + 1}</span>
+                            <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: isMe ? 700 : 400, color: isMe ? C.gold : C.primary, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.owner}</span>
+                            <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.secondary }}>{s.score}</span>
+                            <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, padding: "1px 4px", borderRadius: 2, color: sTierColor, background: `${sTierColor}15`, textTransform: "uppercase" }}>{s.tier.label}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                {loadingAll && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 8 }}>
+                    {Array.from({ length: 6 }).map((_, i) => <Skel key={i} h={20} />)}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
       </div>
     </div>
   );
