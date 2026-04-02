@@ -277,10 +277,13 @@ export function useTradeBuilder({
           }),
         },
       );
-      const data = await res.json();
       if (!res.ok) {
-        setError(data.error || "Failed");
+        const text = await res.text();
+        let msg = "Failed";
+        try { const j = JSON.parse(text); msg = j.error || j.detail || msg; } catch { msg = text.slice(0, 120) || msg; }
+        setError(msg);
       } else {
+        const data = await res.json();
         const ev = data as TradeEvaluation;
         setEvaluation(ev);
         setShowModal(true);
@@ -336,12 +339,15 @@ export function useTradeBuilder({
             }),
           },
         );
-        const data = await res.json();
         if (!res.ok) {
-          setError(data.error || data.detail || "Failed");
+          const text = await res.text();
+          let msg = "Failed";
+          try { const j = JSON.parse(text); msg = j.error || j.detail || msg; } catch { msg = text.slice(0, 120) || msg; }
+          setError(msg);
           setSuggestLoading(false);
           return;
         }
+        const data = await res.json();
 
         const mapAsset = (a: Record<string, unknown>) => ({
           ...a,
