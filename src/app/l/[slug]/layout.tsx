@@ -407,7 +407,10 @@ export default function LeagueLayout({ children }: { children: React.ReactNode }
         <HeaderBar
           owner={currentOwner}
           owners={owners as unknown as Record<string, unknown>[]}
-          onOwnerChange={(name) => setOwner(name)}
+          onOwnerChange={(name) => {
+            const match = (owners as any[])?.find((o: any) => o.name === name);
+            setOwner(name, match?.user_id || match?.platform_user_id || null);
+          }}
           leagueName={overview?.name || ""}
           syncing={syncing}
           onResync={doSync}
