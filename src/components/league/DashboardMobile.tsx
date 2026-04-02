@@ -65,9 +65,11 @@ const springTransition = { type: "spring" as const, stiffness: 300, damping: 30 
 /** Format a trade asset label — handles picks and players cleanly. */
 function formatAssetLabel(a: any): string {
   if (a.is_pick) {
-    // Raw pick name: "2026 Round 1 (jwahl1032)" → "2026 1st"
     const raw = String(a.name || "");
-    const yearMatch = raw.match(/(\d{4})/);
+    // New enriched format: "2026 Early 1st" — pass through
+    if (/\d{4}\s+(Early|Mid|Late)\s+\d/.test(raw)) return raw;
+    // Old format: "2026 Round 1 (jwahl1032)" → "2026 1st"
+    const yearMatch = raw.match(/(\d{4})/)
     const roundMatch = raw.match(/round\s*(\d+)/i) || raw.match(/(\d+)\.\d+/);
     if (yearMatch && roundMatch) {
       const year = yearMatch[1];
