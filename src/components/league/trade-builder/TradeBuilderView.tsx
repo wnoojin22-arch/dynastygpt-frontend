@@ -21,6 +21,7 @@ export default function TradeBuilderView({
   ownerId?: string | null;
 }) {
   const isMobile = useIsMobile();
+  const tb = useTradeBuilder({ leagueId, owner, ownerId });
 
   if (isMobile) {
     return (
@@ -30,6 +31,5 @@ export default function TradeBuilderView({
     );
   }
 
-  const tb = useTradeBuilder({ leagueId, owner, ownerId });
   return <TradeBuilderDesktop tb={tb} leagueId={leagueId} owner={owner} />;
 }
