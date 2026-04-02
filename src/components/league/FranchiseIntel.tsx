@@ -88,6 +88,57 @@ function PosRankPill({ label }: { label: string }) {
   );
 }
 
+function GmVerdictCard({ gmText }: { gmText: string | null }) {
+  const [expanded, setExpanded] = React.useState(false);
+  const paragraphs = gmText ? gmText.split(/\n\n+/) : [];
+  const firstPara = paragraphs[0] || "";
+  const hasMore = paragraphs.length > 1;
+
+  const renderPara = (text: string) => ({
+    __html: text
+      .replace(/\*\*(.+?)\*\*/g, '<strong style="color:#eeeef2;font-weight:700">$1</strong>')
+      .replace(/\n/g, "<br/>"),
+  });
+
+  return (
+    <div style={{
+      borderRadius: 8, overflow: "hidden",
+      background: `linear-gradient(135deg, ${C.goldGlow}, ${C.card})`,
+      border: `1px solid ${C.goldBorder}`,
+    }}>
+      <div style={{ padding: "10px 14px" }}>
+        <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", color: C.gold, marginBottom: 6 }}>GM VERDICT</div>
+        {firstPara ? (
+          <div style={{ fontFamily: SANS, fontSize: 13, fontWeight: 500, color: C.primary, lineHeight: 1.5 }}
+            dangerouslySetInnerHTML={renderPara(firstPara)}
+          />
+        ) : (
+          <div style={{ fontFamily: SANS, fontSize: 13, fontStyle: "italic", color: C.dim }}>
+            Franchise intel is being computed. Check back after sync.
+          </div>
+        )}
+        {expanded && paragraphs.slice(1).map((para, i) => (
+          <p key={i} style={{ fontFamily: SANS, fontSize: 13, color: C.primary, lineHeight: 1.5, marginTop: 10 }}
+            dangerouslySetInnerHTML={renderPara(para)}
+          />
+        ))}
+      </div>
+      {hasMore && (
+        <div
+          onClick={() => setExpanded(!expanded)}
+          style={{
+            padding: "6px 14px", borderTop: `1px solid ${C.goldBorder}`,
+            textAlign: "center", cursor: "pointer",
+            fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: "0.06em", color: C.gold,
+          }}
+        >
+          {expanded ? "HIDE ▴" : "SEE FULL VERDICT ▾"}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SectionCard({ label, accent, children }: { label: string; accent?: string; children: React.ReactNode }) {
   return (
     <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
@@ -341,59 +392,8 @@ export default function FranchiseIntel({ leagueId, owner, ownerId }: {
            ═══════════════════════════════════════════════════════════════ */
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
 
-          {/* GM Verdict — collapsible gold pill, shows first paragraph only */}
-          {(() => {
-            const paragraphs = gmText ? gmText.split(/\n\n+/) : [];
-            const firstPara = paragraphs[0] || "";
-            const hasMore = paragraphs.length > 1;
-            const [verdictExpanded, setVerdictExpanded] = React.useState(false);
-
-            return (
-              <div style={{
-                borderRadius: 8, overflow: "hidden",
-                background: `linear-gradient(135deg, ${C.goldGlow}, ${C.card})`,
-                border: `1px solid ${C.goldBorder}`,
-              }}>
-                <div style={{ padding: "10px 14px" }}>
-                  <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", color: C.gold, marginBottom: 6 }}>GM VERDICT</div>
-                  {firstPara ? (
-                    <div style={{ fontFamily: SANS, fontSize: 13, fontWeight: 500, color: C.primary, lineHeight: 1.5 }}
-                      dangerouslySetInnerHTML={{
-                        __html: firstPara
-                          .replace(/\*\*(.+?)\*\*/g, '<strong style="color:#eeeef2;font-weight:700">$1</strong>')
-                          .replace(/\n/g, "<br/>")
-                      }}
-                    />
-                  ) : (
-                    <div style={{ fontFamily: SANS, fontSize: 13, fontStyle: "italic", color: C.dim }}>
-                      Franchise intel is being computed. Check back after sync.
-                    </div>
-                  )}
-                  {verdictExpanded && paragraphs.slice(1).map((para, i) => (
-                    <p key={i} style={{ fontFamily: SANS, fontSize: 13, color: C.primary, lineHeight: 1.5, marginTop: 10 }}
-                      dangerouslySetInnerHTML={{
-                        __html: para
-                          .replace(/\*\*(.+?)\*\*/g, '<strong style="color:#eeeef2;font-weight:700">$1</strong>')
-                          .replace(/\n/g, "<br/>")
-                      }}
-                    />
-                  ))}
-                </div>
-                {hasMore && (
-                  <div
-                    onClick={() => setVerdictExpanded(!verdictExpanded)}
-                    style={{
-                      padding: "6px 14px", borderTop: `1px solid ${C.goldBorder}`,
-                      textAlign: "center", cursor: "pointer",
-                      fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: "0.06em", color: C.gold,
-                    }}
-                  >
-                    {verdictExpanded ? "HIDE ▴" : "SEE FULL VERDICT ▾"}
-                  </div>
-                )}
-              </div>
-            );
-          })()}
+          {/* GM Verdict — collapsible gold pill */}
+          <GmVerdictCard gmText={gmText} />
 
           {/* WINDOW + ROSTER STRENGTH — tight side by side, no SectionCard wrapper */}
           <style>{`.fi-2col { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 8px !important; }`}</style>
