@@ -45,6 +45,7 @@ export const getLeagueBySlug = (slug: string) => get<{ league_id: string; name: 
 export const getOverview = (id: string) => get<LeagueOverview>(`${L(id)}/overview`);
 export const getStandings = (id: string) => get<{ standings: StandingEntry[] }>(`${L(id)}/standings`);
 export const getRankings = (id: string) => get<{ rankings: RankingEntry[] }>(`${L(id)}/rankings`);
+export const getAllRosters = (id: string) => get<{ rosters: Array<{ owner: string; players: Array<{ name: string; position: string; sha_value: number; sha_pos_rank: string; age: number | null }> }> }>(`${L(id)}/all-rosters`);
 export const getOwners = (id: string) => get<{ owners: OwnerListItem[] }>(`${L(id)}/owners`);
 
 // ── Roster ───────────────────────────────────────────────────────────────

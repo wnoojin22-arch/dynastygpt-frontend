@@ -96,12 +96,7 @@ function Header({ leagueId, setLeagueId, onSync, syncing, error, status }: {
           autoCorrect="off"
           spellCheck={false}
           value={leagueId}
-          onChange={(e) => setLeagueId(e.target.value)}
-          onInput={(e) => setLeagueId((e.target as HTMLInputElement).value)}
-          onPaste={(e) => {
-            const pasted = e.clipboardData.getData('text').trim();
-            if (pasted) setLeagueId(pasted);
-          }}
+          onChange={(e) => setLeagueId(e.target.value.trim())}
           style={{
             width: '100%', padding: '16px 14px', borderRadius: 10,
             border: `2px solid ${error ? T.red + '60' : T.borderLt}`,

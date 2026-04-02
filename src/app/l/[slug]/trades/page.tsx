@@ -2,7 +2,8 @@
 
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useLeagueStore } from "@/lib/stores/league-store";
-import TradeBuilderView from "@/components/league/trade-builder/TradeBuilderView";
+import TradeBuilderProvider from "@/components/league/trade-builder/TradeBuilderProvider";
+import TradeBuilderUnified from "@/components/league/trade-builder/TradeBuilderUnified";
 import MyTradesView from "@/components/league/MyTradesView";
 
 const TABS = [
@@ -62,7 +63,9 @@ export default function TradesPage() {
       <div className="flex-1 overflow-y-auto min-h-0">
         {activeTab === "builder" && (
           owner ? (
-            <TradeBuilderView leagueId={lid} owner={owner} ownerId={currentOwnerId} />
+            <TradeBuilderProvider leagueId={lid} owner={owner} ownerId={currentOwnerId}>
+              <TradeBuilderUnified />
+            </TradeBuilderProvider>
           ) : (
             <div className="flex items-center justify-center h-64">
               <p className="font-sans text-sm text-dim">Select an owner from the header to use the trade builder.</p>

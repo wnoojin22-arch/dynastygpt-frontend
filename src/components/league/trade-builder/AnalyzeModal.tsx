@@ -1,0 +1,566 @@
+"use client";
+
+/**
+ * ANALYZE MODAL — THE screenshot moment.
+ *
+ * Portal-rendered, 9:16 optimized for Stories/share.
+ * Animated grade reveal, circular acceptance gauge,
+ * trade card with send/get columns, AI verdict.
+ *
+ * html2canvas capture → navigator.share() on mobile.
+ */
+import React, { useRef, useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
+import { motion, AnimatePresence } from "framer-motion";
+import { C, SANS, MONO, SERIF, fmt, posColor, gradeColor } from "../tokens";
+import type { TradeEvaluation, TradeAsset, GradeResult, AcceptanceResult } from "./types";
+
+// ── Design tokens specific to this modal ─────────────────────────────────
+
+const M = {
+  bg: "#080b12",
+  card: "#0e1119",
+  cardBorder: "rgba(212,165,50,0.15)",
+  cardGlow: "rgba(212,165,50,0.06)",
+  market: "#6bb8e0",
+};
+
+// ── Helper: grade to display ─────────────────────────────────────────────
+
+function gradeDisplay(g: GradeResult | null | undefined) {
+  if (!g) return { letter: "?", color: C.dim, label: "" };
+  const letter = g.grade || "?";
+  const color = gradeColor(letter);
+  return { letter, color, label: g.verdict || "" };
+}
+
+function acceptanceColor(n: number): string {
+  if (n >= 70) return C.green;
+  if (n >= 50) return C.gold;
+  if (n >= 30) return C.orange;
+  return C.red;
+}
+
+// ── Circular Gauge SVG ───────────────────────────────────────────────────
+
+function CircularGauge({ value, size = 120, delay = 0.4 }: { value: number; size?: number; delay?: number }) {
+  const r = (size - 12) / 2;
+  const circumference = 2 * Math.PI * r;
+  const pct = Math.min(100, Math.max(0, value));
+  const offset = circumference * (1 - pct / 100);
+  const color = acceptanceColor(pct);
+
+  return (
+    <div style={{ position: "relative", width: size, height: size }}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: "rotate(-90deg)" }}>
+        {/* Track */}
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={C.border} strokeWidth={6} />
+        {/* Fill */}
+        <motion.circle
+          cx={size / 2} cy={size / 2} r={r}
+          fill="none" stroke={color} strokeWidth={6}
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          initial={{ strokeDashoffset: circumference }}
+          animate={{ strokeDashoffset: offset }}
+          transition={{ duration: 0.8, ease: "easeOut", delay }}
+        />
+      </svg>
+      {/* Center number */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: delay + 0.6, duration: 0.3 }}
+        style={{
+          position: "absolute", inset: 0,
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+        }}
+      >
+        <span style={{ fontFamily: MONO, fontSize: size * 0.25, fontWeight: 800, color }}>{pct}%</span>
+        <span style={{ fontFamily: MONO, fontSize: size * 0.09, color: C.dim, letterSpacing: "0.06em" }}>ACCEPTANCE</span>
+      </motion.div>
+    </div>
+  );
+}
+
+// ── Grade Badge (animated reveal) ────────────────────────────────────────
+
+function GradeBadge({ grade, delay = 0.2 }: { grade: GradeResult | null | undefined; delay?: number }) {
+  const { letter, color, label } = gradeDisplay(grade);
+
+  return (
+    <div style={{ textAlign: "center", position: "relative" }}>
+      {/* Gold burst behind grade */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.5 }}
+        animate={{ opacity: [0, 0.3, 0] }}
+        transition={{ duration: 0.6, delay, times: [0, 0.3, 1] }}
+        style={{
+          position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
+          width: 140, height: 140, borderRadius: "50%",
+          background: `radial-gradient(circle, ${C.gold}30 0%, transparent 70%)`,
+        }}
+      />
+      {/* Grade letter */}
+      <motion.div
+        initial={{ scale: 0.5, opacity: 0 }}
+        animate={{ scale: [0.5, 1.12, 1], opacity: 1 }}
+        transition={{ duration: 0.4, delay, ease: [0.34, 1.56, 0.64, 1] }}
+        style={{
+          fontFamily: MONO, fontSize: 80, fontWeight: 900,
+          color, lineHeight: 1, position: "relative",
+        }}
+      >
+        {letter}
+      </motion.div>
+      {/* Verdict label */}
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: delay + 0.3, duration: 0.3 }}
+        style={{
+          fontFamily: MONO, fontSize: 12, fontWeight: 700,
+          color, letterSpacing: "0.08em", marginTop: 4,
+        }}
+      >
+        {label.toUpperCase()}
+      </motion.div>
+    </div>
+  );
+}
+
+// ── Asset Chip ───────────────────────────────────────────────────────────
+
+function AssetChip({ asset }: { asset: TradeAsset }) {
+  const pc = posColor(asset.position);
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", gap: 8,
+      padding: "5px 0",
+    }}>
+      <span style={{
+        fontFamily: MONO, fontSize: 9, fontWeight: 800, color: pc,
+        background: `${pc}18`, padding: "2px 6px", borderRadius: 3,
+        minWidth: 26, textAlign: "center",
+      }}>
+        {asset.position}
+      </span>
+      <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 600, color: C.primary, flex: 1 }}>
+        {asset.name}
+      </span>
+      <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.gold }}>
+        {fmt(asset.sha)}
+      </span>
+    </div>
+  );
+}
+
+// ── Section Label ────────────────────────────────────────────────────────
+
+function SectionLabel({ text }: { text: string }) {
+  return (
+    <div style={{
+      fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.gold,
+      letterSpacing: "0.10em", marginBottom: 8, paddingLeft: 10,
+      borderLeft: `2px solid ${C.gold}40`,
+    }}>
+      {text}
+    </div>
+  );
+}
+
+// ── Main Modal ───────────────────────────────────────────────────────────
+
+interface AnalyzeModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  evaluation: TradeEvaluation | null;
+  partner: string;
+  owner: string;
+  onCounter?: () => void;
+}
+
+export default function AnalyzeModal({ isOpen, onClose, evaluation, partner, owner, onCounter }: AnalyzeModalProps) {
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [sharing, setSharing] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => { setMounted(true); }, []);
+
+  // ── Share via html2canvas ──
+  const handleShare = useCallback(async () => {
+    if (!contentRef.current) return;
+    setSharing(true);
+    try {
+      const html2canvas = (await import("html2canvas")).default;
+      const canvas = await html2canvas(contentRef.current, {
+        backgroundColor: M.bg,
+        scale: 2,
+        useCORS: true,
+        logging: false,
+      });
+      const blob = await new Promise<Blob>((resolve) =>
+        canvas.toBlob((b) => resolve(b!), "image/png", 1.0),
+      );
+      if (navigator.share && navigator.canShare?.({ files: [new File([blob], "trade-analysis.png")] })) {
+        await navigator.share({
+          title: "Trade Analysis — DynastyGPT",
+          files: [new File([blob], "trade-analysis.png", { type: "image/png" })],
+        });
+      } else {
+        // Fallback: download
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "dynastygpt-trade-analysis.png";
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    } catch {
+      // Silent fail
+    } finally {
+      setSharing(false);
+    }
+  }, []);
+
+  // Escape to close
+  useEffect(() => {
+    if (!isOpen) return;
+    const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [isOpen, onClose]);
+
+  // Body scroll lock
+  useEffect(() => {
+    if (isOpen) document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = ""; };
+  }, [isOpen]);
+
+  if (!mounted) return null;
+
+  const ev = evaluation;
+  const grade = ev?.owner_grade;
+  const acceptance = ev?.acceptance;
+  const acc = acceptance?.acceptance_likelihood ?? 0;
+  const giveAssets = ev?.i_give || [];
+  const getAssets = ev?.i_receive || [];
+  const giveTotal = ev?.sha_balance?.i_give?.sha_total_raw ?? giveAssets.reduce((s, a) => s + a.sha, 0);
+  const getTotal = ev?.sha_balance?.i_receive?.sha_total_raw ?? getAssets.reduce((s, a) => s + a.sha, 0);
+  const gap = getTotal - giveTotal;
+  const gapPct = giveTotal > 0 ? Math.round((gap / giveTotal) * 100) : 0;
+  const insights = ev?.negotiation_insights || [];
+  const impact = ev?.positional_impact;
+
+  // Acceptance factors
+  const factors: string[] = [];
+  if (acceptance?.roster_fit_detail?.fills?.length) {
+    factors.push(`Fills ${acceptance.roster_fit_detail.fills.join(", ")} need`);
+  }
+  if (acceptance?.breakdown) {
+    const bd = acceptance.breakdown;
+    if ((bd.sha_fairness || 0) >= 25) factors.push("Fair value exchange");
+    if ((bd.positional_overpay || 0) >= 10) factors.push("Partner tends to overpay here");
+  }
+  if (acceptance?.modifiers?.length) {
+    const top = acceptance.modifiers.sort((a, b) => Math.abs(b.adjustment) - Math.abs(a.adjustment))[0];
+    if (top) factors.push(top.reason);
+  }
+
+  const modal = (
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          {/* Backdrop */}
+          <motion.div
+            key="analyze-backdrop"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            onClick={onClose}
+            style={{
+              position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)",
+              backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",
+              zIndex: 10000,
+            }}
+          />
+
+          {/* Modal container */}
+          <motion.div
+            key="analyze-modal"
+            initial={{ opacity: 0, y: "100%" }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: "100%" }}
+            transition={{ type: "spring", damping: 28, stiffness: 350 }}
+            style={{
+              position: "fixed", zIndex: 10001,
+              bottom: 0, left: 0, right: 0,
+              maxHeight: "94vh",
+              display: "flex", flexDirection: "column",
+              background: M.bg, borderRadius: "16px 16px 0 0",
+              overflow: "hidden",
+            }}
+            className="analyze-modal-container"
+          >
+            <style>{`
+              @media (min-width: 640px) {
+                .analyze-modal-container {
+                  bottom: auto !important; left: 50% !important; right: auto !important;
+                  top: 50% !important; transform: translate(-50%, -50%) !important;
+                  width: 420px !important; max-height: 90vh !important;
+                  border-radius: 12px !important;
+                }
+              }
+            `}</style>
+
+            {/* Close button */}
+            <div style={{ display: "flex", justifyContent: "flex-end", padding: "10px 14px 0", flexShrink: 0 }}>
+              <button onClick={onClose} style={{
+                background: C.elevated, border: `1px solid ${C.border}`, borderRadius: 8,
+                cursor: "pointer", padding: "6px 10px", color: C.dim, fontSize: 14, lineHeight: 1,
+              }}>✕</button>
+            </div>
+
+            {/* Scrollable content — this is what html2canvas captures */}
+            <div ref={contentRef} style={{
+              flex: 1, overflowY: "auto", overflowX: "hidden",
+              WebkitOverflowScrolling: "touch", padding: "0 20px 20px",
+              background: M.bg,
+            }}>
+              {/* ── 1. Gold bar ── */}
+              <div style={{
+                height: 3, margin: "0 -20px 16px",
+                background: `linear-gradient(90deg, ${C.goldDark}, ${C.gold}, ${C.goldBright}, ${C.gold}, ${C.goldDark})`,
+              }} />
+
+              {/* ── 2. Header ── */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.14em", color: C.gold }}>
+                  TRADE ANALYSIS
+                </span>
+                <span style={{ fontFamily: SANS, fontSize: 10, fontWeight: 600, color: `${C.gold}80` }}>
+                  dynastygpt.com
+                </span>
+              </div>
+
+              {/* ── 3. Trade Card ── */}
+              <div style={{
+                background: M.card, borderRadius: 10,
+                border: `1px solid ${M.cardBorder}`,
+                boxShadow: `0 0 24px ${M.cardGlow}`,
+                padding: "16px 14px", marginBottom: 20,
+              }}>
+                {/* Owner labels */}
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
+                  <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.dim, letterSpacing: "0.06em" }}>
+                    {owner.toUpperCase()} SENDS
+                  </span>
+                  <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.dim, letterSpacing: "0.06em" }}>
+                    {partner.toUpperCase()} SENDS
+                  </span>
+                </div>
+
+                {/* Two columns */}
+                <div style={{ display: "flex", gap: 12 }}>
+                  {/* SEND side */}
+                  <div style={{ flex: 1, borderRight: `1px solid ${C.border}`, paddingRight: 12 }}>
+                    {giveAssets.map((a, i) => <AssetChip key={i} asset={a} />)}
+                    <div style={{
+                      fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.gold,
+                      borderTop: `1px solid ${C.border}`, paddingTop: 6, marginTop: 6,
+                    }}>
+                      {fmt(giveTotal)}
+                    </div>
+                  </div>
+
+                  {/* GET side */}
+                  <div style={{ flex: 1, paddingLeft: 0 }}>
+                    {getAssets.map((a, i) => <AssetChip key={i} asset={a} />)}
+                    <div style={{
+                      fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.gold,
+                      borderTop: `1px solid ${C.border}`, paddingTop: 6, marginTop: 6,
+                    }}>
+                      {fmt(getTotal)}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Balance indicator */}
+                <div style={{
+                  textAlign: "center", marginTop: 10, paddingTop: 8,
+                  borderTop: `1px solid ${C.border}`,
+                }}>
+                  <span style={{
+                    fontFamily: MONO, fontSize: 12, fontWeight: 800,
+                    color: gap >= 0 ? C.green : C.red,
+                    background: gap >= 0 ? C.greenDim : C.redDim,
+                    padding: "3px 10px", borderRadius: 4,
+                  }}>
+                    {gap >= 0 ? "+" : ""}{fmt(gap)} ({gapPct >= 0 ? "+" : ""}{gapPct}%)
+                  </span>
+                </div>
+              </div>
+
+              {/* ── 4. Grade + Acceptance side by side ── */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 32, marginBottom: 24 }}>
+                <GradeBadge grade={grade} delay={0.2} />
+                <CircularGauge value={acc} size={110} delay={0.4} />
+              </div>
+
+              {/* ── 5. Acceptance factors ── */}
+              {factors.length > 0 && (
+                <div style={{ marginBottom: 20 }}>
+                  <SectionLabel text="WHY THEY ACCEPT" />
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    {factors.slice(0, 3).map((f, i) => (
+                      <div key={i} style={{
+                        fontFamily: SANS, fontSize: 12, color: C.secondary,
+                        paddingLeft: 12, borderLeft: `2px solid ${C.green}30`,
+                      }}>
+                        {f}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* ── 6. Market Analysis ── */}
+              {giveTotal > 0 && getTotal > 0 && (
+                <div style={{ marginBottom: 20 }}>
+                  <SectionLabel text="VALUE ANALYSIS" />
+                  <div style={{
+                    background: M.card, borderRadius: 8,
+                    border: `1px solid ${C.border}`, padding: "12px 14px",
+                    fontFamily: MONO, fontSize: 12, color: C.secondary, lineHeight: 1.8,
+                  }}>
+                    Sending <span style={{ color: C.gold, fontWeight: 700 }}>{fmt(giveTotal)}</span> in value,
+                    getting <span style={{ color: C.gold, fontWeight: 700 }}>{fmt(getTotal)}</span> back.{" "}
+                    <span style={{ color: gap >= 0 ? C.green : C.red, fontWeight: 700 }}>
+                      {gap >= 0 ? "Favorable" : "Unfavorable"} by {Math.abs(gapPct)}%.
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* ── 7. Positional Impact ── */}
+              {impact?.owner && Object.keys(impact.owner).length > 0 && (
+                <div style={{ marginBottom: 20 }}>
+                  <SectionLabel text="ROSTER IMPACT" />
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                    {Object.entries(impact.owner).map(([pos, data]) => {
+                      const dirColor = data.direction === "up" ? C.green : data.direction === "down" ? C.red : C.dim;
+                      const arrow = data.direction === "up" ? "↑" : data.direction === "down" ? "↓" : "→";
+                      return (
+                        <div key={pos} style={{
+                          background: M.card, border: `1px solid ${C.border}`, borderRadius: 6,
+                          padding: "6px 10px", display: "flex", alignItems: "center", gap: 6,
+                        }}>
+                          <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: posColor(pos) }}>{pos}</span>
+                          <span style={{ fontFamily: MONO, fontSize: 11, color: C.dim }}>{data.before}</span>
+                          <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: dirColor }}>{arrow}</span>
+                          <span style={{ fontFamily: MONO, fontSize: 11, color: dirColor, fontWeight: 700 }}>{data.after}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* ── 8. Insights ── */}
+              {insights.length > 0 && (
+                <div style={{ marginBottom: 20 }}>
+                  <SectionLabel text="INSIGHTS" />
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {insights.slice(0, 3).map((ins, i) => (
+                      <div key={i} style={{
+                        background: M.card, border: `1px solid ${C.border}`, borderRadius: 6,
+                        padding: "8px 12px", fontFamily: SANS, fontSize: 12, color: C.secondary, lineHeight: 1.5,
+                      }}>
+                        {ins.insight}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* ── 9. AI Verdict ── */}
+              {grade?.reasons?.length ? (
+                <div style={{ marginBottom: 20 }}>
+                  <SectionLabel text="AI VERDICT" />
+                  <div style={{
+                    background: M.card, border: `1px solid ${C.border}`, borderRadius: 8,
+                    padding: "14px 16px",
+                  }}>
+                    <p style={{
+                      fontFamily: SERIF, fontSize: 15, fontStyle: "italic",
+                      color: C.primary, lineHeight: 1.6, margin: 0,
+                    }}>
+                      {grade.reasons.slice(0, 2).join(" ")}
+                    </p>
+                  </div>
+                </div>
+              ) : null}
+
+              {/* ── 10. Watermark ── */}
+              <div style={{
+                textAlign: "center", paddingTop: 12, marginTop: 8,
+                borderTop: `1px solid ${C.border}`,
+              }}>
+                <span style={{ fontFamily: SANS, fontSize: 10, fontWeight: 600, color: `${C.gold}50`, letterSpacing: "0.04em" }}>
+                  powered by DynastyGPT.com
+                </span>
+              </div>
+            </div>
+
+            {/* ── Action bar (excluded from screenshot) ── */}
+            <div style={{
+              padding: "12px 20px", paddingBottom: "calc(12px + env(safe-area-inset-bottom, 0px))",
+              borderTop: `1px solid ${C.border}`, display: "flex", gap: 8,
+              flexShrink: 0, background: M.bg,
+            }}>
+              <button
+                onClick={onClose}
+                style={{
+                  flex: 1, padding: "14px 0", borderRadius: 10,
+                  background: C.elevated, border: `1px solid ${C.border}`,
+                  fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.06em",
+                  color: C.secondary, cursor: "pointer",
+                }}
+              >
+                BACK
+              </button>
+              {onCounter && (
+                <button
+                  onClick={onCounter}
+                  style={{
+                    flex: 1, padding: "14px 0", borderRadius: 10,
+                    background: C.elevated, border: `1px solid ${C.blue}40`,
+                    fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.06em",
+                    color: C.blue, cursor: "pointer",
+                  }}
+                >
+                  ↩ COUNTER
+                </button>
+              )}
+              <button
+                onClick={handleShare}
+                disabled={sharing}
+                style={{
+                  flex: 1, padding: "14px 0", borderRadius: 10,
+                  background: `linear-gradient(135deg, ${C.goldDark}, ${C.gold})`,
+                  border: "none",
+                  fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.06em",
+                  color: M.bg, cursor: sharing ? "wait" : "pointer",
+                  opacity: sharing ? 0.6 : 1,
+                }}
+              >
+                {sharing ? "..." : "SHARE ↗"}
+              </button>
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  );
+
+  return createPortal(modal, document.body);
+}
