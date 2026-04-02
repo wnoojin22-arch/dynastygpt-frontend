@@ -141,19 +141,24 @@ export default function PlayerCardModal() {
           >
             <style>{`
               .player-card-modal {
-                bottom: 0; left: 0; right: 0; max-height: 92vh; border-radius: 16px 16px 0 0;
+                bottom: 0; left: 0; right: 0; height: 92vh; max-height: 92vh; border-radius: 16px 16px 0 0;
               }
               @media (min-width: 640px) {
                 .player-card-modal {
                   bottom: auto; left: 50%; right: auto; top: 50%;
                   transform: translate(-50%, -50%) !important;
-                  width: 520px; max-height: 85vh; border-radius: 12px;
+                  width: 520px; height: auto; max-height: 85vh; border-radius: 12px;
                 }
               }
               @keyframes pulse-gold{0%,100%{opacity:1}50%{opacity:.3}}
             `}</style>
 
-            {/* ── Top bar — branding + close, own row above everything ── */}
+            {/* Drag handle */}
+            <div style={{ display: "flex", justifyContent: "center", padding: "8px 0 4px", flexShrink: 0 }}>
+              <div style={{ width: 36, height: 4, borderRadius: 2, background: C.borderLt }} />
+            </div>
+
+            {/* ── Top bar — branding + close ── */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 10, padding: "8px 12px 0", flexShrink: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "3px 10px", borderRadius: 14, border: `1px solid ${C.goldBorder}`, background: C.goldGlow }}>
                 <span style={{ fontSize: 7, fontWeight: 600, color: C.gold, fontFamily: SANS, fontStyle: "italic" }}>powered by</span>
