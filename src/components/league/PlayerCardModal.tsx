@@ -462,64 +462,61 @@ function TradesTab({ trades, timeline, playerName, pc }: { trades: Array<Record<
         </div>
       )}
 
-      {/* Trade cards with pick badges */}
+      {/* Trade comps — cross-league recent trades */}
       {uniqueTrades.length > 0 && (
         <div>
-          <SectionLabel text={`TRADES IN THIS LEAGUE (${uniqueTrades.length})`} />
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <SectionLabel text={`RECENT TRADES (${uniqueTrades.length})`} />
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {uniqueTrades.map((t, i) => {
-              const pSent = (t.players_sent || []) as string[];
-              const pRecv = (t.players_received || []) as string[];
-              const pkSent = (t.picks_sent || []) as string[];
-              const pkRecv = (t.picks_received || []) as string[];
+              // Handle both price-check shape (gave/got) and enriched_trades shape (players_sent/players_received)
+              const gaveRaw = (t.gave || t.players_sent || []) as Array<string | Record<string, unknown>>;
+              const gotRaw = (t.got || t.players_received || []) as Array<string | Record<string, unknown>>;
+              const gave = gaveRaw.map(a => typeof a === "string" ? a : String((a as Record<string, unknown>).name || ""));
+              const got = gotRaw.map(a => typeof a === "string" ? a : String((a as Record<string, unknown>).name || ""));
               const plower = playerName.toLowerCase();
-
-              const renderAsset = (name: string, isSubject: boolean, pick: boolean) => (
-                <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 3 }}>
-                  {pick && (
-                    <span style={{
-                      fontFamily: MONO, fontSize: 8, fontWeight: 800, color: C.dim,
-                      background: C.elevated, padding: "1px 4px", borderRadius: 2,
-                    }}>PICK</span>
-                  )}
-                  <span style={{
-                    fontFamily: SANS, fontSize: 13,
-                    color: isSubject ? C.gold : pick ? C.dim : C.secondary,
-                    fontWeight: isSubject ? 700 : 400,
-                  }}>
-                    {name.replace(/\s*\([^)]*\)/g, "")}
-                  </span>
-                </div>
-              );
-
-              const verdict = String(t.verdict || "");
+              const wasSold = t.was_sold;
+              const tradeDate = String(t.date || t.trade_date || "").substring(0, 10);
+              const format = String(t.format || "");
               const grade = String(t.grade || "");
-              const bal = Number(t.sha_balance || 0);
-              const verdictColor = verdict === "Won" ? "#7dd3a0" : verdict === "Lost" ? "#e47272" : C.dim;
+              const overall = String(t.overall || t.verdict || "");
+
+              const renderAsset = (name: string, isSubject: boolean) => {
+                const pick = isPick(name);
+                return (
+                  <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 2 }}>
+                    {pick && <span style={{ fontFamily: MONO, fontSize: 7, fontWeight: 800, color: C.dim, background: C.elevated, padding: "1px 3px", borderRadius: 2 }}>PICK</span>}
+                    <span style={{ fontFamily: SANS, fontSize: 12, color: isSubject ? C.gold : pick ? C.dim : C.secondary, fontWeight: isSubject ? 700 : 400 }}>
+                      {name.replace(/\s*\([^)]*\)/g, "")}
+                    </span>
+                  </div>
+                );
+              };
+
+              const verdictColor = overall.includes("Won") || overall.includes("ROBBERY") ? "#7dd3a0" : overall.includes("Lost") || overall.includes("Victim") ? "#e47272" : C.dim;
 
               return (
-                <div key={i} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 14 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexWrap: "wrap", gap: 4 }}>
-                    <span style={{ fontFamily: SANS, fontSize: 14, fontWeight: 600, color: C.primary }}>{String(t.owner || "")} <span style={{ color: C.gold }}>↔</span> {String(t.counter_party || "")}</span>
+                <div key={i} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 12px" }}>
+                  {/* Header: date + format + verdict */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, gap: 4 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      {verdict && (
-                        <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: verdictColor, background: `${verdictColor}15`, padding: "2px 6px", borderRadius: 4 }}>
-                          {verdict}{grade ? ` (${grade})` : ""}
-                        </span>
-                      )}
-                      <span style={{ fontFamily: MONO, fontSize: 11, color: C.dim }}>{String(t.trade_date || "").substring(0, 10)}</span>
+                      <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>{tradeDate}</span>
+                      {format && <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim, background: C.elevated, padding: "1px 5px", borderRadius: 3 }}>{format}</span>}
                     </div>
+                    {(overall || grade) && (
+                      <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: verdictColor, background: `${verdictColor}15`, padding: "2px 5px", borderRadius: 3 }}>
+                        {grade || overall}
+                      </span>
+                    )}
                   </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  {/* Two columns: gave / got */}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                     <div>
-                      <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: "#e47272", marginBottom: 6, letterSpacing: "0.06em" }}>SENT</div>
-                      {pSent.map((p, j) => <React.Fragment key={j}>{renderAsset(p, p.toLowerCase() === plower, false)}</React.Fragment>)}
-                      {pkSent.map((p, j) => <React.Fragment key={`pk${j}`}>{renderAsset(p, false, true)}</React.Fragment>)}
+                      <div style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, color: "#e47272", marginBottom: 4, letterSpacing: "0.06em" }}>{wasSold ? "SOLD" : "GAVE"}</div>
+                      {gave.map((p, j) => <React.Fragment key={j}>{renderAsset(p, p.toLowerCase() === plower)}</React.Fragment>)}
                     </div>
                     <div>
-                      <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: "#7dd3a0", marginBottom: 6, letterSpacing: "0.06em" }}>RECEIVED</div>
-                      {pRecv.map((p, j) => <React.Fragment key={j}>{renderAsset(p, p.toLowerCase() === plower, false)}</React.Fragment>)}
-                      {pkRecv.map((p, j) => <React.Fragment key={`pk${j}`}>{renderAsset(p, false, true)}</React.Fragment>)}
+                      <div style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, color: "#7dd3a0", marginBottom: 4, letterSpacing: "0.06em" }}>{wasSold ? "FOR" : "GOT"}</div>
+                      {got.map((p, j) => <React.Fragment key={j}>{renderAsset(p, p.toLowerCase() === plower)}</React.Fragment>)}
                     </div>
                   </div>
                 </div>
