@@ -341,91 +341,137 @@ export default function FranchiseIntel({ leagueId, owner, ownerId }: {
            ═══════════════════════════════════════════════════════════════ */
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
 
-          {/* GM Verdict — hero card */}
-          <div className="rounded-lg border px-5 py-5" style={{ background: `linear-gradient(135deg, ${C.goldGlow}, ${C.card})`, borderColor: C.goldBorder }}>
-            <div className="text-[13px] font-medium mb-2.5" style={{ fontFamily: SANS, color: C.gold }}>GM Verdict</div>
-            {gmText ? (
-              <div className="text-sm font-medium leading-relaxed" style={{ fontFamily: SANS, color: C.primary }}>
-                {gmText.split(/\n\n+/).map((para, i) => (
-                  <p key={i} className={i > 0 ? "mt-4" : ""} dangerouslySetInnerHTML={{
-                    __html: para
-                      .replace(/\*\*(.+?)\*\*/g, '<strong class="text-[#eeeef2] font-bold">$1</strong>')
-                      .replace(/\n/g, "<br/>")
-                  }} />
-                ))}
+          {/* GM Verdict — collapsible gold pill, shows first paragraph only */}
+          {(() => {
+            const paragraphs = gmText ? gmText.split(/\n\n+/) : [];
+            const firstPara = paragraphs[0] || "";
+            const hasMore = paragraphs.length > 1;
+            const [verdictExpanded, setVerdictExpanded] = React.useState(false);
+
+            return (
+              <div style={{
+                borderRadius: 8, overflow: "hidden",
+                background: `linear-gradient(135deg, ${C.goldGlow}, ${C.card})`,
+                border: `1px solid ${C.goldBorder}`,
+              }}>
+                <div style={{ padding: "10px 14px" }}>
+                  <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", color: C.gold, marginBottom: 6 }}>GM VERDICT</div>
+                  {firstPara ? (
+                    <div style={{ fontFamily: SANS, fontSize: 13, fontWeight: 500, color: C.primary, lineHeight: 1.5 }}
+                      dangerouslySetInnerHTML={{
+                        __html: firstPara
+                          .replace(/\*\*(.+?)\*\*/g, '<strong style="color:#eeeef2;font-weight:700">$1</strong>')
+                          .replace(/\n/g, "<br/>")
+                      }}
+                    />
+                  ) : (
+                    <div style={{ fontFamily: SANS, fontSize: 13, fontStyle: "italic", color: C.dim }}>
+                      Franchise intel is being computed. Check back after sync.
+                    </div>
+                  )}
+                  {verdictExpanded && paragraphs.slice(1).map((para, i) => (
+                    <p key={i} style={{ fontFamily: SANS, fontSize: 13, color: C.primary, lineHeight: 1.5, marginTop: 10 }}
+                      dangerouslySetInnerHTML={{
+                        __html: para
+                          .replace(/\*\*(.+?)\*\*/g, '<strong style="color:#eeeef2;font-weight:700">$1</strong>')
+                          .replace(/\n/g, "<br/>")
+                      }}
+                    />
+                  ))}
+                </div>
+                {hasMore && (
+                  <div
+                    onClick={() => setVerdictExpanded(!verdictExpanded)}
+                    style={{
+                      padding: "6px 14px", borderTop: `1px solid ${C.goldBorder}`,
+                      textAlign: "center", cursor: "pointer",
+                      fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: "0.06em", color: C.gold,
+                    }}
+                  >
+                    {verdictExpanded ? "HIDE ▴" : "SEE FULL VERDICT ▾"}
+                  </div>
+                )}
               </div>
-            ) : (
-              <div className="text-sm italic" style={{ fontFamily: SANS, color: C.dim }}>
-                Franchise intel is being computed. Check back after full league analysis.
-              </div>
-            )}
-          </div>
+            );
+          })()}
 
           {/* WINDOW + ROSTER STRENGTH — side by side */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             <SectionCard label="Competitive window">
               {windowData ? (
                 <>
-                  <div style={{ fontFamily: DISPLAY, fontSize: 20, color: C.primary, marginBottom: 8 }}>{String(windowData.window || "—")}</div>
+                  <div style={{ fontFamily: DISPLAY, fontSize: 18, color: C.primary, marginBottom: 6 }}>{String(windowData.window || "—")}</div>
                   {[
-                    { label: "Win-now rank", val: windowData.win_now_rank, color: C.green },
-                    { label: "Dynasty rank", val: windowData.dynasty_rank, color: "#6bb8e0" },
+                    { label: "Win-now", val: windowData.win_now_rank, color: C.green },
+                    { label: "Dynasty", val: windowData.dynasty_rank, color: "#6bb8e0" },
                     { label: "QB floor", val: rosterData?.qb_floor, color: C.primary },
                   ].filter(r => r.val).map((r, idx) => (
-                    <div key={idx} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: `1px solid ${C.white08}` }}>
-                      <span style={{ fontFamily: SANS, fontSize: 13, color: C.dim }}>{r.label}</span>
-                      <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 600, color: r.color }}>{typeof r.val === "number" ? `#${r.val}` : String(r.val)}</span>
+                    <div key={idx} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", borderBottom: `1px solid ${C.white08}` }}>
+                      <span style={{ fontFamily: SANS, fontSize: 11, color: C.dim }}>{r.label}</span>
+                      <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, color: r.color }}>{typeof r.val === "number" ? `#${r.val}` : String(r.val)}</span>
                     </div>
                   ))}
                   {windowData.window_mismatch && (
-                    <div style={{ marginTop: 10, fontFamily: SANS, fontSize: 12, color: C.orange, padding: "6px 10px", borderRadius: 4, background: `${C.orange}12`, border: `1px solid ${C.orange}25` }}>
-                      ⚠ {String(windowData.mismatch_type || "Window mismatch").replace(/_/g, " ")}
+                    <div style={{ marginTop: 6, fontFamily: SANS, fontSize: 10, color: C.orange, padding: "4px 8px", borderRadius: 4, background: `${C.orange}12` }}>
+                      ⚠ {String(windowData.mismatch_type || "Mismatch").replace(/_/g, " ")}
                     </div>
                   )}
                 </>
-              ) : <span style={{ fontFamily: SANS, fontSize: 13, color: C.dim }}>—</span>}
+              ) : <span style={{ fontFamily: SANS, fontSize: 11, color: C.dim }}>—</span>}
             </SectionCard>
 
             <SectionCard label="Roster strength">
               {positions ? (
                 <>
-                  {Object.entries(positions).map(([pos, data]) => (
-                    <GradeBar key={pos} pos={pos} grade={String(data.positional_grade || "—")}
-                      eliteCount={data.elite_count as number | undefined} starterCount={data.starter_count as number | undefined} />
-                  ))}
+                  {/* 2x2 position grades */}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, marginBottom: 6 }}>
+                    {Object.entries(positions).map(([pos, data]) => {
+                      const grade = String(data.positional_grade || "—");
+                      const gc = grade === "ELITE" ? C.green : grade === "STRONG" ? "#6bb8e0" : grade === "AVERAGE" ? C.gold : grade === "WEAK" ? C.orange : C.red;
+                      return (
+                        <div key={pos} style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 6px", borderRadius: 4, background: `${gc}08`, border: `1px solid ${gc}20` }}>
+                          <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 700, color: posColor(pos) }}>{pos}</span>
+                          <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: gc }}>{grade}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {/* Needs centered */}
                   {(rosterData?.positional_needs as string[] || []).length > 0 && (
-                    <div style={{ marginTop: 10 }}>
-                      <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 600, color: C.red }}>Needs: </span>
-                      <span style={{ fontFamily: SANS, fontSize: 13, color: C.secondary }}>{(rosterData?.positional_needs as string[]).join(", ")}</span>
+                    <div style={{ textAlign: "center", fontFamily: MONO, fontSize: 10, color: C.red, fontWeight: 600 }}>
+                      NEEDS: {(rosterData?.positional_needs as string[]).join(", ")}
                     </div>
                   )}
                 </>
-              ) : <span style={{ fontFamily: SANS, fontSize: 13, color: C.dim }}>—</span>}
+              ) : <span style={{ fontFamily: SANS, fontSize: 11, color: C.dim }}>—</span>}
             </SectionCard>
           </div>
 
-          {/* STOP / START / KEEP — three columns, handles object or string items */}
+          {/* STOP / START / KEEP — compact three columns */}
           {(actionsData.stop.length > 0 || actionsData.start.length > 0 || actionsData.keep.length > 0) && (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
               {[
                 { label: "Stop", items: actionsData.stop, color: C.red },
                 { label: "Start", items: actionsData.start, color: C.green },
                 { label: "Keep", items: actionsData.keep, color: C.gold },
               ].map(({ label, items, color }) => (
-                <div key={label} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
-                  <div style={{ padding: "8px 14px", borderBottom: `1px solid ${C.border}`, background: `${color}10` }}>
-                    <span style={{ fontFamily: SANS, fontSize: 14, fontWeight: 600, color }}>{label}</span>
+                <div key={label} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, overflow: "hidden" }}>
+                  <div style={{ padding: "5px 8px", borderBottom: `1px solid ${C.border}`, background: `${color}10` }}>
+                    <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color }}>{label.toUpperCase()}</span>
                   </div>
-                  <div style={{ padding: 14 }}>
-                    {items.length > 0 ? items.map((rawItem, j) => {
-                      const { action, detail } = parseActionItem(rawItem);
+                  <div style={{ padding: "6px 8px" }}>
+                    {items.length > 0 ? items.slice(0, 4).map((rawItem, j) => {
+                      const { action } = parseActionItem(rawItem);
+                      // Truncate long actions and strip positional grade references
+                      const short = action.replace(/\s*\([^)]*grade[^)]*\)/gi, "").replace(/\s*—\s*position.*$/i, "");
                       return (
-                        <div key={j} style={{ padding: "6px 0", borderBottom: j < items.length - 1 ? `1px solid ${C.white08}` : "none" }}>
-                          <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 500, color: C.primary, lineHeight: 1.45 }}>{action}</div>
-                          {detail && <div style={{ fontFamily: SANS, fontSize: 13, color: C.dim, marginTop: 3 }}>{detail}</div>}
+                        <div key={j} style={{ padding: "3px 0", borderBottom: j < Math.min(items.length, 4) - 1 ? `1px solid ${C.white08}` : "none" }}>
+                          <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 500, color: C.primary, lineHeight: 1.35 }}>
+                            {short.length > 50 ? short.slice(0, 48) + "…" : short}
+                          </div>
                         </div>
                       );
-                    }) : <span style={{ fontFamily: SANS, fontSize: 13, color: C.dim }}>No items</span>}
+                    }) : <span style={{ fontFamily: SANS, fontSize: 10, color: C.dim }}>—</span>}
                   </div>
                 </div>
               ))}
