@@ -574,7 +574,7 @@ function getVal(p: GlobalPlayerRanking, mode: PlayerMode): number {
   return p.sha_value;
 }
 
-function PlayerRankings({ overview, mobile }: { overview: any; mobile: boolean }) {
+function PlayerRankings({ overview }: { overview: any }) {
   const { openPlayerCard } = usePlayerCardStore();
   const [mode, setMode] = useState<PlayerMode>("overall");
   const [posFilter, setPosFilter] = useState("ALL");
@@ -591,11 +591,13 @@ function PlayerRankings({ overview, mobile }: { overview: any; mobile: boolean }
   const is1QB = overview?.format && !overview.format.is_superflex;
   const allPlayers = data?.players || [];
 
+  // Apply 1QB format adjustment to QBs
   const formatAdjusted = useMemo(() => {
     if (!is1QB) return allPlayers;
     return allPlayers.map((p) => p.position !== "QB" ? p : { ...p, sha_value: Math.round(p.sha_value * 0.73) });
   }, [allPlayers, is1QB]);
 
+  // Close dropdown on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setFocused(false);
@@ -604,6 +606,7 @@ function PlayerRankings({ overview, mobile }: { overview: any; mobile: boolean }
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  // Debounced search for dropdown suggestions
   const [debounced, setDebounced] = useState("");
   useEffect(() => { const t = setTimeout(() => setDebounced(search), 150); return () => clearTimeout(t); }, [search]);
 
@@ -613,6 +616,7 @@ function PlayerRankings({ overview, mobile }: { overview: any; mobile: boolean }
     return formatAdjusted.filter(p => p.player_name.toLowerCase().includes(q)).slice(0, 8);
   }, [debounced, formatAdjusted]);
 
+  // Filtered + sorted players for table
   const filtered = useMemo(() => {
     const sq = search.toLowerCase().trim();
     let list = formatAdjusted;
@@ -621,17 +625,18 @@ function PlayerRankings({ overview, mobile }: { overview: any; mobile: boolean }
     return [...list].sort((a, b) => getRank(a, mode) - getRank(b, mode)).slice(0, MAX_PLAYERS);
   }, [formatAdjusted, posFilter, search, mode]);
 
+  // Determine column headers based on mode
   const valKey = mode === "overall" ? "VALUE" : mode === "dynasty" ? "DYNASTY" : "WIN-NOW";
   const showTierBreaks = posFilter === "ALL" && !search;
 
   return (
     <div>
-      {/* Search + filters */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 10 }}>
-        {/* Search bar */}
+      {/* Search + Position filters */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 12 }}>
+        {/* Search bar with auto-suggest */}
         <div ref={wrapRef} style={{ position: "relative" }}>
           <div style={{
-            display: "flex", alignItems: "center", gap: 8, padding: mobile ? "6px 10px" : "8px 12px", borderRadius: 6,
+            display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderRadius: 6,
             background: C.card,
             border: `1px solid ${focused ? C.gold : C.border}`,
             boxShadow: focused ? `0 0 0 1px ${C.gold}30` : "none",
@@ -640,7 +645,7 @@ function PlayerRankings({ overview, mobile }: { overview: any; mobile: boolean }
             <Search size={14} style={{ color: focused ? C.gold : C.dim, flexShrink: 0 }} />
             <input type="text" value={search} onChange={e => setSearch(e.target.value)} onFocus={() => setFocused(true)}
               placeholder="Search any player..."
-              style={{ flex: 1, background: "transparent", border: "none", outline: "none", fontFamily: SANS, fontSize: mobile ? 12 : 13, fontWeight: 500, color: C.primary }} />
+              style={{ flex: 1, background: "transparent", border: "none", outline: "none", fontFamily: SANS, fontSize: 13, fontWeight: 500, color: C.primary }} />
             {search && <button onClick={() => setSearch("")} style={{ background: "none", border: "none", cursor: "pointer", padding: 0 }}><X size={14} style={{ color: C.dim }} /></button>}
           </div>
           {/* Suggest dropdown */}
@@ -657,13 +662,13 @@ function PlayerRankings({ overview, mobile }: { overview: any; mobile: boolean }
                     onClick={() => { openPlayerCard(p.player_name); setFocused(false); }}
                     className="rk-dense"
                     style={{
-                      display: "flex", alignItems: "center", gap: mobile ? 6 : 10, padding: mobile ? "6px 10px" : "8px 14px", cursor: "pointer",
+                      display: "flex", alignItems: "center", gap: 10, padding: "8px 14px", cursor: "pointer",
                       borderBottom: i < suggestions.length - 1 ? `1px solid ${C.border}` : "none",
                     }}>
                     <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, padding: "2px 6px", borderRadius: 3, background: `${pc}15`, color: pc, border: `1px solid ${pc}30` }}>{p.position}</span>
-                    <span style={{ fontFamily: SANS, fontSize: mobile ? 12 : 13, fontWeight: 700, color: C.primary, flex: 1 }}>{p.player_name}</span>
+                    <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 700, color: C.primary, flex: 1 }}>{p.player_name}</span>
                     <span style={{ fontFamily: MONO, fontSize: 11, color: C.dim }}>{p.team || "FA"}</span>
-                    <span style={{ fontFamily: MONO, fontSize: mobile ? 11 : 13, fontWeight: 800, color: C.gold }}>{fmt(getVal(p, mode))}</span>
+                    <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.gold }}>{fmt(getVal(p, mode))}</span>
                   </div>
                 );
               })}
@@ -671,36 +676,49 @@ function PlayerRankings({ overview, mobile }: { overview: any; mobile: boolean }
           )}
         </div>
 
-        {/* Position pills */}
-        <PillTabs
-          tabs={POS_FILTERS.map(p => ({ id: p, label: p, color: p === "ALL" ? C.gold : posColor(p) }))}
-          active={posFilter} onChange={setPosFilter} compact={mobile}
-        />
-
-        {/* Mode tabs */}
-        <GlowTabs size="sm" tabs={PLAYER_MODE_TABS} active={mode} onChange={(id) => setMode(id as PlayerMode)} />
+        {/* Position pills + mode tabs */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+          <div style={{ display: "flex", gap: 4 }}>
+            {POS_FILTERS.map((p) => {
+              const act = posFilter === p;
+              const c = p === "ALL" ? C.gold : posColor(p);
+              return (
+                <button key={p} onClick={() => setPosFilter(p)}
+                  style={{
+                    fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.06em",
+                    padding: "4px 12px", borderRadius: 4, cursor: "pointer", border: "none",
+                    background: act ? `${c}20` : "transparent",
+                    color: act ? c : C.dim,
+                    outline: act ? `1px solid ${c}40` : `1px solid ${C.border}`,
+                    transition: "all 0.15s",
+                  }}>{p}</button>
+              );
+            })}
+          </div>
+          <GlowTabs size="sm" tabs={PLAYER_MODE_TABS} active={mode} onChange={(id) => setMode(id as PlayerMode)} />
+        </div>
       </div>
 
       {/* Table header */}
       <div style={{
-        display: "grid", gridTemplateColumns: mobile ? "28px 1fr 40px 56px" : "0.8fr 4fr 1.2fr 1.5fr",
-        alignItems: "center", gap: mobile ? 6 : 8, padding: mobile ? "8px 10px" : "10px 20px",
+        display: "grid", gridTemplateColumns: "0.8fr 4fr 1.2fr 1.5fr",
+        alignItems: "center", gap: 8, padding: "10px 20px",
         position: "sticky", top: 0, zIndex: 2,
         background: C.panel, borderBottom: `1px solid ${C.border}`,
       }}>
-        <span style={{ fontFamily: MONO, fontSize: mobile ? 9 : 10, fontWeight: 800, letterSpacing: "0.08em", color: C.dim }}>RK</span>
-        <span style={{ fontFamily: MONO, fontSize: mobile ? 9 : 10, fontWeight: 800, letterSpacing: "0.08em", color: C.dim }}>PLAYER</span>
-        <span style={{ fontFamily: MONO, fontSize: mobile ? 9 : 10, fontWeight: 800, letterSpacing: "0.08em", color: C.dim, textAlign: "center" }}>POS</span>
-        <span style={{ fontFamily: MONO, fontSize: mobile ? 9 : 10, fontWeight: 800, letterSpacing: "0.08em", color: C.gold, textAlign: "right" }}>{valKey}</span>
+        <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", color: C.dim }}>RK</span>
+        <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", color: C.dim }}>PLAYER</span>
+        <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", color: C.dim, textAlign: "center" }}>POS RK</span>
+        <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", color: C.gold, textAlign: "right" }}>{valKey}</span>
       </div>
 
       {/* Player rows */}
-      {isLoading ? <Skel n={20} h={mobile ? 36 : 44} /> : filtered.length === 0 ? (
+      {isLoading ? <Skel n={20} h={44} /> : filtered.length === 0 ? (
         <div style={{ padding: "40px 20px", textAlign: "center", fontFamily: MONO, fontSize: 13, color: C.dim }}>
           {search ? "No players match your search" : "No player data available"}
         </div>
       ) : (
-        <div style={{ maxHeight: mobile ? "calc(100vh - 280px)" : 680, overflowY: "auto" }}>
+        <div style={{ maxHeight: 680, overflowY: "auto" }}>
           {filtered.map((p, idx) => {
             const rank = getRank(p, mode);
             const value = getVal(p, mode);
@@ -708,13 +726,14 @@ function PlayerRankings({ overview, mobile }: { overview: any; mobile: boolean }
             const isEven = idx % 2 === 0;
             const pc = posColor(p.position);
 
+            // Tier break
             const prevRank = idx > 0 ? getRank(filtered[idx - 1], mode) : 0;
             const tierBreak = showTierBreaks ? Object.keys(PLAYER_TIER_BREAKS).map(Number).find(tb => prevRank < tb && rank >= tb) : undefined;
 
             return (
               <React.Fragment key={p.player_name + p.position}>
                 {tierBreak != null && (
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, padding: mobile ? "6px 10px" : "8px 20px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 20px" }}>
                     <div style={{ height: 1, flex: 1, background: C.border }} />
                     <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.16em", color: C.dim }}>{PLAYER_TIER_BREAKS[tierBreak]}</span>
                     <div style={{ height: 1, flex: 1, background: C.border }} />
@@ -723,38 +742,41 @@ function PlayerRankings({ overview, mobile }: { overview: any; mobile: boolean }
                 <div className="rk-dense"
                   onClick={() => openPlayerCard(p.player_name)}
                   style={{
-                    display: "grid", gridTemplateColumns: mobile ? "28px 1fr 40px 56px" : "0.8fr 4fr 1.2fr 1.5fr",
-                    alignItems: "center", gap: mobile ? 6 : 8, padding: mobile ? "6px 10px" : "10px 20px", cursor: "pointer",
+                    display: "grid", gridTemplateColumns: "0.8fr 4fr 1.2fr 1.5fr",
+                    alignItems: "center", gap: 8, padding: "10px 20px", cursor: "pointer",
                     background: isEven ? C.card : `${C.elevated}90`,
                     borderBottom: `1px solid ${C.white08}`,
                   }}>
                   {/* Rank */}
                   <span style={{
-                    fontFamily: MONO, fontSize: mobile ? 13 : 17, fontWeight: 900,
+                    fontFamily: MONO, fontSize: 17, fontWeight: 900,
                     color: isElite ? C.gold : C.dim,
                     textShadow: isElite ? `0 0 12px ${C.gold}40` : "none",
                   }}>{rank <= 999 ? rank : "\u2014"}</span>
-                  {/* Player */}
+                  {/* Player + Position + Age */}
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 4, overflow: "hidden" }}>
-                      <div style={{
-                        fontFamily: SANS, fontSize: mobile ? 12 : 15, fontWeight: 700, color: C.primary, lineHeight: 1.2,
-                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                      }}>{p.player_name}</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, overflow: "hidden" }}>
+                      <div className="hover:text-gold transition-colors"
+                        style={{ fontFamily: SANS, fontSize: 15, fontWeight: 700, color: C.primary, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {p.player_name}
+                      </div>
+                      <span style={{
+                        fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.04em",
+                        padding: "2px 8px", borderRadius: 4, flexShrink: 0,
+                        background: `${pc}15`, color: pc, border: `1px solid ${pc}30`,
+                      }}>{p.position}</span>
                     </div>
-                    <div style={{ fontFamily: MONO, fontSize: mobile ? 9 : 11, color: C.dim, marginTop: 1, lineHeight: 1, display: "flex", gap: 6 }}>
+                    <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim, marginTop: 2, lineHeight: 1, display: "flex", gap: 8 }}>
                       <span>{p.team || "FA"}</span>
-                      {p.age != null && <span>{p.age}y</span>}
+                      {p.age != null && <span>{p.age} yrs</span>}
                     </div>
                   </div>
-                  {/* Pos badge */}
-                  <span style={{
-                    fontFamily: MONO, fontSize: mobile ? 9 : 10, fontWeight: 800,
-                    padding: "2px 5px", borderRadius: 3, textAlign: "center",
-                    background: `${pc}15`, color: pc, border: `1px solid ${pc}30`,
-                  }}>{p.position}{mobile ? "" : ` ${p.sha_pos_rank?.replace(p.position, "") || ""}`}</span>
+                  {/* Pos Rank */}
+                  <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: C.secondary, textAlign: "center" }}>
+                    {p.sha_pos_rank || "\u2014"}
+                  </span>
                   {/* Value */}
-                  <span style={{ fontFamily: MONO, fontSize: mobile ? 12 : 15, fontWeight: 800, color: C.gold, textAlign: "right" }}>
+                  <span style={{ fontFamily: MONO, fontSize: 15, fontWeight: 800, color: C.gold, textAlign: "right" }}>
                     {fmt(value)}
                   </span>
                 </div>
@@ -763,7 +785,7 @@ function PlayerRankings({ overview, mobile }: { overview: any; mobile: boolean }
           })}
           {filtered.length >= MAX_PLAYERS && (
             <div style={{ padding: "12px 20px", textAlign: "center", fontFamily: MONO, fontSize: 10, color: C.dim }}>
-              Top {MAX_PLAYERS} shown &middot; Use search to find specific players
+              Top {MAX_PLAYERS} shown {"\u00B7"} Use search to find specific players
             </div>
           )}
         </div>
@@ -816,7 +838,7 @@ export default function RankingsPage() {
       {/* Content */}
       {subTab === "team" && <TeamPower lid={lid} overview={overview} mobile={mobile} />}
       {subTab === "positional" && <PositionalPower lid={lid} mobile={mobile} />}
-      {subTab === "players" && <PlayerRankings overview={overview} mobile={mobile} />}
+      {subTab === "players" && <PlayerRankings overview={overview} />}
     </div>
   );
 }
