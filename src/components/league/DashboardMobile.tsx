@@ -17,6 +17,7 @@ import { usePlayerCardStore } from "@/lib/stores/player-card-store";
 import { motion, AnimatePresence } from "framer-motion";
 import ManagerCardMobile from "@/components/league/ManagerCardMobile";
 import ManagerCardModal from "@/components/league/ManagerCardModal";
+import PlayerHeadshot from "@/components/league/PlayerHeadshot";
 import { getOwnerTendencies } from "@/lib/api";
 
 /* ── Design tokens (shared with desktop) ── */
@@ -162,6 +163,22 @@ export default function DashboardMobile({ lid, owner, ownerId }: { lid: string; 
   const [showCardModal, setShowCardModal] = useState(false);
 
   /* ── Derived data ── */
+  // Build name → sleeper_id map from roster for headshots
+  const sleeperIdMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    if (roster) {
+      const bp = (roster as any)?.by_position as Record<string, any[]> | undefined;
+      if (bp) {
+        for (const players of Object.values(bp)) {
+          for (const p of players || []) {
+            if (p.sleeper_id && p.name) map[p.name] = p.sleeper_id;
+          }
+        }
+      }
+    }
+    return map;
+  }, [roster]);
+
   const leagueName = overview?.name || "";
   const _findOwner = (list: any[] | undefined, key = "owner") =>
     list?.find((r: any) => r[key]?.toLowerCase() === owner.toLowerCase())
@@ -237,7 +254,35 @@ export default function DashboardMobile({ lid, owner, ownerId }: { lid: string; 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "10px 0 80px", background: C.bg }}>
 
-      {/* ── MANAGER CARD ── */}
+      {/* ── 1. STATS TICKER — two fixed lines ── */}
+      <div style={{ padding: "0 12px", display: "flex", flexDirection: "column", gap: 2 }}>
+        {[tickerLine1, tickerLine2].map((line, lineIdx) => (
+          <div key={lineIdx} style={{ display: "flex", alignItems: "center", gap: 0, flexWrap: "wrap", justifyContent: "center" }}>
+            {line.map((t, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 4, padding: "2px 0" }}>
+                {i > 0 && <div style={{ width: 1, height: 12, background: C.borderLt, margin: "0 8px" }} />}
+                {t.badge ? (
+                  <span style={{
+                    fontFamily: MONO, fontSize: 9, fontWeight: 900, letterSpacing: "0.10em",
+                    padding: "2px 7px", borderRadius: 3,
+                    color: t.color || C.dim, background: `${t.color || C.dim}18`,
+                    border: `1px solid ${t.color || C.dim}40`,
+                  }}>{t.label}</span>
+                ) : t.label && !t.value ? (
+                  <span style={{ fontFamily: MONO, fontSize: 9, color: C.gold, letterSpacing: "0.06em" }}>{t.label}</span>
+                ) : (
+                  <>
+                    <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim, letterSpacing: "0.06em" }}>{t.label}</span>
+                    <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: t.color || C.primary }}>{t.value}</span>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+
+      {/* ── 2. MANAGER CARD ── */}
       {myScore && (
         <>
           <ManagerCardMobile
@@ -248,9 +293,6 @@ export default function DashboardMobile({ lid, owner, ownerId }: { lid: string; 
             globalRank={globalRank}
             topPct={topPct}
             bullets={bullets}
-            record={record || null}
-            champs={champs || null}
-            badges={(tendencies as any)?.badges || []}
             onTap={() => setShowCardModal(true)}
             onLongPress={() => setShowCardModal(true)}
           />
@@ -301,10 +343,10 @@ export default function DashboardMobile({ lid, owner, ownerId }: { lid: string; 
       </div>
 
       {/* ── 4. REAL TRADES · YOUR PLAYERS — pill ── */}
-      <RealTradesPill marketFeed={marketFeed} loading={loadingMarket} nav={nav} />
+      <RealTradesPill marketFeed={marketFeed} loading={loadingMarket} nav={nav} sleeperIdMap={sleeperIdMap} />
 
       {/* ── 5. YOUR MOVES — pill ── */}
-      <MovesPill coachesCorner={coachesCorner} nav={nav} />
+      <MovesPill coachesCorner={coachesCorner} nav={nav} sleeperIdMap={sleeperIdMap} />
     </div>
   );
 }
@@ -313,7 +355,7 @@ export default function DashboardMobile({ lid, owner, ownerId }: { lid: string; 
 /* ══════════════════════════════════════════════════════════════
    REAL TRADES · YOUR PLAYERS — Expandable pill
    ══════════════════════════════════════════════════════════════ */
-function RealTradesPill({ marketFeed, loading, nav }: { marketFeed: any; loading: boolean; nav: (p: string) => void }) {
+function RealTradesPill({ marketFeed, loading, nav, sleeperIdMap }: { marketFeed: any; loading: boolean; nav: (p: string) => void; sleeperIdMap: Record<string, string> }) {
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<any>(null);
   const openPlayerCard = usePlayerCardStore((s) => s.openPlayerCard);
@@ -386,7 +428,7 @@ function RealTradesPill({ marketFeed, loading, nav }: { marketFeed: any; loading
                       background: "transparent",
                     }}
                   >
-                    <PosCircle pos={pos} />
+                    <PlayerHeadshot name={name} position={pos} size={28} sleeperIdMap={sleeperIdMap} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontFamily: SANS, fontSize: 13, fontWeight: 700, color: C.primary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</div>
                       <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>{rank} · {fmt(value)}</div>
@@ -502,7 +544,7 @@ function RealTradesPill({ marketFeed, loading, nav }: { marketFeed: any; loading
 /* ══════════════════════════════════════════════════════════════
    YOUR MOVES — Expandable pill (sell high / buy low)
    ══════════════════════════════════════════════════════════════ */
-function MovesPill({ coachesCorner, nav }: { coachesCorner: any; nav: (p: string) => void }) {
+function MovesPill({ coachesCorner, nav, sleeperIdMap }: { coachesCorner: any; nav: (p: string) => void; sleeperIdMap: Record<string, string> }) {
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<any>(null);
   const openPlayerCard = usePlayerCardStore((s) => s.openPlayerCard);
@@ -571,12 +613,14 @@ function MovesPill({ coachesCorner, nav }: { coachesCorner: any; nav: (p: string
                       background: "transparent",
                     }}
                   >
-                    <div style={{
-                      width: 28, height: 28, borderRadius: "50%", flexShrink: 0,
-                      background: `${accent}18`, border: `1.5px solid ${accent}50`,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                    }}>
-                      <span style={{ fontFamily: MONO, fontSize: 7, fontWeight: 900, color: accent }}>{item._action}</span>
+                    <div style={{ position: "relative", flexShrink: 0 }}>
+                      <PlayerHeadshot name={name} position={pos} size={28} sleeperIdMap={sleeperIdMap} />
+                      <span style={{
+                        position: "absolute", bottom: -2, right: -4,
+                        fontFamily: MONO, fontSize: 6, fontWeight: 900, color: "#fff",
+                        background: accent, padding: "1px 3px", borderRadius: 3,
+                        lineHeight: 1,
+                      }}>{item._action}</span>
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
