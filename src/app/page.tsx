@@ -87,36 +87,43 @@ function Header({ leagueId, setLeagueId, onSync, syncing, error, status }: {
           }}>GPT</span>
         </div>
       </div>
-      {/* Input row — full width on mobile */}
-      <div style={{ display: 'flex', gap: 8 }}>
+      {/* Form — iOS keyboard "Go" button triggers submit */}
+      <form onSubmit={(e) => { e.preventDefault(); onSync(); }} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         <input
           type="text" placeholder="Paste Sleeper League ID..."
-          inputMode="numeric"
+          enterKeyHint="go"
+          autoComplete="off"
+          autoCorrect="off"
+          spellCheck={false}
           value={leagueId}
           onChange={(e) => setLeagueId(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') onSync(); }}
+          onInput={(e) => setLeagueId((e.target as HTMLInputElement).value)}
+          onPaste={(e) => {
+            const pasted = e.clipboardData.getData('text').trim();
+            if (pasted) setLeagueId(pasted);
+          }}
           style={{
-            flex: 1, minWidth: 0, padding: '14px 12px', borderRadius: 8,
-            border: `1px solid ${error ? T.red + '60' : T.borderLt}`,
-            background: T.elevated, color: T.text, fontSize: 16,
+            width: '100%', padding: '16px 14px', borderRadius: 10,
+            border: `2px solid ${error ? T.red + '60' : T.borderLt}`,
+            background: T.elevated, color: T.text, fontSize: 18,
             fontFamily: MONO, fontWeight: 500, outline: 'none',
             transition: 'border-color 0.2s',
+            WebkitAppearance: 'none',
           }}
           onFocus={(e) => { e.currentTarget.style.borderColor = T.gold + '60'; }}
           onBlur={(e) => { e.currentTarget.style.borderColor = T.borderLt; }}
         />
-        <button onClick={onSync} disabled={syncing || !leagueId.trim()}
+        <button type="submit" disabled={syncing}
           style={{
-            padding: '14px 20px', borderRadius: 8, border: 'none',
-            cursor: syncing ? 'wait' : 'pointer',
+            width: '100%', padding: '16px 20px', borderRadius: 10, border: 'none',
             background: syncing ? T.elevated : `linear-gradient(135deg, ${T.goldDark}, ${T.gold})`,
             color: syncing ? T.textDim : T.bg,
-            fontSize: 13, fontFamily: SANS, fontWeight: 800, letterSpacing: '0.06em',
+            fontSize: 16, fontFamily: DISPLAY, fontWeight: 800, letterSpacing: '0.08em',
             transition: 'all 0.2s', opacity: !leagueId.trim() ? 0.4 : 1,
             WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation',
-            flexShrink: 0,
-          }}>{syncing ? 'SYNCING...' : 'GO'}</button>
-      </div>
+            WebkitAppearance: 'none',
+          }}>{syncing ? 'SYNCING...' : 'ENTER LEAGUE'}</button>
+      </form>
       {/* Status / error feedback */}
       {(error || status) && (
         <div style={{ marginTop: 8, fontSize: 11, fontFamily: MONO, fontWeight: 600 }}>

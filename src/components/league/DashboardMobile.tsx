@@ -17,7 +17,6 @@ import { usePlayerCardStore } from "@/lib/stores/player-card-store";
 import { motion, AnimatePresence } from "framer-motion";
 import ManagerCardMobile from "@/components/league/ManagerCardMobile";
 import ManagerCardModal from "@/components/league/ManagerCardModal";
-import MarketIntelSection from "@/components/league/MarketIntelSection";
 import { getOwnerTendencies } from "@/lib/api";
 
 /* ── Design tokens (shared with desktop) ── */
@@ -326,58 +325,381 @@ export default function DashboardMobile({ lid, owner, ownerId }: { lid: string; 
         })}
       </div>
 
-      {/* ── 4. YOUR MOVES — sell high / buy low from coaches corner ── */}
-      {(() => {
-        const cc = coachesCorner as Record<string, unknown> | undefined;
-        const moveNow = ((cc?.move_now || cc?.sell_high || []) as any[]).slice(0, 3);
-        const buyLowItems = ((cc?.buy_low || []) as any[]).slice(0, 2);
-        const setIntent = useTradeBuilderStore.getState().setIntent;
-        if (!moveNow.length && !buyLowItems.length) return null;
-        return (
-          <div style={{ padding: "0 12px" }}>
-            <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, letterSpacing: "0.10em", color: C.dim, textTransform: "uppercase", display: "block", marginBottom: 6 }}>
-              Your Moves
-            </span>
-            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              {moveNow.map((item: any, i: number) => {
-                const name = String(item.name || item.player || "");
-                const pos = String(item.position || "");
-                const signal = String(item.signal || item.reason || "").slice(0, 60);
-                const pc = pos === "QB" ? "#e47272" : pos === "RB" ? "#6bb8e0" : pos === "WR" ? "#7dd3a0" : "#e09c6b";
+      {/* ── 4. REAL TRADES · YOUR PLAYERS — pill ── */}
+      <RealTradesPill marketFeed={marketFeed} loading={loadingMarket} nav={nav} />
+
+      {/* ── 5. YOUR MOVES — pill ── */}
+      <MovesPill coachesCorner={coachesCorner} nav={nav} />
+    </div>
+  );
+}
+
+
+/* ══════════════════════════════════════════════════════════════
+   REAL TRADES · YOUR PLAYERS — Expandable pill
+   ══════════════════════════════════════════════════════════════ */
+function RealTradesPill({ marketFeed, loading, nav }: { marketFeed: any; loading: boolean; nav: (p: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [selected, setSelected] = useState<any>(null);
+  const openPlayerCard = usePlayerCardStore((s) => s.openPlayerCard);
+  const setIntent = useTradeBuilderStore.getState().setIntent;
+
+  const items: any[] = useMemo(() => {
+    const feed = (marketFeed?.market_feed || []) as any[];
+    return feed
+      .filter((p: any) => (p.recent_trades || p.trades_90d || 0) >= 3)
+      .sort((a: any, b: any) => (b.recent_trades || b.trades_90d || 0) - (a.recent_trades || a.trades_90d || 0))
+      .slice(0, 12);
+  }, [marketFeed]);
+
+  const totalTrades = items.reduce((s: number, i: any) => s + (i.recent_trades || i.trades_90d || 0), 0);
+  if (loading || !items.length) return null;
+
+  return (
+    <div style={{ padding: "0 12px" }}>
+      {/* Pill */}
+      <button
+        onClick={() => setOpen(!open)}
+        style={{
+          width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "12px 14px", borderRadius: 12,
+          background: C.card, border: `1px solid ${C.goldBorder}`,
+          cursor: "pointer", textAlign: "left",
+        }}
+      >
+        <div>
+          <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.10em", color: C.gold }}>
+            REAL TRADES · YOUR PLAYERS
+          </div>
+          <div style={{ fontFamily: SANS, fontSize: 10, color: C.dim, marginTop: 2 }}>
+            {totalTrades} trades across matching leagues
+          </div>
+        </div>
+        <motion.div animate={{ rotate: open ? 180 : 0 }} transition={{ duration: 0.2 }}>
+          <ChevronDown size={16} style={{ color: C.gold }} />
+        </motion.div>
+      </button>
+
+      {/* Dropdown */}
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={springTransition}
+            style={{ overflow: "hidden" }}
+          >
+            <div style={{ marginTop: 4, borderRadius: 12, overflow: "hidden", background: C.card, border: `1px solid ${C.border}` }}>
+              {items.map((item: any, i: number) => {
+                const name = item.player || "";
+                const pos = item.position || "";
+                const rank = item.pos_rank || item.sha_pos_rank || "";
+                const value = Math.round(item.sha_value || 0);
+                const tradeCount = item.recent_trades || item.trades_90d || 0;
                 return (
-                  <button key={i} onClick={() => { setIntent({ type: "sell", value: name }); nav("trades"); }}
-                    style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, borderLeft: `3px solid ${C.red}`, textAlign: "left", width: "100%" }}>
-                    <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, padding: "2px 5px", borderRadius: 3, color: "#fff", background: C.red + "30", border: `1px solid ${C.red}40` }}>SELL</span>
-                    <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, color: pc, background: pc + "18", padding: "1px 4px", borderRadius: 3 }}>{pos}</span>
-                    <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 600, color: C.primary, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</span>
-                    <span style={{ fontFamily: SANS, fontSize: 9, color: C.dim, maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{signal}</span>
-                  </button>
-                );
-              })}
-              {buyLowItems.map((item: any, i: number) => {
-                const name = String(item.name || item.player || "");
-                const pos = String(item.position || "");
-                const reason = String(item.reason || "").slice(0, 60);
-                const pc = pos === "QB" ? "#e47272" : pos === "RB" ? "#6bb8e0" : pos === "WR" ? "#7dd3a0" : "#e09c6b";
-                return (
-                  <button key={`buy-${i}`} onClick={() => { setIntent({ type: "buy", value: name }); nav("trades"); }}
-                    style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, borderLeft: `3px solid ${C.green}`, textAlign: "left", width: "100%" }}>
-                    <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, padding: "2px 5px", borderRadius: 3, color: "#fff", background: C.green + "30", border: `1px solid ${C.green}40` }}>BUY</span>
-                    <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, color: pc, background: pc + "18", padding: "1px 4px", borderRadius: 3 }}>{pos}</span>
-                    <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 600, color: C.primary, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</span>
-                    <span style={{ fontFamily: SANS, fontSize: 9, color: C.dim, maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{reason}</span>
-                  </button>
+                  <motion.button
+                    key={name}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.04, duration: 0.2 }}
+                    onClick={() => setSelected(item)}
+                    style={{
+                      width: "100%", display: "flex", alignItems: "center", gap: 10,
+                      padding: "10px 14px", textAlign: "left", cursor: "pointer",
+                      borderBottom: i < items.length - 1 ? `1px solid ${C.border}` : "none",
+                      background: "transparent",
+                    }}
+                  >
+                    <PosCircle pos={pos} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontFamily: SANS, fontSize: 13, fontWeight: 700, color: C.primary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>{rank} · {fmt(value)}</div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                      <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: tradeCount >= 10 ? C.green : tradeCount >= 5 ? C.gold : C.dim }}>{tradeCount}</span>
+                      <ChevronRight size={14} style={{ color: C.dim }} />
+                    </div>
+                  </motion.button>
                 );
               })}
             </div>
-          </div>
-        );
-      })()}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* ── 5. REAL TRADES · YOUR PLAYERS — exact same component as desktop ── */}
-      <div style={{ padding: "0 12px" }}>
-        <MarketIntelSection feed={marketFeed} loading={loadingMarket} />
-      </div>
+      {/* Player trade modal */}
+      <BottomSheet open={!!selected} onClose={() => setSelected(null)}>
+        {selected && (() => {
+          const pos = selected.position || "";
+          const vsDynasty = selected.vs_dynasty_pct || 0;
+          const isOver = vsDynasty > 0;
+          const trades = (selected.trades || []).slice(0, 5);
+          return (
+            <div style={{ padding: "0 16px 24px" }}>
+              {/* Hero */}
+              <div style={{ padding: "16px 0", display: "flex", alignItems: "center", gap: 14, borderBottom: `1px solid ${C.border}` }}>
+                <div style={{
+                  width: 52, height: 52, borderRadius: "50%", flexShrink: 0,
+                  background: `${posColor(pos)}20`, border: `2px solid ${posColor(pos)}50`,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}>
+                  <span style={{ fontFamily: SANS, fontSize: 18, fontWeight: 900, color: posColor(pos) }}>
+                    {(selected.player || "").split(" ").map((w: string) => w[0]).join("").slice(0, 2)}
+                  </span>
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <button
+                    onClick={() => { setSelected(null); openPlayerCard(selected.player); }}
+                    style={{ fontFamily: SANS, fontSize: 20, fontWeight: 800, color: C.primary, background: "none", border: "none", cursor: "pointer", padding: 0, textAlign: "left" }}
+                  >{selected.player}</button>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3 }}>
+                    <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: posColor(pos) }}>{selected.pos_rank || selected.sha_pos_rank}</span>
+                    {vsDynasty !== 0 && (
+                      <span style={{
+                        fontFamily: MONO, fontSize: 9, fontWeight: 800, padding: "2px 6px", borderRadius: 4,
+                        color: isOver ? C.red : C.green,
+                        background: isOver ? `${C.red}18` : `${C.green}18`,
+                        border: `1px solid ${isOver ? C.red : C.green}30`,
+                      }}>{isOver ? "+" : ""}{vsDynasty.toFixed(0)}% {isOver ? "OVER" : "UNDER"}</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Stat boxes */}
+              <div style={{ display: "flex", gap: 8, margin: "14px 0" }}>
+                <StatBox label="CONSENSUS" value={fmt(Math.round(selected.sha_value || 0))} />
+                <StatBox label="TRADE MKT" value={fmt(Math.round(selected.market_price || 0))} />
+                <StatBox label="TRADES" value={String(selected.recent_trades || selected.trades_90d || 0)} />
+              </div>
+
+              {/* Build trade button */}
+              <button
+                onClick={() => { setSelected(null); setIntent({ type: "sell", value: selected.player }); nav("trades"); }}
+                style={{
+                  width: "100%", padding: "14px 0", borderRadius: 12, marginBottom: 16,
+                  fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.08em",
+                  color: "#06080d", background: "linear-gradient(135deg, #8b6914, #d4a532, #f5e6a3)",
+                  border: "none", cursor: "pointer",
+                }}
+              >BUILD TRADE WITH {(selected.player || "").split(" ").pop()?.toUpperCase()}</button>
+
+              {/* Recent trades */}
+              {trades.length > 0 && (
+                <div>
+                  <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, letterSpacing: "0.10em", color: C.dim }}>RECENT TRADES ACROSS THE PLATFORM</span>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 8 }}>
+                    {trades.map((t: any, i: number) => (
+                      <div key={i} style={{ padding: "10px 12px", borderRadius: 8, background: C.elevated, border: `1px solid ${C.border}` }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                          <span style={{ fontFamily: MONO, fontSize: 8, color: C.dim }}>{t.format || ""} · {t.days_ago ?? "?"}d ago</span>
+                          {t.grade && (
+                            <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: t.grade.startsWith("A") ? C.green : t.grade.startsWith("B") ? C.blue : t.grade.startsWith("C") ? C.gold : C.red }}>{t.grade}</span>
+                          )}
+                        </div>
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <div style={{ flex: 1, borderLeft: `2px solid ${C.red}40`, paddingLeft: 8 }}>
+                            {(t.gave || []).map((a: any, j: number) => (
+                              <div key={j} style={{ fontFamily: SANS, color: C.red, lineHeight: 1.5, fontSize: 11 }}>{a.name}{a.is_pick ? "" : ` (${a.pos_rank || a.position})`}</div>
+                            ))}
+                          </div>
+                          <div style={{ flex: 1, borderLeft: `2px solid ${C.green}40`, paddingLeft: 8 }}>
+                            {(t.got || []).map((a: any, j: number) => (
+                              <div key={j} style={{ fontFamily: SANS, color: C.green, lineHeight: 1.5, fontSize: 11 }}>{a.name}{a.is_pick ? "" : ` (${a.pos_rank || a.position})`}</div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+      </BottomSheet>
+    </div>
+  );
+}
+
+
+/* ══════════════════════════════════════════════════════════════
+   YOUR MOVES — Expandable pill (sell high / buy low)
+   ══════════════════════════════════════════════════════════════ */
+function MovesPill({ coachesCorner, nav }: { coachesCorner: any; nav: (p: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [selected, setSelected] = useState<any>(null);
+  const openPlayerCard = usePlayerCardStore((s) => s.openPlayerCard);
+  const setIntent = useTradeBuilderStore.getState().setIntent;
+
+  const cc = coachesCorner as Record<string, unknown> | undefined;
+  const sells: any[] = useMemo(() => ((cc?.move_now || cc?.sell_high || []) as any[]).slice(0, 5), [cc]);
+  const buys: any[] = useMemo(() => ((cc?.buy_low || []) as any[]).slice(0, 4), [cc]);
+  const allMoves = useMemo(() => [
+    ...sells.map((s) => ({ ...s, _action: "SELL" as const })),
+    ...buys.map((b) => ({ ...b, _action: "BUY" as const })),
+  ], [sells, buys]);
+
+  if (!allMoves.length) return null;
+
+  return (
+    <div style={{ padding: "0 12px" }}>
+      {/* Pill */}
+      <button
+        onClick={() => setOpen(!open)}
+        style={{
+          width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "12px 14px", borderRadius: 12,
+          background: C.card, border: `1px solid ${C.border}`,
+          borderLeft: `2px solid ${C.red}`, borderRight: `2px solid ${C.green}`,
+          cursor: "pointer", textAlign: "left",
+        }}
+      >
+        <div>
+          <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.10em", color: C.primary }}>YOUR MOVES</div>
+          <div style={{ fontFamily: SANS, fontSize: 10, color: C.dim, marginTop: 2 }}>{allMoves.length} action{allMoves.length !== 1 ? "s" : ""} recommended</div>
+        </div>
+        <motion.div animate={{ rotate: open ? 180 : 0 }} transition={{ duration: 0.2 }}>
+          <ChevronDown size={16} style={{ color: C.primary }} />
+        </motion.div>
+      </button>
+
+      {/* Dropdown */}
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={springTransition}
+            style={{ overflow: "hidden" }}
+          >
+            <div style={{ marginTop: 4, borderRadius: 12, overflow: "hidden", background: C.card, border: `1px solid ${C.border}` }}>
+              {allMoves.map((item, i) => {
+                const name = String(item.name || item.player || "");
+                const pos = String(item.position || "");
+                const isSell = item._action === "SELL";
+                const accent = isSell ? C.red : C.green;
+                const vsPct = item.vs_dynasty_pct || item.pct_of_ath;
+                return (
+                  <motion.button
+                    key={`${item._action}-${name}`}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.04, duration: 0.2 }}
+                    onClick={() => setSelected(item)}
+                    style={{
+                      width: "100%", display: "flex", alignItems: "center", gap: 10,
+                      padding: "10px 14px", textAlign: "left", cursor: "pointer",
+                      borderBottom: i < allMoves.length - 1 ? `1px solid ${C.border}` : "none",
+                      background: "transparent",
+                    }}
+                  >
+                    <div style={{
+                      width: 28, height: 28, borderRadius: "50%", flexShrink: 0,
+                      background: `${accent}18`, border: `1.5px solid ${accent}50`,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                    }}>
+                      <span style={{ fontFamily: MONO, fontSize: 7, fontWeight: 900, color: accent }}>{item._action}</span>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 700, color: C.primary }}>{name}</span>
+                        <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: posColor(pos) }}>{pos}</span>
+                      </div>
+                      <div style={{ fontFamily: SANS, fontSize: 10, color: C.dim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 1 }}>
+                        {String(item.signal || item.reason || "").slice(0, 50)}
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                      {vsPct != null && (
+                        <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: accent }}>
+                          {isSell ? "+" : ""}{typeof vsPct === "number" ? vsPct.toFixed(0) : vsPct}%
+                        </span>
+                      )}
+                      <ChevronRight size={14} style={{ color: C.dim }} />
+                    </div>
+                  </motion.button>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Action modal */}
+      <BottomSheet open={!!selected} onClose={() => setSelected(null)}>
+        {selected && (() => {
+          const pos = selected.position || "";
+          const isSell = selected._action === "SELL";
+          const accent = isSell ? C.red : C.green;
+          const name = selected.name || selected.player || "";
+          const reasons: string[] = [];
+          if (selected.reason) reasons.push(selected.reason);
+          if (selected.signal && selected.signal !== selected.reason) reasons.push(selected.signal);
+          if (selected.target) reasons.push(selected.target);
+
+          return (
+            <div style={{ padding: "0 16px 24px" }}>
+              {/* Hero */}
+              <div style={{ padding: "16px 0", display: "flex", alignItems: "center", gap: 14, borderBottom: `1px solid ${C.border}` }}>
+                <div style={{
+                  width: 52, height: 52, borderRadius: "50%", flexShrink: 0,
+                  background: `${posColor(pos)}20`, border: `2px solid ${posColor(pos)}50`,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}>
+                  <span style={{ fontFamily: SANS, fontSize: 18, fontWeight: 900, color: posColor(pos) }}>
+                    {name.split(" ").map((w: string) => w[0]).join("").slice(0, 2)}
+                  </span>
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{
+                    fontFamily: MONO, fontSize: 9, fontWeight: 900, letterSpacing: "0.08em",
+                    padding: "3px 8px", borderRadius: 4,
+                    color: accent, background: `${accent}18`, border: `1px solid ${accent}40`,
+                  }}>{isSell ? "SELL HIGH" : "BUY LOW"}</span>
+                  <button
+                    onClick={() => { setSelected(null); openPlayerCard(name); }}
+                    style={{ fontFamily: SANS, fontSize: 20, fontWeight: 800, color: C.primary, background: "none", border: "none", cursor: "pointer", padding: 0, textAlign: "left", display: "block", marginTop: 4 }}
+                  >{name}</button>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3 }}>
+                    <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: posColor(pos) }}>{selected.sha_pos_rank}</span>
+                    {selected.age && <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>Age {selected.age}</span>}
+                  </div>
+                </div>
+              </div>
+
+              {/* Stat boxes */}
+              <div style={{ display: "flex", gap: 8, margin: "14px 0" }}>
+                <StatBox label="CONSENSUS" value={fmt(Math.round(selected.sha_value || 0))} />
+                <StatBox label={selected.market_price ? "TRADE MKT" : "DEPTH"} value={selected.market_price ? fmt(Math.round(selected.market_price)) : (selected.position_depth || "—")} />
+              </div>
+
+              {/* Why section */}
+              {reasons.length > 0 && (
+                <div style={{ padding: "12px 14px", borderRadius: 10, marginBottom: 16, background: `${accent}08`, border: `1px solid ${accent}20` }}>
+                  <div style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, letterSpacing: "0.10em", color: accent, marginBottom: 8 }}>WHY {isSell ? "SELL" : "BUY"}</div>
+                  {reasons.map((r, i) => (
+                    <div key={i} style={{ fontFamily: SANS, fontSize: 12, color: C.secondary, lineHeight: 1.5, paddingLeft: 10, borderLeft: `2px solid ${accent}40`, marginBottom: i < reasons.length - 1 ? 8 : 0 }}>{r}</div>
+                  ))}
+                </div>
+              )}
+
+              {/* Build trade button */}
+              <button
+                onClick={() => { setSelected(null); setIntent({ type: isSell ? "sell" : "buy", value: name }); nav("trades"); }}
+                style={{
+                  width: "100%", padding: "14px 0", borderRadius: 12,
+                  fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.08em",
+                  color: "#06080d", background: "linear-gradient(135deg, #8b6914, #d4a532, #f5e6a3)",
+                  border: "none", cursor: "pointer",
+                }}
+              >BUILD TRADE</button>
+            </div>
+          );
+        })()}
+      </BottomSheet>
     </div>
   );
 }

@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>DynastyGPT Mobile Test</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #06080d; color: #eeeef2; font-family: -apple-system, system-ui, sans-serif; min-height: 100vh; padding: 20px; }
+h1 { font-size: 24px; font-weight: 900; margin-bottom: 4px; }
+h1 span { color: #d4a532; }
+.sub { font-size: 12px; color: #9596a5; margin-bottom: 20px; font-family: monospace; }
+input { width: 100%; padding: 18px 14px; font-size: 20px; border-radius: 12px; border: 2px solid #252a3e; background: #171b28; color: #eeeef2; font-family: monospace; outline: none; -webkit-appearance: none; margin-bottom: 12px; }
+input:focus { border-color: #d4a532; }
+button { width: 100%; padding: 18px; font-size: 18px; font-weight: 900; border-radius: 12px; border: none; background: linear-gradient(135deg, #8b6914, #d4a532); color: #06080d; cursor: pointer; -webkit-appearance: none; letter-spacing: 0.05em; }
+button:active { opacity: 0.8; }
+#status { margin-top: 16px; padding: 12px; border-radius: 8px; font-family: monospace; font-size: 13px; line-height: 1.6; min-height: 60px; background: #10131d; border: 1px solid #1a1e30; white-space: pre-wrap; word-break: break-all; }
+.ok { color: #7dd3a0; }
+.err { color: #e47272; }
+.info { color: #d4a532; }
+.link { display: block; margin-top: 12px; padding: 14px; border-radius: 10px; background: #10131d; border: 1px solid #d4a53240; color: #d4a532; text-decoration: none; font-weight: 700; font-size: 14px; text-align: center; }
+.link:active { background: #d4a53215; }
+</style>
+</head>
+<body>
+
+<h1>DYNASTY<span>GPT</span></h1>
+<p class="sub">Mobile Test — Paste league ID, tap GO</p>
+
+<input id="lid" type="text" placeholder="Sleeper League ID" autocomplete="off" autocorrect="off" spellcheck="false">
+<button onclick="go()">ENTER LEAGUE</button>
+<div id="status">Ready. Paste your Sleeper league ID above.</div>
+
+<script>
+var $ = function(id) { return document.getElementById(id); };
+var log = function(msg, cls) {
+  $('status').innerHTML += '\n<span class="'+(cls||'info')+'">' + msg + '</span>';
+  $('status').scrollTop = $('status').scrollHeight;
+};
+
+async function go() {
+  var id = $('lid').value.trim();
+  if (!id) { log('No league ID entered', 'err'); return; }
+
+  $('status').innerHTML = '';
+  log('League ID: ' + id);
+  log('Connecting to backend...');
+
+  try {
+    // Try overview first (fast if league exists)
+    var data;
+    var r = await fetch('/api/league/' + id + '/overview');
+    log('Overview: HTTP ' + r.status, r.ok ? 'ok' : 'err');
+    if (r.ok) {
+      data = await r.json();
+    } else {
+      log('Not cached — syncing from Sleeper...');
+      var r2 = await fetch('/api/league/' + id + '/sync');
+      log('Sync: HTTP ' + r2.status, r2.ok ? 'ok' : 'err');
+      if (!r2.ok) throw new Error('Sync failed: HTTP ' + r2.status);
+      data = await r2.json();
+    }
+
+    var name = data.name || id;
+    log('League: ' + name, 'ok');
+
+    var slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+
+    // Fetch owners to set default
+    var firstOwner = null;
+    var firstOwnerId = null;
+    try {
+      var or = await fetch('/api/league/' + id + '/owners');
+      if (or.ok) {
+        var od = await or.json();
+        var owners = od.owners || [];
+        if (owners.length) {
+          firstOwner = owners[0].name;
+          firstOwnerId = owners[0].platform_user_id || null;
+          log('Owner: ' + firstOwner, 'ok');
+        }
+      }
+    } catch(e) { /* non-fatal */ }
+
+    // Write EXACT Zustand persist format: { state: {...}, version: 0 }
+    var store = {
+      state: {
+        currentLeagueId: id,
+        currentLeagueSlug: slug,
+        currentOwner: firstOwner,
+        currentOwnerId: firstOwnerId,
+        savedLeagues: [{ id: id, slug: slug, name: name, owner: firstOwner, ownerId: firstOwnerId }]
+      },
+      version: 0
+    };
+    localStorage.setItem('dynastygpt-league', JSON.stringify(store));
+    log('Saved to localStorage', 'ok');
+
+    // Build query string with league + owner params
+    var qs = '?lid=' + encodeURIComponent(id);
+    if (firstOwner) qs += '&owner=' + encodeURIComponent(firstOwner);
+    if (firstOwnerId) qs += '&oid=' + encodeURIComponent(firstOwnerId);
+
+    // Show nav links — URL params ARE the state, no localStorage needed
+    log('SUCCESS — tap below:', 'ok');
+    var base = '/l/' + slug;
+    [
+      ['Dashboard', base + '/dashboard' + qs],
+      ['Trades (Swipe)', base + '/trades' + qs],
+      ['Rankings', base + '/rankings' + qs],
+      ['Intel', base + '/intel' + qs],
+    ].forEach(function(l) {
+      var a = document.createElement('a');
+      a.href = l[1];
+      a.className = 'link';
+      a.textContent = l[0] + ' →';
+      $('status').parentNode.appendChild(a);
+    });
+
+  } catch(err) {
+    log('FAILED: ' + err.message, 'err');
+  }
+}
+</script>
+</body>
+</html>
