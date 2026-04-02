@@ -81,7 +81,7 @@ function StatBox({ value, label, color }: { value: string; label: string; color?
 
 // ── TAB 1: MY DRAFT PROFILE ─────────────────────────────────────────────
 
-function MyDraftProfileTab({ seasons, owner }: { seasons: any[]; owner: string }) {
+function MyDraftProfileTab({ seasons, owner, ownerId }: { seasons: any[]; owner: string; ownerId?: string | null }) {
   const openPlayerCard = usePlayerCardStore((s) => s.openPlayerCard);
 
   const profile = useMemo(() => {
@@ -89,7 +89,10 @@ function MyDraftProfileTab({ seasons, owner }: { seasons: any[]; owner: string }
     const myPicks: any[] = [];
     for (const s of seasons) {
       for (const p of s.picks) {
-        if ((p.owner || "").toLowerCase() === ownerLower) myPicks.push({ ...p, _season: s.season });
+        // Match by user_id first (handles name changes across seasons), name fallback
+        const isMe = (ownerId && p.owner_user_id && p.owner_user_id === ownerId)
+          || (p.owner || "").toLowerCase() === ownerLower;
+        if (isMe) myPicks.push({ ...p, _season: s.season });
       }
     }
 
@@ -258,7 +261,7 @@ function MyDraftProfileTab({ seasons, owner }: { seasons: any[]; owner: string }
 
 // ── TAB 2: DRAFT BOARD (renamed HISTORY) ────────────────────────────────
 
-function DraftBoardTab({ seasons, owner }: { seasons: any[]; owner: string }) {
+function DraftBoardTab({ seasons, owner, ownerId }: { seasons: any[]; owner: string; ownerId?: string | null }) {
   const [selectedSeason, setSelectedSeason] = useState<number>(seasons[0]?.season || 2025);
   const openPlayerCard = usePlayerCardStore((s) => s.openPlayerCard);
 
@@ -320,7 +323,7 @@ function DraftBoardTab({ seasons, owner }: { seasons: any[]; owner: string }) {
               <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>{roundPicks.length} picks</span>
             </div>
             {roundPicks.map((p: any, idx: number) => {
-              const isOwner = owner && p.owner?.toLowerCase() === owner.toLowerCase();
+              const isOwner = owner && ((ownerId && p.owner_user_id === ownerId) || p.owner?.toLowerCase() === owner.toLowerCase());
               const labelColor = LABEL_COLORS[p.label] || C.dim;
               return (
                 <div key={`${p.slot}-${idx}`}
@@ -389,11 +392,21 @@ function ScoutingTab({ seasons, owner }: { seasons: any[]; owner: string }) {
       bestPick: any; worstPick: any;
     }> = {};
 
+    // Track uid -> current display name for dedup across name changes
+    const uidToName: Record<string, string> = {};
     for (const s of seasons) {
       for (const p of s.picks) {
-        const o = p.owner || "Unknown";
-        if (!stats[o]) stats[o] = { total: 0, stars: 0, hits: 0, busts: 0, misses: 0, positions: {}, bestPick: null, worstPick: null };
-        const st = stats[o];
+        if (p.owner_user_id && p.owner) uidToName[p.owner_user_id] = p.owner; // last seen name wins
+      }
+    }
+    for (const s of seasons) {
+      for (const p of s.picks) {
+        // Group by user_id when available, fall back to display name
+        const key = p.owner_user_id || p.owner || "Unknown";
+        const displayName = p.owner_user_id ? (uidToName[p.owner_user_id] || p.owner || "Unknown") : (p.owner || "Unknown");
+        if (!stats[key]) stats[key] = { total: 0, stars: 0, hits: 0, busts: 0, misses: 0, positions: {}, bestPick: null, worstPick: null, _name: displayName } as any;
+        const st = stats[key];
+        (st as any)._name = displayName; // keep latest name
         st.total++;
         if (p.label === "Too Early") { st.total--; continue; }
         if (p.label === "Star") st.stars++;
@@ -406,7 +419,7 @@ function ScoutingTab({ seasons, owner }: { seasons: any[]; owner: string }) {
       }
     }
     return Object.entries(stats)
-      .map(([name, s]) => ({ name, ...s, hitRate: s.total > 0 ? Math.round(((s.stars + s.hits) / s.total) * 100) : 0 }))
+      .map(([key, s]) => ({ name: (s as any)._name || key, ...s, hitRate: s.total > 0 ? Math.round(((s.stars + s.hits) / s.total) * 100) : 0 }))
       .sort((a, b) => b.hitRate - a.hitRate);
   }, [seasons]);
 
@@ -680,27 +693,39 @@ function LeagueDraftTab({ seasons, owner }: { seasons: any[]; owner: string }) {
       .sort((a, b) => b.total - a.total);
 
     // Most draft-day trades (owners who traded the most picks — picks where owner != original slot owner would be ideal, but we can approximate from the data)
-    const ownerPickCounts: Record<string, number> = {};
+    // Build uid -> latest name mapping for dedup across name changes
+    const _uidName: Record<string, string> = {};
     for (const p of allPicks) {
-      const o = p.owner || "?";
-      ownerPickCounts[o] = (ownerPickCounts[o] || 0) + 1;
+      if (p.owner_user_id && p.owner) _uidName[p.owner_user_id] = p.owner;
     }
-    const expectedPerOwner = total / Math.max(Object.keys(ownerPickCounts).length, 1);
+
+    const ownerPickCounts: Record<string, { count: number; name: string }> = {};
+    for (const p of allPicks) {
+      const key = p.owner_user_id || p.owner || "?";
+      const name = p.owner_user_id ? (_uidName[p.owner_user_id] || p.owner || "?") : (p.owner || "?");
+      if (!ownerPickCounts[key]) ownerPickCounts[key] = { count: 0, name };
+      ownerPickCounts[key].count++;
+      ownerPickCounts[key].name = name;
+    }
+    const numOwners = Object.keys(ownerPickCounts).length;
+    const expectedPerOwner = total / Math.max(numOwners, 1);
     const mostPicks = Object.entries(ownerPickCounts)
-      .map(([name, count]) => ({ name, count, extra: count - expectedPerOwner }))
+      .map(([, v]) => ({ name: v.name, count: v.count, extra: v.count - expectedPerOwner }))
       .sort((a, b) => b.count - a.count);
 
     // Best drafter (highest hit rate, min 5 picks)
-    const ownerHitRates: Record<string, { total: number; hits: number }> = {};
+    const ownerHitRates: Record<string, { total: number; hits: number; name: string }> = {};
     for (const p of allPicks) {
-      const o = p.owner || "?";
-      if (!ownerHitRates[o]) ownerHitRates[o] = { total: 0, hits: 0 };
-      ownerHitRates[o].total++;
-      if (p.label === "Star" || p.label === "Hit") ownerHitRates[o].hits++;
+      const key = p.owner_user_id || p.owner || "?";
+      const name = p.owner_user_id ? (_uidName[p.owner_user_id] || p.owner || "?") : (p.owner || "?");
+      if (!ownerHitRates[key]) ownerHitRates[key] = { total: 0, hits: 0, name };
+      ownerHitRates[key].total++;
+      ownerHitRates[key].name = name;
+      if (p.label === "Star" || p.label === "Hit") ownerHitRates[key].hits++;
     }
     const ownerRanked = Object.entries(ownerHitRates)
       .filter(([, s]) => s.total >= 5)
-      .map(([name, s]) => ({ name, ...s, rate: Math.round(s.hits / s.total * 100) }))
+      .map(([, s]) => ({ name: s.name, total: s.total, hits: s.hits, rate: Math.round(s.hits / s.total * 100) }))
       .sort((a, b) => b.rate - a.rate);
 
     // Most valuable pick ever
@@ -819,7 +844,7 @@ function LeagueDraftTab({ seasons, owner }: { seasons: any[]; owner: string }) {
 // ── MAIN PAGE ────────────────────────────────────────────────────────────
 
 export default function DraftPage() {
-  const { currentLeagueId: lid, currentOwner: owner } = useLeagueStore();
+  const { currentLeagueId: lid, currentOwner: owner, currentOwnerId: ownerId } = useLeagueStore();
   const [tab, setTab] = useState<TabId>("profile");
 
   const { data: history, isLoading } = useQuery({
@@ -879,11 +904,11 @@ export default function DraftPage() {
             Loading draft data...
           </div>
         ) : tab === "profile" ? (
-          <MyDraftProfileTab seasons={seasons} owner={owner || ""} />
+          <MyDraftProfileTab seasons={seasons} owner={owner || ""} ownerId={ownerId} />
         ) : tab === "scouting" ? (
           <ScoutingTab seasons={seasons} owner={owner || ""} />
         ) : tab === "board" ? (
-          <DraftBoardTab seasons={seasons} owner={owner || ""} />
+          <DraftBoardTab seasons={seasons} owner={owner || ""} ownerId={ownerId} />
         ) : tab === "grades" ? (
           <DraftGradesTab seasons={seasons} owner={owner || ""} />
         ) : (
