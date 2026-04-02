@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useLeagueStore } from "@/lib/stores/league-store";
 import { useQuery } from "@tanstack/react-query";
@@ -11,9 +11,14 @@ import {
   getMarketFeed, getCoachesCorner, getRosterValueChange,
 } from "@/lib/api";
 import type { DynastyScoreResponse } from "@/lib/api";
-import { Plus, FileText, ChevronRight, Activity, Share2, Search } from "lucide-react";
+import { Plus, FileText, ChevronRight, ChevronDown, Activity, Search, X } from "lucide-react";
 import { useTradeBuilderStore } from "@/lib/stores/trade-builder-store";
+import { usePlayerCardStore } from "@/lib/stores/player-card-store";
+import { motion, AnimatePresence } from "framer-motion";
+import ManagerCardMobile from "@/components/league/ManagerCardMobile";
+import ManagerCardModal from "@/components/league/ManagerCardModal";
 import MarketIntelSection from "@/components/league/MarketIntelSection";
+import { getOwnerTendencies } from "@/lib/api";
 
 /* ── Design tokens (shared with desktop) ── */
 const C = {
@@ -42,278 +47,93 @@ function ordinal(n: number): string {
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
 }
 
-/* ══════════════════════════════════════════════════════════════
-   MANAGER CARD — the hero shareable card with flip animation
-   ══════════════════════════════════════════════════════════════ */
-function ManagerCard({
-  myScore, leagueName, owner, leagueRank, globalRank, topPct, globalManagers, bullets,
-}: {
-  myScore: DynastyScoreResponse;
-  leagueName: string;
-  owner: string;
-  leagueRank: number | null;
-  globalRank: number | null;
-  topPct: number | null;
-  globalManagers: number | null;
-  bullets: { type: string; text: string }[];
-}) {
-  const [flipped, setFlipped] = useState(false);
-  const [shareModal, setShareModal] = useState(false);
-  const [shareImage, setShareImage] = useState<string | null>(null);
-  const [shareBlob, setShareBlob] = useState<Blob | null>(null);
-  const cardRef = useRef<HTMLDivElement>(null);
-  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const didLongPress = useRef(false);
-  const tierColor = TIER_COLORS[myScore.tier.label] || C.dim;
+/* ── Position color system ── */
+const POS_COLORS: Record<string, string> = {
+  QB: "#dc2626", RB: "#16a34a", WR: "#d4a017", TE: "#0891b2", PICK: "#6b7280",
+};
+const POS_GRAD: Record<string, string> = {
+  QB: "linear-gradient(135deg, #dc2626, #991b1b)",
+  RB: "linear-gradient(135deg, #16a34a, #166534)",
+  WR: "linear-gradient(135deg, #d4a017, #92700c)",
+  TE: "linear-gradient(135deg, #0891b2, #155e75)",
+  PICK: "linear-gradient(135deg, #6b7280, #374151)",
+};
+function posColor(p: string) { return POS_COLORS[p] || C.dim; }
 
-  const handleShare = useCallback(async () => {
-    try {
-      const html2canvas = (await import("html2canvas")).default;
-      if (!cardRef.current) return;
-      // Make sure front face is showing for the screenshot
-      const canvas = await html2canvas(cardRef.current, {
-        backgroundColor: "#06080d",
-        scale: 2,
-        useCORS: true,
-      });
-      const dataUrl = canvas.toDataURL("image/png");
-      setShareImage(dataUrl);
-      canvas.toBlob((blob: Blob | null) => {
-        if (blob) setShareBlob(blob);
-      });
-      setShareModal(true);
-    } catch { /* ignore */ }
-  }, []);
+const springTransition = { type: "spring" as const, stiffness: 300, damping: 30 };
 
-  const doNativeShare = useCallback(async () => {
-    if (!shareBlob) return;
-    try {
-      const file = new File([shareBlob], "dynastygpt-card.png", { type: "image/png" });
-      if (navigator.share) {
-        await navigator.share({ files: [file], title: "My DynastyGPT Manager Card" });
-      } else {
-        await navigator.clipboard.write([new ClipboardItem({ "image/png": shareBlob })]);
-      }
-    } catch { /* user cancelled */ }
-    setShareModal(false);
-  }, [shareBlob]);
-
-  const onTouchStart = () => {
-    didLongPress.current = false;
-    longPressTimer.current = setTimeout(() => {
-      didLongPress.current = true;
-      handleShare();
-    }, 500);
-  };
-  const onTouchEnd = () => {
-    if (longPressTimer.current) clearTimeout(longPressTimer.current);
-  };
-  const onCardClick = () => {
-    if (!didLongPress.current) setFlipped(!flipped);
-  };
-
-  const COMPONENT_LABELS: Record<string, string> = {
-    trade_win_rate: "Trade Win Rate", value_extraction: "Value Extraction",
-    roster_construction: "Roster Build", draft_capital: "Draft Capital",
-    behavioral_intelligence: "Behavioral IQ", activity: "Activity",
-  };
-
+function PosCircle({ pos, size = 24 }: { pos: string; size?: number }) {
   return (
-    <div
-      style={{ perspective: 1000, margin: "0 12px" }}
-      onClick={onCardClick}
-      onTouchStart={onTouchStart}
-      onTouchEnd={onTouchEnd}
-      onTouchCancel={onTouchEnd}
-    >
-      <div
-        ref={cardRef}
-        style={{
-          transition: "transform 0.6s cubic-bezier(0.4,0,0.2,1)",
-          transformStyle: "preserve-3d",
-          transform: flipped ? "rotateY(180deg)" : "rotateY(0)",
-          position: "relative",
-        }}
-      >
-        {/* ── FRONT ── */}
-        <div style={{
-          backfaceVisibility: "hidden",
-          borderRadius: 12, overflow: "hidden",
-          background: "linear-gradient(165deg, #0d1117 0%, #0f1520 60%, #131924 100%)",
-          border: `1px solid ${C.goldBorder}`,
-          borderTop: `2px solid ${C.goldDark}`,
-          boxShadow: `0 0 30px ${C.goldDim}, inset 0 1px 0 rgba(212,165,50,0.08)`,
-          padding: "10px 14px 8px",
-        }}>
-          {/* Top row: label + share icon */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-            <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, letterSpacing: "0.12em", color: C.gold, textTransform: "uppercase" }}>
-              DynastyGPT Manager Card
-            </span>
-            <Share2 size={12} style={{ color: C.dim, opacity: 0.5 }} />
-          </div>
-
-          {/* Owner info + score circle */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
-            <div>
-              <div style={{ fontFamily: SANS, fontSize: 18, fontWeight: 800, color: C.primary, lineHeight: 1.1 }}>{owner}</div>
-              <div style={{ fontFamily: SANS, fontSize: 10, color: C.dim, marginTop: 2 }}>{leagueName}</div>
-            </div>
-            {/* Score circle */}
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
-              <div style={{
-                width: 42, height: 42, borderRadius: "50%",
-                border: `2px solid ${C.gold}`,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                background: `radial-gradient(circle, ${C.goldDim} 0%, transparent 70%)`,
-              }}>
-                <span style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: C.gold }}>{myScore.score}</span>
-              </div>
-              <span style={{
-                fontFamily: MONO, fontSize: 8, fontWeight: 800, letterSpacing: "0.08em",
-                padding: "2px 6px", borderRadius: 3,
-                color: tierColor, background: `${tierColor}18`, border: `1px solid ${tierColor}30`,
-                textTransform: "uppercase",
-              }}>{myScore.tier.label}</span>
-            </div>
-          </div>
-
-          {/* Three stat boxes */}
-          <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
-            {[
-              { label: "LEAGUE", value: `#${leagueRank || "—"}` },
-              { label: "GLOBAL", value: `#${globalRank?.toLocaleString() || "—"}` },
-              { label: "PERCENTILE", value: `Top ${topPct ?? "—"}%` },
-            ].map((s) => (
-              <div key={s.label} style={{
-                flex: 1, textAlign: "center", padding: "4px 4px",
-                borderRadius: 5, background: C.elevated, border: `1px solid ${C.border}`,
-              }}>
-                <div style={{ fontFamily: MONO, fontSize: 7, fontWeight: 700, letterSpacing: "0.10em", color: C.dim, textTransform: "uppercase", marginBottom: 1 }}>{s.label}</div>
-                <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.gold }}>{s.value}</div>
-              </div>
-            ))}
-          </div>
-
-          {/* One-line insight */}
-          {bullets.length > 0 && (
-            <div style={{ fontFamily: SANS, fontSize: 10, color: C.secondary, lineHeight: 1.3, marginBottom: 6 }}>
-              {bullets.slice(0, 2).map((b, i) => (
-                <span key={i}>
-                  {i > 0 && " · "}
-                  <span style={{ color: b.type === "strength" || b.type === "highlight" ? C.green : C.red }}>
-                    {b.type === "strength" || b.type === "highlight" ? "▲" : "▼"}
-                  </span>{" "}{b.text}
-                </span>
-              ))}
-            </div>
-          )}
-
-          {/* Hint text */}
-          <div style={{ textAlign: "center", fontFamily: MONO, fontSize: 7, color: `${C.dim}80`, letterSpacing: "0.08em", marginTop: 4 }}>
-            TAP TO FLIP · HOLD TO SHARE
-          </div>
-        </div>
-
-        {/* ── BACK (report) ── */}
-        <div style={{
-          backfaceVisibility: "hidden",
-          transform: "rotateY(180deg)",
-          position: "absolute", top: 0, left: 0, right: 0,
-          borderRadius: 12, overflow: "hidden",
-          background: "linear-gradient(165deg, #0d1117 0%, #0f1520 100%)",
-          border: `1px solid ${C.goldBorder}`,
-          borderTop: `2px solid ${C.goldDark}`,
-          padding: "14px 16px 10px",
-        }}>
-          <div style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, letterSpacing: "0.12em", color: C.gold, textTransform: "uppercase", marginBottom: 10 }}>
-            Full Report — {owner}
-          </div>
-
-          {/* Component bars */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {Object.entries(myScore.components).map(([key, comp]) => {
-              const pct = comp.max > 0 ? (comp.score / comp.max) * 100 : 0;
-              const barColor = pct >= 75 ? C.green : pct >= 50 ? C.gold : pct >= 30 ? C.orange : C.red;
-              return (
-                <div key={key}>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
-                    <span style={{ fontFamily: SANS, fontSize: 10, fontWeight: 600, color: C.primary }}>{COMPONENT_LABELS[key] || key}</span>
-                    <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.secondary }}>{comp.score}/{comp.max}</span>
-                  </div>
-                  <div style={{ height: 4, borderRadius: 2, background: C.elevated, overflow: "hidden" }}>
-                    <div style={{ height: "100%", borderRadius: 2, width: `${pct}%`, background: barColor }} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Bullets */}
-          {bullets.length > 0 && (
-            <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 3 }}>
-              {bullets.slice(0, 4).map((b, i) => {
-                const isGood = b.type === "strength" || b.type === "highlight";
-                return (
-                  <span key={i} style={{ fontFamily: SANS, fontSize: 9, color: isGood ? C.green : C.red, lineHeight: 1.2 }}>
-                    {isGood ? "▲" : "▼"} {b.text}
-                  </span>
-                );
-              })}
-            </div>
-          )}
-
-          <div style={{ textAlign: "center", fontFamily: MONO, fontSize: 7, color: `${C.dim}80`, letterSpacing: "0.08em", marginTop: 8 }}>
-            TAP TO FLIP BACK
-          </div>
-        </div>
-      </div>
-
-      {/* ── SHARE MODAL ── */}
-      {shareModal && (
-        <div
-          onClick={() => setShareModal(false)}
-          style={{
-            position: "fixed", inset: 0, zIndex: 9999,
-            background: "rgba(0,0,0,0.90)", backdropFilter: "blur(12px)",
-            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-            padding: 24, gap: 20,
-          }}
-        >
-          <div onClick={(e) => e.stopPropagation()} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16, maxWidth: 360 }}>
-            <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", color: C.gold, textTransform: "uppercase" }}>
-              Share Your Dynasty Score
-            </span>
-            {shareImage && (
-              <img src={shareImage} alt="Manager Card" style={{ width: "100%", borderRadius: 12, border: `1px solid ${C.goldBorder}` }} />
-            )}
-            <span style={{ fontFamily: SANS, fontSize: 10, color: `${C.gold}60`, fontWeight: 700 }}>dynastygpt.com</span>
-            <button
-              onClick={doNativeShare}
-              style={{
-                width: "100%", padding: "14px 0", borderRadius: 12,
-                fontFamily: MONO, fontSize: 12, fontWeight: 800, letterSpacing: "0.10em",
-                color: "#06080d", background: "linear-gradient(135deg, #8b6914, #d4a532)",
-                border: "none", cursor: "pointer",
-              }}
-            >
-              SHARE
-            </button>
-            <button
-              onClick={() => setShareModal(false)}
-              style={{
-                fontFamily: MONO, fontSize: 10, color: C.dim, background: "none",
-                border: "none", cursor: "pointer", letterSpacing: "0.08em",
-              }}
-            >
-              CLOSE
-            </button>
-          </div>
-        </div>
-      )}
+    <div style={{
+      width: size, height: size, borderRadius: "50%", flexShrink: 0,
+      background: POS_GRAD[pos] || POS_GRAD.PICK,
+      display: "flex", alignItems: "center", justifyContent: "center",
+    }}>
+      <span style={{ fontFamily: MONO, fontSize: size * 0.38, fontWeight: 900, color: "#fff" }}>{pos}</span>
     </div>
   );
 }
+
+/* ── Bottom Sheet Modal ── */
+function BottomSheet({ open, onClose, children }: { open: boolean; onClose: () => void; children: React.ReactNode }) {
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          onClick={onClose}
+          style={{
+            position: "fixed", inset: 0, zIndex: 9000,
+            background: "rgba(0,0,0,0.70)", backdropFilter: "blur(8px)",
+            display: "flex", flexDirection: "column", justifyContent: "flex-end",
+          }}
+        >
+          <motion.div
+            initial={{ y: "100%" }}
+            animate={{ y: 0 }}
+            exit={{ y: "100%" }}
+            transition={springTransition}
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: C.panel, borderRadius: "20px 20px 0 0",
+              maxHeight: "88vh", overflow: "auto",
+              borderTop: `1px solid ${C.borderLt}`,
+            }}
+          >
+            {/* Drag handle */}
+            <div style={{ display: "flex", justifyContent: "center", padding: "10px 0 4px" }}>
+              <div style={{ width: 36, height: 4, borderRadius: 2, background: C.borderLt }} />
+            </div>
+            {children}
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+/* ── Stat Box (for modals) ── */
+function StatBox({ label, value, mono = true }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div style={{
+      flex: 1, textAlign: "center", padding: "8px 6px",
+      borderRadius: 8, background: C.elevated, border: `1px solid ${C.border}`,
+    }}>
+      <div style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, letterSpacing: "0.10em", color: C.dim, textTransform: "uppercase", marginBottom: 3 }}>{label}</div>
+      <div style={{ fontFamily: mono ? MONO : SANS, fontSize: 15, fontWeight: 800, color: C.primary }}>{value}</div>
+    </div>
+  );
+}
+
+/* Old ManagerCard removed — replaced by ManagerCardMobile + ManagerCardModal.
+   Keeping stub to avoid breaking any stale imports. */
+function _ManagerCardOld_unused() { return null; }
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const __keep_old = _ManagerCardOld_unused;
+/* DEAD CODE REMOVED — old flip card was here (260 lines deleted) */
 
 /* ══════════════════════════════════════════════════════════════
    DASHBOARD MOBILE — Command Center
@@ -339,6 +159,8 @@ export default function DashboardMobile({ lid, owner, ownerId }: { lid: string; 
   const { data: marketFeed, isLoading: loadingMarket } = useQuery({ queryKey: ["market-feed", lid, owner], queryFn: () => getMarketFeed(lid, owner, ownerId, 120), enabled: !!lid && !!owner, staleTime: 1800000 });
   const { data: coachesCorner } = useQuery({ queryKey: ["coaches-corner", lid, owner], queryFn: () => getCoachesCorner(lid, owner, ownerId), enabled: !!lid && !!owner, staleTime: 600000 });
   const { data: rosterValueChange } = useQuery({ queryKey: ["roster-value-change", lid, owner], queryFn: () => getRosterValueChange(lid, owner, ownerId), enabled: !!lid && !!owner, staleTime: 1800000 });
+  const { data: tendencies } = useQuery({ queryKey: ["tendencies", lid, owner], queryFn: () => getOwnerTendencies(lid, owner, ownerId), enabled: !!lid && !!owner, staleTime: 600000 });
+  const [showCardModal, setShowCardModal] = useState(false);
 
   /* ── Derived data ── */
   const leagueName = overview?.name || "";
@@ -446,16 +268,34 @@ export default function DashboardMobile({ lid, owner, ownerId }: { lid: string; 
 
       {/* ── 2. MANAGER CARD ── */}
       {myScore && (
-        <ManagerCard
-          myScore={myScore}
-          leagueName={leagueName}
-          owner={owner}
-          leagueRank={leagueRank}
-          globalRank={globalRank}
-          topPct={topPct}
-          globalManagers={globalManagers}
-          bullets={bullets}
-        />
+        <>
+          <ManagerCardMobile
+            myScore={myScore}
+            leagueName={leagueName}
+            owner={owner}
+            leagueRank={leagueRank}
+            globalRank={globalRank}
+            topPct={topPct}
+            bullets={bullets}
+            onTap={() => setShowCardModal(true)}
+            onLongPress={() => setShowCardModal(true)}
+          />
+          {showCardModal && (
+            <ManagerCardModal
+              myScore={myScore}
+              leagueName={leagueName}
+              owner={owner}
+              leagueRank={leagueRank}
+              globalRank={globalRank}
+              topPct={topPct}
+              bullets={bullets}
+              record={(record as any) || null}
+              champs={(champs as any) || null}
+              badges={(tendencies as any)?.badges || []}
+              onClose={() => setShowCardModal(false)}
+            />
+          )}
+        </>
       )}
 
       {/* ── 3. ACTION GRID — 2x2 ── */}
