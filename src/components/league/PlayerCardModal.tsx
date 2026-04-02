@@ -580,42 +580,44 @@ function MarketTab({ priceHistory, pc }: { priceHistory?: Record<string, unknown
   const vsLabel = vsPct > 10 ? "SELL WINDOW" : vsPct < -10 ? "BUY WINDOW" : "FAIR VALUE";
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      {/* Signal + Price */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px", borderTop: `2px solid ${signalColor}30` }}>
-          <div style={{ fontFamily: MONO, fontSize: 10, color: C.dim, letterSpacing: "0.06em", marginBottom: 4 }}>SIGNAL</div>
-          <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 800, color: signalColor }}>{signal}</div>
-          <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim, marginTop: 2 }}>
-            {signalPct > 0 ? "+" : ""}{signalPct.toFixed(1)}% 30d momentum
-          </div>
-        </div>
-        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px", borderTop: `2px solid #6bb8e030` }}>
-          <div style={{ fontFamily: MONO, fontSize: 10, color: C.dim, letterSpacing: "0.06em", marginBottom: 4 }}>MARKET PRICE</div>
-          <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 800, color: "#6bb8e0" }}>{marketPrice ? fmt(marketPrice) : "—"}</div>
-          <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim, marginTop: 2 }}>
-            {basedOn} trades{lowConf ? " · low vol" : " · 90d"}
-          </div>
-        </div>
-      </div>
-
-      {/* vs Consensus */}
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      {/* Market vs Consensus — HERO, full width, always first */}
       {marketPrice && shaValue ? (
-        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px", textAlign: "center" }}>
-          <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim, letterSpacing: "0.04em", marginBottom: 6 }}>MARKET vs CONSENSUS</div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
-            <span style={{ fontFamily: MONO, fontSize: 14, color: C.gold }}>{fmt(shaValue)}</span>
-            <span style={{ fontFamily: MONO, fontSize: 12, color: C.dim }}>→</span>
-            <span style={{ fontFamily: MONO, fontSize: 14, color: "#6bb8e0" }}>{fmt(marketPrice)}</span>
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px", borderTop: `2px solid ${vsColor}30` }}>
+          <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, letterSpacing: "0.06em", marginBottom: 6 }}>MARKET vs CONSENSUS</div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: C.gold }}>{fmt(shaValue)}</span>
+              <span style={{ fontFamily: MONO, fontSize: 12, color: C.dim }}>→</span>
+              <span style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: "#6bb8e0" }}>{fmt(marketPrice)}</span>
+            </div>
             <span style={{
-              fontFamily: MONO, fontSize: 12, fontWeight: 800, color: vsColor,
+              fontFamily: MONO, fontSize: 11, fontWeight: 800, color: vsColor,
               background: `${vsColor}15`, padding: "3px 8px", borderRadius: 4, border: `1px solid ${vsColor}30`,
             }}>
-              {vsPct > 0 ? "+" : ""}{vsPct}% · {vsLabel}
+              {vsPct > 0 ? "+" : ""}{vsPct}% {vsLabel}
             </span>
           </div>
         </div>
       ) : null}
+
+      {/* Signal + Market Price — 2 across */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 12px", borderTop: `2px solid ${signalColor}30` }}>
+          <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, letterSpacing: "0.06em", marginBottom: 3 }}>SIGNAL</div>
+          <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 800, color: signalColor }}>{signal}</div>
+          <div style={{ fontFamily: MONO, fontSize: 10, color: C.dim, marginTop: 2 }}>
+            {signalPct > 0 ? "+" : ""}{signalPct.toFixed(1)}% 30d
+          </div>
+        </div>
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 12px", borderTop: `2px solid #6bb8e030` }}>
+          <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, letterSpacing: "0.06em", marginBottom: 3 }}>MARKET PRICE</div>
+          <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 800, color: "#6bb8e0" }}>{marketPrice ? fmt(marketPrice) : "—"}</div>
+          <div style={{ fontFamily: MONO, fontSize: 10, color: C.dim, marginTop: 2 }}>
+            {basedOn} trades{lowConf ? " · low vol" : " · 90d"}
+          </div>
+        </div>
+      </div>
 
       {/* Volume + Trend */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
