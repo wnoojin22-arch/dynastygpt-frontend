@@ -267,7 +267,7 @@ function OverviewTab({ pc, seasons, history }: { pc?: PlayerCard; seasons: Seaso
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       {/* Value cards — 2-col on mobile, 3-col on desktop */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+      <div className="grid grid-cols-3 gap-1.5">
         <ValueCard label="LEAGUE VALUE" value={fmt(pc.sha_value)} sub={pc.sha_pos_rank} color={C.gold} />
         <ValueCard label="DYNASTY" value={pc.dynasty_value ? fmt(pc.dynasty_value) : "—"} sub={pc.dynasty_rank ? `#${pc.dynasty_rank}` : ""} color="#6bb8e0" />
         <ValueCard label="WIN-NOW" value={pc.redraft_value ? fmt(pc.redraft_value) : "—"} sub={pc.redraft_rank ? `#${pc.redraft_rank}` : ""} color="#7dd3a0" />
@@ -872,10 +872,10 @@ function ValueTab({ history, priceHistory }: { history: ValueHistoryPoint[]; pri
 
 function ValueCard({ label, value, sub, color }: { label: string; value: string; sub: string; color: string }) {
   return (
-    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 12px", borderTop: `2px solid ${color}30` }}>
-      <div style={{ fontFamily: MONO, fontSize: 12, color: C.dim, letterSpacing: "0.06em", marginBottom: 4 }}>{label}</div>
-      <div style={{ fontFamily: MONO, fontSize: 17, fontWeight: 700, color, lineHeight: 1.2 }}>{value}</div>
-      {sub && <div style={{ fontFamily: MONO, fontSize: 13, color: C.secondary, marginTop: 3 }}>{sub}</div>}
+    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, padding: "6px 8px", borderTop: `2px solid ${color}30` }}>
+      <div style={{ fontFamily: MONO, fontSize: 8, color: C.dim, letterSpacing: "0.06em", marginBottom: 2 }}>{label}</div>
+      <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 700, color, lineHeight: 1.1 }}>{value}</div>
+      {sub && <div style={{ fontFamily: MONO, fontSize: 10, color: C.secondary, marginTop: 2 }}>{sub}</div>}
     </div>
   );
 }
