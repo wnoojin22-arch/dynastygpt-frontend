@@ -62,6 +62,27 @@ function posColor(p: string) { return POS_COLORS[p] || C.dim; }
 
 const springTransition = { type: "spring" as const, stiffness: 300, damping: 30 };
 
+/** Format a trade asset label — handles picks and players cleanly. */
+function formatAssetLabel(a: any): string {
+  if (a.is_pick) {
+    // Raw pick name: "2026 Round 1 (jwahl1032)" → "2026 1st"
+    const raw = String(a.name || "");
+    const yearMatch = raw.match(/(\d{4})/);
+    const roundMatch = raw.match(/round\s*(\d+)/i) || raw.match(/(\d+)\.\d+/);
+    if (yearMatch && roundMatch) {
+      const year = yearMatch[1];
+      const rd = parseInt(roundMatch[1]);
+      const suffix = rd === 1 ? "1st" : rd === 2 ? "2nd" : rd === 3 ? "3rd" : `${rd}th`;
+      return `${year} ${suffix}`;
+    }
+    // Strip parenthesized owner name as fallback
+    return raw.replace(/\s*\([^)]*\)\s*$/, "");
+  }
+  // Player — only show pos_rank if it actually has content
+  const rank = a.pos_rank || "";
+  return rank ? `${a.name} (${rank})` : a.name;
+}
+
 function PosCircle({ pos, size = 24 }: { pos: string; size?: number }) {
   return (
     <div style={{
@@ -451,20 +472,20 @@ function RealTradesPill({ marketFeed, loading, nav, sleeperIdMap }: { marketFeed
           const pos = selected.position || "";
           const vsDynasty = selected.vs_dynasty_pct || 0;
           const isOver = vsDynasty > 0;
-          const trades = (selected.trades || []).slice(0, 5);
+          const consensus = Math.round(selected.sha_value || 0);
+          const market = Math.round(selected.market_price || 0);
+          // Dedup trades by trade_id
+          const seen = new Set<string>();
+          const trades = (selected.trades || []).filter((t: any) => {
+            if (!t.trade_id || seen.has(t.trade_id)) return false;
+            seen.add(t.trade_id);
+            return true;
+          }).slice(0, 5);
           return (
             <div style={{ padding: "0 16px 24px" }}>
               {/* Hero */}
               <div style={{ padding: "16px 0", display: "flex", alignItems: "center", gap: 14, borderBottom: `1px solid ${C.border}` }}>
-                <div style={{
-                  width: 52, height: 52, borderRadius: "50%", flexShrink: 0,
-                  background: `${posColor(pos)}20`, border: `2px solid ${posColor(pos)}50`,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                }}>
-                  <span style={{ fontFamily: SANS, fontSize: 18, fontWeight: 900, color: posColor(pos) }}>
-                    {(selected.player || "").split(" ").map((w: string) => w[0]).join("").slice(0, 2)}
-                  </span>
-                </div>
+                <PlayerHeadshot name={selected.player || ""} position={pos} size={52} sleeperIdMap={sleeperIdMap} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <button
                     onClick={() => { setSelected(null); openPlayerCard(selected.player); }}
@@ -474,20 +495,23 @@ function RealTradesPill({ marketFeed, loading, nav, sleeperIdMap }: { marketFeed
                     <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: posColor(pos) }}>{selected.pos_rank || selected.sha_pos_rank}</span>
                     {vsDynasty !== 0 && (
                       <span style={{
-                        fontFamily: MONO, fontSize: 9, fontWeight: 800, padding: "2px 6px", borderRadius: 4,
+                        fontFamily: MONO, fontSize: 10, fontWeight: 800, padding: "3px 8px", borderRadius: 5,
                         color: isOver ? C.red : C.green,
                         background: isOver ? `${C.red}18` : `${C.green}18`,
-                        border: `1px solid ${isOver ? C.red : C.green}30`,
+                        border: `1.5px solid ${isOver ? C.red : C.green}35`,
                       }}>{isOver ? "+" : ""}{vsDynasty.toFixed(0)}% {isOver ? "OVER" : "UNDER"}</span>
                     )}
+                  </div>
+                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, marginTop: 4 }}>
+                    {fmt(consensus)} consensus · {fmt(market)} market
                   </div>
                 </div>
               </div>
 
               {/* Stat boxes */}
               <div style={{ display: "flex", gap: 8, margin: "14px 0" }}>
-                <StatBox label="CONSENSUS" value={fmt(Math.round(selected.sha_value || 0))} />
-                <StatBox label="TRADE MKT" value={fmt(Math.round(selected.market_price || 0))} />
+                <StatBox label="CONSENSUS" value={fmt(consensus)} />
+                <StatBox label="TRADE MKT" value={fmt(market)} />
                 <StatBox label="TRADES" value={String(selected.recent_trades || selected.trades_90d || 0)} />
               </div>
 
@@ -508,7 +532,7 @@ function RealTradesPill({ marketFeed, loading, nav, sleeperIdMap }: { marketFeed
                   <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, letterSpacing: "0.10em", color: C.dim }}>RECENT TRADES ACROSS THE PLATFORM</span>
                   <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 8 }}>
                     {trades.map((t: any, i: number) => (
-                      <div key={i} style={{ padding: "10px 12px", borderRadius: 8, background: C.elevated, border: `1px solid ${C.border}` }}>
+                      <div key={t.trade_id || i} style={{ padding: "10px 12px", borderRadius: 8, background: C.elevated, border: `1px solid ${C.border}` }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                           <span style={{ fontFamily: MONO, fontSize: 8, color: C.dim }}>{t.format || ""} · {t.days_ago ?? "?"}d ago</span>
                           {t.grade && (
@@ -518,12 +542,12 @@ function RealTradesPill({ marketFeed, loading, nav, sleeperIdMap }: { marketFeed
                         <div style={{ display: "flex", gap: 8 }}>
                           <div style={{ flex: 1, borderLeft: `2px solid ${C.red}40`, paddingLeft: 8 }}>
                             {(t.gave || []).map((a: any, j: number) => (
-                              <div key={j} style={{ fontFamily: SANS, color: C.red, lineHeight: 1.5, fontSize: 11 }}>{a.name}{a.is_pick ? "" : ` (${a.pos_rank || a.position})`}</div>
+                              <div key={j} style={{ fontFamily: SANS, color: C.red, lineHeight: 1.5, fontSize: 11 }}>{formatAssetLabel(a)}</div>
                             ))}
                           </div>
                           <div style={{ flex: 1, borderLeft: `2px solid ${C.green}40`, paddingLeft: 8 }}>
                             {(t.got || []).map((a: any, j: number) => (
-                              <div key={j} style={{ fontFamily: SANS, color: C.green, lineHeight: 1.5, fontSize: 11 }}>{a.name}{a.is_pick ? "" : ` (${a.pos_rank || a.position})`}</div>
+                              <div key={j} style={{ fontFamily: SANS, color: C.green, lineHeight: 1.5, fontSize: 11 }}>{formatAssetLabel(a)}</div>
                             ))}
                           </div>
                         </div>
