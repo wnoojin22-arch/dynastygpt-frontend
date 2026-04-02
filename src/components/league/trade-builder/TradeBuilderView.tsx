@@ -2,13 +2,14 @@
 
 /**
  * TRADE BUILDER — Orchestrator
- * Detects mobile vs desktop and renders the appropriate experience.
- * All shared state/logic lives in useTradeBuilder hook.
+ * Desktop: original 3-column builder (TradeBuilderDesktop)
+ * Mobile: new unified builder (TradeBuilderUnified) with search, owner grid, suggest
  */
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useTradeBuilder } from "@/hooks/useTradeBuilder";
 import TradeBuilderDesktop from "./TradeBuilderDesktop";
-import TradeBuilderMobile from "./TradeBuilderMobile";
+import TradeBuilderProvider from "./TradeBuilderProvider";
+import TradeBuilderUnified from "./TradeBuilderUnified";
 
 export default function TradeBuilderView({
   leagueId,
@@ -20,11 +21,15 @@ export default function TradeBuilderView({
   ownerId?: string | null;
 }) {
   const isMobile = useIsMobile();
-  const tb = useTradeBuilder({ leagueId, owner, ownerId });
 
   if (isMobile) {
-    return <TradeBuilderMobile tb={tb} leagueId={leagueId} owner={owner} ownerId={ownerId} />;
+    return (
+      <TradeBuilderProvider leagueId={leagueId} owner={owner} ownerId={ownerId}>
+        <TradeBuilderUnified />
+      </TradeBuilderProvider>
+    );
   }
 
+  const tb = useTradeBuilder({ leagueId, owner, ownerId });
   return <TradeBuilderDesktop tb={tb} leagueId={leagueId} owner={owner} />;
 }
