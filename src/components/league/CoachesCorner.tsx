@@ -118,18 +118,16 @@ function RosterActionsTable({ cc }: { cc: Record<string, unknown> }) {
     const gradeWithout = String(p.position_grade_without || "");
 
     return (
-      <div key={`${action}-${idx}`} className={`grid grid-cols-[1fr_44px_32px_56px_60px_1fr] gap-2 px-3 py-2 items-center hover:bg-elevated/50 transition-colors ${!isLast ? "border-b border-white/[0.06]" : ""}`}>
-        <PlayerName name={name} className="font-sans text-[13px] font-medium text-primary truncate" />
-        <span className={`font-sans text-[11px] font-bold text-center rounded px-1 py-0.5 ${posTagClasses(pos)}`}>{pos || "—"}</span>
-        <span className="font-sans text-[12px] text-dim text-center tabular-nums">{age}</span>
-        <span className="font-sans text-[11px] font-semibold text-secondary text-center bg-elevated rounded-full px-1.5 py-0.5 border border-border-lt truncate">{rank || "—"}</span>
-        <span className={`font-sans text-[11px] font-semibold text-center rounded-full px-1.5 py-0.5 border ${actionPillClasses(action)}`}>{action || "—"}</span>
-        <div className="min-w-0">
-          <span className="font-sans text-[12px] text-secondary truncate block" title={target}>{target}</span>
-          {gradeWithout && action === "SELL" && (
-            <span className="font-sans text-[10px] text-zinc-500 truncate block">{gradeWithout}</span>
-          )}
+      <div key={`${action}-${idx}`} className={`flex items-center gap-2 px-3 py-2 hover:bg-elevated/50 transition-colors ${!isLast ? "border-b border-white/[0.06]" : ""}`}>
+        <span className={`font-sans text-[10px] font-bold text-center rounded px-1 py-0.5 shrink-0 ${posTagClasses(pos)}`}>{pos || "—"}</span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5">
+            <PlayerName name={name} className="font-sans text-[12px] font-medium text-primary truncate" />
+            {age && <span className="font-sans text-[10px] text-dim shrink-0">{age}</span>}
+          </div>
+          {target && <span className="font-sans text-[10px] text-secondary truncate block">{target}</span>}
         </div>
+        <span className={`font-sans text-[9px] font-bold text-center rounded-full px-1.5 py-0.5 border shrink-0 ${actionPillClasses(action)}`}>{action || "—"}</span>
       </div>
     );
   };
@@ -142,13 +140,6 @@ function RosterActionsTable({ cc }: { cc: Record<string, unknown> }) {
 
   return (
     <div className="bg-card border border-border rounded-lg overflow-hidden">
-      {/* Column headers */}
-      <div className="grid grid-cols-[1fr_44px_32px_56px_60px_1fr] gap-2 px-3 py-2 border-b border-border-lt bg-elevated">
-        {["Player", "Pos", "Age", "Rank", "Action", "Target"].map((h, i) => (
-          <span key={h} className={`font-sans text-[11px] font-medium text-dim uppercase tracking-wider ${i >= 1 && i <= 4 ? "text-center" : ""}`}>{h}</span>
-        ))}
-      </div>
-
       {sections.map(({ items, label, icon, colorClass }) => items.length > 0 && (
         <React.Fragment key={label}>
           <div className={`flex items-center gap-2 px-3 py-1.5 border-b border-border ${colorClass.split(" ")[0]}`}>
@@ -574,8 +565,8 @@ export default function CoachesCorner({ leagueId, owner, ownerId }: { leagueId: 
       {/* Row 1: Full width — Roster Actions */}
       <RosterActionsTable cc={data} />
 
-      {/* Row 2: 2 columns — Position Grades | Draft Capital */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {/* Row 2: 2 columns on desktop, stacked on mobile */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <PositionGrades cc={data} />
         <DraftIntel data={data.draft_intel as Record<string, unknown> | null} />
       </div>
@@ -583,8 +574,8 @@ export default function CoachesCorner({ leagueId, owner, ownerId }: { leagueId: 
       {/* Row 3: Full width — Trade Partners */}
       <TradePartners data={data.trade_partners as Record<string, unknown> | null} />
 
-      {/* Row 4: 2 columns — Lineup Efficiency | Competitive Landscape */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {/* Row 4: 2 columns on desktop, stacked on mobile */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <LineupEfficiency data={data.lineup_efficiency as Record<string, unknown> | null} />
         <CompetitiveLandscape data={data.competitive_landscape as Array<Record<string, unknown>> | null} />
       </div>
