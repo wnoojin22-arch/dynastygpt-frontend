@@ -565,20 +565,14 @@ export default function CoachesCorner({ leagueId, owner, ownerId }: { leagueId: 
       {/* Row 1: Full width — Roster Actions */}
       <RosterActionsTable cc={data} />
 
-      {/* Row 2: 2 columns on desktop, stacked on mobile */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <PositionGrades cc={data} />
-        <DraftIntel data={data.draft_intel as Record<string, unknown> | null} />
-      </div>
+      {/* Row 2: Draft Intel */}
+      <DraftIntel data={data.draft_intel as Record<string, unknown> | null} />
 
       {/* Row 3: Full width — Trade Partners */}
       <TradePartners data={data.trade_partners as Record<string, unknown> | null} />
 
-      {/* Row 4: 2 columns on desktop, stacked on mobile */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <LineupEfficiency data={data.lineup_efficiency as Record<string, unknown> | null} />
-        <CompetitiveLandscape data={data.competitive_landscape as Array<Record<string, unknown>> | null} />
-      </div>
+      {/* Row 4: Lineup Efficiency */}
+      <LineupEfficiency data={data.lineup_efficiency as Record<string, unknown> | null} />
 
       {/* Row 5: Full width — Build Trade CTA */}
       <BuildTradeCTA />
