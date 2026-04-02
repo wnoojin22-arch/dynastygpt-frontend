@@ -93,23 +93,21 @@ export default function LeagueTradesView({ leagueId }: { leagueId: string }) {
     const total = trades.length;
     const tradeCount: Record<string, number> = {};
     const scores: Record<string, number[]> = {};
-    let winWins = 0; let robberies = 0;
-    let robberName = ""; let robberCount = 0;
-    let victimName = ""; let victimCount = 0;
-    const robberMap: Record<string, number> = {};
-    const victimMap: Record<string, number> = {};
+    let even = 0; let won = 0; let lost = 0;
+    const winMap: Record<string, number> = {};
+    const lossMap: Record<string, number> = {};
 
     trades.forEach((t) => {
       tradeCount[t.owner] = (tradeCount[t.owner] || 0) + 1;
       tradeCount[t.counter_party] = (tradeCount[t.counter_party] || 0) + 1;
       const v = t.verdict?.toLowerCase() || "";
-      if (v.includes("win-win") || v === "push") winWins++;
-      if (v.includes("robbery")) {
-        robberies++;
-        const winner = t.side_a_verdict?.toLowerCase().includes("robbery") ? t.side_a_owner : t.side_b_owner;
-        const loser = t.side_a_verdict?.toLowerCase() === "victim" ? t.side_a_owner : t.side_b_owner;
-        if (winner) robberMap[winner] = (robberMap[winner] || 0) + 1;
-        if (loser) victimMap[loser] = (victimMap[loser] || 0) + 1;
+      if (v.includes("win-win") || v === "push") { even++; }
+      else if (v.includes("won") || v.includes("edge") || v.includes("robbery")) {
+        won++;
+        const winner = (t.side_a_verdict?.toLowerCase().includes("won") || t.side_a_verdict?.toLowerCase().includes("edge") || t.side_a_verdict?.toLowerCase().includes("robbery")) ? t.side_a_owner : t.side_b_owner;
+        const loser = (t.side_a_verdict?.toLowerCase().includes("lost") || t.side_a_verdict?.toLowerCase() === "victim" || t.side_a_verdict?.toLowerCase().includes("loss")) ? t.side_a_owner : t.side_b_owner;
+        if (winner) winMap[winner] = (winMap[winner] || 0) + 1;
+        if (loser) lossMap[loser] = (lossMap[loser] || 0) + 1;
       }
       // Score tracking
       const aLetter = letterFromVerdict(t.side_a_verdict);
@@ -121,12 +119,10 @@ export default function LeagueTradesView({ leagueId }: { leagueId: string }) {
     const mostActive = Object.entries(tradeCount).sort((a, b) => b[1] - a[1])[0];
     const avgScores = Object.entries(scores).map(([n, arr]) => ({ name: n, avg: arr.reduce((s, v) => s + v, 0) / arr.length })).filter((x) => x.avg > 0).sort((a, b) => b.avg - a.avg);
     const bestTrader = avgScores[0];
-    const topRobber = Object.entries(robberMap).sort((a, b) => b[1] - a[1])[0];
-    const topVictim = Object.entries(victimMap).sort((a, b) => b[1] - a[1])[0];
-    if (topRobber) { robberName = topRobber[0]; robberCount = topRobber[1]; }
-    if (topVictim) { victimName = topVictim[0]; victimCount = topVictim[1]; }
-    const winWinPct = total > 0 ? Math.round((winWins / total) * 100) : 0;
-    return { total, winWins, robberies, mostActive, bestTrader, robberName, robberCount, victimName, victimCount, winWinPct };
+    const topWinner = Object.entries(winMap).sort((a, b) => b[1] - a[1])[0];
+    const topLoser = Object.entries(lossMap).sort((a, b) => b[1] - a[1])[0];
+    const evenPct = total > 0 ? Math.round((even / total) * 100) : 0;
+    return { total, won, lost: Object.values(lossMap).reduce((s, v) => s + v, 0), even, mostActive, bestTrader, topWinner: topWinner ? { name: topWinner[0], count: topWinner[1] } : null, topLoser: topLoser ? { name: topLoser[0], count: topLoser[1] } : null, evenPct };
   }, [trades]);
 
   // Filter
@@ -154,23 +150,21 @@ export default function LeagueTradesView({ leagueId }: { leagueId: string }) {
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14, flexWrap: "wrap" }}>
         <span style={{ fontFamily: SERIF, fontSize: 22, fontWeight: 900, fontStyle: "italic", color: C.goldBright }}>League Trade History</span>
         <div style={{ width: 1, height: 16, background: C.border }} />
-        <span style={{ fontFamily: MONO, fontSize: 13, color: C.secondary }}><span style={{ fontWeight: 800, color: C.primary, fontSize: 15 }}>{stats.total}</span> graded</span>
-        <div style={{ width: 1, height: 16, background: C.border }} />
-        <span style={{ fontFamily: MONO, fontSize: 13, color: C.secondary }}><span style={{ fontWeight: 800, color: C.green, fontSize: 15 }}>{stats.winWins}</span> even</span>
-        <div style={{ width: 1, height: 16, background: C.border }} />
-        <span style={{ fontFamily: MONO, fontSize: 13, color: C.secondary }}><span style={{ fontWeight: 800, color: "#ff4444", fontSize: 15 }}>{stats.robberies}</span> robberies</span>
+        <span style={{ fontFamily: MONO, fontSize: 12, color: C.secondary }}><span style={{ fontWeight: 800, color: C.primary, fontSize: 14 }}>{stats.total}</span> graded</span>
+        <div style={{ width: 1, height: 14, background: C.border }} />
+        <span style={{ fontFamily: MONO, fontSize: 12, color: C.secondary }}><span style={{ fontWeight: 800, color: C.green, fontSize: 14 }}>{stats.won}</span> won</span>
+        <div style={{ width: 1, height: 14, background: C.border }} />
+        <span style={{ fontFamily: MONO, fontSize: 12, color: C.secondary }}><span style={{ fontWeight: 800, color: C.red, fontSize: 14 }}>{stats.lost}</span> lost</span>
+        <div style={{ width: 1, height: 14, background: C.border }} />
+        <span style={{ fontFamily: MONO, fontSize: 12, color: C.secondary }}><span style={{ fontWeight: 800, color: C.gold, fontSize: 14 }}>{stats.even}</span> even</span>
       </div>
 
-      {/* STAT BOXES */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8, marginBottom: 12 }}>
-        <StatBox label="TOTAL TRADES" color={C.gold}><div style={{ fontFamily: MONO, fontSize: 28, fontWeight: 800, color: C.primary }}>{stats.total}</div></StatBox>
-        <StatBox label="MOST ACTIVE" color={C.gold}><div style={{ fontFamily: SANS, fontSize: 16, fontWeight: 800, color: C.gold }}>{stats.mostActive?.[0] || "—"}</div><div style={{ fontFamily: MONO, fontSize: 10, color: C.secondary }}>{stats.mostActive?.[1] || 0} trades</div></StatBox>
-        <StatBox label="BEST TRADER" color={C.green}><div style={{ fontFamily: SANS, fontSize: 16, fontWeight: 800, color: C.green }}>{stats.bestTrader?.name || "—"}</div><div style={{ fontFamily: MONO, fontSize: 10, color: C.secondary }}>{stats.bestTrader ? `${Math.round(stats.bestTrader.avg)} avg` : "—"}</div></StatBox>
-        <StatBox label="ROBBERIES" color="#ff4444">
-          {stats.robberName && <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}><span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 700, color: C.green }}>{stats.robberName}</span><span style={{ fontFamily: MONO, fontSize: 9, color: C.green, padding: "1px 6px", borderRadius: 3, background: C.greenDim }}>{stats.robberCount} robbed</span></div>}
-          {stats.victimName && <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 700, color: C.red }}>{stats.victimName}</span><span style={{ fontFamily: MONO, fontSize: 9, color: C.red, padding: "1px 6px", borderRadius: 3, background: C.redDim }}>{stats.victimCount} victim</span></div>}
-        </StatBox>
-        <StatBox label="EVEN RATE" color={C.gold}><div style={{ fontFamily: MONO, fontSize: 28, fontWeight: 800, color: C.green }}>{stats.winWinPct}%</div><div style={{ height: 5, borderRadius: 3, background: C.elevated, overflow: "hidden", marginTop: 4 }}><div style={{ height: "100%", borderRadius: 3, background: C.green, width: `${stats.winWinPct}%` }} /></div></StatBox>
+      {/* STAT BOXES — 2x2 on mobile, 4 across on desktop */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+        <StatBox label="TOTAL TRADES" color={C.gold}><div style={{ fontFamily: MONO, fontSize: 24, fontWeight: 800, color: C.primary }}>{stats.total}</div></StatBox>
+        <StatBox label="MOST ACTIVE" color={C.gold}><div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 800, color: C.gold, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{stats.mostActive?.[0] || "—"}</div><div style={{ fontFamily: MONO, fontSize: 9, color: C.secondary }}>{stats.mostActive?.[1] || 0} trades</div></StatBox>
+        <StatBox label="BEST TRADER" color={C.green}><div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 800, color: C.green, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{stats.topWinner?.name || stats.bestTrader?.name || "—"}</div><div style={{ fontFamily: MONO, fontSize: 9, color: C.secondary }}>{stats.topWinner ? `${stats.topWinner.count} wins` : stats.bestTrader ? `${Math.round(stats.bestTrader.avg)} avg` : "—"}</div></StatBox>
+        <StatBox label="EVEN RATE" color={C.gold}><div style={{ fontFamily: MONO, fontSize: 24, fontWeight: 800, color: C.green }}>{stats.evenPct}%</div><div style={{ height: 4, borderRadius: 2, background: C.elevated, overflow: "hidden", marginTop: 3 }}><div style={{ height: "100%", borderRadius: 2, background: C.green, width: `${stats.evenPct}%` }} /></div></StatBox>
       </div>
 
       {/* FILTERS */}
@@ -214,38 +208,39 @@ export default function LeagueTradesView({ leagueId }: { leagueId: string }) {
               <div key={t.trade_id}
                 onClick={() => setReportTradeId(t.trade_id)}
                 style={{
-                  display: "flex", alignItems: "center", gap: 10,
-                  padding: "10px 16px", borderBottom: `1px solid ${C.white08}`,
-                  borderLeft: `4px solid ${vs?.color || "transparent"}`,
-                  cursor: "pointer", transition: "all 0.15s",
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = C.elevated; e.currentTarget.style.transform = "translateX(2px)"; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.transform = "none"; }}>
-                {/* Date */}
-                <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.dim, width: 68, flexShrink: 0 }}>{t.date?.slice(0, 10)}</span>
-
-                {/* Side A: initial + name + grade */}
-                <div style={{ display: "flex", alignItems: "center", gap: 4, flex: 1, minWidth: 0 }}>
-                  <div style={{ width: 22, height: 22, borderRadius: "50%", background: `${aColor}15`, border: `1.5px solid ${aColor}35`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: 9, fontWeight: 900, color: aColor, flexShrink: 0 }}>{t.owner[0]}</div>
-                  <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 700, color: C.primary, flexShrink: 0 }}>{t.owner}</span>
-                  {aLetter ? <span style={{ fontFamily: DISPLAY, fontSize: 12, fontWeight: 900, color: aColor, padding: "1px 6px", borderRadius: 3, background: `${aColor}15`, border: `1px solid ${aColor}30`, flexShrink: 0 }}>{aLetter}</span> : null}
-                  <span style={{ fontFamily: SANS, fontSize: 11, color: C.dim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}><InlineAssets players={t.players_sent} picks={t.picks_sent} /></span>
+                  padding: "8px 12px", borderBottom: `1px solid ${C.white08}`,
+                  borderLeft: `3px solid ${vs?.color || "transparent"}`,
+                  cursor: "pointer",
+                }}>
+                {/* Top: date + verdict */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 5 }}>
+                  <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.dim }}>{t.date?.slice(0, 10)}</span>
+                  {vs ? <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, letterSpacing: "0.04em", color: vs.color, background: vs.bg, padding: "2px 6px", borderRadius: 3 }}>{vs.label}</span>
+                      : !hasGrade && <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, color: C.dim, padding: "2px 6px", borderRadius: 3, background: C.elevated }}>NO GRADE</span>}
                 </div>
-
-                {/* Arrow */}
-                <span style={{ fontFamily: SANS, fontSize: 14, color: C.gold, flexShrink: 0 }}>⇄</span>
-
-                {/* Side B: initial + name + grade */}
-                <div style={{ display: "flex", alignItems: "center", gap: 4, flex: 1, minWidth: 0 }}>
-                  <div style={{ width: 22, height: 22, borderRadius: "50%", background: `${bColor}15`, border: `1.5px solid ${bColor}35`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: 9, fontWeight: 900, color: bColor, flexShrink: 0 }}>{t.counter_party[0]}</div>
-                  <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 700, color: C.primary, flexShrink: 0 }}>{t.counter_party}</span>
-                  {bLetter ? <span style={{ fontFamily: DISPLAY, fontSize: 12, fontWeight: 900, color: bColor, padding: "1px 6px", borderRadius: 3, background: `${bColor}15`, border: `1px solid ${bColor}30`, flexShrink: 0 }}>{bLetter}</span> : null}
-                  <span style={{ fontFamily: SANS, fontSize: 11, color: C.dim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}><InlineAssets players={t.players_received} picks={t.picks_received} /></span>
+                {/* Two sides */}
+                <div style={{ display: "flex", gap: 8 }}>
+                  {/* Side A */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 2 }}>
+                      <div style={{ width: 20, height: 20, borderRadius: "50%", background: `${aColor}15`, border: `1.5px solid ${aColor}35`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: 8, fontWeight: 900, color: aColor, flexShrink: 0 }}>{t.owner[0]}</div>
+                      <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 700, color: C.primary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.owner}</span>
+                      {aLetter ? <span style={{ fontFamily: DISPLAY, fontSize: 10, fontWeight: 900, color: aColor, padding: "1px 4px", borderRadius: 2, background: `${aColor}15`, flexShrink: 0 }}>{aLetter}</span> : null}
+                    </div>
+                    <div style={{ fontFamily: SANS, fontSize: 10, color: C.dim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", paddingLeft: 24 }}><InlineAssets players={t.players_sent} picks={t.picks_sent} /></div>
+                  </div>
+                  {/* Divider */}
+                  <div style={{ width: 1, background: C.border, alignSelf: "stretch", flexShrink: 0 }} />
+                  {/* Side B */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 2 }}>
+                      <div style={{ width: 20, height: 20, borderRadius: "50%", background: `${bColor}15`, border: `1.5px solid ${bColor}35`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: 8, fontWeight: 900, color: bColor, flexShrink: 0 }}>{t.counter_party[0]}</div>
+                      <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 700, color: C.primary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.counter_party}</span>
+                      {bLetter ? <span style={{ fontFamily: DISPLAY, fontSize: 10, fontWeight: 900, color: bColor, padding: "1px 4px", borderRadius: 2, background: `${bColor}15`, flexShrink: 0 }}>{bLetter}</span> : null}
+                    </div>
+                    <div style={{ fontFamily: SANS, fontSize: 10, color: C.dim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", paddingLeft: 24 }}><InlineAssets players={t.players_received} picks={t.picks_received} /></div>
+                  </div>
                 </div>
-
-                {/* Verdict pill or No Grade */}
-                {vs ? <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.04em", color: vs.color, background: vs.bg, padding: "3px 8px", borderRadius: 3, flexShrink: 0, boxShadow: t.verdict?.includes("ROBBERY") ? `0 0 12px rgba(255,68,68,0.20)` : "none" }}>{vs.label}</span>
-                    : !hasGrade && <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.dim, padding: "3px 8px", borderRadius: 3, background: C.elevated, border: `1px solid ${C.border}`, letterSpacing: "0.06em" }}>NO GRADE</span>}
               </div>
             );
           })}
