@@ -17,10 +17,11 @@ import { C, SANS, MONO, DISPLAY, SERIF, fmt, posColor } from "@/components/leagu
 // ── Sub-tab definitions ──────────────────────────────────────────────────
 
 const TABS = [
-  { id: "board", label: "BOARD" },
+  { id: "profile", label: "MY PROFILE" },
   { id: "scouting", label: "SCOUTING" },
-  { id: "analyzer", label: "PICKS" },
+  { id: "board", label: "HISTORY" },
   { id: "grades", label: "GRADES" },
+  { id: "league", label: "LEAGUE" },
 ] as const;
 type TabId = typeof TABS[number]["id"];
 
@@ -78,7 +79,181 @@ function StatBox({ value, label, color }: { value: string; label: string; color?
   );
 }
 
-// ── TAB 1: DRAFT BOARD ──────────────────────────────────────────────────
+// ── TAB 1: MY DRAFT PROFILE ─────────────────────────────────────────────
+
+function MyDraftProfileTab({ seasons, owner }: { seasons: any[]; owner: string }) {
+  const openPlayerCard = usePlayerCardStore((s) => s.openPlayerCard);
+
+  const profile = useMemo(() => {
+    const ownerLower = owner.toLowerCase();
+    const myPicks: any[] = [];
+    for (const s of seasons) {
+      for (const p of s.picks) {
+        if ((p.owner || "").toLowerCase() === ownerLower) myPicks.push({ ...p, _season: s.season });
+      }
+    }
+
+    const total = myPicks.length;
+    const stars = myPicks.filter(p => p.label === "Star").length;
+    const hits = myPicks.filter(p => p.label === "Hit").length;
+    const busts = myPicks.filter(p => p.label === "Bust").length;
+    const misses = myPicks.filter(p => p.label === "Miss").length;
+    const hitRate = total > 0 ? Math.round((stars + hits) / total * 100) : 0;
+
+    // Hit rate by round
+    const byRound: Record<number, { total: number; hits: number }> = {};
+    for (const p of myPicks) {
+      if (!byRound[p.round]) byRound[p.round] = { total: 0, hits: 0 };
+      byRound[p.round].total++;
+      if (p.label === "Star" || p.label === "Hit") byRound[p.round].hits++;
+    }
+    const roundStats = Object.entries(byRound)
+      .map(([r, s]) => ({ round: Number(r), ...s, rate: s.total > 0 ? Math.round(s.hits / s.total * 100) : 0 }))
+      .sort((a, b) => a.round - b.round);
+
+    // Hit rate by position
+    const byPos: Record<string, { total: number; hits: number }> = {};
+    for (const p of myPicks) {
+      const pos = p.position || "?";
+      if (!byPos[pos]) byPos[pos] = { total: 0, hits: 0 };
+      byPos[pos].total++;
+      if (p.label === "Star" || p.label === "Hit") byPos[pos].hits++;
+    }
+    const posStats = Object.entries(byPos)
+      .map(([pos, s]) => ({ pos, ...s, rate: s.total > 0 ? Math.round(s.hits / s.total * 100) : 0 }))
+      .sort((a, b) => b.total - a.total);
+
+    // Best + worst picks
+    const sorted = [...myPicks].sort((a, b) => (b.current_value || 0) - (a.current_value || 0));
+    const best = sorted.slice(0, 3);
+    const worst = [...myPicks].filter(p => p.label === "Bust").sort((a, b) => (a.current_value || 0) - (b.current_value || 0)).slice(0, 3);
+
+    // Position tendency (what they draft most)
+    const topPos = posStats.slice(0, 2).map(p => p.pos);
+
+    // Total value acquired
+    const totalValue = myPicks.reduce((s, p) => s + (p.current_value || 0), 0);
+
+    // Seasons active
+    const seasonsActive = [...new Set(myPicks.map(p => p._season))].length;
+
+    return { total, stars, hits, busts, misses, hitRate, roundStats, posStats, best, worst, topPos, totalValue, seasonsActive };
+  }, [seasons, owner]);
+
+  if (profile.total === 0) {
+    return <div style={{ padding: 32, textAlign: "center", fontFamily: SANS, fontSize: 13, color: C.dim }}>No draft picks found for {owner}</div>;
+  }
+
+  const hrColor = (r: number) => r >= 50 ? C.green : r >= 30 ? C.gold : C.red;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      {/* Hero stats */}
+      <div className="flex gap-1.5">
+        <StatBox value={String(profile.total)} label="PICKS" />
+        <StatBox value={`${profile.hitRate}%`} label="HIT RATE" color={hrColor(profile.hitRate)} />
+        <StatBox value={String(profile.stars)} label="STARS" color={C.gold} />
+        <StatBox value={fmt(profile.totalValue)} label="VALUE" color={C.gold} />
+      </div>
+
+      {/* Hit rate by round */}
+      <DCard label="HIT RATE BY ROUND">
+        <div className="flex gap-1.5">
+          {profile.roundStats.map((r) => (
+            <div key={r.round} className="flex-1" style={{ textAlign: "center", padding: "6px 2px", borderRadius: 6, background: C.elevated, border: `1px solid ${C.border}` }}>
+              <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: hrColor(r.rate) }}>{r.rate}%</div>
+              <div style={{ fontFamily: MONO, fontSize: 8, color: C.dim, marginTop: 2 }}>RD {r.round}</div>
+              <div style={{ fontFamily: MONO, fontSize: 8, color: C.dim }}>{r.hits}/{r.total}</div>
+            </div>
+          ))}
+        </div>
+      </DCard>
+
+      {/* Hit rate by position */}
+      <DCard label="HIT RATE BY POSITION">
+        <div className="flex gap-1.5 flex-wrap">
+          {profile.posStats.map((p) => (
+            <div key={p.pos} style={{ textAlign: "center", padding: "6px 8px", borderRadius: 6, background: `${posColor(p.pos)}08`, border: `1px solid ${posColor(p.pos)}20`, minWidth: 60 }}>
+              <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: posColor(p.pos) }}>{p.rate}%</div>
+              <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: posColor(p.pos), marginTop: 1 }}>{p.pos}</div>
+              <div style={{ fontFamily: MONO, fontSize: 8, color: C.dim }}>{p.hits}/{p.total}</div>
+            </div>
+          ))}
+        </div>
+      </DCard>
+
+      {/* Best picks */}
+      <DCard label="BEST PICKS" right={<span style={{ fontFamily: MONO, fontSize: 9, color: C.green }}>TOP 3</span>}>
+        {profile.best.map((p: any, i: number) => (
+          <div key={i} onClick={() => p.player_name && openPlayerCard(p.player_name)} style={{
+            display: "flex", alignItems: "center", gap: 8, padding: "5px 0",
+            borderBottom: i < profile.best.length - 1 ? `1px solid ${C.white08}` : "none",
+            cursor: p.player_name ? "pointer" : "default",
+          }}>
+            <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.dim, width: 24 }}>{p.round}.{String(p.slot).padStart(2, "0")}</span>
+            <PosBadge pos={p.position || "?"} />
+            <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 600, color: C.primary, flex: 1 }}>{p.player_name}</span>
+            <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.gold }}>{fmt(p.current_value)}</span>
+            <LabelBadge label={p.label} />
+            <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>{p._season}</span>
+          </div>
+        ))}
+      </DCard>
+
+      {/* Worst picks */}
+      {profile.worst.length > 0 && (
+        <DCard label="WORST PICKS" right={<span style={{ fontFamily: MONO, fontSize: 9, color: C.red }}>BUSTS</span>}>
+          {profile.worst.map((p: any, i: number) => (
+            <div key={i} style={{
+              display: "flex", alignItems: "center", gap: 8, padding: "5px 0",
+              borderBottom: i < profile.worst.length - 1 ? `1px solid ${C.white08}` : "none",
+            }}>
+              <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.dim, width: 24 }}>{p.round}.{String(p.slot).padStart(2, "0")}</span>
+              <PosBadge pos={p.position || "?"} />
+              <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 600, color: C.red, flex: 1 }}>{p.player_name}</span>
+              <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.dim }}>{fmt(p.current_value)}</span>
+              <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>{p._season}</span>
+            </div>
+          ))}
+        </DCard>
+      )}
+
+      {/* Draft tendencies + advice */}
+      <DCard label="DRAFT TENDENCIES">
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {profile.topPos.length > 0 && (
+            <div style={{ fontFamily: SANS, fontSize: 12, color: C.secondary }}>
+              Targets <span style={{ fontWeight: 700, color: posColor(profile.topPos[0]) }}>{profile.topPos[0]}</span>
+              {profile.topPos[1] && <> and <span style={{ fontWeight: 700, color: posColor(profile.topPos[1]) }}>{profile.topPos[1]}</span></>} most
+            </div>
+          )}
+          {profile.roundStats[0] && profile.roundStats[0].rate >= 50 && (
+            <div style={{ fontFamily: SANS, fontSize: 12, color: C.green }}>
+              Strong Round 1 drafter ({profile.roundStats[0].rate}% hit rate)
+            </div>
+          )}
+          {profile.roundStats[0] && profile.roundStats[0].rate < 30 && (
+            <div style={{ fontFamily: SANS, fontSize: 12, color: C.red }}>
+              Struggles in Round 1 ({profile.roundStats[0].rate}% hit rate) — consider trading down
+            </div>
+          )}
+          {profile.busts > profile.stars && (
+            <div style={{ fontFamily: SANS, fontSize: 12, color: C.orange }}>
+              More busts ({profile.busts}) than stars ({profile.stars}) — prioritize proven talent over upside picks
+            </div>
+          )}
+          {profile.hitRate >= 50 && (
+            <div style={{ fontFamily: SANS, fontSize: 12, color: C.green }}>
+              Elite drafter — {profile.hitRate}% hit rate across {profile.seasonsActive} seasons. Keep doing what you're doing.
+            </div>
+          )}
+        </div>
+      </DCard>
+    </div>
+  );
+}
+
+// ── TAB 2: DRAFT BOARD (renamed HISTORY) ────────────────────────────────
 
 function DraftBoardTab({ seasons, owner }: { seasons: any[]; owner: string }) {
   const [selectedSeason, setSelectedSeason] = useState<number>(seasons[0]?.season || 2025);
@@ -461,11 +636,187 @@ function DraftGradesTab({ seasons, owner }: { seasons: any[]; owner: string }) {
   );
 }
 
+// ── TAB 5: LEAGUE DRAFT STATS ───────────────────────────────────────────
+
+function LeagueDraftTab({ seasons, owner }: { seasons: any[]; owner: string }) {
+  const allPicks = useMemo(() => {
+    const picks: any[] = [];
+    for (const s of seasons) for (const p of s.picks) picks.push({ ...p, _season: s.season });
+    return picks;
+  }, [seasons]);
+
+  const stats = useMemo(() => {
+    const total = allPicks.length;
+    const stars = allPicks.filter(p => p.label === "Star").length;
+    const hits = allPicks.filter(p => p.label === "Hit").length;
+    const busts = allPicks.filter(p => p.label === "Bust").length;
+    const hitRate = total > 0 ? Math.round((stars + hits) / total * 100) : 0;
+
+    // Hit rate by round (league-wide)
+    const byRound: Record<number, { total: number; hits: number }> = {};
+    for (const p of allPicks) {
+      if (!byRound[p.round]) byRound[p.round] = { total: 0, hits: 0 };
+      byRound[p.round].total++;
+      if (p.label === "Star" || p.label === "Hit") byRound[p.round].hits++;
+    }
+    const roundStats = Object.entries(byRound)
+      .map(([r, s]) => ({ round: Number(r), ...s, rate: s.total > 0 ? Math.round(s.hits / s.total * 100) : 0 }))
+      .sort((a, b) => a.round - b.round);
+
+    // Hit rate by position (league-wide)
+    const byPos: Record<string, { total: number; hits: number }> = {};
+    for (const p of allPicks) {
+      const pos = p.position || "?";
+      if (!byPos[pos]) byPos[pos] = { total: 0, hits: 0 };
+      byPos[pos].total++;
+      if (p.label === "Star" || p.label === "Hit") byPos[pos].hits++;
+    }
+    const posStats = Object.entries(byPos)
+      .map(([pos, s]) => ({ pos, ...s, rate: s.total > 0 ? Math.round(s.hits / s.total * 100) : 0 }))
+      .sort((a, b) => b.total - a.total);
+
+    // Most draft-day trades (owners who traded the most picks — picks where owner != original slot owner would be ideal, but we can approximate from the data)
+    const ownerPickCounts: Record<string, number> = {};
+    for (const p of allPicks) {
+      const o = p.owner || "?";
+      ownerPickCounts[o] = (ownerPickCounts[o] || 0) + 1;
+    }
+    const expectedPerOwner = total / Math.max(Object.keys(ownerPickCounts).length, 1);
+    const mostPicks = Object.entries(ownerPickCounts)
+      .map(([name, count]) => ({ name, count, extra: count - expectedPerOwner }))
+      .sort((a, b) => b.count - a.count);
+
+    // Best drafter (highest hit rate, min 5 picks)
+    const ownerHitRates: Record<string, { total: number; hits: number }> = {};
+    for (const p of allPicks) {
+      const o = p.owner || "?";
+      if (!ownerHitRates[o]) ownerHitRates[o] = { total: 0, hits: 0 };
+      ownerHitRates[o].total++;
+      if (p.label === "Star" || p.label === "Hit") ownerHitRates[o].hits++;
+    }
+    const ownerRanked = Object.entries(ownerHitRates)
+      .filter(([, s]) => s.total >= 5)
+      .map(([name, s]) => ({ name, ...s, rate: Math.round(s.hits / s.total * 100) }))
+      .sort((a, b) => b.rate - a.rate);
+
+    // Most valuable pick ever
+    const mvp = [...allPicks].sort((a, b) => (b.current_value || 0) - (a.current_value || 0))[0];
+
+    // Biggest bust
+    const biggestBust = allPicks.filter(p => p.label === "Bust" && p.round <= 2)
+      .sort((a, b) => a.round - b.round || a.slot - b.slot)[0];
+
+    // Stars by season
+    const starsBySeason: Record<number, number> = {};
+    for (const p of allPicks) if (p.label === "Star") starsBySeason[p._season] = (starsBySeason[p._season] || 0) + 1;
+    const bestDraftClass = Object.entries(starsBySeason).sort((a, b) => b[1] - a[1])[0];
+
+    return { total, stars, hits, busts, hitRate, roundStats, posStats, mostPicks, ownerRanked, mvp, biggestBust, bestDraftClass };
+  }, [allPicks]);
+
+  const hrColor = (r: number) => r >= 50 ? C.green : r >= 30 ? C.gold : C.red;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      {/* Hero */}
+      <div className="flex gap-1.5">
+        <StatBox value={String(stats.total)} label="TOTAL PICKS" />
+        <StatBox value={`${stats.hitRate}%`} label="LEAGUE HIT" color={hrColor(stats.hitRate)} />
+        <StatBox value={String(stats.stars)} label="STARS" color={C.gold} />
+        <StatBox value={String(seasons.length)} label="DRAFTS" />
+      </div>
+
+      {/* League hit rate by round */}
+      <DCard label="LEAGUE HIT RATE BY ROUND">
+        <div className="flex gap-1.5">
+          {stats.roundStats.map((r) => (
+            <div key={r.round} className="flex-1" style={{ textAlign: "center", padding: "6px 2px", borderRadius: 6, background: C.elevated, border: `1px solid ${C.border}` }}>
+              <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: hrColor(r.rate) }}>{r.rate}%</div>
+              <div style={{ fontFamily: MONO, fontSize: 8, color: C.dim, marginTop: 2 }}>RD {r.round}</div>
+              <div style={{ fontFamily: MONO, fontSize: 8, color: C.dim }}>{r.hits}/{r.total}</div>
+            </div>
+          ))}
+        </div>
+      </DCard>
+
+      {/* League hit rate by position */}
+      <DCard label="HIT RATE BY POSITION">
+        <div className="flex gap-1.5 flex-wrap">
+          {stats.posStats.map((p) => (
+            <div key={p.pos} style={{ textAlign: "center", padding: "6px 8px", borderRadius: 6, background: `${posColor(p.pos)}08`, border: `1px solid ${posColor(p.pos)}20`, minWidth: 60 }}>
+              <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: posColor(p.pos) }}>{p.rate}%</div>
+              <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: posColor(p.pos), marginTop: 1 }}>{p.pos}</div>
+              <div style={{ fontFamily: MONO, fontSize: 8, color: C.dim }}>{p.hits}/{p.total}</div>
+            </div>
+          ))}
+        </div>
+      </DCard>
+
+      {/* Draft power rankings */}
+      <DCard label="DRAFT POWER RANKINGS" right={<span style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>MIN 5 PICKS</span>}>
+        {stats.ownerRanked.slice(0, 6).map((o, idx) => {
+          const isMe = o.name.toLowerCase() === owner.toLowerCase();
+          return (
+            <div key={o.name} style={{
+              display: "flex", alignItems: "center", gap: 8, padding: "5px 0",
+              borderBottom: idx < 5 ? `1px solid ${C.white08}` : "none",
+            }}>
+              <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: idx === 0 ? C.gold : C.dim, width: 20 }}>#{idx + 1}</span>
+              <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: isMe ? 700 : 500, color: isMe ? C.gold : C.primary, flex: 1 }}>{o.name}</span>
+              <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: hrColor(o.rate) }}>{o.rate}%</span>
+              <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>{o.hits}/{o.total}</span>
+            </div>
+          );
+        })}
+      </DCard>
+
+      {/* Pick hoarders — who gets the most picks */}
+      <DCard label="PICK HOARDERS" right={<span style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>DRAFT DAY TRADERS</span>}>
+        {stats.mostPicks.filter(o => o.extra > 2).slice(0, 5).map((o, idx) => (
+          <div key={o.name} style={{
+            display: "flex", alignItems: "center", gap: 8, padding: "4px 0",
+            borderBottom: idx < 4 ? `1px solid ${C.white08}` : "none",
+          }}>
+            <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 600, color: C.primary, flex: 1 }}>{o.name}</span>
+            <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.gold }}>{o.count} picks</span>
+            <span style={{ fontFamily: MONO, fontSize: 9, color: C.green }}>+{Math.round(o.extra)} extra</span>
+          </div>
+        ))}
+      </DCard>
+
+      {/* Fun facts */}
+      <DCard label="LEAGUE RECORDS">
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {stats.mvp && (
+            <div style={{ fontFamily: SANS, fontSize: 12, color: C.secondary }}>
+              Most Valuable Pick: <span style={{ fontWeight: 700, color: C.gold }}>{stats.mvp.player_name}</span>
+              <span style={{ color: C.dim }}> — {stats.mvp.round}.{String(stats.mvp.slot).padStart(2, "0")} by {stats.mvp.owner} ({stats.mvp._season})</span>
+              <span style={{ fontWeight: 700, color: C.gold }}> {fmt(stats.mvp.current_value)}</span>
+            </div>
+          )}
+          {stats.biggestBust && (
+            <div style={{ fontFamily: SANS, fontSize: 12, color: C.secondary }}>
+              Biggest Bust: <span style={{ fontWeight: 700, color: C.red }}>{stats.biggestBust.player_name}</span>
+              <span style={{ color: C.dim }}> — {stats.biggestBust.round}.{String(stats.biggestBust.slot).padStart(2, "0")} by {stats.biggestBust.owner} ({stats.biggestBust._season})</span>
+            </div>
+          )}
+          {stats.bestDraftClass && (
+            <div style={{ fontFamily: SANS, fontSize: 12, color: C.secondary }}>
+              Best Draft Class: <span style={{ fontWeight: 700, color: C.green }}>{stats.bestDraftClass[0]}</span>
+              <span style={{ color: C.dim }}> — {stats.bestDraftClass[1]} stars found</span>
+            </div>
+          )}
+        </div>
+      </DCard>
+    </div>
+  );
+}
+
 // ── MAIN PAGE ────────────────────────────────────────────────────────────
 
 export default function DraftPage() {
   const { currentLeagueId: lid, currentOwner: owner } = useLeagueStore();
-  const [tab, setTab] = useState<TabId>("board");
+  const [tab, setTab] = useState<TabId>("profile");
 
   const { data: history, isLoading } = useQuery({
     queryKey: ["draft-history-full", lid],
@@ -523,14 +874,16 @@ export default function DraftPage() {
           <div style={{ padding: 32, textAlign: "center", fontFamily: MONO, fontSize: 12, color: C.dim }}>
             Loading draft data...
           </div>
-        ) : tab === "board" ? (
-          <DraftBoardTab seasons={seasons} owner={owner || ""} />
+        ) : tab === "profile" ? (
+          <MyDraftProfileTab seasons={seasons} owner={owner || ""} />
         ) : tab === "scouting" ? (
           <ScoutingTab seasons={seasons} owner={owner || ""} />
-        ) : tab === "analyzer" ? (
-          <PickAnalyzerTab seasons={seasons} />
-        ) : (
+        ) : tab === "board" ? (
+          <DraftBoardTab seasons={seasons} owner={owner || ""} />
+        ) : tab === "grades" ? (
           <DraftGradesTab seasons={seasons} owner={owner || ""} />
+        ) : (
+          <LeagueDraftTab seasons={seasons} owner={owner || ""} />
         )}
       </div>
     </div>
