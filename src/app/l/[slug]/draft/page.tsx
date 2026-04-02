@@ -1,150 +1,537 @@
 "use client";
 
+/**
+ * DRAFT ROOM — 4-tab draft dashboard, mobile-first.
+ * Tab 1: Draft Board (grid by season)
+ * Tab 2: Scouting (owner profiles)
+ * Tab 3: Pick Analyzer (per-slot intel)
+ * Tab 4: Draft Grades (post-draft)
+ */
+import { useState, useMemo } from "react";
 import { useLeagueStore } from "@/lib/stores/league-store";
 import { useQuery } from "@tanstack/react-query";
 import { getDraftHistory, getDraftAnalysis } from "@/lib/api";
-import PlayerName from "@/components/league/PlayerName";
+import { usePlayerCardStore } from "@/lib/stores/player-card-store";
+import { C, SANS, MONO, DISPLAY, SERIF, fmt, posColor } from "@/components/league/tokens";
 
-const C = {
-  bg: "#06080d", panel: "#0a0d15", card: "#10131d", elevated: "#171b28",
-  border: "#1a1e30", white08: "rgba(255,255,255,0.06)",
-  primary: "#eeeef2", secondary: "#b0b2c8", dim: "#9596a5",
-  gold: "#d4a532", goldBright: "#f5e6a3", goldDim: "rgba(212,165,50,0.10)", goldBorder: "rgba(212,165,50,0.22)",
-  green: "#7dd3a0", red: "#e47272", blue: "#6bb8e0", orange: "#e09c6b",
+// ── Sub-tab definitions ──────────────────────────────────────────────────
+
+const TABS = [
+  { id: "board", label: "BOARD" },
+  { id: "scouting", label: "SCOUTING" },
+  { id: "analyzer", label: "PICKS" },
+  { id: "grades", label: "GRADES" },
+] as const;
+type TabId = typeof TABS[number]["id"];
+
+// ── Helpers ──────────────────────────────────────────────────────────────
+
+const LABEL_COLORS: Record<string, string> = {
+  Star: C.gold, Hit: C.green, Miss: C.orange, Bust: C.red, "Too Early": C.dim,
 };
-const POS: Record<string, string> = { QB: "#EF4444", RB: "#3B82F6", WR: "#22C55E", TE: "#F59E0B" };
-const MONO = "'JetBrains Mono', 'SF Mono', monospace";
-const SERIF = "'Playfair Display', Georgia, serif";
 
-function fmt(n: number | null | undefined): string {
-  if (n == null || isNaN(n)) return "—";
-  return n.toLocaleString("en-US", { maximumFractionDigits: 0 });
+function PosBadge({ pos }: { pos: string }) {
+  const pc = posColor(pos);
+  return (
+    <span style={{
+      fontFamily: MONO, fontSize: 8, fontWeight: 800, color: pc,
+      background: `${pc}18`, padding: "1px 5px", borderRadius: 3,
+    }}>{pos}</span>
+  );
+}
+
+function LabelBadge({ label }: { label: string }) {
+  const color = LABEL_COLORS[label] || C.dim;
+  return (
+    <span style={{
+      fontFamily: MONO, fontSize: 7, fontWeight: 800, color,
+      background: `${color}15`, border: `1px solid ${color}30`,
+      padding: "1px 4px", borderRadius: 2, letterSpacing: "0.04em",
+    }}>{label.toUpperCase()}</span>
+  );
 }
 
 function DCard({ label, right, children }: { label: string; right?: React.ReactNode; children: React.ReactNode }) {
   return (
     <div style={{ borderRadius: 6, overflow: "hidden", background: C.card, border: `1px solid ${C.border}` }}>
-      <div style={{ padding: "6px 12px", borderBottom: `1px solid ${C.border}`, background: C.goldDim, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div style={{
+        padding: "6px 12px", borderBottom: `1px solid ${C.border}`, background: C.goldDim,
+        display: "flex", justifyContent: "space-between", alignItems: "center",
+      }}>
         <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", color: C.gold }}>{label}</span>
         {right}
       </div>
-      <div style={{ padding: 12 }}>{children}</div>
+      <div style={{ padding: 10 }}>{children}</div>
     </div>
   );
 }
 
-export default function DraftPage() {
-  const { currentLeagueId: lid, currentOwner: owner, currentOwnerId } = useLeagueStore();
+function StatBox({ value, label, color }: { value: string; label: string; color?: string }) {
+  return (
+    <div style={{
+      flex: 1, textAlign: "center", padding: "6px 4px", borderRadius: 6,
+      background: C.elevated, border: `1px solid ${C.border}`,
+    }}>
+      <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: color || C.primary, lineHeight: 1 }}>{value}</div>
+      <div style={{ fontFamily: MONO, fontSize: 7, fontWeight: 700, letterSpacing: "0.08em", color: C.dim, marginTop: 3 }}>{label}</div>
+    </div>
+  );
+}
 
-  const { data: history } = useQuery({ queryKey: ["draft-history", lid], queryFn: () => getDraftHistory(lid!), enabled: !!lid });
-  const { data: analysis } = useQuery({ queryKey: ["draft-analysis", lid, owner], queryFn: () => getDraftAnalysis(lid!, owner!, currentOwnerId), enabled: !!lid && !!owner });
+// ── TAB 1: DRAFT BOARD ──────────────────────────────────────────────────
 
-  if (!lid) return <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}><p style={{ fontFamily: MONO, fontSize: 13, color: C.dim }}>No league loaded</p></div>;
+function DraftBoardTab({ seasons, owner }: { seasons: any[]; owner: string }) {
+  const [selectedSeason, setSelectedSeason] = useState<number>(seasons[0]?.season || 2025);
+  const openPlayerCard = usePlayerCardStore((s) => s.openPlayerCard);
 
-  const picks = history?.picks || [];
-  const a = analysis as any;
+  const seasonData = seasons.find((s: any) => s.season === selectedSeason);
+  const picks = seasonData?.picks || [];
+
+  // Group picks by round
+  const byRound: Record<number, any[]> = {};
+  for (const p of picks) {
+    if (!byRound[p.round]) byRound[p.round] = [];
+    byRound[p.round].push(p);
+  }
+  const rounds = Object.keys(byRound).map(Number).sort();
+
+  // Summary stats for this season
+  const labels = picks.reduce((acc: Record<string, number>, p: any) => {
+    acc[p.label] = (acc[p.label] || 0) + 1;
+    return acc;
+  }, {});
 
   return (
-    <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 16px", borderRadius: 6, background: C.panel, border: `1px solid ${C.border}` }}>
-        <span style={{ fontFamily: SERIF, fontSize: 20, fontWeight: 900, fontStyle: "italic", color: C.goldBright }}>Draft Room</span>
-        <span style={{ fontFamily: MONO, fontSize: 11, color: C.dim, marginLeft: "auto" }}>{picks.length} picks</span>
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      {/* Season selector */}
+      <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 4 }}>
+        {seasons.map((s: any) => (
+          <button key={s.season} onClick={() => setSelectedSeason(s.season)} style={{
+            padding: "6px 14px", borderRadius: 6, border: "none", cursor: "pointer",
+            background: selectedSeason === s.season ? C.goldDim : C.elevated,
+            color: selectedSeason === s.season ? C.gold : C.dim,
+            fontFamily: MONO, fontSize: 12, fontWeight: 800,
+            borderBottom: selectedSeason === s.season ? `2px solid ${C.gold}` : "2px solid transparent",
+          }}>
+            {s.season}
+          </button>
+        ))}
       </div>
 
-      {/* Analysis Summary */}
-      {a && a.total_picks > 0 && (
-        <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 12px", borderRadius: 6, background: C.panel, border: `1px solid ${C.border}` }}>
-          <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.gold, letterSpacing: "0.08em" }}>DRAFT ANALYSIS — {owner}</span>
-          <div style={{ width: 1, height: 16, background: C.border }} />
-          {[
-            { label: "PICKS", value: a.total_picks, color: C.primary },
-            { label: "HIT RATE", value: `${a.hit_rate}%`, color: a.hit_rate >= 50 ? C.green : a.hit_rate >= 30 ? C.gold : C.red },
-            { label: "BUST RATE", value: `${a.bust_rate}%`, color: a.bust_rate <= 30 ? C.green : C.red },
-            { label: "HITS", value: a.hits, color: C.green },
-            { label: "BUSTS", value: a.busts, color: C.red },
-          ].map((s, i) => (
-            <div key={s.label} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              {i > 0 && <div style={{ width: 1, height: 16, background: C.border }} />}
-              <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>{s.label}</span>
-              <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: s.color }}>{s.value}</span>
-            </div>
-          ))}
-        </div>
-      )}
+      {/* Season summary */}
+      <div style={{ display: "flex", gap: 6 }}>
+        <StatBox value={String(picks.length)} label="PICKS" />
+        <StatBox value={String(labels.Star || 0)} label="STARS" color={C.gold} />
+        <StatBox value={String(labels.Hit || 0)} label="HITS" color={C.green} />
+        <StatBox value={String(labels.Bust || 0)} label="BUSTS" color={C.red} />
+      </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 10 }}>
-        {/* Draft Board */}
-        <DCard label="DRAFT HISTORY" right={<span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>{picks.length} picks</span>}>
-          {/* Header */}
-          <div style={{ display: "grid", gridTemplateColumns: "0.3fr 0.3fr 0.3fr 1.5fr 0.5fr 0.5fr", padding: "0 8px 4px", color: C.dim }}>
-            {["RD", "PICK", "OVR", "PLAYER", "POS", "OWNER"].map((h) => (
-              <span key={h} style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.06em" }}>{h}</span>
-            ))}
-          </div>
-          <div style={{ maxHeight: 600, overflowY: "auto" }}>
-            {picks.map((p: any, i: number) => {
-              const posColor = POS[p.player_position] || C.dim;
+      {/* Draft grid — rounds as sections */}
+      {rounds.map((round) => {
+        const roundPicks = byRound[round].sort((a: any, b: any) => a.slot - b.slot);
+        return (
+          <div key={round}>
+            <div style={{
+              display: "flex", alignItems: "center", gap: 8,
+              padding: "5px 10px", background: C.elevated,
+              borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`,
+            }}>
+              <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.gold, letterSpacing: "0.08em" }}>
+                ROUND {round}
+              </span>
+              <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>{roundPicks.length} picks</span>
+            </div>
+            {roundPicks.map((p: any, idx: number) => {
               const isOwner = owner && p.owner?.toLowerCase() === owner.toLowerCase();
+              const labelColor = LABEL_COLORS[p.label] || C.dim;
               return (
-                <div key={`${p.season}-${p.overall}-${i}`} style={{
-                  display: "grid", gridTemplateColumns: "0.3fr 0.3fr 0.3fr 1.5fr 0.5fr 0.5fr",
-                  padding: "3px 8px", alignItems: "center",
-                  borderBottom: `1px solid ${C.white08}`,
-                  borderLeft: isOwner ? `3px solid ${C.gold}` : "3px solid transparent",
-                }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = C.elevated; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
-                  <span style={{ fontFamily: MONO, fontSize: 11, color: C.dim }}>{p.round}</span>
-                  <span style={{ fontFamily: MONO, fontSize: 11, color: C.secondary }}>{p.slot}</span>
-                  <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.primary }}>{p.overall}</span>
-                  <PlayerName name={p.player_name || "—"} style={{ fontSize: 13, fontWeight: 500, color: isOwner ? C.gold : C.primary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} />
-                  <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "1px 4px", borderRadius: 3, color: posColor, background: `${posColor}15` }}>{p.player_position || "—"}</span>
-                  <span style={{ fontFamily: MONO, fontSize: 11, color: isOwner ? C.gold : C.secondary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.owner}</span>
+                <div key={`${p.slot}-${idx}`}
+                  onClick={() => p.player_name && openPlayerCard(p.player_name)}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 8, padding: "6px 10px",
+                    borderBottom: `1px solid ${C.white08}`,
+                    borderLeft: isOwner ? `3px solid ${C.gold}` : "3px solid transparent",
+                    background: isOwner ? C.goldDim : "transparent",
+                    cursor: p.player_name ? "pointer" : "default",
+                  }}
+                >
+                  {/* Pick number */}
+                  <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.dim, width: 28, textAlign: "center" }}>
+                    {round}.{String(p.slot).padStart(2, "0")}
+                  </span>
+                  {/* Position */}
+                  <PosBadge pos={p.position || "?"} />
+                  {/* Player name */}
+                  <span style={{
+                    fontFamily: SANS, fontSize: 13, fontWeight: isOwner ? 700 : 500,
+                    color: isOwner ? C.gold : C.primary,
+                    flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                  }}>
+                    {p.player_name || "—"}
+                  </span>
+                  {/* Value */}
+                  {p.current_value > 0 && (
+                    <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.gold }}>{fmt(p.current_value)}</span>
+                  )}
+                  {/* Label */}
+                  <LabelBadge label={p.label} />
+                  {/* Owner */}
+                  <span style={{
+                    fontFamily: MONO, fontSize: 9, color: isOwner ? C.gold : C.dim,
+                    maxWidth: 70, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                  }}>
+                    {p.owner}
+                  </span>
                 </div>
               );
             })}
-            {picks.length === 0 && <p style={{ fontFamily: MONO, fontSize: 12, color: C.dim, padding: 16, textAlign: "center" }}>No draft history available</p>}
           </div>
-        </DCard>
+        );
+      })}
 
-        {/* Sidebar */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {a && a.round_efficiency && (
-            <DCard label="ROUND EFFICIENCY">
-              {a.round_efficiency.map((r: any) => (
-                <div key={r.round} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0", borderBottom: `1px solid ${C.white08}` }}>
-                  <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, width: 32, color: C.gold }}>R{r.round}</span>
-                  <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>{r.picks} picks</span>
-                  <div style={{ flex: 1, height: 6, borderRadius: 3, background: C.elevated, overflow: "hidden" }}>
-                    <div style={{ height: "100%", borderRadius: 3, width: `${Math.min(r.hit_rate, 100)}%`, background: r.hit_rate >= 50 ? C.green : r.hit_rate >= 30 ? C.gold : C.red }} />
-                  </div>
-                  <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, width: 40, textAlign: "right", color: r.hit_rate >= 50 ? C.green : r.hit_rate >= 30 ? C.gold : C.red }}>{r.hit_rate}%</span>
-                </div>
-              ))}
-            </DCard>
-          )}
+      {picks.length === 0 && (
+        <div style={{ padding: 32, textAlign: "center", fontFamily: SANS, fontSize: 13, color: C.dim }}>
+          No draft data for {selectedSeason}
+        </div>
+      )}
+    </div>
+  );
+}
 
-          {a && a.position_tendencies && (
-            <DCard label="POSITION TENDENCIES">
-              {a.position_tendencies.map((t: any) => (
-                <div key={t.position} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0", borderBottom: `1px solid ${C.white08}` }}>
-                  <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, width: 24, color: POS[t.position] || C.dim }}>{t.position}</span>
-                  <div style={{ flex: 1, height: 6, borderRadius: 3, background: C.elevated, overflow: "hidden" }}>
-                    <div style={{ height: "100%", borderRadius: 3, width: `${Math.min(t.pct, 100)}%`, background: POS[t.position] || C.dim }} />
-                  </div>
-                  <span style={{ fontFamily: MONO, fontSize: 11, color: C.secondary }}>{t.count} ({t.pct}%)</span>
-                </div>
-              ))}
-            </DCard>
-          )}
+// ── TAB 2: SCOUTING ─────────────────────────────────────────────────────
 
-          {!owner && (
-            <div style={{ borderRadius: 6, padding: 16, textAlign: "center", background: C.card, border: `1px solid ${C.border}` }}>
-              <p style={{ fontFamily: MONO, fontSize: 12, color: C.dim }}>Select an owner from the sidebar to see draft analysis</p>
+function ScoutingTab({ seasons, owner }: { seasons: any[]; owner: string }) {
+  const openPlayerCard = usePlayerCardStore((s) => s.openPlayerCard);
+
+  // Aggregate picks by owner across all seasons
+  const ownerStats = useMemo(() => {
+    const stats: Record<string, {
+      total: number; stars: number; hits: number; busts: number; misses: number;
+      positions: Record<string, number>;
+      bestPick: any; worstPick: any;
+    }> = {};
+
+    for (const s of seasons) {
+      for (const p of s.picks) {
+        const o = p.owner || "Unknown";
+        if (!stats[o]) stats[o] = { total: 0, stars: 0, hits: 0, busts: 0, misses: 0, positions: {}, bestPick: null, worstPick: null };
+        const st = stats[o];
+        st.total++;
+        if (p.label === "Star") st.stars++;
+        if (p.label === "Hit") st.hits++;
+        if (p.label === "Bust") st.busts++;
+        if (p.label === "Miss") st.misses++;
+        st.positions[p.position] = (st.positions[p.position] || 0) + 1;
+        if (!st.bestPick || (p.current_value || 0) > (st.bestPick.current_value || 0)) st.bestPick = p;
+        if (p.label === "Bust" && (!st.worstPick || (p.current_value || 0) < (st.worstPick?.current_value || 999999))) st.worstPick = p;
+      }
+    }
+    return Object.entries(stats)
+      .map(([name, s]) => ({ name, ...s, hitRate: s.total > 0 ? Math.round(((s.stars + s.hits) / s.total) * 100) : 0 }))
+      .sort((a, b) => b.hitRate - a.hitRate);
+  }, [seasons]);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {ownerStats.map((o, idx) => {
+        const isMe = o.name.toLowerCase() === owner.toLowerCase();
+        const hrColor = o.hitRate >= 50 ? C.green : o.hitRate >= 30 ? C.gold : C.red;
+        const topPos = Object.entries(o.positions).sort((a, b) => b[1] - a[1]);
+        return (
+          <div key={o.name} style={{
+            borderRadius: 8, overflow: "hidden",
+            background: isMe ? C.goldDim : C.card,
+            border: `1px solid ${isMe ? C.goldBorder : C.border}`,
+          }}>
+            {/* Header */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px" }}>
+              <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.dim, width: 20 }}>#{idx + 1}</span>
+              <span style={{ fontFamily: SANS, fontSize: 14, fontWeight: isMe ? 800 : 600, color: isMe ? C.gold : C.primary, flex: 1 }}>{o.name}</span>
+              <span style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: hrColor }}>{o.hitRate}%</span>
+              <span style={{ fontFamily: MONO, fontSize: 8, color: C.dim }}>HIT RATE</span>
             </div>
+            {/* Stats row */}
+            <div style={{ display: "flex", gap: 4, padding: "0 10px 8px" }}>
+              <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>{o.total} picks</span>
+              <span style={{ fontFamily: MONO, fontSize: 9, color: C.gold }}>★{o.stars}</span>
+              <span style={{ fontFamily: MONO, fontSize: 9, color: C.green }}>✓{o.hits}</span>
+              <span style={{ fontFamily: MONO, fontSize: 9, color: C.red }}>✗{o.busts}</span>
+              <span style={{ color: C.border }}>·</span>
+              {topPos.slice(0, 3).map(([pos, cnt]) => (
+                <span key={pos} style={{ fontFamily: MONO, fontSize: 9, color: posColor(pos) }}>{pos}:{cnt}</span>
+              ))}
+            </div>
+            {/* Best/worst pick */}
+            <div style={{ display: "flex", gap: 8, padding: "0 10px 8px", borderTop: `1px solid ${C.white08}`, paddingTop: 6 }}>
+              {o.bestPick && (
+                <span onClick={() => openPlayerCard(o.bestPick.player_name)} style={{
+                  fontFamily: MONO, fontSize: 9, color: C.green, cursor: "pointer",
+                }}>BEST: {o.bestPick.player_name} ({fmt(o.bestPick.current_value)})</span>
+              )}
+              {o.worstPick && (
+                <span style={{ fontFamily: MONO, fontSize: 9, color: C.red }}>WORST: {o.worstPick.player_name}</span>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── TAB 3: PICK ANALYZER ────────────────────────────────────────────────
+
+function PickAnalyzerTab({ seasons }: { seasons: any[] }) {
+  const [selectedRound, setSelectedRound] = useState(1);
+
+  // Aggregate hit rates by slot across all seasons
+  const slotStats = useMemo(() => {
+    const stats: Record<string, { total: number; hits: number; stars: number; busts: number; players: any[] }> = {};
+    for (const s of seasons) {
+      for (const p of s.picks) {
+        if (p.round !== selectedRound) continue;
+        const key = `${p.round}.${String(p.slot).padStart(2, "0")}`;
+        if (!stats[key]) stats[key] = { total: 0, hits: 0, stars: 0, busts: 0, players: [] };
+        stats[key].total++;
+        if (p.label === "Star") { stats[key].stars++; stats[key].hits++; }
+        if (p.label === "Hit") stats[key].hits++;
+        if (p.label === "Bust") stats[key].busts++;
+        stats[key].players.push(p);
+      }
+    }
+    return Object.entries(stats)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([slot, s]) => ({
+        slot, ...s,
+        hitRate: s.total > 0 ? Math.round(s.hits / s.total * 100) : 0,
+        bestPlayer: s.players.sort((a: any, b: any) => (b.current_value || 0) - (a.current_value || 0))[0],
+      }));
+  }, [seasons, selectedRound]);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      {/* Round selector */}
+      <div style={{ display: "flex", gap: 6 }}>
+        {[1, 2, 3, 4].map((r) => (
+          <button key={r} onClick={() => setSelectedRound(r)} style={{
+            flex: 1, padding: "8px 0", borderRadius: 6, border: "none", cursor: "pointer",
+            background: selectedRound === r ? C.goldDim : C.elevated,
+            color: selectedRound === r ? C.gold : C.dim,
+            fontFamily: MONO, fontSize: 12, fontWeight: 800,
+          }}>
+            ROUND {r}
+          </button>
+        ))}
+      </div>
+
+      {/* Slot cards */}
+      {slotStats.map((s) => {
+        const hrColor = s.hitRate >= 50 ? C.green : s.hitRate >= 30 ? C.gold : C.red;
+        return (
+          <div key={s.slot} style={{
+            display: "flex", alignItems: "center", gap: 10, padding: "8px 10px",
+            background: C.card, border: `1px solid ${C.border}`, borderRadius: 6,
+          }}>
+            <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: C.gold, width: 36 }}>{s.slot}</span>
+            {/* Hit rate bar */}
+            <div style={{ flex: 1 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+                <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>{s.total} picks across {seasons.length} seasons</span>
+                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: hrColor }}>{s.hitRate}%</span>
+              </div>
+              <div style={{ height: 5, borderRadius: 3, background: C.elevated, overflow: "hidden" }}>
+                <div style={{ height: "100%", borderRadius: 3, width: `${s.hitRate}%`, background: hrColor }} />
+              </div>
+            </div>
+            {/* Best pick at this slot */}
+            {s.bestPlayer && (
+              <div style={{ textAlign: "right", minWidth: 80 }}>
+                <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, color: C.primary }}>{s.bestPlayer.player_name}</div>
+                <div style={{ fontFamily: MONO, fontSize: 9, color: C.gold }}>{fmt(s.bestPlayer.current_value)}</div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── TAB 4: DRAFT GRADES ─────────────────────────────────────────────────
+
+function DraftGradesTab({ seasons, owner }: { seasons: any[]; owner: string }) {
+  const [selectedSeason, setSelectedSeason] = useState<number>(seasons[0]?.season || 2025);
+  const seasonData = seasons.find((s: any) => s.season === selectedSeason);
+  const picks = seasonData?.picks || [];
+
+  // Grade per owner for this season
+  const ownerGrades = useMemo(() => {
+    const byOwner: Record<string, any[]> = {};
+    for (const p of picks) {
+      if (!byOwner[p.owner]) byOwner[p.owner] = [];
+      byOwner[p.owner].push(p);
+    }
+
+    return Object.entries(byOwner).map(([name, ownerPicks]) => {
+      const stars = ownerPicks.filter((p: any) => p.label === "Star").length;
+      const hits = ownerPicks.filter((p: any) => p.label === "Hit").length;
+      const busts = ownerPicks.filter((p: any) => p.label === "Bust").length;
+      const totalValue = ownerPicks.reduce((s: number, p: any) => s + (p.current_value || 0), 0);
+      const hitRate = ownerPicks.length > 0 ? Math.round((stars + hits) / ownerPicks.length * 100) : 0;
+
+      // Grade
+      let grade = "C";
+      if (hitRate >= 75) grade = "A+";
+      else if (hitRate >= 60) grade = "A";
+      else if (hitRate >= 50) grade = "B+";
+      else if (hitRate >= 40) grade = "B";
+      else if (hitRate >= 30) grade = "C+";
+      else if (hitRate >= 20) grade = "D";
+      else grade = "F";
+
+      const best = ownerPicks.sort((a: any, b: any) => (b.current_value || 0) - (a.current_value || 0))[0];
+
+      return { name, picks: ownerPicks.length, stars, hits, busts, totalValue, hitRate, grade, best };
+    }).sort((a, b) => b.hitRate - a.hitRate);
+  }, [picks]);
+
+  const gradeColor = (g: string) => g.startsWith("A") ? C.green : g.startsWith("B") ? C.blue : g.startsWith("C") ? C.gold : g.startsWith("D") ? C.orange : C.red;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      {/* Season selector */}
+      <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 4 }}>
+        {seasons.map((s: any) => (
+          <button key={s.season} onClick={() => setSelectedSeason(s.season)} style={{
+            padding: "6px 14px", borderRadius: 6, border: "none", cursor: "pointer",
+            background: selectedSeason === s.season ? C.goldDim : C.elevated,
+            color: selectedSeason === s.season ? C.gold : C.dim,
+            fontFamily: MONO, fontSize: 12, fontWeight: 800,
+          }}>
+            {s.season}
+          </button>
+        ))}
+      </div>
+
+      {/* Draft MVP */}
+      {ownerGrades[0] && (
+        <div style={{
+          textAlign: "center", padding: "10px 14px", borderRadius: 8,
+          background: C.goldDim, border: `1px solid ${C.goldBorder}`,
+        }}>
+          <div style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, letterSpacing: "0.12em", color: C.dim }}>
+            {selectedSeason} DRAFT MVP
+          </div>
+          <div style={{ fontFamily: SANS, fontSize: 18, fontWeight: 800, color: C.gold, marginTop: 2 }}>
+            {ownerGrades[0].name}
+          </div>
+          <div style={{ fontFamily: MONO, fontSize: 11, color: C.secondary, marginTop: 2 }}>
+            {ownerGrades[0].hitRate}% hit rate · {ownerGrades[0].stars} stars · {fmt(ownerGrades[0].totalValue)} total value
+          </div>
+        </div>
+      )}
+
+      {/* Grade cards */}
+      {ownerGrades.map((o, idx) => {
+        const isMe = o.name.toLowerCase() === owner.toLowerCase();
+        const gc = gradeColor(o.grade);
+        return (
+          <div key={o.name} style={{
+            display: "flex", alignItems: "center", gap: 8, padding: "8px 10px",
+            borderRadius: 6, background: isMe ? C.goldDim : C.card,
+            border: `1px solid ${isMe ? C.goldBorder : C.border}`,
+          }}>
+            <span style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: gc, width: 36, textAlign: "center" }}>{o.grade}</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontFamily: SANS, fontSize: 13, fontWeight: isMe ? 700 : 500, color: isMe ? C.gold : C.primary }}>{o.name}</div>
+              <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, marginTop: 1 }}>
+                {o.picks} picks · {o.hitRate}% hits · {fmt(o.totalValue)} value
+              </div>
+            </div>
+            {o.best && (
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontFamily: MONO, fontSize: 8, color: C.dim }}>BEST PICK</div>
+                <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, color: C.green }}>{o.best.player_name}</div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── MAIN PAGE ────────────────────────────────────────────────────────────
+
+export default function DraftPage() {
+  const { currentLeagueId: lid, currentOwner: owner } = useLeagueStore();
+  const [tab, setTab] = useState<TabId>("board");
+
+  const { data: history, isLoading } = useQuery({
+    queryKey: ["draft-history-full", lid],
+    queryFn: () => getDraftHistory(lid!),
+    enabled: !!lid,
+    staleTime: 600000,
+  });
+
+  if (!lid) return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
+      <p style={{ fontFamily: MONO, fontSize: 13, color: C.dim }}>No league loaded</p>
+    </div>
+  );
+
+  const seasons = history?.seasons || [];
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+      {/* Header */}
+      <div style={{ padding: "10px 12px 0", flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+          <div style={{
+            fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.14em",
+            color: C.gold, display: "flex", alignItems: "center", gap: 6,
+          }}>
+            <div style={{ width: 14, height: 1, background: `linear-gradient(90deg, ${C.gold}, transparent)` }} />
+            DRAFT ROOM
+          </div>
+          {seasons.length > 0 && (
+            <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim, marginLeft: "auto" }}>
+              {seasons.reduce((s: number, se: any) => s + se.picks.length, 0)} picks · {seasons.length} seasons
+            </span>
           )}
         </div>
+      </div>
+
+      {/* Tabs */}
+      <div style={{ display: "flex", borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
+        {TABS.map((t) => (
+          <div key={t.id} onClick={() => setTab(t.id)} style={{
+            flex: 1, padding: "10px 0", textAlign: "center",
+            fontFamily: MONO, fontSize: 10, fontWeight: 700, letterSpacing: "0.06em",
+            color: tab === t.id ? C.gold : C.dim,
+            borderBottom: tab === t.id ? `2px solid ${C.gold}` : "2px solid transparent",
+            cursor: "pointer", transition: "all 0.15s",
+          }}>
+            {t.label}
+          </div>
+        ))}
+      </div>
+
+      {/* Content */}
+      <div style={{ flex: 1, overflowY: "auto", padding: "10px 12px", minHeight: 0 }}>
+        {isLoading ? (
+          <div style={{ padding: 32, textAlign: "center", fontFamily: MONO, fontSize: 12, color: C.dim }}>
+            Loading draft data...
+          </div>
+        ) : tab === "board" ? (
+          <DraftBoardTab seasons={seasons} owner={owner || ""} />
+        ) : tab === "scouting" ? (
+          <ScoutingTab seasons={seasons} owner={owner || ""} />
+        ) : tab === "analyzer" ? (
+          <PickAnalyzerTab seasons={seasons} />
+        ) : (
+          <DraftGradesTab seasons={seasons} owner={owner || ""} />
+        )}
       </div>
     </div>
   );

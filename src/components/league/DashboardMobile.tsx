@@ -342,7 +342,7 @@ export default function DashboardMobile({ lid, owner, ownerId }: { lid: string; 
         {[
           { label: "BUILD TRADE", sub: "Find your next move", icon: Plus, color: C.gold, route: "trades" },
           { label: "FRANCHISE", sub: "Know where you stand", icon: Activity, color: C.green, route: "intel?tab=my-franchise" },
-          { label: "SCOUTING", sub: "Scout your opponents", icon: Search, color: C.blue, route: "intel?tab=opponents" },
+          { label: "DRAFT ROOM", sub: "Picks, grades & intel", icon: Search, color: C.blue, route: "draft" },
           { label: "RANKINGS", sub: "See the full league", icon: FileText, color: C.orange, route: "rankings" },
         ].map((btn) => {
           const Icon = btn.icon;
