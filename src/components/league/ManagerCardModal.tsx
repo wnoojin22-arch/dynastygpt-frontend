@@ -185,23 +185,32 @@ export default function ManagerCardModal({
           {/* Gold divider */}
           <div style={{ height: 1, margin: "0 14px", background: "linear-gradient(90deg, transparent, rgba(212,165,50,0.3), transparent)" }} />
 
-          {/* ── STATS — 2x2 GRID (copied from player card market tab pattern) ── */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, padding: "8px 14px" }}>
+          {/* ── TITLES — full width hero pill, gold glow, centered ── */}
+          <div style={{
+            margin: "8px 14px", textAlign: "center", padding: "10px 0", borderRadius: 8,
+            background: "linear-gradient(135deg, rgba(139,105,20,0.2), rgba(212,165,50,0.12))",
+            border: "1.5px solid rgba(212,165,50,0.3)",
+            boxShadow: "0 0 24px rgba(212,165,50,0.10), inset 0 0 30px rgba(212,165,50,0.05)",
+          }}>
+            <div style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, letterSpacing: "0.12em", color: "#9596a5", marginBottom: 2 }}>CHAMPIONSHIPS</div>
+            <div style={{ fontFamily: MONO, fontSize: 26, fontWeight: 900, color: "#d4a532", lineHeight: 1 }}>
+              {champCount > 0 ? `${champCount}x CHAMPION` : "0 TITLES"}
+            </div>
+          </div>
+
+          {/* ── RECORD / PLAYOFFS / WIN% — 3 boxes in one row ── */}
+          <div style={{ display: "flex", gap: 6, padding: "0 14px 8px" }}>
             {[
-              { val: `${totalW}-${totalL}`, label: "RECORD", color: "#eeeef2" },
-              { val: playoffStr, label: "PLAYOFFS", color: "#eeeef2" },
-              { val: String(champCount), label: "TITLES", color: champCount > 0 ? "#d4a532" : "#eeeef2" },
-              { val: winPct, label: "WIN%", color: "#eeeef2" },
+              { val: `${totalW}-${totalL}`, label: "RECORD" },
+              { val: playoffStr, label: "PLAYOFFS" },
+              { val: winPct, label: "WIN%" },
             ].map((s) => (
               <div key={s.label} style={{
-                padding: "8px 8px 6px", borderRadius: 8,
-                background: "rgba(0,0,0,0.3)", borderLeft: `3px solid ${s.color === "#d4a532" ? "#d4a532" : "rgba(212,165,50,0.2)"}`,
-                borderTop: "1px solid rgba(212,165,50,0.1)",
-                borderRight: "1px solid rgba(212,165,50,0.1)",
-                borderBottom: "1px solid rgba(212,165,50,0.1)",
+                flex: 1, textAlign: "center", padding: "6px 4px", borderRadius: 6,
+                background: "rgba(0,0,0,0.3)", border: "1px solid rgba(212,165,50,0.12)",
               }}>
-                <div style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, letterSpacing: "0.08em", color: "#9596a5" }}>{s.label}</div>
-                <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 800, color: s.color, lineHeight: 1, marginTop: 2 }}>{s.val}</div>
+                <div style={{ fontFamily: MONO, fontSize: 7, fontWeight: 700, letterSpacing: "0.08em", color: "#9596a5", marginBottom: 2 }}>{s.label}</div>
+                <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: "#eeeef2", lineHeight: 1 }}>{s.val}</div>
               </div>
             ))}
           </div>
@@ -238,6 +247,19 @@ export default function ManagerCardModal({
             </div>
           )}
 
+          {/* ── SHARE FOR BRAGGING RIGHTS — inside card, at bottom ── */}
+          <div style={{ padding: "4px 14px 10px" }}>
+            <button onClick={(e) => { e.stopPropagation(); handleShare(); }} disabled={sharing} style={{
+              width: "100%", padding: "11px 0", borderRadius: 8, border: "none",
+              background: sharing ? "#9596a5" : "linear-gradient(135deg, #8b6914, #d4a532)",
+              fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.08em",
+              color: "#0c1019", cursor: sharing ? "wait" : "pointer",
+              textAlign: "center",
+            }}>
+              {sharing ? "GENERATING..." : "SHARE FOR BRAGGING RIGHTS ↗"}
+            </button>
+          </div>
+
           {/* ── FOOTER watermark ── */}
           <div style={{ textAlign: "center", paddingBottom: 8 }}>
             <span style={{ fontFamily: MONO, fontSize: 6, color: "rgba(212,165,50,0.3)", letterSpacing: "0.12em" }}>
@@ -245,18 +267,6 @@ export default function ManagerCardModal({
             </span>
           </div>
         </div>
-
-        {/* ── SHARE BUTTON (outside card) ── */}
-        <button onClick={handleShare} disabled={sharing} style={{
-          width: "100%", padding: "12px 0", borderRadius: 10,
-          fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.08em",
-          color: "#0c1019",
-          background: sharing ? "#9596a5" : "linear-gradient(135deg, #8b6914, #d4a532)",
-          border: "none", cursor: sharing ? "wait" : "pointer",
-          display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-        }}>
-          {sharing ? "GENERATING..." : <><Download size={13} /> SAVE & SHARE</>}
-        </button>
       </div>
     </div>
   );
