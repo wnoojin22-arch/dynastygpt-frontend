@@ -7,7 +7,7 @@ import { usePlayerCardStore } from "@/lib/stores/player-card-store";
 import { useLeagueStore } from "@/lib/stores/league-store";
 import {
   getPlayerCard, getPlayerValueHistory, getPlayerPpg,
-  getPlayerHistory, getTradesByPlayer, getPlayerPriceHistory,
+  getPlayerHistory, getPriceCheck, getPlayerPriceHistory,
 } from "@/lib/api";
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip as RTooltip, ResponsiveContainer, ReferenceDot,
@@ -77,7 +77,7 @@ export default function PlayerCardModal() {
   });
   const { data: tradeHistory } = useQuery({
     queryKey: ["player-trades", leagueId, playerName],
-    queryFn: () => getTradesByPlayer(leagueId, playerName),
+    queryFn: () => getPriceCheck(leagueId, playerName),
     enabled: isOpen && !!playerName && !!leagueId && tab === "trades",
     staleTime: 300_000,
   });
@@ -423,7 +423,7 @@ function TradesTab({ trades, timeline, playerName, pc }: { trades: Array<Record<
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, padding: "32px 16px" }}>
         <div style={{ fontSize: 32, opacity: 0.5 }}>📋</div>
         <div style={{ fontFamily: SANS, fontSize: 15, color: C.primary, textAlign: "center" }}>
-          {playerName} has never been traded in this league
+          No trade comps found for {playerName}
         </div>
         {pc?.current_owner && (
           <div style={{ fontFamily: MONO, fontSize: 12, color: C.dim, textAlign: "center" }}>
