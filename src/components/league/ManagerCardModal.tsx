@@ -129,10 +129,13 @@ export default function ManagerCardModal({
 
           {/* ── HERO ── */}
           <div style={{ padding: "14px 16px 12px" }}>
-            {/* Header */}
+            {/* Header + close X */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
               <span style={{ fontFamily: MONO, fontSize: 7, fontWeight: 700, letterSpacing: "0.18em", color: C.gold }}>DYNASTYGPT MANAGER CARD</span>
-              <span style={{ fontFamily: MONO, fontSize: 7, color: `${C.gold}50` }}>dynastygpt.com</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontFamily: MONO, fontSize: 7, color: `${C.gold}50` }}>dynastygpt.com</span>
+                <button onClick={(e) => { e.stopPropagation(); onClose(); }} style={{ background: "none", border: "none", cursor: "pointer", color: C.dim, fontSize: 16, lineHeight: 1, padding: 0 }}>✕</button>
+              </div>
             </div>
 
             {/* Owner + Score */}
@@ -201,15 +204,23 @@ export default function ManagerCardModal({
 
           <Div />
 
-          {/* ── SCOUTING TAGS ── */}
-          <div style={{ padding: "10px 16px 12px", display: "flex", flexWrap: "wrap", gap: 4, justifyContent: "center" }}>
-            {bullets.slice(0, 4).map((b, i) => {
+          {/* ── SCOUTING TAGS — 3 across grid ── */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4, padding: "10px 16px 12px" }}>
+            {bullets.slice(0, 6).map((b, i) => {
               const isGood = b.type === "strength" || b.type === "highlight";
               const fg = isGood ? C.green : b.type === "weakness" || b.type === "warning" ? C.red : C.gold;
+              // Truncate to fit 3-across
+              const short = b.text.length > 18 ? b.text.slice(0, 16) + "…" : b.text;
               return (
-                <span key={i} style={{ fontFamily: MONO, fontSize: 7, fontWeight: 700, padding: "2px 6px", borderRadius: 3, color: fg, background: `${fg}10`, border: `1px solid ${fg}18` }}>
-                  {isGood ? "▲" : "▼"} {b.text.toUpperCase().slice(0, 40)}
-                </span>
+                <div key={i} style={{
+                  textAlign: "center", padding: "3px 2px", borderRadius: 4,
+                  background: `${fg}08`, border: `1px solid ${fg}15`,
+                  overflow: "hidden",
+                }}>
+                  <span style={{ fontFamily: MONO, fontSize: 7, fontWeight: 700, color: fg, lineHeight: 1.2 }}>
+                    {isGood ? "▲" : "▼"} {short}
+                  </span>
+                </div>
               );
             })}
           </div>
