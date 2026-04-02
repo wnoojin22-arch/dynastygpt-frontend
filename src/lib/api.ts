@@ -149,7 +149,12 @@ export const getPointInTimeRank = (id: string, player: string, date: string) => 
 export const getPlayerPriceHistory = (player: string) => get<Record<string, unknown>>(`/api/market/player/${encodeURIComponent(player)}/price-history`);
 
 // ── Draft ────────────────────────────────────────────────────────────────
-export const getDraftHistory = (id: string, season?: string) => get<{ picks: unknown[] }>(`${L(id)}/draft/history${season ? `?season=${season}` : ""}`);
+export const getDraftHistory = (id: string) => get<any>(`${L(id)}/draft/history`);
+export const getDraftHitRates = (id: string) => get<any>(`${L(id)}/draft/hit-rates`);
+export const getDraftOwnerProfiles = (id: string) => get<any>(`${L(id)}/draft/owner-profiles`);
+export const getDraftGrades = (id: string) => get<any>(`${L(id)}/draft/grades`);
+export const getDraftPickIntel = (id: string, owner: string) => get<any>(`${L(id)}/draft/pick-intel/${E(owner)}`);
+export const getDraftDayTrades = (id: string) => get<any>(`${L(id)}/draft/draft-day-trades`);
 export const getDraftAnalysis = (id: string, owner: string, userId?: string | null) => get<unknown>(`${L(id)}/draft/analysis/${O(owner, userId)}`);
 
 // ── Rankings ─────────────────────────────────────────────────────────────
