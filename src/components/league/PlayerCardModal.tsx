@@ -65,7 +65,7 @@ export default function PlayerCardModal() {
   });
   const { data: valueHistory } = useQuery({
     queryKey: ["player-value-history", leagueId, playerName],
-    queryFn: () => getPlayerValueHistory(leagueId, playerName, 180),
+    queryFn: () => getPlayerValueHistory(leagueId, playerName, 2000),
     enabled: isOpen && !!playerName && !!leagueId,
     staleTime: 600_000,
   });
@@ -351,10 +351,12 @@ function OverviewTab({ pc, seasons, history }: { pc?: PlayerCard; seasons: Seaso
 
       {/* Value trend — Recharts AreaChart with gold gradient (Shadynasty style) */}
       {history.length > 3 && (() => {
-        const latest = history[history.length - 1];
-        const first = history[0];
-        const delta = (latest.sha_value || 0) - (first.sha_value || 0);
-        const pctChange = first.sha_value ? ((delta / first.sha_value) * 100) : 0;
+        // Normalize: use "value" field (blended KTC+SHA), fall back to sha_value
+        const pts = history.map(h => ({ ...h, value: h.value ?? h.sha_value ?? 0 }));
+        const latest = pts[pts.length - 1];
+        const first = pts[0];
+        const delta = (latest.value || 0) - (first.value || 0);
+        const pctChange = first.value ? ((delta / first.value) * 100) : 0;
 
         return (
           <div>
@@ -368,8 +370,8 @@ function OverviewTab({ pc, seasons, history }: { pc?: PlayerCard; seasons: Seaso
                 </span>
                 <span style={{ color: C.dim }}>{latest.date}</span>
               </div>
-              <ResponsiveContainer width="100%" height={160}>
-                <AreaChart data={history} margin={{ top: 4, right: 4, bottom: 0, left: 4 }}>
+              <ResponsiveContainer width="100%" height={180}>
+                <AreaChart data={pts} margin={{ top: 8, right: 48, bottom: 0, left: 4 }}>
                   <defs>
                     <linearGradient id="goldGradFill" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor={C.gold} stopOpacity={0.25} />
@@ -381,25 +383,23 @@ function OverviewTab({ pc, seasons, history }: { pc?: PlayerCard; seasons: Seaso
                   <RTooltip
                     contentStyle={{ background: C.elevated, border: `1px solid ${C.border}`, borderRadius: 8, fontFamily: MONO, fontSize: 12 }}
                     labelStyle={{ color: C.dim }}
-                    formatter={((value: number) => [fmt(value), ""]) as any}
+                    formatter={((v: number) => [fmt(v), "Value"]) as any}
                     labelFormatter={((label: string) => label) as any}
                     cursor={{ stroke: C.gold, strokeDasharray: "3 3", strokeWidth: 1 }}
                   />
                   <Area
-                    type="monotone" dataKey="sha_value"
+                    type="monotone" dataKey="value"
                     stroke={C.gold} strokeWidth={2} fill="url(#goldGradFill)"
                     dot={false} activeDot={{ r: 4, fill: C.gold, stroke: C.panel, strokeWidth: 2 }}
                   />
-                  {/* End marker */}
                   <ReferenceDot
-                    x={latest.date} y={latest.sha_value || 0}
+                    x={latest.date} y={latest.value || 0}
                     r={5} fill={C.gold} stroke={C.panel} strokeWidth={2}
                   />
                 </AreaChart>
               </ResponsiveContainer>
-              {/* Current consensus value label */}
               <div style={{ textAlign: "right", fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.gold, marginTop: 4, paddingRight: 6 }}>
-                Value: {fmt(latest.sha_value || 0)}
+                Value: {fmt(latest.value || 0)}
               </div>
             </div>
           </div>
@@ -704,8 +704,10 @@ function ValueTab({ history, priceHistory }: { history: ValueHistoryPoint[]; pri
 
   const latest = history[history.length - 1];
   const earliest = history[0];
-  const delta = (latest.sha_value || 0) - (earliest.sha_value || 0);
-  const pctChange = earliest.sha_value ? ((delta / earliest.sha_value) * 100) : 0;
+  const latestVal = latest.value ?? latest.sha_value ?? 0;
+  const earliestVal = earliest.value ?? earliest.sha_value ?? 0;
+  const delta = latestVal - earliestVal;
+  const pctChange = earliestVal ? ((delta / earliestVal) * 100) : 0;
 
   // Market price data
   const ph = priceHistory;
@@ -720,7 +722,7 @@ function ValueTab({ history, priceHistory }: { history: ValueHistoryPoint[]; pri
   const formatLabel = typeof (ph as Record<string, unknown>)?.format === "string" ? (ph as Record<string, unknown>).format as string : null;
 
   // Valuation comparison: market > consensus = OVERVALUED, market < consensus = UNDERVALUED
-  const currentSha = latest.sha_value || 0;
+  const currentSha = latestVal;
   let valuationPct = 0;
   let valuationLabel = "";
   let valuationColor: string = C.dim;
@@ -749,7 +751,7 @@ function ValueTab({ history, priceHistory }: { history: ValueHistoryPoint[]; pri
         {marketValue ? (
           <ValueCard label="MARKET PRICE" value={fmt(marketValue)} sub={vol90d > 0 ? `${vol90d} trades · 90d` : `${totalVolume} trades`} color="#6bb8e0" />
         ) : (
-          <ValueCard label="6 MO AGO" value={fmt(earliest.sha_value || 0)} sub="" color={C.dim} />
+          <ValueCard label="6 MO AGO" value={fmt(earliestVal)} sub="" color={C.dim} />
         )}
         {valuationLabel ? (
           <ValueCard label="VS MARKET" value={valuationLabel} sub={lowVolume ? "Low volume" : ""} color={valuationColor} />
@@ -885,7 +887,7 @@ function SectionLabel({ text }: { text: string }) {
 }
 
 function TouchSparkline({ data }: { data: ValueHistoryPoint[] }) {
-  const vals = data.filter(d => d.sha_value != null).map(d => d.sha_value as number);
+  const vals = data.filter(d => (d.value ?? d.sha_value) != null).map(d => (d.value ?? d.sha_value) as number);
   if (vals.length < 3) return null;
   const max = Math.max(...vals, 1);
   const min = Math.min(...vals, 0);

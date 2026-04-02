@@ -1,33 +1,29 @@
 "use client";
 /**
- * MANAGER CARD MODAL — the screenshot-worthy shareable card.
- * Clean boxes, bold numbers, zero bar charts. Built to brag.
+ * MANAGER CARD MODAL — premium gold collectible brag card.
+ * One screen. Screenshotable. No scrolling needed.
  */
 import { useRef, useCallback, useState, useEffect } from "react";
 import type { DynastyScoreResponse } from "@/lib/api";
 import type { Championships, OwnerRecord } from "@/lib/types";
-import { X, Download } from "lucide-react";
+import { Download } from "lucide-react";
 
-const C = {
-  bg: "#0c1019", elevated: "#171b28", border: "#1a1e30",
-  primary: "#eeeef2", secondary: "#b0b2c8", dim: "#9596a5",
-  gold: "#d4a532", goldDark: "#8b6914", goldBorder: "rgba(212,165,50,0.22)",
-  green: "#7dd3a0", red: "#e47272", blue: "#6bb8e0",
-  purple: "#b39ddb", pink: "#f48fb1", cyan: "#80deea", orange: "#e09c6b",
-};
 const MONO = "'JetBrains Mono','SF Mono',monospace";
 const SANS = "-apple-system,'SF Pro Display','Inter',system-ui,sans-serif";
+
 const TIER_COLORS: Record<string, string> = {
-  "Elite Manager": C.green, "Sharp": C.blue, "Solid": C.gold,
-  "Average": C.primary, "Needs Work": C.orange, "Taco": C.red,
+  "Elite Manager": "#7dd3a0", "Sharp": "#6bb8e0", "Solid": "#d4a532",
+  "Average": "#eeeef2", "Needs Work": "#e09c6b", "Taco": "#e47272",
 };
-const COMP: Record<string, { label: string; color: string }> = {
-  trade_win_rate:          { label: "TRADES",   color: C.gold },
-  value_extraction:        { label: "VALUE",    color: C.blue },
-  roster_construction:     { label: "ROSTER",   color: C.purple },
-  draft_capital:           { label: "PICKS",    color: C.red },
-  behavioral_intelligence: { label: "IQ",       color: C.cyan },
-  activity:                { label: "ACTIVITY", color: C.pink },
+
+const COMP_META: Record<string, { label: string; color: string }> = {
+  championship_pedigree: { label: "Championships", color: "#d4a532" },
+  roster_construction:   { label: "Roster",        color: "#b39ddb" },
+  winning_record:        { label: "Winning",       color: "#7dd3a0" },
+  points_dominance:      { label: "Points",        color: "#6bb8e0" },
+  trade_acumen:          { label: "Trades",        color: "#d4a532" },
+  behavioral_iq:         { label: "Behavioral IQ", color: "#80deea" },
+  draft_capital:         { label: "Draft Capital", color: "#e47272" },
 };
 
 interface Props {
@@ -50,20 +46,21 @@ export default function ManagerCardModal({
 }: Props) {
   const captureRef = useRef<HTMLDivElement>(null);
   const [sharing, setSharing] = useState(false);
-  const [shared, setShared] = useState(false);
-  const tierColor = TIER_COLORS[myScore.tier.label] || C.dim;
+  const tierColor = TIER_COLORS[myScore.tier.label] || "#9596a5";
 
   useEffect(() => {
     document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = ""; };
-  }, []);
+    const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", h);
+    return () => { document.body.style.overflow = ""; window.removeEventListener("keydown", h); };
+  }, [onClose]);
 
   const handleShare = useCallback(async () => {
     if (!captureRef.current || sharing) return;
     setSharing(true);
     try {
       const html2canvas = (await import("html2canvas")).default;
-      const canvas = await html2canvas(captureRef.current, { backgroundColor: "#06080d", scale: 2, useCORS: true });
+      const canvas = await html2canvas(captureRef.current, { backgroundColor: "#1a1505", scale: 2, useCORS: true, logging: false });
       const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/png"));
       if (!blob) { setSharing(false); return; }
       const file = new File([blob], "dynastygpt-card.png", { type: "image/png" });
@@ -74,182 +71,192 @@ export default function ManagerCardModal({
         const a = document.createElement("a"); a.href = url; a.download = "dynastygpt-card.png";
         document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
       }
-      setShared(true);
     } catch { /* cancelled */ }
     setSharing(false);
-    setTimeout(() => setShared(false), 2000);
   }, [sharing, owner]);
 
   const champCount = champs?.championships || 0;
   const totalW = record?.all_time_wins || 0;
   const totalL = record?.all_time_losses || 0;
-  const winPct = record?.win_pct != null
-    ? `.${Math.round(record.win_pct * 1000).toString().padStart(3, "0")}`
-    : "—";
-  const playoffStr = champs
-    ? `${champs.playoff_appearances}/${record?.seasons_played || "—"}`
-    : "—";
+  const winPct = (totalW + totalL) > 0 ? (totalW / (totalW + totalL)).toFixed(3).slice(1) : "—";
+  const playoffStr = champs ? `${champs.playoff_appearances}/${record?.seasons_played || "—"}` : "—";
 
-  // Hero tags
-  const pills: { text: string; fg: string }[] = [];
-  if (champCount > 0) pills.push({ text: `${champCount}x CHAMP`, fg: C.green });
-  if (leagueRank && leagueRank <= 2) pills.push({ text: "TOP DOG", fg: C.gold });
-  for (const b of badges.slice(0, 2)) pills.push({ text: b.toUpperCase(), fg: C.gold });
+  const bars = Object.entries(myScore.components)
+    .map(([k, v]) => ({
+      key: k,
+      label: COMP_META[k]?.label || k.replace(/_/g, " "),
+      color: COMP_META[k]?.color || "#9596a5",
+      score: v.score, max: v.max,
+      pct: v.max > 0 ? (v.score / v.max) * 100 : 0,
+    }))
+    .sort((a, b) => b.max - a.max);
 
-  // Scoring components
-  const comps = Object.entries(myScore.components).map(([k, v]) => ({
-    key: k,
-    label: COMP[k]?.label || k.replace(/_/g, " ").toUpperCase(),
-    color: COMP[k]?.color || C.dim,
-    score: v.score,
-    max: v.max,
-  }));
-
-  const Div = () => (
-    <div style={{ height: 1, margin: "0", background: `linear-gradient(90deg, transparent, ${C.goldBorder} 20%, ${C.goldBorder} 80%, transparent)` }} />
-  );
+  const insight = bullets.slice(0, 3).map(b => b.text.replace(/\s*\(\d+%?\)/, "")).join(" · ");
 
   return (
     <div onClick={onClose} style={{
       position: "fixed", inset: 0, zIndex: 9999,
       background: "rgba(0,0,0,0.88)", backdropFilter: "blur(8px)",
-      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-      padding: "12px 14px 16px",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      padding: 16,
     }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 340, display: "flex", flexDirection: "column", gap: 8 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{
+        width: "100%", maxWidth: 360, display: "flex", flexDirection: "column", gap: 8,
+      }}>
 
         {/* ═══ THE CARD ═══ */}
         <div ref={captureRef} style={{
           borderRadius: 14, overflow: "hidden", position: "relative",
-          background: "linear-gradient(170deg, #0d1117 0%, #0c1019 50%, #0e1320 100%)",
-          border: `1.5px solid ${C.goldBorder}`,
+          background: "linear-gradient(150deg, #1a1505 0%, #2a1f0a 30%, #1c1608 60%, #251c08 100%)",
+          border: "2px solid #d4a017",
+          boxShadow: "0 0 40px rgba(212,165,50,0.12), inset 0 0 60px rgba(212,165,50,0.04)",
         }}>
-          {/* Glow */}
-          <div style={{ position: "absolute", top: -30, right: -30, width: 100, height: 100, background: "radial-gradient(circle, rgba(212,165,50,0.06) 0%, transparent 70%)", pointerEvents: "none" }} />
 
-          {/* ── HERO ── */}
-          <div style={{ padding: "14px 16px 12px" }}>
-            {/* Header + close X */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-              <span style={{ fontFamily: MONO, fontSize: 7, fontWeight: 700, letterSpacing: "0.18em", color: C.gold }}>DYNASTYGPT MANAGER CARD</span>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontFamily: MONO, fontSize: 7, color: `${C.gold}50` }}>dynastygpt.com</span>
-                <button onClick={(e) => { e.stopPropagation(); onClose(); }} style={{ background: "none", border: "none", cursor: "pointer", color: C.dim, fontSize: 16, lineHeight: 1, padding: 0 }}>✕</button>
-              </div>
+          {/* Close button */}
+          <button onClick={(e) => { e.stopPropagation(); onClose(); }} style={{
+            position: "absolute", top: 8, right: 8, zIndex: 10,
+            background: "rgba(0,0,0,0.5)", border: "1px solid rgba(212,165,50,0.3)",
+            borderRadius: 8, cursor: "pointer", color: "#d4a532",
+            width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 14, lineHeight: 1,
+          }}>✕</button>
+
+          {/* ── TOP: Title centered + branding right ── */}
+          <div style={{ padding: "12px 14px 0", textAlign: "center", position: "relative" }}>
+            <div style={{
+              fontFamily: MONO, fontSize: 12, fontWeight: 800, letterSpacing: 3,
+              color: "#d4a532",
+            }}>
+              DYNASTYGPT MANAGER CARD
             </div>
-
-            {/* Owner + Score */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontFamily: SANS, fontSize: 24, fontWeight: 800, color: C.primary, lineHeight: 1.05, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{owner}</div>
-                <div style={{ fontFamily: SANS, fontSize: 10, color: C.dim, marginTop: 3 }}>{leagueName}</div>
-                {pills.length > 0 && (
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 6 }}>
-                    {pills.map((p, i) => (
-                      <span key={i} style={{ fontFamily: MONO, fontSize: 7, fontWeight: 800, padding: "2px 6px", borderRadius: 3, color: p.fg, background: `${p.fg}12`, border: `1px solid ${p.fg}22` }}>{p.text}</span>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, marginLeft: 12 }}>
-                <div style={{
-                  width: 60, height: 60, borderRadius: "50%",
-                  border: `2.5px solid ${C.gold}`,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  background: "radial-gradient(circle, rgba(212,165,50,0.08) 0%, transparent 70%)",
-                  boxShadow: "0 0 20px rgba(212,165,50,0.10)",
-                }}>
-                  <span style={{ fontFamily: MONO, fontSize: 24, fontWeight: 800, color: C.primary }}>{myScore.score}</span>
-                </div>
-                <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, padding: "2px 7px", borderRadius: 4, color: tierColor, background: `${tierColor}12`, border: `1px solid ${tierColor}25`, textTransform: "uppercase" }}>{myScore.tier.label}</span>
-              </div>
+            <div style={{
+              position: "absolute", top: 14, right: 14,
+              fontFamily: MONO, fontSize: 7, color: "rgba(212,165,50,0.5)",
+            }}>
+              dynastygpt.com
             </div>
           </div>
 
-          <Div />
+          {/* ── OWNER NAME ── */}
+          <div style={{ textAlign: "center", padding: "4px 14px 0" }}>
+            <div style={{
+              fontFamily: SANS, fontSize: 22, fontWeight: 800, color: "#eeeef2",
+              lineHeight: 1.05, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+            }}>{owner}</div>
+            <div style={{ fontFamily: SANS, fontSize: 10, color: "#9596a5", marginTop: 2 }}>{leagueName}</div>
+          </div>
 
-          {/* ── OWNER STATS — big boxes ── */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6, padding: "12px 16px" }}>
+          {/* ── SCORE RING ── */}
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "12px 0 6px" }}>
+            <div style={{
+              width: 72, height: 72, borderRadius: "50%",
+              border: "3px solid #d4a532",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              background: "radial-gradient(circle, rgba(212,165,50,0.10) 0%, transparent 70%)",
+              boxShadow: "0 0 24px rgba(212,165,50,0.15)",
+            }}>
+              <span style={{ fontFamily: MONO, fontSize: 30, fontWeight: 900, color: "#eeeef2" }}>{myScore.score}</span>
+            </div>
+            <span style={{
+              fontFamily: MONO, fontSize: 9, fontWeight: 800, marginTop: 5,
+              padding: "2px 10px", borderRadius: 4,
+              color: tierColor, background: `${tierColor}15`, border: `1px solid ${tierColor}30`,
+              textTransform: "uppercase", letterSpacing: "0.06em",
+            }}>{myScore.tier.label}</span>
+          </div>
+
+          {/* ── RANKINGS — 3 big boxes (THE MOST IMPORTANT STAT) ── */}
+          <div style={{ display: "flex", gap: 6, padding: "6px 14px 8px" }}>
             {[
-              { label: "RECORD",   value: `${totalW}-${totalL}`, color: C.primary },
-              { label: "PLAYOFFS", value: playoffStr,             color: C.primary },
-              { label: "TITLES",   value: String(champCount),     color: champCount > 0 ? C.gold : C.primary },
-              { label: "WIN%",     value: winPct,                 color: C.primary },
+              { val: leagueRank ? `#${leagueRank}` : "—", label: "LEAGUE", color: "#d4a532" },
+              { val: globalRank ? `#${globalRank.toLocaleString()}` : "—", label: "GLOBAL", color: "#6bb8e0" },
+              { val: topPct != null ? `${topPct}%` : "—", label: "TOP", color: "#7dd3a0" },
+            ].map((r) => (
+              <div key={r.label} style={{
+                flex: 1, textAlign: "center", padding: "6px 2px", borderRadius: 8,
+                background: "rgba(0,0,0,0.3)", border: "1px solid rgba(212,165,50,0.15)",
+              }}>
+                <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 800, color: r.color, lineHeight: 1 }}>{r.val}</div>
+                <div style={{ fontFamily: MONO, fontSize: 7, fontWeight: 700, letterSpacing: "0.08em", color: "#9596a5", marginTop: 3 }}>{r.label}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Gold divider */}
+          <div style={{ height: 1, margin: "0 14px", background: "linear-gradient(90deg, transparent, rgba(212,165,50,0.3), transparent)" }} />
+
+          {/* ── STATS — 2x2 GRID (copied from player card market tab pattern) ── */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, padding: "8px 14px" }}>
+            {[
+              { val: `${totalW}-${totalL}`, label: "RECORD", color: "#eeeef2" },
+              { val: playoffStr, label: "PLAYOFFS", color: "#eeeef2" },
+              { val: String(champCount), label: "TITLES", color: champCount > 0 ? "#d4a532" : "#eeeef2" },
+              { val: winPct, label: "WIN%", color: "#eeeef2" },
             ].map((s) => (
               <div key={s.label} style={{
-                textAlign: "center", padding: "8px 4px", borderRadius: 8,
-                background: C.elevated, border: `1px solid ${C.border}`,
+                padding: "8px 8px 6px", borderRadius: 8,
+                background: "rgba(0,0,0,0.3)", borderLeft: `3px solid ${s.color === "#d4a532" ? "#d4a532" : "rgba(212,165,50,0.2)"}`,
+                borderTop: "1px solid rgba(212,165,50,0.1)",
+                borderRight: "1px solid rgba(212,165,50,0.1)",
+                borderBottom: "1px solid rgba(212,165,50,0.1)",
               }}>
-                <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 800, color: s.color, lineHeight: 1 }}>{s.value}</div>
-                <div style={{ fontFamily: MONO, fontSize: 6, fontWeight: 700, letterSpacing: "0.08em", color: C.dim, marginTop: 4 }}>{s.label}</div>
+                <div style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, letterSpacing: "0.08em", color: "#9596a5" }}>{s.label}</div>
+                <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 800, color: s.color, lineHeight: 1, marginTop: 2 }}>{s.val}</div>
               </div>
             ))}
           </div>
 
-          <Div />
+          {/* Gold divider */}
+          <div style={{ height: 1, margin: "0 14px", background: "linear-gradient(90deg, transparent, rgba(212,165,50,0.3), transparent)" }} />
 
-          {/* ── SCORING — color-coded boxes with # value ── */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6, padding: "12px 16px" }}>
-            {comps.map((c) => (
-              <div key={c.key} style={{
-                textAlign: "center", padding: "10px 4px 8px", borderRadius: 10,
-                background: `${c.color}10`,
-                border: `1px solid ${c.color}25`,
-              }}>
-                <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: c.color, lineHeight: 1 }}>{c.score}</div>
-                <div style={{ fontFamily: MONO, fontSize: 7, fontWeight: 700, letterSpacing: "0.08em", color: `${c.color}90`, marginTop: 5 }}>{c.label}</div>
-              </div>
-            ))}
-          </div>
-
-          <Div />
-
-          {/* ── SCOUTING TAGS — 3 across grid ── */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4, padding: "10px 16px 12px" }}>
-            {bullets.slice(0, 6).map((b, i) => {
-              const isGood = b.type === "strength" || b.type === "highlight";
-              const fg = isGood ? C.green : b.type === "weakness" || b.type === "warning" ? C.red : C.gold;
-              // Truncate to fit 3-across
-              const short = b.text.length > 18 ? b.text.slice(0, 16) + "…" : b.text;
-              return (
-                <div key={i} style={{
-                  textAlign: "center", padding: "3px 2px", borderRadius: 4,
-                  background: `${fg}08`, border: `1px solid ${fg}15`,
-                  overflow: "hidden",
-                }}>
-                  <span style={{ fontFamily: MONO, fontSize: 7, fontWeight: 700, color: fg, lineHeight: 1.2 }}>
-                    {isGood ? "▲" : "▼"} {short}
-                  </span>
+          {/* ── SCORE BREAKDOWN — horizontal bars ── */}
+          <div style={{ padding: "8px 14px 4px" }}>
+            {bars.map((b) => (
+              <div key={b.key} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, color: "#9596a5", width: 72, textAlign: "right", flexShrink: 0 }}>
+                  {b.label}
+                </span>
+                <div style={{ flex: 1, height: 6, background: "rgba(0,0,0,0.4)", borderRadius: 3, overflow: "hidden" }}>
+                  <div style={{
+                    height: "100%", width: `${Math.max(2, b.pct)}%`,
+                    background: b.color, borderRadius: 3,
+                  }} />
                 </div>
-              );
-            })}
+                <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: b.color, width: 24, textAlign: "right", flexShrink: 0 }}>
+                  {b.score}
+                </span>
+              </div>
+            ))}
           </div>
 
-          {/* Footer */}
-          <div style={{ textAlign: "center", paddingBottom: 10 }}>
-            <span style={{ fontFamily: MONO, fontSize: 6, color: `${C.dim}35`, letterSpacing: "0.12em" }}>POWERED BY DYNASTYGPT.COM</span>
+          {/* ── INSIGHT — gold, prominent ── */}
+          {insight && (
+            <div style={{ textAlign: "center", padding: "2px 14px 8px" }}>
+              <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 600, color: "#d4a532", lineHeight: 1.4 }}>
+                {insight}
+              </div>
+            </div>
+          )}
+
+          {/* ── FOOTER watermark ── */}
+          <div style={{ textAlign: "center", paddingBottom: 8 }}>
+            <span style={{ fontFamily: MONO, fontSize: 6, color: "rgba(212,165,50,0.3)", letterSpacing: "0.12em" }}>
+              POWERED BY DYNASTYGPT.COM
+            </span>
           </div>
         </div>
 
-        {/* ── BUTTONS ── */}
-        <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={handleShare} disabled={sharing} style={{
-            flex: 1, padding: "11px 0", borderRadius: 10, fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.08em",
-            color: shared ? C.green : "#06080d",
-            background: shared ? `${C.green}12` : sharing ? C.dim : `linear-gradient(135deg, ${C.goldDark}, ${C.gold})`,
-            border: shared ? `1px solid ${C.green}30` : "none", cursor: sharing ? "wait" : "pointer",
-            display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-          }}>
-            {shared ? "SAVED" : sharing ? "..." : <><Download size={13} /> SAVE & SHARE</>}
-          </button>
-          <button onClick={onClose} style={{
-            width: 44, height: 44, borderRadius: 10, flexShrink: 0,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            background: "none", border: `1.5px solid ${C.gold}25`, cursor: "pointer",
-          }}>
-            <X size={15} style={{ color: C.gold }} />
-          </button>
-        </div>
+        {/* ── SHARE BUTTON (outside card) ── */}
+        <button onClick={handleShare} disabled={sharing} style={{
+          width: "100%", padding: "12px 0", borderRadius: 10,
+          fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.08em",
+          color: "#0c1019",
+          background: sharing ? "#9596a5" : "linear-gradient(135deg, #8b6914, #d4a532)",
+          border: "none", cursor: sharing ? "wait" : "pointer",
+          display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+        }}>
+          {sharing ? "GENERATING..." : <><Download size={13} /> SAVE & SHARE</>}
+        </button>
       </div>
     </div>
   );

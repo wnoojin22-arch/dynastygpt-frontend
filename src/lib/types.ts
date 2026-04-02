@@ -86,6 +86,7 @@ export interface PlayerTrend {
 
 export interface ValueHistoryPoint {
   date: string;
+  value: number | null;
   sha_value: number | null;
   ktc_value: number | null;
   sha_rank: number | null;
