@@ -278,23 +278,23 @@ export default function DashboardMobile({ lid, owner, ownerId }: { lid: string; 
       {/* ── 1. STATS TICKER — two fixed lines ── */}
       <div style={{ padding: "0 12px", display: "flex", flexDirection: "column", gap: 2 }}>
         {[tickerLine1, tickerLine2].map((line, lineIdx) => (
-          <div key={lineIdx} style={{ display: "flex", alignItems: "center", gap: 0, flexWrap: "wrap", justifyContent: "center" }}>
+          <div key={lineIdx} style={{ display: "flex", alignItems: "center", gap: 0, flexWrap: "nowrap", justifyContent: "center", overflow: "hidden" }}>
             {line.map((t, i) => (
-              <div key={i} style={{ display: "flex", alignItems: "center", gap: 4, padding: "2px 0" }}>
-                {i > 0 && <div style={{ width: 1, height: 12, background: C.borderLt, margin: "0 8px" }} />}
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 3, padding: "2px 0", flexShrink: 0 }}>
+                {i > 0 && <div style={{ width: 1, height: 10, background: C.borderLt, margin: "0 5px" }} />}
                 {t.badge ? (
                   <span style={{
-                    fontFamily: MONO, fontSize: 9, fontWeight: 900, letterSpacing: "0.10em",
-                    padding: "2px 7px", borderRadius: 3,
+                    fontFamily: MONO, fontSize: 8, fontWeight: 900, letterSpacing: "0.08em",
+                    padding: "2px 5px", borderRadius: 3,
                     color: t.color || C.dim, background: `${t.color || C.dim}18`,
                     border: `1px solid ${t.color || C.dim}40`,
                   }}>{t.label}</span>
                 ) : t.label && !t.value ? (
-                  <span style={{ fontFamily: MONO, fontSize: 9, color: C.gold, letterSpacing: "0.06em" }}>{t.label}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 8, color: C.gold, letterSpacing: "0.04em" }}>{t.label}</span>
                 ) : (
                   <>
-                    <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim, letterSpacing: "0.06em" }}>{t.label}</span>
-                    <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: t.color || C.primary }}>{t.value}</span>
+                    <span style={{ fontFamily: MONO, fontSize: 8, color: C.dim, letterSpacing: "0.04em" }}>{t.label}</span>
+                    <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: t.color || C.primary }}>{t.value}</span>
                   </>
                 )}
               </div>
