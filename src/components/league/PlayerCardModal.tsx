@@ -218,11 +218,6 @@ export default function PlayerCardModal() {
               </div>
             </div>
 
-            {/* Branding — top right for screenshots */}
-            <div style={{ position: "absolute", top: 10, right: 16, zIndex: 10 }}>
-              <span style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, color: `${C.gold}60`, letterSpacing: "0.02em" }}>dynastygpt.com</span>
-            </div>
-
             {/* ── Tabs — touch-friendly ── */}
             <div style={{ display: "flex", borderBottom: `1px solid ${C.border}` }}>
               {TABS.map((t) => (
@@ -249,10 +244,6 @@ export default function PlayerCardModal() {
               ) : (
                 <ValueTab history={history} priceHistory={priceData as Record<string, unknown> | undefined} />
               )}
-            </div>
-            {/* Branding bar */}
-            <div style={{ padding: "6px 20px", borderTop: `1px solid ${C.border}`, display: "flex", justifyContent: "flex-end", flexShrink: 0 }}>
-              <span style={{ fontFamily: SANS, fontSize: 10, fontWeight: 600, color: `${C.gold}50`, letterSpacing: "0.02em" }}>dynastygpt.com</span>
             </div>
           </motion.div>
         </>
@@ -580,125 +571,102 @@ function MarketTab({ priceHistory, pc }: { priceHistory?: Record<string, unknown
   const vsLabel = vsPct > 10 ? "SELL WINDOW" : vsPct < -10 ? "BUY WINDOW" : "FAIR VALUE";
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-      {/* Market vs Consensus — HERO, full width, always first */}
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {/* ── MARKET vs CONSENSUS — hero bar ── */}
       {marketPrice && shaValue ? (
-        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px", borderTop: `2px solid ${vsColor}30` }}>
-          <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, letterSpacing: "0.06em", marginBottom: 6 }}>MARKET vs CONSENSUS</div>
+        <div style={{ background: C.card, borderRadius: 10, padding: "10px 14px", border: `1px solid ${C.border}`, borderLeft: `3px solid ${vsColor}` }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: C.gold }}>{fmt(shaValue)}</span>
-              <span style={{ fontFamily: MONO, fontSize: 12, color: C.dim }}>→</span>
-              <span style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: "#6bb8e0" }}>{fmt(marketPrice)}</span>
+            <div>
+              <div style={{ fontFamily: SANS, fontSize: 9, fontWeight: 700, color: C.dim, letterSpacing: "0.08em", marginBottom: 4 }}>MARKET vs CONSENSUS</div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                <span style={{ fontFamily: SANS, fontSize: 20, fontWeight: 800, color: C.gold }}>{fmt(shaValue)}</span>
+                <span style={{ fontFamily: SANS, fontSize: 13, color: C.dim }}>→</span>
+                <span style={{ fontFamily: SANS, fontSize: 20, fontWeight: 800, color: "#6bb8e0" }}>{fmt(marketPrice)}</span>
+              </div>
             </div>
-            <span style={{
-              fontFamily: MONO, fontSize: 11, fontWeight: 800, color: vsColor,
-              background: `${vsColor}15`, padding: "3px 8px", borderRadius: 4, border: `1px solid ${vsColor}30`,
-            }}>
-              {vsPct > 0 ? "+" : ""}{vsPct}% {vsLabel}
-            </span>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontFamily: SANS, fontSize: 18, fontWeight: 800, color: vsColor }}>{vsPct > 0 ? "+" : ""}{vsPct}%</div>
+              <div style={{ fontFamily: SANS, fontSize: 9, fontWeight: 700, color: vsColor, letterSpacing: "0.06em" }}>{vsLabel}</div>
+            </div>
           </div>
         </div>
       ) : null}
 
-      {/* Signal + Market Price — 2 across */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 12px", borderTop: `2px solid ${signalColor}30` }}>
-          <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, letterSpacing: "0.06em", marginBottom: 3 }}>SIGNAL</div>
-          <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 800, color: signalColor }}>{signal}</div>
-          <div style={{ fontFamily: MONO, fontSize: 10, color: C.dim, marginTop: 2 }}>
-            {signalPct > 0 ? "+" : ""}{signalPct.toFixed(1)}% 30d
-          </div>
+      {/* ── 2x2 GRID: Signal · Price · Volume · Trend ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+        {/* Signal */}
+        <div style={{ background: C.card, borderRadius: 10, padding: "10px 12px", border: `1px solid ${C.border}`, borderLeft: `3px solid ${signalColor}` }}>
+          <div style={{ fontFamily: SANS, fontSize: 8, fontWeight: 700, color: C.dim, letterSpacing: "0.08em", marginBottom: 3 }}>SIGNAL</div>
+          <div style={{ fontFamily: SANS, fontSize: 20, fontWeight: 800, color: signalColor, lineHeight: 1 }}>{signal}</div>
+          <div style={{ fontFamily: SANS, fontSize: 10, color: C.dim, marginTop: 3 }}>{signalPct > 0 ? "+" : ""}{signalPct.toFixed(1)}% momentum</div>
         </div>
-        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 12px", borderTop: `2px solid #6bb8e030` }}>
-          <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, letterSpacing: "0.06em", marginBottom: 3 }}>MARKET PRICE</div>
-          <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 800, color: "#6bb8e0" }}>{marketPrice ? fmt(marketPrice) : "—"}</div>
-          <div style={{ fontFamily: MONO, fontSize: 10, color: C.dim, marginTop: 2 }}>
-            {basedOn} trades{lowConf ? " · low vol" : " · 90d"}
-          </div>
+        {/* Market Price */}
+        <div style={{ background: C.card, borderRadius: 10, padding: "10px 12px", border: `1px solid ${C.border}`, borderLeft: "3px solid #6bb8e0" }}>
+          <div style={{ fontFamily: SANS, fontSize: 8, fontWeight: 700, color: C.dim, letterSpacing: "0.08em", marginBottom: 3 }}>MARKET PRICE</div>
+          <div style={{ fontFamily: SANS, fontSize: 20, fontWeight: 800, color: "#6bb8e0", lineHeight: 1 }}>{marketPrice ? fmt(marketPrice) : "—"}</div>
+          <div style={{ fontFamily: SANS, fontSize: 10, color: C.dim, marginTop: 3 }}>{basedOn} trades{lowConf ? " · low vol" : ""}</div>
         </div>
-      </div>
-
-      {/* Volume + Trend */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-        <div>
-          <SectionLabel text="TRADE VOLUME" />
-          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 12px", display: "flex", flexDirection: "column", gap: 6 }}>
-            {[{ label: "30 DAYS", val: vol30 }, { label: "90 DAYS", val: vol90 }, { label: "ALL TIME", val: volAll }].map(v => (
-              <div key={v.label} style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ fontFamily: MONO, fontSize: 11, color: C.dim }}>{v.label}</span>
-                <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.secondary }}>{v.val}</span>
+        {/* Volume — all 3 on one line */}
+        <div style={{ background: C.card, borderRadius: 10, padding: "10px 12px", border: `1px solid ${C.border}` }}>
+          <div style={{ fontFamily: SANS, fontSize: 8, fontWeight: 700, color: C.dim, letterSpacing: "0.08em", marginBottom: 5 }}>TRADE VOLUME</div>
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            {[{ l: "30d", v: vol30 }, { l: "90d", v: vol90 }, { l: "All", v: volAll }].map(x => (
+              <div key={x.l} style={{ textAlign: "center" }}>
+                <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 800, color: C.secondary, lineHeight: 1 }}>{x.v}</div>
+                <div style={{ fontFamily: SANS, fontSize: 8, color: C.dim, marginTop: 2 }}>{x.l}</div>
               </div>
             ))}
           </div>
         </div>
-        <div>
-          <SectionLabel text="PRICE TREND" />
-          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 12px" }}>
-            <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 700, color: trendColor, textTransform: "uppercase", marginBottom: 6 }}>
-              {trendDir === "rising" ? "Rising" : trendDir === "falling" ? "Falling" : trendDir === "stable" ? "Stable" : "—"}
-            </div>
-            {med30 && med90 ? (
-              <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim }}>
-                30d: {fmt(med30)} · 90d: {fmt(med90)}
-              </div>
-            ) : null}
-          </div>
+        {/* Trend */}
+        <div style={{ background: C.card, borderRadius: 10, padding: "10px 12px", border: `1px solid ${C.border}`, borderLeft: `3px solid ${trendColor}` }}>
+          <div style={{ fontFamily: SANS, fontSize: 8, fontWeight: 700, color: C.dim, letterSpacing: "0.08em", marginBottom: 3 }}>PRICE TREND</div>
+          <div style={{ fontFamily: SANS, fontSize: 16, fontWeight: 800, color: trendColor, lineHeight: 1, textTransform: "capitalize" }}>{trendDir}</div>
+          {med30 && med90 ? (
+            <div style={{ fontFamily: SANS, fontSize: 10, color: C.dim, marginTop: 3 }}>{fmt(med30)} → {fmt(med90)}</div>
+          ) : null}
         </div>
       </div>
 
-      {/* Monthly sparkline */}
+      {/* ── SPARKLINE ── */}
       {monthly.length >= 3 && (
-        <div>
-          <SectionLabel text="MONTHLY MEDIAN PRICE" />
-          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px" }}>
-            <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 48 }}>
-              {(() => {
-                const prices = monthly.map(m => typeof m.median_price === "number" ? m.median_price : 0);
-                const max = Math.max(...prices, 1);
-                return monthly.map((m, i) => {
-                  const p = typeof m.median_price === "number" ? m.median_price : 0;
-                  const h = Math.max(4, (p / max) * 44);
-                  const highConf = typeof m.high_confidence === "boolean" ? m.high_confidence : false;
-                  return (
-                    <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-                      <div style={{
-                        width: "100%", maxWidth: 28, height: h, borderRadius: 3,
-                        background: highConf ? "#6bb8e0" : `#6bb8e040`,
-                      }} />
-                    </div>
-                  );
-                });
-              })()}
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
-              <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>{String(monthly[0]?.month || "")}</span>
-              <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>{String(monthly[monthly.length - 1]?.month || "")}</span>
-            </div>
+        <div style={{ background: C.card, borderRadius: 10, padding: "10px 14px", border: `1px solid ${C.border}` }}>
+          <div style={{ fontFamily: SANS, fontSize: 8, fontWeight: 700, color: C.dim, letterSpacing: "0.08em", marginBottom: 6 }}>PRICE HISTORY</div>
+          <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 40 }}>
+            {(() => {
+              const prices = monthly.map(m => typeof m.median_price === "number" ? m.median_price : 0);
+              const max = Math.max(...prices, 1);
+              return monthly.map((m, i) => {
+                const p = typeof m.median_price === "number" ? m.median_price : 0;
+                const h = Math.max(3, (p / max) * 36);
+                const isLast = i === monthly.length - 1;
+                return (
+                  <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center" }}>
+                    <div style={{ width: "100%", maxWidth: 24, height: h, borderRadius: 2, background: isLast ? "#6bb8e0" : `#6bb8e040` }} />
+                  </div>
+                );
+              });
+            })()}
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 3 }}>
+            <span style={{ fontFamily: SANS, fontSize: 8, color: C.dim }}>{String(monthly[0]?.month || "")}</span>
+            <span style={{ fontFamily: SANS, fontSize: 8, color: C.dim }}>{String(monthly[monthly.length - 1]?.month || "")}</span>
           </div>
         </div>
       )}
 
-      {/* Common packages */}
+      {/* ── COMMON PACKAGES — 2 across ── */}
       {packages.length > 0 && (
         <div>
-          <SectionLabel text="COMMON TRADE PACKAGES" />
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{ fontFamily: SANS, fontSize: 8, fontWeight: 700, color: C.dim, letterSpacing: "0.08em", marginBottom: 5 }}>COMMON PACKAGES</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
             {packages.slice(0, 4).map((pkg, i) => {
               const pct = typeof pkg.percentage === "number" ? pkg.percentage : 0;
               const count = typeof pkg.count === "number" ? pkg.count : 0;
-              const example = Array.isArray(pkg.example) ? pkg.example as string[] : [];
               return (
-                <div key={i} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 12px" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.secondary }}>{String(pkg.structure || "")}</span>
-                    <span style={{ fontFamily: MONO, fontSize: 11, color: C.dim }}>{pct}% · {count} trades</span>
-                  </div>
-                  {example.length > 0 && (
-                    <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim, marginTop: 4 }}>
-                      e.g. {example.slice(0, 3).join(", ")}
-                    </div>
-                  )}
+                <div key={i} style={{ background: C.card, borderRadius: 8, padding: "8px 10px", border: `1px solid ${C.border}` }}>
+                  <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 700, color: C.secondary, lineHeight: 1.2 }}>{String(pkg.structure || "")}</div>
+                  <div style={{ fontFamily: SANS, fontSize: 9, color: C.dim, marginTop: 3 }}>{pct}% · {count} trades</div>
                 </div>
               );
             })}
@@ -706,23 +674,21 @@ function MarketTab({ priceHistory, pc }: { priceHistory?: Record<string, unknown
         </div>
       )}
 
-      {/* Comparable players */}
+      {/* ── SIMILAR VALUE — 2 across ── */}
       {comparables.length > 0 && (
         <div>
-          <SectionLabel text="SIMILAR VALUE PLAYERS" />
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-            {comparables.slice(0, 6).map((comp, i) => (
-              <div key={i} style={{
-                background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, padding: "6px 10px",
-                display: "flex", alignItems: "center", gap: 6,
-              }}>
-                <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: posColor(String(comp.position || "")), background: `${posColor(String(comp.position || ""))}18`, padding: "1px 5px", borderRadius: 3 }}>
-                  {String(comp.position || "")}
-                </span>
-                <span style={{ fontFamily: SANS, fontSize: 12, color: C.secondary }}>{String(comp.name || "")}</span>
-                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.gold }}>{fmt(typeof comp.sha_value === "number" ? comp.sha_value : 0)}</span>
-              </div>
-            ))}
+          <div style={{ fontFamily: SANS, fontSize: 8, fontWeight: 700, color: C.dim, letterSpacing: "0.08em", marginBottom: 5 }}>SIMILAR VALUE</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5 }}>
+            {comparables.slice(0, 6).map((comp, i) => {
+              const pc2 = posColor(String(comp.position || ""));
+              return (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 5, background: C.card, borderRadius: 6, padding: "5px 8px", border: `1px solid ${C.border}` }}>
+                  <span style={{ fontFamily: SANS, fontSize: 9, fontWeight: 800, color: pc2, background: `${pc2}15`, padding: "1px 4px", borderRadius: 3 }}>{String(comp.position || "")}</span>
+                  <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, color: C.secondary, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{String(comp.name || "")}</span>
+                  <span style={{ fontFamily: SANS, fontSize: 10, fontWeight: 800, color: C.gold }}>{fmt(typeof comp.sha_value === "number" ? comp.sha_value : 0)}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
