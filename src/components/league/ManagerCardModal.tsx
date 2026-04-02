@@ -121,19 +121,13 @@ export default function ManagerCardModal({
             fontSize: 14, lineHeight: 1,
           }}>✕</button>
 
-          {/* ── TOP: Title centered + branding right ── */}
-          <div style={{ padding: "12px 14px 0", textAlign: "center", position: "relative" }}>
+          {/* ── TOP: Title centered ── */}
+          <div style={{ padding: "12px 14px 0", textAlign: "center" }}>
             <div style={{
               fontFamily: MONO, fontSize: 12, fontWeight: 800, letterSpacing: 3,
               color: "#d4a532",
             }}>
               DYNASTYGPT MANAGER CARD
-            </div>
-            <div style={{
-              position: "absolute", top: 14, right: 14,
-              fontFamily: MONO, fontSize: 7, color: "rgba(212,165,50,0.5)",
-            }}>
-              dynastygpt.com
             </div>
           </div>
 
@@ -260,11 +254,17 @@ export default function ManagerCardModal({
             </button>
           </div>
 
-          {/* ── FOOTER watermark ── */}
-          <div style={{ textAlign: "center", paddingBottom: 8 }}>
-            <span style={{ fontFamily: MONO, fontSize: 6, color: "rgba(212,165,50,0.3)", letterSpacing: "0.12em" }}>
-              POWERED BY DYNASTYGPT.COM
-            </span>
+          {/* ── FOOTER branding — matches player card modal pattern ── */}
+          <div style={{ display: "flex", justifyContent: "center", paddingBottom: 10 }}>
+            <div style={{
+              display: "flex", alignItems: "center", gap: 5,
+              padding: "3px 12px", borderRadius: 14,
+              border: "1px solid rgba(212,165,50,0.25)",
+              background: "rgba(212,165,50,0.06)",
+            }}>
+              <span style={{ fontSize: 7, fontWeight: 600, color: "#d4a532", fontFamily: SANS, fontStyle: "italic" }}>powered by</span>
+              <span style={{ fontSize: 10, fontWeight: 900, color: "#eeeef2", fontFamily: SANS }}>DynastyGPT<span style={{ color: "#d4a532" }}>.com</span></span>
+            </div>
           </div>
         </div>
       </div>
