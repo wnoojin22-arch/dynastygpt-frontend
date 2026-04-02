@@ -342,9 +342,12 @@ export default function TradeBuilderUnified() {
 
           {/* SUGGEST TRADES button */}
           <button
-            onClick={() => {
-              tb.fireSuggest({}, "Coach mode");
-              dispatch({ type: "TOGGLE_SWIPE", open: true });
+            onClick={async () => {
+              try {
+                await tb.fireSuggest({}, "Coach mode");
+              } catch (e) {
+                tb.setError(e instanceof Error ? e.message : "Suggest failed");
+              }
             }}
             disabled={tb.suggestLoading}
             style={{
@@ -446,6 +449,28 @@ export default function TradeBuilderUnified() {
           ══════════════════════════════════════════════════════════ */}
       {showBuilder && (
         <>
+          {/* Error display */}
+          {tb.error && (
+            <div style={{
+              padding: "8px 12px", margin: "8px 12px 0", borderRadius: 6,
+              background: C.redDim, border: `1px solid ${C.red}30`,
+              fontFamily: MONO, fontSize: 11, color: C.red,
+            }}>
+              {tb.error}
+            </div>
+          )}
+
+          {/* Suggest results in builder */}
+          {tb.suggestedPkgs.length > 0 && !tb.suggestLoading && (
+            <div style={{
+              padding: "8px 12px", margin: "0 12px", borderRadius: 6,
+              background: C.goldDim, border: `1px solid ${C.goldBorder}`,
+              fontFamily: MONO, fontSize: 10, color: C.gold, textAlign: "center",
+            }}>
+              {tb.suggestedPkgs.length} suggestions ready — scroll down to view
+            </div>
+          )}
+
           {/* ── Fixed top: Builder Panel ── */}
           <div style={{
             flexShrink: 0, padding: "12px 16px",
@@ -690,12 +715,16 @@ export default function TradeBuilderUnified() {
           }}>
             {/* SUGGEST */}
             <button
-              onClick={() => {
-                const body: Record<string, unknown> = {};
-                if (tb.partner) body.partner = tb.partner;
-                if (tb.giveNames.length) body.sell_asset = tb.giveNames[0];
-                if (tb.receiveNames.length) body.i_receive = tb.receiveNames;
-                tb.fireSuggest(body, suggestContext);
+              onClick={async () => {
+                try {
+                  const body: Record<string, unknown> = {};
+                  if (tb.partner) body.partner = tb.partner;
+                  if (tb.giveNames.length) body.sell_asset = tb.giveNames[0];
+                  if (tb.receiveNames.length) body.i_receive = tb.receiveNames;
+                  await tb.fireSuggest(body, suggestContext);
+                } catch (e) {
+                  tb.setError(e instanceof Error ? e.message : "Suggest failed");
+                }
               }}
               disabled={tb.suggestLoading}
               style={{
