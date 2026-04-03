@@ -115,12 +115,14 @@ function MyDraftRoomTab({ lid, seasons, owner, ownerId }: { lid: string; seasons
     const startupPicks = myPicks.filter(p => p.round > 4);
 
     const total = rookiePicks.length;
-    const evaluated = rookiePicks.filter(p => p.label !== "Too Early").length;
+    const MISS_LABELS = ["Bust", "Miss", "Concerning"];
+    const SKIP_LABELS = ["Too Early", "Pending"];
+    const evaluated = rookiePicks.filter(p => !SKIP_LABELS.includes(p.label)).length;
     const stars = rookiePicks.filter(p => p.label === "Star").length;
-    const hits = rookiePicks.filter(p => p.label === "Hit").length;
+    const hitCount = rookiePicks.filter(p => !MISS_LABELS.includes(p.label) && !SKIP_LABELS.includes(p.label)).length;
     const busts = rookiePicks.filter(p => p.label === "Bust").length;
-    const misses = rookiePicks.filter(p => p.label === "Miss").length;
-    const hitRate = evaluated > 0 ? Math.round((stars + hits) / evaluated * 100) : 0;
+    const misses = rookiePicks.filter(p => MISS_LABELS.includes(p.label)).length;
+    const hitRate = evaluated > 0 ? Math.round(hitCount / evaluated * 100) : 0;
     const startupCount = startupPicks.length;
 
     const byRound: Record<number, { total: number; hits: number }> = {};
@@ -128,7 +130,7 @@ function MyDraftRoomTab({ lid, seasons, owner, ownerId }: { lid: string; seasons
       if (p.label === "Too Early") continue;
       if (!byRound[p.round]) byRound[p.round] = { total: 0, hits: 0 };
       byRound[p.round].total++;
-      if (p.label === "Star" || p.label === "Hit") byRound[p.round].hits++;
+      if (!["Bust", "Miss", "Concerning"].includes(p.label)) byRound[p.round].hits++;
     }
     const roundStats = Object.entries(byRound)
       .map(([r, s]) => ({ round: Number(r), ...s, rate: s.total > 0 ? Math.round(s.hits / s.total * 100) : 0 }))
@@ -140,7 +142,7 @@ function MyDraftRoomTab({ lid, seasons, owner, ownerId }: { lid: string; seasons
       const pos = p.position || "?";
       if (!byPos[pos]) byPos[pos] = { total: 0, hits: 0 };
       byPos[pos].total++;
-      if (p.label === "Star" || p.label === "Hit") byPos[pos].hits++;
+      if (!["Bust", "Miss", "Concerning"].includes(p.label)) byPos[pos].hits++;
     }
     const posStats = Object.entries(byPos)
       .map(([pos, s]) => ({ pos, ...s, rate: s.total > 0 ? Math.round(s.hits / s.total * 100) : 0 }))
@@ -153,7 +155,7 @@ function MyDraftRoomTab({ lid, seasons, owner, ownerId }: { lid: string; seasons
     const totalValue = rookiePicks.reduce((s, p) => s + (p.current_value || 0), 0);
     const seasonsActive = [...new Set(myPicks.map(p => p._season))].length;
 
-    return { total, stars, hits, busts, misses, hitRate, roundStats, posStats, best, worst, topPos, totalValue, seasonsActive, evaluated, startupCount };
+    return { total, stars, hits: hitCount, busts, misses, hitRate, roundStats, posStats, best, worst, topPos, totalValue, seasonsActive, evaluated, startupCount };
   }, [seasons, owner, ownerId]);
 
   // ── Pick intel (from API) ──
@@ -337,11 +339,14 @@ function LeagueReportTab({ lid, seasons, owner }: { lid: string; seasons: any[];
   }, [seasons]);
 
   const stats = useMemo(() => {
+    const MISS_L = ["Bust", "Miss", "Concerning"];
+    const SKIP_L = ["Too Early", "Pending"];
+    const evaluated = allPicks.filter(p => !SKIP_L.includes(p.label)).length;
     const total = allPicks.length;
     const stars = allPicks.filter(p => p.label === "Star").length;
-    const hits = allPicks.filter(p => p.label === "Hit").length;
+    const hitCount = allPicks.filter(p => !MISS_L.includes(p.label) && !SKIP_L.includes(p.label)).length;
     const busts = allPicks.filter(p => p.label === "Bust").length;
-    const hitRate = total > 0 ? Math.round((stars + hits) / total * 100) : 0;
+    const hitRate = evaluated > 0 ? Math.round(hitCount / evaluated * 100) : 0;
 
     // Hit rate by position
     const byPos: Record<string, { total: number; hits: number }> = {};
@@ -349,7 +354,7 @@ function LeagueReportTab({ lid, seasons, owner }: { lid: string; seasons: any[];
       const pos = p.position || "?";
       if (!byPos[pos]) byPos[pos] = { total: 0, hits: 0 };
       byPos[pos].total++;
-      if (p.label === "Star" || p.label === "Hit") byPos[pos].hits++;
+      if (!["Bust", "Miss", "Concerning"].includes(p.label)) byPos[pos].hits++;
     }
     const posStats = Object.entries(byPos)
       .map(([pos, s]) => ({ pos, ...s, rate: s.total > 0 ? Math.round(s.hits / s.total * 100) : 0 }))
@@ -377,7 +382,7 @@ function LeagueReportTab({ lid, seasons, owner }: { lid: string; seasons: any[];
     for (const p of allPicks) if (p.label === "Star") starsBySeason[p._season] = (starsBySeason[p._season] || 0) + 1;
     const bestDraftClass = Object.entries(starsBySeason).sort((a, b) => b[1] - a[1])[0];
 
-    return { total, stars, hits, busts, hitRate, posStats, ownerRanked, mvp, biggestBust, bestDraftClass };
+    return { total, stars, hits: hitCount, busts, hitRate, posStats, ownerRanked, mvp, biggestBust, bestDraftClass };
   }, [allPicks]);
 
   return (
