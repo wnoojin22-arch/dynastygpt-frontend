@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getGradedTradesByOwner, getTradeChains, getGradedTrades, getOverview, getOwnerProfile, getOwners } from "@/lib/api";
+import { getGradedTradesByOwner, getTradeChains, getGradedTrades, getOverview, getOwnerProfile, getOwners, getTradeRecord } from "@/lib/api";
 import { useLeagueStore } from "@/lib/stores/league-store";
 import LeagueTradesView from "./LeagueTradesView";
 import TradeReportModal from "./TradeReportModal";
@@ -102,6 +102,25 @@ function fmtDate(d: string | undefined): string {
   return dt.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
 }
 
+function isHindsightDisplayable(dateStr: string | null | undefined, isChamp: boolean): boolean {
+  if (isChamp) return true;
+  if (!dateStr) return false;
+  const days = (Date.now() - new Date(dateStr).getTime()) / (1000 * 60 * 60 * 24);
+  return days >= 548;
+}
+
+function hindsightLabel(dateStr: string | null | undefined, isChamp: boolean, verdict: string | null | undefined): { label: string; color: string } {
+  if (isHindsightDisplayable(dateStr, isChamp)) {
+    const v = verdict || "—";
+    const vs = getVerdictStyle(v);
+    return { label: v, color: vs?.color || C.dim };
+  }
+  if (!dateStr) return { label: "Pending", color: C.dim };
+  const days = (Date.now() - new Date(dateStr).getTime()) / (1000 * 60 * 60 * 24);
+  if (days >= 365) return { label: "Too Soon", color: C.dim };
+  return { label: "Pending", color: C.dim };
+}
+
 /* ═══════════════════════════════════════════════════════════════
    CSS ANIMATIONS — injected once, Shadynasty hover effects
    ═══════════════════════════════════════════════════════════════ */
@@ -177,6 +196,11 @@ export default function MyTradesView({ leagueId, owner: ownerProp, ownerId }: { 
     queryKey: ["owner-profile", leagueId, owner],
     queryFn: () => getOwnerProfile(leagueId, owner!, ownerId),
     enabled: !!owner && historyTab === 'profile',
+  });
+  const { data: recordData } = useQuery({
+    queryKey: ["trade-record", leagueId, owner, ownerId],
+    queryFn: () => getTradeRecord(leagueId, owner!, ownerId),
+    enabled: !!owner,
   });
 
   // ── OUTER TAB BAR: MY TRADES | LEAGUE LOG ──
@@ -378,62 +402,74 @@ export default function MyTradesView({ leagueId, owner: ownerProp, ownerId }: { 
       <style>{TRADE_CSS}</style>
 
       {/* ═══════════════════════════════════════════════════════════
-           TRADE REPORT CARD — 3 columns: Hindsight | Record | Best/Worst
-           Exact Shadynasty layout (page.tsx lines 1302-1432)
+           TRADE REPORT CARD — 3 columns: Hindsight Record | Trade Day Record | Best/Worst
            ═══════════════════════════════════════════════════════════ */}
       {graded > 0 && (
-        <div style={{ marginBottom: 10, display: 'grid', gridTemplateColumns: mobile ? '1fr 1fr' : '140px 1fr 1fr', gap: 8 }}>
+        <div style={{ marginBottom: 10, display: 'grid', gridTemplateColumns: mobile ? '1fr' : '1fr 1fr 1fr', gap: 8 }}>
 
-          {/* HINDSIGHT CARD */}
-          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ padding: '4px 8px', background: C.goldDim, borderBottom: `1px solid ${C.border}` }}>
-              <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: '0.12em', color: C.gold }}>HINDSIGHT</span>
-            </div>
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '12px 8px' }}>
-              <div style={{
-                width: 64, height: 64, borderRadius: '50%',
-                background: `radial-gradient(circle, ${avgScore >= 80 ? C.green : C.red}18, transparent)`,
-                border: `3px solid ${avgScore >= 80 ? C.green : C.red}`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                boxShadow: `0 0 24px ${avgScore >= 80 ? C.green : C.red}20`,
-              }}>
-                <span style={{ fontFamily: DISPLAY, fontSize: 22, fontWeight: 900, color: avgScore >= 80 ? C.green : C.red }}>{avgLetter}</span>
+          {mobile ? (
+            /* Mobile: hindsight sidebar 28% + record 72% side by side */
+            <div style={{ display: 'flex', gap: 6 }}>
+              <div style={{ width: '28%', flexShrink: 0, background: C.card, border: `1px solid ${C.gold}25`, borderRadius: 6, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                <div style={{ padding: '3px 0', background: C.goldDim, borderBottom: `1px solid ${C.border}`, textAlign: 'center' }}>
+                  <span style={{ fontFamily: MONO, fontSize: 7, fontWeight: 800, letterSpacing: '0.06em', color: C.gold }}>HINDSIGHT</span>
+                </div>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '10px 4px' }}>
+                  {recordData?.hindsight && recordData.hindsight.decided > 0 ? (<>
+                    <div style={{ fontFamily: DISPLAY, fontSize: 22, fontWeight: 900, color: avgScore >= 80 ? C.green : C.red, lineHeight: 1 }}>{avgLetter}</div>
+                    <div style={{ fontFamily: MONO, fontSize: 8, color: C.dim, marginTop: 3 }}>{avgScore}/100</div>
+                    <div style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, color: recordData.hindsight.win_rate >= 0.5 ? C.green : C.red, marginTop: 4 }}>{Math.round(recordData.hindsight.win_rate * 100)}%</div>
+                    <div style={{ fontFamily: MONO, fontSize: 7, color: C.dim }}>{recordData.hindsight.won}W-{recordData.hindsight.lost}L</div>
+                  </>) : (<div style={{ fontFamily: MONO, fontSize: 8, color: C.dim }}>TBD</div>)}
+                </div>
               </div>
-              <div style={{ fontFamily: MONO, fontSize: 9, color: C.secondary, marginTop: 6, letterSpacing: '0.04em' }}>AVG GRADE</div>
-              <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.dim, marginTop: 2 }}>{avgScore} / 100</div>
-              <div style={{ fontFamily: MONO, fontSize: 9, color: C.secondary, marginTop: 2 }}>{graded} graded</div>
-            </div>
-          </div>
-
-          {/* TRADE RECORD CARD */}
-          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, overflow: 'hidden' }}>
-            <div style={{ padding: '4px 8px', background: C.goldDim, borderBottom: `1px solid ${C.border}` }}>
-              <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: '0.12em', color: C.gold }}>TRADE RECORD</span>
-            </div>
-            <div style={{ padding: '10px 12px' }}>
-              <div style={{ display: 'flex', justifyContent: 'center', gap: 14, marginBottom: 10, flexWrap: 'wrap' }}>
-                {[
-                  { n: wins, label: 'WON', color: C.green },
-                  { n: losses, label: 'LOST', color: C.red },
-                  { n: even, label: 'EVEN', color: C.secondary },
-                ].map(({ n, label, color }) => (
-                  <div key={label} style={{ textAlign: 'center', minWidth: 40 }}>
-                    <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 800, color }}>{n}</div>
-                    <div style={{ fontFamily: MONO, fontSize: 8, color: C.secondary, letterSpacing: '0.1em' }}>{label}</div>
+              <div style={{ flex: 1, background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, overflow: 'hidden' }}>
+                <div style={{ padding: '3px 6px', background: C.elevated, borderBottom: `1px solid ${C.border}` }}>
+                  <span style={{ fontFamily: MONO, fontSize: 7, fontWeight: 800, letterSpacing: '0.06em', color: C.dim }}>TRADE DAY RECORD</span>
+                </div>
+                <div style={{ padding: '8px 10px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: 14, marginBottom: 6 }}>
+                    {[{ n: wins, label: 'W', color: C.green }, { n: losses, label: 'L', color: C.red }, { n: even, label: 'E', color: C.secondary }].map(({ n, label, color }) => (
+                      <div key={label} style={{ textAlign: 'center' }}><div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 800, color }}>{n}</div><div style={{ fontFamily: MONO, fontSize: 7, color: C.secondary }}>{label}</div></div>
+                    ))}
                   </div>
-                ))}
-              </div>
-              <div style={{ marginBottom: 4 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
-                  <span style={{ fontFamily: MONO, fontSize: 9, color: C.secondary }}>WIN RATE</span>
-                  <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: winPct >= 50 ? C.green : C.red }}>{winPct}%</span>
-                </div>
-                <div style={{ height: 6, borderRadius: 3, background: C.elevated, overflow: 'hidden' }}>
-                  <div style={{ height: '100%', borderRadius: 3, background: `linear-gradient(90deg, ${C.green}, ${C.green}aa)`, width: `${winPct}%`, transition: 'width 0.8s ease' }} />
+                  <div><div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}><span style={{ fontFamily: MONO, fontSize: 8, color: C.secondary }}>WIN RATE</span><span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: winPct >= 50 ? C.green : C.red }}>{winPct}%</span></div><div style={{ height: 4, borderRadius: 2, background: C.elevated, overflow: 'hidden' }}><div style={{ height: '100%', borderRadius: 2, background: C.green, width: `${winPct}%` }} /></div></div>
                 </div>
               </div>
             </div>
-          </div>
+          ) : (<>
+            {/* Desktop: full hindsight card */}
+            <div style={{ background: C.card, border: `1px solid ${C.gold}25`, borderRadius: 6, overflow: 'hidden' }}>
+              <div style={{ padding: '4px 8px', background: C.goldDim, borderBottom: `1px solid ${C.border}` }}>
+                <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: '0.12em', color: C.gold }}>HINDSIGHT TRADE RECORD</span>
+              </div>
+              <div style={{ padding: '10px 12px' }}>
+                {recordData?.hindsight && recordData.hindsight.decided > 0 ? (<>
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: 14, marginBottom: 10, flexWrap: 'wrap' }}>
+                    {[{ n: recordData.hindsight.won, label: 'WON', color: C.green }, { n: recordData.hindsight.lost, label: 'LOST', color: C.red }, { n: recordData.hindsight.even, label: 'EVEN', color: C.secondary }].map(({ n, label, color }) => (
+                      <div key={label} style={{ textAlign: 'center', minWidth: 40 }}><div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 800, color }}>{n}</div><div style={{ fontFamily: MONO, fontSize: 8, color: C.secondary, letterSpacing: '0.1em' }}>{label}</div></div>
+                    ))}
+                  </div>
+                  <div style={{ marginBottom: 6 }}><div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}><span style={{ fontFamily: MONO, fontSize: 9, color: C.secondary }}>WIN RATE</span><span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: recordData.hindsight.win_rate >= 0.5 ? C.green : C.red }}>{Math.round(recordData.hindsight.win_rate * 100)}%</span></div><div style={{ height: 6, borderRadius: 3, background: C.elevated, overflow: 'hidden' }}><div style={{ height: '100%', borderRadius: 3, background: `linear-gradient(90deg, ${C.green}, ${C.green}aa)`, width: `${Math.round(recordData.hindsight.win_rate * 100)}%`, transition: 'width 0.8s ease' }} /></div></div>
+                  {recordData.hindsight.pending_count > 0 && <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, textAlign: 'center' }}>{recordData.hindsight.pending_count} trades pending</div>}
+                </>) : (<div style={{ padding: '16px 0', textAlign: 'center' }}><div style={{ fontFamily: MONO, fontSize: 11, color: C.dim }}>No hindsight data yet</div><div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, marginTop: 4 }}>Trades need 18+ months</div></div>)}
+              </div>
+            </div>
+            {/* Desktop: trade day record */}
+            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, overflow: 'hidden' }}>
+              <div style={{ padding: '4px 8px', background: C.elevated, borderBottom: `1px solid ${C.border}` }}>
+                <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: '0.12em', color: C.dim }}>TRADE DAY RECORD</span>
+              </div>
+              <div style={{ padding: '10px 12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'center', gap: 14, marginBottom: 10, flexWrap: 'wrap' }}>
+                  {[{ n: wins, label: 'WON', color: C.green }, { n: losses, label: 'LOST', color: C.red }, { n: even, label: 'EVEN', color: C.secondary }].map(({ n, label, color }) => (
+                    <div key={label} style={{ textAlign: 'center', minWidth: 40 }}><div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 800, color }}>{n}</div><div style={{ fontFamily: MONO, fontSize: 8, color: C.secondary, letterSpacing: '0.1em' }}>{label}</div></div>
+                  ))}
+                </div>
+                <div style={{ marginBottom: 4 }}><div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}><span style={{ fontFamily: MONO, fontSize: 9, color: C.secondary }}>WIN RATE</span><span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: winPct >= 50 ? C.green : C.red }}>{winPct}%</span></div><div style={{ height: 6, borderRadius: 3, background: C.elevated, overflow: 'hidden' }}><div style={{ height: '100%', borderRadius: 3, background: `linear-gradient(90deg, ${C.green}, ${C.green}aa)`, width: `${winPct}%`, transition: 'width 0.8s ease' }} /></div></div>
+              </div>
+            </div>
+          </>)}
 
           {/* BEST & WORST TRADE CARDS (stacked) */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -591,11 +627,13 @@ export default function MyTradesView({ leagueId, owner: ownerProp, ownerId }: { 
                                 {partner}
                               </span>
                             </div>
-                            {_myLetter ? (
-                              <span style={{ fontFamily: DISPLAY, fontSize: 14, fontWeight: 900, color: gc, padding: '3px 10px', borderRadius: 5, background: `${gc}15`, border: `1px solid ${gc}30`, boxShadow: `0 0 8px ${gc}20`, lineHeight: 1 }}>{_myLetter}</span>
-                            ) : (
-                              <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, color: C.dim, padding: '3px 6px', borderRadius: 3, background: C.elevated }}>—</span>
-                            )}
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+                              {(() => {
+                                const h = hindsightLabel(t.date, t.is_championship_trade || false, t.hindsight_verdict);
+                                return <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: h.color, padding: '2px 6px', borderRadius: 3, background: h.color === C.dim ? C.elevated : `${h.color}15`, border: `1px solid ${h.color === C.dim ? C.border : `${h.color}30`}`, lineHeight: 1 }}>{h.label}</span>;
+                              })()}
+                              {_myLetter && <span style={{ fontFamily: MONO, fontSize: 7, fontWeight: 600, color: C.dim, lineHeight: 1 }}>TD: {_myLetter}</span>}
+                            </div>
                           </div>
                           <div style={{ display: 'flex', gap: 4, fontFamily: SANS, fontSize: 11, lineHeight: 1.4 }}>
                             <span style={{ color: C.red, fontWeight: 600, flexShrink: 0 }}>Gave</span>
@@ -623,14 +661,13 @@ export default function MyTradesView({ leagueId, owner: ownerProp, ownerId }: { 
                               <span style={{ color: `${C.red}cc` }}>Gave</span>{' '}<AssetList players={t.players_sent} picks={t.picks_sent} /> <span style={{ color: C.dim, margin: '0 4px' }}>→</span> <span style={{ color: `${C.green}cc` }}>Got</span>{' '}<AssetList players={t.players_received} picks={t.picks_received} />
                             </span>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                              {_myLetter ? (
-                                <>
-                                  {_myVerdict && <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 600, color: _vs.color, letterSpacing: '0.04em', lineHeight: 1 }}>{_myVerdict}</span>}
-                                  <span style={{ fontFamily: DISPLAY, fontSize: 16, fontWeight: 900, color: gc, padding: '4px 12px', borderRadius: 6, background: `${gc}15`, border: `1px solid ${gc}30`, flexShrink: 0, boxShadow: `0 0 12px ${gc}20`, lineHeight: 1, letterSpacing: '0.02em' }}>{_myLetter}</span>
-                                </>
-                              ) : (
-                                <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.dim, padding: '4px 8px', borderRadius: 4, background: C.elevated, border: `1px solid ${C.border}`, letterSpacing: '0.06em' }}>NO GRADE</span>
-                              )}
+                              {/* Hindsight verdict (primary) */}
+                              {(() => {
+                                const h = hindsightLabel(t.date, t.is_championship_trade || false, t.hindsight_verdict);
+                                return <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: h.color, padding: '3px 10px', borderRadius: 5, background: h.color === C.dim ? C.elevated : `${h.color}15`, border: `1px solid ${h.color === C.dim ? C.border : `${h.color}30`}`, lineHeight: 1 }}>{h.label}</span>;
+                              })()}
+                              {/* Trade day (secondary) */}
+                              {_myLetter && <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 600, color: C.dim, letterSpacing: '0.04em', lineHeight: 1 }}>TD: {_myLetter}</span>}
                             </div>
                           </div>
                           {/* Hover CTA */}
