@@ -476,8 +476,8 @@ function LeagueReportTab({ lid, seasons, owner }: { lid: string; seasons: any[];
                 <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 600, color: C.primary }}>{t.owner} ↔ {t.counter_party}</span>
               </div>
               <div style={{ display: "flex", gap: 8, fontFamily: MONO, fontSize: 9 }}>
-                <span style={{ color: C.red }}>Gave: {(t.players_sent || []).join(", ") || "—"}</span>
-                <span style={{ color: C.green }}>Got: {(t.players_received || []).join(", ") || "—"}</span>
+                <span style={{ color: C.red }}>Gave: {[...(t.players_sent || []), ...(t.picks_sent || []).map((p: string) => p.replace(/\s*\([^)]*\)/g, ""))].join(", ") || "—"}</span>
+                <span style={{ color: C.green }}>Got: {[...(t.players_received || []), ...(t.picks_received || []).map((p: string) => p.replace(/\s*\([^)]*\)/g, ""))].join(", ") || "—"}</span>
               </div>
             </div>
           ))}

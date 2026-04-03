@@ -413,23 +413,29 @@ export default function DashboardMobile({ lid, owner, ownerId }: { lid: string; 
                   const t30 = p.trend_30d;
                   const trendColor = t30?.direction === "up" ? C.green : t30?.direction === "down" ? C.red : C.dim;
                   const trendVal = t30?.delta ? `${t30.delta > 0 ? "▲" : "▼"}${Math.abs(t30.delta)}` : "";
+                  const mkt = p.mkt_vs_pct;
+                  const mktColor = mkt == null ? C.dim : mkt > 0 ? C.green : mkt < 0 ? C.red : C.dim;
+                  const mktLabel = mkt == null ? "—" : `${mkt > 0 ? "+" : ""}${Math.round(mkt)}%`;
                   return (
                     <div key={p.name_clean || idx}
                       onClick={() => openPlayerCard(p.name)}
                       style={{
-                        display: "flex", alignItems: "center", gap: 6, padding: "5px 12px",
+                        display: "flex", alignItems: "center", gap: 4, padding: "5px 10px",
                         borderLeft: isTop ? `3px solid ${C.gold}` : "3px solid transparent",
                         borderBottom: "1px solid rgba(255,255,255,0.06)", cursor: "pointer",
                       }}
                     >
                       <PlayerHeadshot name={p.name} position={pos} size={24} sleeperIdMap={sleeperIdMap} />
                       <div style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
-                        <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: isTop ? 700 : 500, color: isTop ? C.primary : C.secondary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block" }}>{p.name}</span>
+                        <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+                          <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: isTop ? 700 : 500, color: isTop ? C.primary : C.secondary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</span>
+                          {p.age && <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim, flexShrink: 0 }}>{p.age}</span>}
+                        </div>
                       </div>
-                      {p.age && <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim, flexShrink: 0 }}>{p.age}</span>}
-                      <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.gold, flexShrink: 0, minWidth: 38, textAlign: "right" }}>{fmt(Math.round(p.sha_value || 0))}</span>
-                      <span style={{ fontFamily: MONO, fontSize: 9, color: pc, flexShrink: 0, minWidth: 30, textAlign: "right" }}>{p.sha_pos_rank || ""}</span>
-                      {trendVal && <span style={{ fontFamily: MONO, fontSize: 8, color: trendColor, flexShrink: 0 }}>{trendVal}</span>}
+                      <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.gold, flexShrink: 0, width: 42, textAlign: "right" }}>{fmt(Math.round(p.sha_value || 0))}</span>
+                      <span style={{ fontFamily: MONO, fontSize: 9, color: pc, flexShrink: 0, width: 38, textAlign: "right" }}>{p.sha_pos_rank || ""}</span>
+                      <span style={{ fontFamily: MONO, fontSize: 8, flexShrink: 0, width: 32, textAlign: "right", color: trendColor }}>{trendVal || "—"}</span>
+                      <span style={{ fontFamily: MONO, fontSize: 8, flexShrink: 0, width: 36, textAlign: "right", color: mktColor, fontWeight: mkt != null ? 700 : 400 }}>{mktLabel}</span>
                     </div>
                   );
                 })}
