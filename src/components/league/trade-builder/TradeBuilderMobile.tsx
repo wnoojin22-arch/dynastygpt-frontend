@@ -29,11 +29,12 @@ const MODE_COLORS: Record<string, string> = {
 };
 
 const LOADING_MESSAGES = [
-  "Scanning league owners...",
-  "Analyzing 500K+ trade database...",
-  "Matching behavioral profiles...",
-  "Evaluating roster fits...",
+  "Scanning your roster...",
+  "Profiling your opponents...",
+  "Analyzing 500K+ trades...",
+  "Matching behavioral patterns...",
   "Building packages...",
+  "Finalizing suggestions...",
 ];
 
 /* ── helpers ── */
@@ -59,7 +60,7 @@ function LoadingSkeleton() {
   useEffect(() => {
     const interval = setInterval(() => {
       setMsgIndex((i) => (i + 1) % LOADING_MESSAGES.length);
-    }, 2200);
+    }, 5500);
     return () => clearInterval(interval);
   }, []);
 
