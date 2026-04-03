@@ -100,86 +100,27 @@ function Skel() {
    ═══════════════════════════════════════════════════════════════ */
 
 function RosterActionsTable({ cc }: { cc: Record<string, unknown> }) {
-  const router = useRouter();
-  const { currentLeagueSlug } = useLeagueStore();
-  const goToTrades = () => router.push(`/l/${currentLeagueSlug}/trades`);
-  const moveNow = (cc.move_now || []) as Array<Record<string, unknown>>;
-  const listen = (cc.listen || []) as Array<Record<string, unknown>>;
-  const hold = (cc.hold || []) as Array<Record<string, unknown>>;
   const buyLow = (cc.buy_low || []) as Array<Record<string, unknown>>;
 
-  const renderRow = (p: Record<string, unknown>, idx: number, isLast: boolean) => {
-    const pos = String(p.position || "");
-    const name = String(p.name || p.player || "");
-    const age = p.age != null ? String(p.age) : "";
-    const rank = posRankLabel(p);
-    const action = String(p.action || "");
-    const target = String(p.target || p.reason || "");
-    const gradeWithout = String(p.position_grade_without || "");
-
-    return (
-      <div key={`${action}-${idx}`} className={`flex items-center gap-2 px-3 py-2 hover:bg-elevated/50 transition-colors ${!isLast ? "border-b border-white/[0.06]" : ""}`}>
-        <span className={`font-sans text-[10px] font-bold text-center rounded px-1 py-0.5 shrink-0 ${posTagClasses(pos)}`}>{pos || "—"}</span>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5">
-            <PlayerName name={name} className="font-sans text-[12px] font-medium text-primary truncate" />
-            {age && <span className="font-sans text-[10px] text-dim shrink-0">{age}</span>}
-          </div>
-          {target && <span className="font-sans text-[10px] text-secondary truncate block">{target}</span>}
-        </div>
-        <span className={`font-sans text-[9px] font-bold text-center rounded-full px-1.5 py-0.5 border shrink-0 ${actionPillClasses(action)}`}>{action || "—"}</span>
-      </div>
-    );
-  };
-
-  const sections = [
-    { items: moveNow, label: "Sell", icon: <ArrowUpRight size={13} className="text-accent-red" />, colorClass: "bg-accent-red/[0.05] text-accent-red" },
-    { items: listen, label: "Listen", icon: <Eye size={13} className="text-accent-orange" />, colorClass: "bg-accent-orange/[0.05] text-accent-orange" },
-    { items: hold, label: "Hold", icon: <Shield size={13} className="text-accent-green" />, colorClass: "bg-accent-green/[0.05] text-accent-green" },
-  ];
+  if (!buyLow.length) return null;
 
   return (
     <div className="bg-card border border-border rounded-lg overflow-hidden">
-      {sections.map(({ items, label, icon, colorClass }) => items.length > 0 && (
-        <React.Fragment key={label}>
-          <div className={`flex items-center gap-2 px-3 py-1.5 border-b border-border ${colorClass.split(" ")[0]}`}>
-            {icon}
-            <span className={`font-sans text-[11px] font-semibold uppercase tracking-wider ${colorClass.split(" ")[1]}`}>{label}</span>
-            <span className="font-sans text-[11px] text-dim ml-auto">{items.length}</span>
-          </div>
-          {items.map((p, j) => renderRow(p, j, j === items.length - 1))}
-        </React.Fragment>
-      ))}
-
-      {!moveNow.length && !listen.length && !hold.length && (
-        <div className="px-4 py-8 text-center font-sans text-sm text-dim">No coaching recommendations available.</div>
-      )}
-
-      {/* Buy Low row */}
-      {buyLow.length > 0 && (
-        <>
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-gold/[0.05] border-y border-border">
-            <Target size={13} className="text-gold" />
-            <span className="font-sans text-[11px] font-semibold text-gold uppercase tracking-wider">Buy Low Targets</span>
-            <span className="font-sans text-[11px] text-dim ml-auto">{buyLow.length}</span>
-          </div>
-          {buyLow.map((p, j) => (
-            <div key={`buy-${j}`} className={`px-3 py-2 flex items-center gap-2 ${j < buyLow.length - 1 ? "border-b border-white/[0.06]" : ""}`}>
-              <span className={`font-sans text-[11px] font-bold shrink-0 min-w-[28px] text-center rounded px-1.5 py-0.5 ${posTagClasses(String(p.position || ""))}`}>{String(p.position || "—")}</span>
-              <PlayerName name={String(p.name || p.player || "—")} className="font-sans text-[13px] font-medium text-primary flex-1 truncate" />
-              {String(p.owner || "") !== "" && <span className="font-sans text-[11px] text-dim shrink-0">from {String(p.owner)}</span>}
-              {posRankLabel(p) && <span className="font-sans text-[11px] font-semibold text-secondary bg-elevated rounded-full px-1.5 py-0.5 border border-border-lt shrink-0">{posRankLabel(p)}</span>}
-            </div>
-          ))}
-        </>
-      )}
-
-      {/* Build Trade CTA */}
-      <div className="px-3 py-3 border-t border-border bg-elevated/50 flex items-center justify-end">
-        <button onClick={goToTrades} className="flex items-center gap-1.5 font-sans text-[12px] font-semibold text-gold bg-gold/10 hover:bg-gold/20 border border-gold/25 rounded-full px-4 py-1.5 transition-colors cursor-pointer">
-          Build a trade <ChevronRight size={13} />
-        </button>
+      <div className="flex items-center gap-2 px-3 py-1.5 bg-gold/[0.05] border-b border-border">
+        <Target size={13} className="text-gold" />
+        <span className="font-sans text-[11px] font-semibold text-gold uppercase tracking-wider">Buy Low Targets</span>
+        <span className="font-sans text-[11px] text-dim ml-auto">{buyLow.length}</span>
       </div>
+      {buyLow.map((p, j) => (
+        <div key={`buy-${j}`} className={`px-3 py-2 flex items-center gap-2 ${j < buyLow.length - 1 ? "border-b border-white/[0.06]" : ""}`}>
+          <span className={`font-sans text-[10px] font-bold shrink-0 rounded px-1 py-0.5 ${posTagClasses(String(p.position || ""))}`}>{String(p.position || "—")}</span>
+          <div className="min-w-0 flex-1">
+            <PlayerName name={String(p.name || p.player || "—")} className="font-sans text-[12px] font-medium text-primary truncate" />
+            {String(p.reason || "") && <span className="font-sans text-[10px] text-secondary truncate block">{String(p.reason)}</span>}
+          </div>
+          {String(p.current_owner || "") && <span className="font-sans text-[10px] text-dim shrink-0">{String(p.current_owner)}</span>}
+        </div>
+      ))}
     </div>
   );
 }
@@ -517,6 +458,151 @@ function CompetitiveLandscape({ data }: { data: Array<Record<string, unknown>> |
    SECTION 7: BUILD TRADE CTA
    ═══════════════════════════════════════════════════════════════ */
 
+/* ═══════════════════════════════════════════════════════════════
+   PICK INTEL — narrative + per-pick recommendations
+   ═══════════════════════════════════════════════════════════════ */
+
+function generatePickNarrative(
+  draftIntel: Record<string, unknown> | null,
+  window: string,
+  weakestPosition: string | null,
+): string {
+  const picks = (draftIntel?.current_picks || []) as Array<Record<string, unknown>>;
+  const hitRate = draftIntel?.hit_rate as number | undefined;
+  const roundEff = (draftIntel?.round_efficiency || []) as Array<Record<string, unknown>>;
+
+  if (!picks.length) {
+    const posStr = weakestPosition ? ` needing ${weakestPosition}` : "";
+    return `You have no picks on your roster. As a ${window.toLowerCase()} team${posStr}, target rebuilding teams — offer aging veterans or depth pieces to acquire early capital.`;
+  }
+
+  // Find best round by hit rate
+  const bestRound = roundEff.length > 0
+    ? roundEff.reduce((a, b) => ((a.hit_rate as number || 0) > (b.hit_rate as number || 0) ? a : b))
+    : null;
+  const bestRoundLabel = bestRound ? `Round ${bestRound.round}` : "early round";
+
+  if (hitRate != null && hitRate > 60) {
+    return `You draft well (${hitRate}% hit rate) — hold your picks and trust your process. Your ${bestRoundLabel} picks especially are valuable given your ${Math.round(bestRound?.hit_rate as number || hitRate)}% efficiency there.`;
+  }
+
+  if (hitRate != null && hitRate < 40) {
+    return `Your draft hit rate (${hitRate}%) suggests trading picks for proven production may serve you better. Consider packaging picks for established starters at your positions of need.`;
+  }
+
+  // Check if contender with only late picks
+  const hasEarly = picks.some(p => (p.round as number) <= 1);
+  if (window === "CONTENDER" && !hasEarly) {
+    return "Late picks don't move the needle for a contender. Shop them to rebuilders who need capital — package for a win-now upgrade at your weakest position.";
+  }
+
+  // Default
+  const pickCount = picks.length;
+  const rateStr = hitRate != null ? ` (${hitRate}% career hit rate)` : "";
+  return `You have ${pickCount} pick${pickCount > 1 ? "s" : ""} available${rateStr}. Evaluate each based on your competitive window and positional needs.`;
+}
+
+function getPickRecommendation(
+  pick: Record<string, unknown>,
+  roundEff: Array<Record<string, unknown>>,
+  window: string,
+): { pill: string; reason: string; pillClass: string } {
+  const round = pick.round as number;
+  const isOwn = pick.is_own as boolean;
+  const season = String(pick.season || "");
+  const value = (pick.value as number) || 0;
+
+  // Find hit rate for this round
+  const roundData = roundEff.find(r => r.round === round);
+  const roundHitRate = roundData ? (roundData.hit_rate as number || 0) : 50;
+
+  // Contender logic
+  if (window === "CONTENDER") {
+    if (round <= 1 && value >= 4000) {
+      return { pill: "HOLD", reason: `High-value asset (${Math.round(value).toLocaleString()}) — use to acquire a championship piece`, pillClass: "text-accent-green bg-accent-green/15 border-accent-green/30" };
+    }
+    if (round >= 3) {
+      return { pill: "SELL", reason: "Late picks are expendable for contenders — package for immediate help", pillClass: "text-accent-red bg-accent-red/15 border-accent-red/30" };
+    }
+    return { pill: "PACKAGE", reason: `${roundHitRate}% hit rate at Round ${round} — trade if it lands you a starter`, pillClass: "text-accent-orange bg-accent-orange/15 border-accent-orange/30" };
+  }
+
+  // Rebuilder logic
+  if (window === "REBUILDER") {
+    if (round <= 1) {
+      return { pill: "HOLD", reason: `Core rebuild asset — ${roundHitRate}% hit rate at Round ${round}`, pillClass: "text-accent-green bg-accent-green/15 border-accent-green/30" };
+    }
+    if (round === 2 && roundHitRate >= 40) {
+      return { pill: "HOLD", reason: `Round ${round} picks hit at ${roundHitRate}% — worth keeping`, pillClass: "text-accent-green bg-accent-green/15 border-accent-green/30" };
+    }
+    return { pill: "SELL", reason: `Round ${round} picks hit at ${roundHitRate}% — sell for better capital`, pillClass: "text-accent-red bg-accent-red/15 border-accent-red/30" };
+  }
+
+  // Balanced
+  if (round <= 1) {
+    return { pill: "HOLD", reason: `Premium pick — ${roundHitRate}% hit rate`, pillClass: "text-accent-green bg-accent-green/15 border-accent-green/30" };
+  }
+  return { pill: "EVALUATE", reason: `Round ${round} at ${roundHitRate}% hit rate — hold or trade based on need`, pillClass: "text-dim bg-elevated border-border-lt" };
+}
+
+function PickIntel({ cc }: { cc: Record<string, unknown> }) {
+  const draftIntel = cc.draft_intel as Record<string, unknown> | null;
+  const window = String(cc.owner_window || cc.window || "BALANCED");
+  const weakest = cc.weakest_position as string | null;
+
+  const picks = (draftIntel?.current_picks || []) as Array<Record<string, unknown>>;
+  const roundEff = (draftIntel?.round_efficiency || []) as Array<Record<string, unknown>>;
+  const narrative = generatePickNarrative(draftIntel, window, weakest);
+
+  return (
+    <div className="bg-card border border-border rounded-lg overflow-hidden">
+      <SectionHeader icon={<Sparkles size={13} className="text-gold" />} label="Pick Intel" />
+
+      {/* Narrative */}
+      <div className="px-3 py-2.5 border-b border-border">
+        <p className="font-sans text-[12px] text-secondary leading-relaxed">{narrative}</p>
+      </div>
+
+      {/* Per-pick rows */}
+      {picks.length > 0 ? picks.map((p, j) => {
+        const season = String(p.season || "");
+        const round = p.round as number;
+        const isOwn = p.is_own as boolean;
+        const origOwner = String(p.original_owner || "");
+        const value = (p.value as number) || 0;
+        const { pill, reason, pillClass } = getPickRecommendation(p, roundEff, window);
+
+        // Pick label
+        const pickLabel = `${season} Round ${round}`;
+        const ownerTag = isOwn ? "" : ` (${origOwner})`;
+
+        return (
+          <div key={`pick-${j}`} className={`flex items-center gap-2 px-3 py-2 ${j < picks.length - 1 ? "border-b border-white/[0.06]" : ""}`}>
+            {/* Pick badge */}
+            <span className={`font-sans text-[10px] font-bold rounded px-1.5 py-0.5 shrink-0 ${isOwn ? "text-gold bg-gold/10 border border-gold/25" : "text-[#b39ddb] bg-[#b39ddb]/10 border border-[#b39ddb]/25"}`}>
+              {pickLabel}
+            </span>
+            {/* Details */}
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5">
+                {ownerTag && <span className="font-sans text-[10px] text-dim">{ownerTag}</span>}
+                <span className="font-sans text-[10px] text-dim ml-auto">{Math.round(value).toLocaleString()} val</span>
+              </div>
+              <span className="font-sans text-[9px] text-secondary truncate block">{reason}</span>
+            </div>
+            {/* Recommendation pill */}
+            <span className={`font-sans text-[9px] font-bold rounded-full px-1.5 py-0.5 border shrink-0 ${pillClass}`}>{pill}</span>
+          </div>
+        );
+      }) : (
+        <div className="px-3 py-4 text-center font-sans text-[11px] text-dim">
+          No picks on roster — target rebuilding teams at your position of need
+        </div>
+      )}
+    </div>
+  );
+}
+
 function BuildTradeCTA() {
   const router = useRouter();
   const { currentLeagueSlug } = useLeagueStore();
@@ -560,27 +646,87 @@ export default function CoachesCorner({ leagueId, owner, ownerId }: { leagueId: 
     <div className="p-10 text-center font-sans text-sm text-dim">Coaches corner data unavailable.</div>
   );
 
+  const moveNow = (data.move_now || []) as Array<Record<string, unknown>>;
+  const holdPlayers = (data.hold || []) as Array<Record<string, unknown>>;
+  const listenPlayers = (data.listen || []) as Array<Record<string, unknown>>;
+  const sellAll = [...moveNow, ...listenPlayers];
+
   return (
     <div className="space-y-4">
-      {/* Row 1: Full width — Roster Actions */}
+      {/* Row 1: SELL (left) | HOLD (right) — side by side */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {/* SELL column */}
+        <div className="bg-card border border-border rounded-lg overflow-hidden">
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-accent-red/[0.05] border-b border-border">
+            <ArrowUpRight size={13} className="text-accent-red" />
+            <span className="font-sans text-[11px] font-semibold text-accent-red uppercase tracking-wider">Sell</span>
+            <span className="font-sans text-[11px] text-dim ml-auto">{sellAll.length}</span>
+          </div>
+          {sellAll.length > 0 ? sellAll.map((p, j) => {
+            const pos = String(p.position || "");
+            const name = String(p.name || p.player || "");
+            const age = p.age != null ? String(p.age) : "";
+            const reason = String(p.target || p.reason || "");
+            return (
+              <div key={`sell-${j}`} className={`flex items-center gap-2 px-3 py-2 ${j < sellAll.length - 1 ? "border-b border-white/[0.06]" : ""}`}>
+                <span className={`font-sans text-[10px] font-bold rounded px-1 py-0.5 shrink-0 ${posTagClasses(pos)}`}>{pos || "—"}</span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <PlayerName name={name} className="font-sans text-[12px] font-medium text-primary truncate" />
+                    {age && <span className="font-sans text-[10px] text-dim shrink-0">{age}</span>}
+                  </div>
+                  {reason && <span className="font-sans text-[10px] text-secondary truncate block">{reason}</span>}
+                </div>
+              </div>
+            );
+          }) : (
+            <div className="px-3 py-4 text-center font-sans text-[11px] text-dim">No sell candidates right now</div>
+          )}
+        </div>
+
+        {/* HOLD column */}
+        <div className="bg-card border border-border rounded-lg overflow-hidden">
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-accent-green/[0.05] border-b border-border">
+            <Shield size={13} className="text-accent-green" />
+            <span className="font-sans text-[11px] font-semibold text-accent-green uppercase tracking-wider">Hold</span>
+            <span className="font-sans text-[11px] text-dim ml-auto">{holdPlayers.length}</span>
+          </div>
+          {holdPlayers.length > 0 ? holdPlayers.map((p, j) => {
+            const pos = String(p.position || "");
+            const name = String(p.name || p.player || "");
+            const age = p.age != null ? String(p.age) : "";
+            const reason = String(p.reason || "");
+            return (
+              <div key={`hold-${j}`} className={`flex items-center gap-2 px-3 py-2 ${j < holdPlayers.length - 1 ? "border-b border-white/[0.06]" : ""}`}>
+                <span className={`font-sans text-[10px] font-bold rounded px-1 py-0.5 shrink-0 ${posTagClasses(pos)}`}>{pos || "—"}</span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <PlayerName name={name} className="font-sans text-[12px] font-medium text-primary truncate" />
+                    {age && <span className="font-sans text-[10px] text-dim shrink-0">{age}</span>}
+                  </div>
+                  {reason && <span className="font-sans text-[10px] text-secondary truncate block">{reason}</span>}
+                </div>
+              </div>
+            );
+          }) : (
+            <div className="px-3 py-4 text-center font-sans text-[11px] text-dim">No core assets identified</div>
+          )}
+        </div>
+      </div>
+
+      {/* Row 2: Buy Low Targets */}
       <RosterActionsTable cc={data} />
 
-      {/* Row 2: Position Grades + Draft Intel */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <PositionGrades cc={data} />
-        <DraftIntel data={data.draft_intel as Record<string, unknown> | null} />
-      </div>
+      {/* Row 3: Pick Intel */}
+      <PickIntel cc={data} />
 
-      {/* Row 3: Full width — Trade Partners */}
+      {/* Row 4: Trade Partners */}
       <TradePartners data={data.trade_partners as Record<string, unknown> | null} />
 
-      {/* Row 4: Lineup Efficiency + Competitive Landscape */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <LineupEfficiency data={data.lineup_efficiency as Record<string, unknown> | null} />
-        <CompetitiveLandscape data={data.competitive_landscape as Array<Record<string, unknown>> | null} />
-      </div>
+      {/* Row 5: Lineup Efficiency */}
+      <LineupEfficiency data={data.lineup_efficiency as Record<string, unknown> | null} />
 
-      {/* Row 5: Full width — Build Trade CTA */}
+      {/* Row 6: Build Trade CTA */}
       <BuildTradeCTA />
     </div>
   );
