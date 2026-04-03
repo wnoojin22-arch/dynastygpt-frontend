@@ -361,31 +361,26 @@ function DynastyScoreCard({ lid, owner, ownerId }: { lid: string; owner: string;
           </span>
         </div>
 
-        {/* Score body */}
-        <div style={{ padding: "10px 14px 8px" }}>
-          {/* Left: league rank — Right: global rank */}
-          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
-            {/* Left side */}
-            <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
-              <span style={{ fontFamily: DISPLAY, fontSize: 20, fontWeight: 900, color: C.gold, lineHeight: 1 }}>
-                #{leagueRank || "—"}
-              </span>
-              <span style={{ fontFamily: DISPLAY, fontSize: 14, letterSpacing: "-0.3px", background: `linear-gradient(180deg, ${C.goldBright}, ${C.gold}, ${C.goldDark})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-                {leagueName || "League"}
-              </span>
+        {/* Score body — two rank boxes side by side */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, padding: "10px 12px 8px" }}>
+          {/* League rank */}
+          <div style={{ textAlign: "center", padding: "6px 8px", borderRadius: 6, background: C.elevated, border: `1px solid ${C.border}` }}>
+            <div style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, letterSpacing: "0.10em", color: C.dim, marginBottom: 3 }}>LEAGUE RANK</div>
+            <span style={{ fontFamily: DISPLAY, fontSize: 22, fontWeight: 900, color: C.gold, lineHeight: 1 }}>
+              #{leagueRank || "—"}
+            </span>
+            <div style={{ fontFamily: MONO, fontSize: 9, color: C.secondary, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {leagueName || "League"}
             </div>
-            {/* Right side */}
-            <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
-              <span style={{ fontFamily: DISPLAY, fontSize: 20, fontWeight: 900, color: C.gold, lineHeight: 1 }}>
-                #{globalRank?.toLocaleString() || "—"}
-              </span>
-              <span style={{ fontFamily: DISPLAY, fontSize: 14, letterSpacing: "-0.3px", background: `linear-gradient(180deg, ${C.goldBright}, ${C.gold}, ${C.goldDark})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-                DynastyGPT
-              </span>
-              <span style={{ color: C.dim, fontSize: 11 }}>·</span>
-              <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 600, color: C.secondary }}>
-                Top {topPct ?? "—"}% of {globalManagers?.toLocaleString() ?? "—"}
-              </span>
+          </div>
+          {/* Global rank */}
+          <div style={{ textAlign: "center", padding: "6px 8px", borderRadius: 6, background: C.elevated, border: `1px solid ${C.border}` }}>
+            <div style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, letterSpacing: "0.10em", color: C.dim, marginBottom: 3 }}>GLOBAL RANK</div>
+            <span style={{ fontFamily: DISPLAY, fontSize: 22, fontWeight: 900, color: C.gold, lineHeight: 1 }}>
+              #{globalRank?.toLocaleString() || "—"}
+            </span>
+            <div style={{ fontFamily: MONO, fontSize: 9, color: C.secondary, marginTop: 2 }}>
+              Top {topPct ?? "—"}% of {globalManagers?.toLocaleString() ?? "—"}
             </div>
           </div>
         </div>
