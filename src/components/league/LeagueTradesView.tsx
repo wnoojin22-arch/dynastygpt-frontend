@@ -229,44 +229,52 @@ export default function LeagueTradesView({ leagueId }: { leagueId: string }) {
               <div key={t.trade_id}
                 onClick={() => setReportTradeId(t.trade_id)}
                 style={{
-                  padding: mobile ? "8px 8px" : "8px 12px", borderBottom: `1px solid ${C.white08}`,
+                  padding: mobile ? "10px 10px" : "12px 16px", borderBottom: `1px solid ${C.white08}`,
                   borderLeft: `3px solid ${vs?.color || "transparent"}`,
                   cursor: "pointer",
                 }}>
-                {/* Top: date + dual verdict badges */}
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-                  <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.dim }}>{t.date?.slice(0, 10)}</span>
-                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                    {/* Primary: hindsight verdict */}
+                {/* Row 1: Date · Owners · Grades */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: mobile ? 6 : 8 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: mobile ? 6 : 8, minWidth: 0 }}>
+                    <span style={{ fontFamily: MONO, fontSize: mobile ? 9 : 10, fontWeight: 700, color: C.dim, flexShrink: 0 }}>{t.date?.slice(0, 10)}</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 4, minWidth: 0 }}>
+                      <span style={{ fontFamily: SANS, fontSize: mobile ? 11 : 13, fontWeight: 700, color: C.primary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.owner}</span>
+                      {aLetter && <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: aColor, padding: "1px 4px", borderRadius: 2, background: `${aColor}15`, flexShrink: 0 }}>{aLetter}</span>}
+                      <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>⇄</span>
+                      <span style={{ fontFamily: SANS, fontSize: mobile ? 11 : 13, fontWeight: 700, color: C.secondary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.counter_party}</span>
+                      {bLetter && <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: bColor, padding: "1px 4px", borderRadius: 2, background: `${bColor}15`, flexShrink: 0 }}>{bLetter}</span>}
+                    </div>
+                  </div>
+                  {/* Grade badges */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
                     {(() => {
                       const h = hindsightLabel(t.date, t.is_championship_trade || false, t.hindsight_verdict);
-                      return <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, letterSpacing: "0.04em", color: h.color, background: h.color === C.dim ? C.elevated : `${h.color}15`, padding: "2px 6px", borderRadius: 3, border: h.color === C.dim ? `1px solid ${C.border}` : `1px solid ${h.color}30` }}>{h.label}</span>;
+                      const isPending = h.color === C.dim;
+                      return (
+                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
+                          <span style={{ fontFamily: MONO, fontSize: 7, fontWeight: 700, letterSpacing: "0.06em", color: isPending ? C.dim : h.color }}>HINDSIGHT</span>
+                          <span style={{ fontFamily: MONO, fontSize: mobile ? 9 : 10, fontWeight: 800, color: h.color, padding: "2px 8px", borderRadius: 3, background: isPending ? C.elevated : `${h.color}15`, border: `1px solid ${isPending ? C.border : `${h.color}30`}`, lineHeight: 1 }}>{h.label}</span>
+                        </div>
+                      );
                     })()}
-                    {/* Secondary: trade day PIT verdict */}
-                    {vs && <span style={{ fontFamily: MONO, fontSize: 7, fontWeight: 700, letterSpacing: "0.04em", color: C.dim, padding: "1px 5px", borderRadius: 2, background: C.elevated }}>TD: {vs.label}</span>}
+                    {vs && (
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
+                        <span style={{ fontFamily: MONO, fontSize: 7, fontWeight: 700, letterSpacing: "0.06em", color: C.dim }}>TRADE DAY</span>
+                        <span style={{ fontFamily: MONO, fontSize: mobile ? 9 : 10, fontWeight: 800, color: vs.color, padding: "2px 8px", borderRadius: 3, background: vs.bg, lineHeight: 1 }}>{vs.label}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
-                {/* Two sides */}
-                <div style={{ display: "flex", gap: mobile ? 6 : 8 }}>
-                  {/* Side A */}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 2 }}>
-                      <div style={{ width: mobile ? 16 : 20, height: mobile ? 16 : 20, borderRadius: "50%", background: `${aColor}15`, border: `1.5px solid ${aColor}35`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: mobile ? 7 : 8, fontWeight: 900, color: aColor, flexShrink: 0 }}>{t.owner[0]}</div>
-                      <span style={{ fontFamily: SANS, fontSize: mobile ? 11 : 12, fontWeight: 700, color: C.primary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.owner}</span>
-                      {aLetter ? <span style={{ fontFamily: DISPLAY, fontSize: mobile ? 9 : 10, fontWeight: 900, color: aColor, padding: "1px 4px", borderRadius: 2, background: `${aColor}15`, flexShrink: 0 }}>{aLetter}</span> : null}
-                    </div>
-                    <div style={{ fontFamily: SANS, fontSize: mobile ? 9 : 10, color: C.dim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", paddingLeft: mobile ? 20 : 24 }}><InlineAssets players={t.players_sent} picks={t.picks_sent} /></div>
+                {/* Row 2: Assets exchanged */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: mobile ? 6 : 10, alignItems: "start" }}>
+                  <div>
+                    <div style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, color: C.dim, letterSpacing: "0.06em", marginBottom: 2 }}>{t.owner.split(" ")[0].toUpperCase()} GAVE</div>
+                    <div style={{ fontFamily: SANS, fontSize: mobile ? 10 : 11, color: C.secondary, lineHeight: 1.5 }}><InlineAssets players={t.players_sent} picks={t.picks_sent} /></div>
                   </div>
-                  {/* Divider */}
-                  <div style={{ width: 1, background: C.border, alignSelf: "stretch", flexShrink: 0 }} />
-                  {/* Side B */}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 2 }}>
-                      <div style={{ width: mobile ? 16 : 20, height: mobile ? 16 : 20, borderRadius: "50%", background: `${bColor}15`, border: `1.5px solid ${bColor}35`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: mobile ? 7 : 8, fontWeight: 900, color: bColor, flexShrink: 0 }}>{t.counter_party[0]}</div>
-                      <span style={{ fontFamily: SANS, fontSize: mobile ? 11 : 12, fontWeight: 700, color: C.primary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.counter_party}</span>
-                      {bLetter ? <span style={{ fontFamily: DISPLAY, fontSize: mobile ? 9 : 10, fontWeight: 900, color: bColor, padding: "1px 4px", borderRadius: 2, background: `${bColor}15`, flexShrink: 0 }}>{bLetter}</span> : null}
-                    </div>
-                    <div style={{ fontFamily: SANS, fontSize: mobile ? 9 : 10, color: C.dim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", paddingLeft: mobile ? 20 : 24 }}><InlineAssets players={t.players_received} picks={t.picks_received} /></div>
+                  <div style={{ display: "flex", alignItems: "center", paddingTop: 12 }}><span style={{ fontFamily: MONO, fontSize: 12, color: `${C.gold}40` }}>⇄</span></div>
+                  <div>
+                    <div style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, color: C.dim, letterSpacing: "0.06em", marginBottom: 2 }}>{t.counter_party.split(" ")[0].toUpperCase()} GAVE</div>
+                    <div style={{ fontFamily: SANS, fontSize: mobile ? 10 : 11, color: C.secondary, lineHeight: 1.5 }}><InlineAssets players={t.players_received} picks={t.picks_received} /></div>
                   </div>
                 </div>
               </div>
