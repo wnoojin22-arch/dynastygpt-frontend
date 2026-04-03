@@ -435,21 +435,6 @@ function LeagueReportTab({ lid, seasons, owner }: { lid: string; seasons: any[];
       .map(([pos, s]) => ({ pos, ...s, rate: s.total > 0 ? Math.round(s.hits / s.total * 100) : 0 }))
       .sort((a, b) => b.total - a.total);
 
-    // Draft power rankings (by user_id)
-    const _uidName: Record<string, string> = {};
-    for (const p of allPicks) { if (p.owner_user_id && p.owner) _uidName[p.owner_user_id] = p.owner; }
-    const ownerHR: Record<string, { total: number; hits: number; name: string }> = {};
-    for (const p of allPicks) {
-      const key = p.owner_user_id || p.owner || "?";
-      const name = p.owner_user_id ? (_uidName[p.owner_user_id] || p.owner || "?") : (p.owner || "?");
-      if (!ownerHR[key]) ownerHR[key] = { total: 0, hits: 0, name };
-      ownerHR[key].total++; ownerHR[key].name = name;
-      if (p.label === "Star" || p.label === "Hit") ownerHR[key].hits++;
-    }
-    const ownerRanked = Object.entries(ownerHR).filter(([, s]) => s.total >= 5)
-      .map(([, s]) => ({ name: s.name, total: s.total, hits: s.hits, rate: Math.round(s.hits / s.total * 100) }))
-      .sort((a, b) => b.rate - a.rate);
-
     // League records
     const mvp = [...allPicks].sort((a, b) => (b.current_value || 0) - (a.current_value || 0))[0];
     const biggestBust = allPicks.filter(p => p.label === "Bust" && p.round <= 2).sort((a, b) => a.round - b.round || a.slot - b.slot)[0];
@@ -457,7 +442,7 @@ function LeagueReportTab({ lid, seasons, owner }: { lid: string; seasons: any[];
     for (const p of allPicks) if (p.label === "Star") starsBySeason[p._season] = (starsBySeason[p._season] || 0) + 1;
     const bestDraftClass = Object.entries(starsBySeason).sort((a, b) => b[1] - a[1])[0];
 
-    return { total, stars, hits: hitCount, busts, hitRate, posStats, ownerRanked, mvp, biggestBust, bestDraftClass };
+    return { total, stars, hits: hitCount, busts, hitRate, posStats, mvp, biggestBust, bestDraftClass };
   }, [allPicks]);
 
   return (
@@ -509,23 +494,6 @@ function LeagueReportTab({ lid, seasons, owner }: { lid: string; seasons: any[];
       </DCard>
 
       {/* Expandable pills */}
-      <Pill title="DRAFT POWER RANKINGS" color={C.gold}>
-        {stats.ownerRanked.slice(0, 8).map((o, idx) => {
-          const isMe = o.name.toLowerCase() === owner.toLowerCase();
-          return (
-            <div key={o.name} style={{
-              display: "flex", alignItems: "center", gap: 8, padding: "5px 0",
-              borderBottom: idx < stats.ownerRanked.length - 1 ? `1px solid ${C.white08}` : "none",
-            }}>
-              <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: idx === 0 ? C.gold : C.dim, width: 20 }}>#{idx + 1}</span>
-              <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: isMe ? 700 : 500, color: isMe ? C.gold : C.primary, flex: 1 }}>{o.name}</span>
-              <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: hrColor(o.rate) }}>{o.rate}%</span>
-              <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>{o.hits}/{o.total}</span>
-            </div>
-          );
-        })}
-      </Pill>
-
       <Pill title="DRAFT CLASS GRADES" color={C.green}>
         {grades?.seasons?.slice(0, 5).map((s: any) => (
           <div key={s.season} style={{ marginBottom: 10 }}>
