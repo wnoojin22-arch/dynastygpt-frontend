@@ -390,18 +390,25 @@ function DynastyScoreCard({ lid, owner, ownerId }: { lid: string; owner: string;
           </div>
         </div>
 
-        {/* Bottom border with "View Full Report" breaking the line */}
+        {/* CTA to expand full scouting card */}
         <div
           onClick={() => setExpanded(!expanded)}
-          style={{ display: "flex", alignItems: "center", cursor: "pointer", userSelect: "none", padding: "0 12px" }}
-          onMouseEnter={(e) => { e.currentTarget.querySelector("span")!.style.opacity = "0.7"; }}
-          onMouseLeave={(e) => { e.currentTarget.querySelector("span")!.style.opacity = "1"; }}
+          style={{
+            display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: "pointer", userSelect: "none",
+            padding: "8px 12px", margin: "0 12px 10px",
+            borderRadius: 6, transition: "all 0.2s",
+            background: expanded ? "transparent" : `linear-gradient(135deg, ${C.goldDark}, ${C.gold}20)`,
+            border: `1px solid ${expanded ? C.goldBorder : C.gold}40`,
+          }}
         >
-          <div style={{ flex: 1, height: 1, background: C.goldBorder }} />
-          <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: "0.08em", color: C.gold, padding: "0 10px", textShadow: `0 0 10px ${C.gold}30`, whiteSpace: "nowrap" }}>
-            {expanded ? "HIDE ▴" : "VIEW FULL REPORT ▾"}
+          <span style={{
+            fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.10em",
+            color: C.gold,
+            textShadow: expanded ? "none" : `0 0 12px ${C.gold}50`,
+          }}>
+            {expanded ? "HIDE REPORT ▴" : "TAP TO SEE YOUR DYNASTYGPT CARD ▾"}
           </span>
-          <div style={{ flex: 1, height: 1, background: C.goldBorder }} />
         </div>
 
           {/* Expanded content — compact, fits one screen */}
