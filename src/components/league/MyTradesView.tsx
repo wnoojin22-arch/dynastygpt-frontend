@@ -8,6 +8,7 @@ import LeagueTradesView from "./LeagueTradesView";
 import TradeReportModal from "./TradeReportModal";
 import type { GradedTrade, TradeChain } from "@/lib/types";
 import PlayerName from "./PlayerName";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 /* ═══════════════════════════════════════════════════════════════
    TOKENS — matched to Shadynasty
@@ -139,6 +140,7 @@ const TRADE_CSS = `
    COMPONENT
    ═══════════════════════════════════════════════════════════════ */
 export default function MyTradesView({ leagueId, owner: ownerProp, ownerId }: { leagueId: string; owner: string | null; ownerId?: string | null }) {
+  const mobile = useIsMobile();
   const [mainTab, setMainTab] = useState<'log' | 'league'>('log');
   const [historyTab, setHistoryTab] = useState<'log' | 'profile'>('log');
   const [reportTradeId, setReportTradeId] = useState<string | null>(null);
@@ -180,26 +182,29 @@ export default function MyTradesView({ leagueId, owner: ownerProp, ownerId }: { 
   // ── OUTER TAB BAR: MY TRADES | LEAGUE LOG ──
   // Always render this so user can switch views
   const outerTabs = (
-    <div style={{ display: 'flex', gap: 0, borderBottom: `1px solid ${C.borderLt}`, marginBottom: 0 }}>
-      {([
-        { id: 'log' as const, label: 'MY TRADES' },
-        { id: 'league' as const, label: 'LEAGUE LOG' },
-      ]).map(tab => {
-        const active = mainTab === tab.id;
-        return (
-          <div key={tab.id} onClick={() => setMainTab(tab.id)} style={{
-            padding: '10px 28px', fontFamily: SANS, fontSize: 15, fontWeight: 800,
-            letterSpacing: '0.12em', color: active ? C.gold : '#9CA3AF', cursor: 'pointer',
-            borderBottom: active ? `3px solid ${C.gold}` : '3px solid transparent',
-            boxShadow: active ? `0 3px 12px ${C.gold}40, 0 1px 4px ${C.gold}25` : 'none',
-            transition: 'all 0.2s ease',
-          }}>
-            {tab.label}
-          </div>
-        );
-      })}
-      {/* Owner picker — always visible */}
-      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', paddingRight: 14 }}>
+    <div style={{ display: 'flex', flexDirection: mobile ? 'column' : 'row', gap: 0, borderBottom: `1px solid ${C.borderLt}`, marginBottom: 0 }}>
+      <div style={{ display: 'flex', gap: 0 }}>
+        {([
+          { id: 'log' as const, label: 'MY TRADES' },
+          { id: 'league' as const, label: 'LEAGUE LOG' },
+        ]).map(tab => {
+          const active = mainTab === tab.id;
+          return (
+            <div key={tab.id} onClick={() => setMainTab(tab.id)} style={{
+              padding: mobile ? '8px 16px' : '10px 28px',
+              fontFamily: SANS, fontSize: mobile ? 12 : 15, fontWeight: 800,
+              letterSpacing: '0.12em', color: active ? C.gold : '#9CA3AF', cursor: 'pointer',
+              borderBottom: active ? `3px solid ${C.gold}` : '3px solid transparent',
+              boxShadow: active ? `0 3px 12px ${C.gold}40, 0 1px 4px ${C.gold}25` : 'none',
+              transition: 'all 0.2s ease',
+            }}>
+              {tab.label}
+            </div>
+          );
+        })}
+      </div>
+      {/* Owner picker */}
+      <div style={{ marginLeft: mobile ? 0 : 'auto', display: 'flex', alignItems: 'center', padding: mobile ? '6px 10px' : '0 14px 0 0' }}>
         <select
           value={owner || ''}
           onChange={(e) => {
@@ -211,6 +216,7 @@ export default function MyTradesView({ leagueId, owner: ownerProp, ownerId }: { 
             fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: '6px 12px',
             borderRadius: 4, background: C.elevated, color: owner ? C.gold : C.dim,
             border: `1px solid ${owner ? C.goldBorder : C.border}`, cursor: 'pointer',
+            width: mobile ? '100%' : 'auto',
           }}
         >
           <option value="" style={{ background: C.card }}>Select Owner</option>
@@ -376,7 +382,7 @@ export default function MyTradesView({ leagueId, owner: ownerProp, ownerId }: { 
            Exact Shadynasty layout (page.tsx lines 1302-1432)
            ═══════════════════════════════════════════════════════════ */}
       {graded > 0 && (
-        <div style={{ marginBottom: 10, display: 'grid', gridTemplateColumns: '140px 1fr 1fr', gap: 8 }}>
+        <div style={{ marginBottom: 10, display: 'grid', gridTemplateColumns: mobile ? '1fr 1fr' : '140px 1fr 1fr', gap: 8 }}>
 
           {/* HINDSIGHT CARD */}
           <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
@@ -489,7 +495,7 @@ export default function MyTradesView({ leagueId, owner: ownerProp, ownerId }: { 
            TAB BAR — TRADE LOG | TRADER PROFILE
            Exact Shadynasty (page.tsx lines 1436-1463)
            ═══════════════════════════════════════════════════════════ */}
-      <div style={{ display: 'flex', gap: 0, borderBottom: `1px solid ${C.borderLt}`, marginBottom: 14 }}>
+      <div style={{ display: 'flex', gap: 0, borderBottom: `1px solid ${C.borderLt}`, marginBottom: mobile ? 10 : 14 }}>
         {([
           { id: 'log' as const, label: 'TRADE LOG' },
           { id: 'profile' as const, label: 'TRADER PROFILE' },
@@ -499,8 +505,8 @@ export default function MyTradesView({ leagueId, owner: ownerProp, ownerId }: { 
             <div key={tab.id}
               onClick={() => setHistoryTab(tab.id)}
               style={{
-                padding: '10px 28px',
-                fontFamily: SANS, fontSize: 15, fontWeight: 800, letterSpacing: '0.12em',
+                padding: mobile ? '8px 16px' : '10px 28px',
+                fontFamily: SANS, fontSize: mobile ? 12 : 15, fontWeight: 800, letterSpacing: '0.12em',
                 color: active ? C.gold : '#9CA3AF',
                 cursor: 'pointer',
                 borderBottom: active ? `3px solid ${C.gold}` : '3px solid transparent',
@@ -560,7 +566,7 @@ export default function MyTradesView({ leagueId, owner: ownerProp, ownerId }: { 
                     className="tl2-card"
                     onClick={() => setReportTradeId(t.trade_id)}
                     style={{
-                      padding: '12px 16px 12px 20px',
+                      padding: mobile ? '10px 10px 10px 14px' : '12px 16px 12px 20px',
                       borderBottom: `1px solid ${C.white08}`,
                       borderLeftColor: _verdict ? vc : 'transparent',
                       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -573,34 +579,66 @@ export default function MyTradesView({ leagueId, owner: ownerProp, ownerId }: { 
                     <div className="tl2-scan" style={{ background: `linear-gradient(90deg, transparent, ${vc}40, transparent)` }} />
                     {/* Content */}
                     <div style={{ position: 'relative', zIndex: 2 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                        <span className="tl2-date" style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.dim, transition: 'color 0.2s' }}>{dateStr}</span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                          <div style={{ width: 20, height: 20, borderRadius: '50%', background: `${vc}15`, border: `1.5px solid ${vc}35`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: MONO, fontSize: 9, fontWeight: 900, color: vc, flexShrink: 0 }}>{(partner || '?')[0]}</div>
-                          <span className="tl2-partner" style={{ fontFamily: SANS, fontSize: 13, fontWeight: 700, color: C.primary, cursor: 'pointer', transition: 'color 0.2s' }}
-                            onClick={(e) => { e.stopPropagation(); setPartnerFilter(partnerFilter === partner ? 'all' : partner); }}>
-                            w/ {partner}
-                          </span>
-                        </div>
-                        <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim, margin: '0 2px' }}>·</span>
-                        <span style={{ fontFamily: SANS, fontSize: 12, color: C.secondary, fontWeight: 500, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          <span style={{ color: `${C.red}cc` }}>Gave</span>{' '}<AssetList players={t.players_sent} picks={t.picks_sent} /> <span style={{ color: C.dim, margin: '0 4px' }}>→</span> <span style={{ color: `${C.green}cc` }}>Got</span>{' '}<AssetList players={t.players_received} picks={t.picks_received} />
-                        </span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                          {_myLetter ? (
-                            <>
-                              {_myVerdict && <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 600, color: _vs.color, letterSpacing: '0.04em', lineHeight: 1 }}>{_myVerdict}</span>}
-                              <span style={{ fontFamily: DISPLAY, fontSize: 16, fontWeight: 900, color: gc, padding: '4px 12px', borderRadius: 6, background: `${gc}15`, border: `1px solid ${gc}30`, flexShrink: 0, boxShadow: `0 0 12px ${gc}20`, lineHeight: 1, letterSpacing: '0.02em' }}>{_myLetter}</span>
-                            </>
-                          ) : (
-                            <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.dim, padding: '4px 8px', borderRadius: 4, background: C.elevated, border: `1px solid ${C.border}`, letterSpacing: '0.06em' }}>NO GRADE</span>
-                          )}
-                        </div>
-                      </div>
-                      {/* Hover CTA */}
-                      <div className="tl2-cta" style={{ borderTop: `1px solid ${vc}20`, textAlign: 'center' }}>
-                        <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: '0.18em', color: vc, textShadow: `0 0 20px ${vc}60` }}>VIEW TRADE REPORT</span>
-                      </div>
+                      {mobile ? (
+                        <>
+                          {/* Mobile: stacked layout */}
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.dim }}>{dateStr}</span>
+                              <div style={{ width: 18, height: 18, borderRadius: '50%', background: `${vc}15`, border: `1.5px solid ${vc}35`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: MONO, fontSize: 8, fontWeight: 900, color: vc, flexShrink: 0 }}>{(partner || '?')[0]}</div>
+                              <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 700, color: C.primary }}
+                                onClick={(e) => { e.stopPropagation(); setPartnerFilter(partnerFilter === partner ? 'all' : partner); }}>
+                                {partner}
+                              </span>
+                            </div>
+                            {_myLetter ? (
+                              <span style={{ fontFamily: DISPLAY, fontSize: 14, fontWeight: 900, color: gc, padding: '3px 10px', borderRadius: 5, background: `${gc}15`, border: `1px solid ${gc}30`, boxShadow: `0 0 8px ${gc}20`, lineHeight: 1 }}>{_myLetter}</span>
+                            ) : (
+                              <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, color: C.dim, padding: '3px 6px', borderRadius: 3, background: C.elevated }}>—</span>
+                            )}
+                          </div>
+                          <div style={{ display: 'flex', gap: 4, fontFamily: SANS, fontSize: 11, lineHeight: 1.4 }}>
+                            <span style={{ color: C.red, fontWeight: 600, flexShrink: 0 }}>Gave</span>
+                            <span style={{ color: C.secondary, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}><AssetList players={t.players_sent} picks={t.picks_sent} /></span>
+                          </div>
+                          <div style={{ display: 'flex', gap: 4, fontFamily: SANS, fontSize: 11, lineHeight: 1.4, marginTop: 2 }}>
+                            <span style={{ color: C.green, fontWeight: 600, flexShrink: 0 }}>Got</span>
+                            <span style={{ color: C.primary, fontWeight: 600, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}><AssetList players={t.players_received} picks={t.picks_received} /></span>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          {/* Desktop: single-row layout */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                            <span className="tl2-date" style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.dim, transition: 'color 0.2s' }}>{dateStr}</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                              <div style={{ width: 20, height: 20, borderRadius: '50%', background: `${vc}15`, border: `1.5px solid ${vc}35`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: MONO, fontSize: 9, fontWeight: 900, color: vc, flexShrink: 0 }}>{(partner || '?')[0]}</div>
+                              <span className="tl2-partner" style={{ fontFamily: SANS, fontSize: 13, fontWeight: 700, color: C.primary, cursor: 'pointer', transition: 'color 0.2s' }}
+                                onClick={(e) => { e.stopPropagation(); setPartnerFilter(partnerFilter === partner ? 'all' : partner); }}>
+                                w/ {partner}
+                              </span>
+                            </div>
+                            <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim, margin: '0 2px' }}>·</span>
+                            <span style={{ fontFamily: SANS, fontSize: 12, color: C.secondary, fontWeight: 500, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              <span style={{ color: `${C.red}cc` }}>Gave</span>{' '}<AssetList players={t.players_sent} picks={t.picks_sent} /> <span style={{ color: C.dim, margin: '0 4px' }}>→</span> <span style={{ color: `${C.green}cc` }}>Got</span>{' '}<AssetList players={t.players_received} picks={t.picks_received} />
+                            </span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                              {_myLetter ? (
+                                <>
+                                  {_myVerdict && <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 600, color: _vs.color, letterSpacing: '0.04em', lineHeight: 1 }}>{_myVerdict}</span>}
+                                  <span style={{ fontFamily: DISPLAY, fontSize: 16, fontWeight: 900, color: gc, padding: '4px 12px', borderRadius: 6, background: `${gc}15`, border: `1px solid ${gc}30`, flexShrink: 0, boxShadow: `0 0 12px ${gc}20`, lineHeight: 1, letterSpacing: '0.02em' }}>{_myLetter}</span>
+                                </>
+                              ) : (
+                                <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.dim, padding: '4px 8px', borderRadius: 4, background: C.elevated, border: `1px solid ${C.border}`, letterSpacing: '0.06em' }}>NO GRADE</span>
+                              )}
+                            </div>
+                          </div>
+                          {/* Hover CTA */}
+                          <div className="tl2-cta" style={{ borderTop: `1px solid ${vc}20`, textAlign: 'center' }}>
+                            <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: '0.18em', color: vc, textShadow: `0 0 20px ${vc}60` }}>VIEW TRADE REPORT</span>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                 );
@@ -626,8 +664,8 @@ export default function MyTradesView({ leagueId, owner: ownerProp, ownerId }: { 
                     : null);
                   return (
                     <div key={i} style={{
-                      padding: '8px 14px', borderBottom: `1px solid ${C.white08}`,
-                      display: 'grid', gridTemplateColumns: '140px 1fr 30px 1fr 80px', alignItems: 'center', gap: 8,
+                      padding: mobile ? '8px 10px' : '8px 14px', borderBottom: `1px solid ${C.white08}`,
+                      display: 'grid', gridTemplateColumns: mobile ? '1fr' : '140px 1fr 30px 1fr 80px', alignItems: 'center', gap: mobile ? 4 : 8,
                     }}>
                       <div>
                         <PlayerName name={ch.player} style={{ fontFamily: SANS, fontSize: 14, fontWeight: 700, color: C.primary }} />
@@ -738,7 +776,7 @@ export default function MyTradesView({ leagueId, owner: ownerProp, ownerId }: { 
                 <div style={{ fontFamily: DISPLAY, fontSize: 18, color: C.gold }}>{String(arch.emoji || '📦')} {String(arch.title || 'UNKNOWN')}</div>
                 {arch.description ? <p style={{ fontFamily: SANS, fontSize: 13, color: C.secondary, marginTop: 4 }}>{String(arch.description)}</p> : null}
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 0 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: mobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 0 }}>
                 {/* Win Rate Ring */}
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px 12px', borderRight: `1px solid ${C.border}` }}>
                   <svg width="100" height="100" viewBox="0 0 120 120" style={{ marginBottom: 6 }}>
@@ -783,7 +821,7 @@ export default function MyTradesView({ leagueId, owner: ownerProp, ownerId }: { 
             </div>
 
             {/* ═══ 3-column: Position Flow | Activity | Partners ═══ */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: mobile ? '1fr' : '1fr 1fr 1fr', gap: 12 }}>
 
               {/* POSITION FLOW */}
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: 'hidden' }}>
