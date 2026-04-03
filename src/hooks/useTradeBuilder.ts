@@ -355,8 +355,13 @@ export function useTradeBuilder({
         let data: Record<string, unknown> | null = null;
         for (let attempt = 0; attempt < 30; attempt++) {
           await new Promise((r) => setTimeout(r, 2000));
-          const pollRes = await fetch(`${API}/api/league/${leagueId}/v2/trade-engine/status/${job_id}`);
-          if (!pollRes.ok) { setError("Poll failed"); setSuggestLoading(false); return; }
+          const pollRes = await fetch(`${API}/api/league/${leagueId}/v2/trade-engine/status/${job_id}`, { cache: "no-store" });
+          if (!pollRes.ok) {
+            if (pollRes.status === 404 && attempt < 3) continue; // job may not be registered yet
+            setError(`Poll failed (${pollRes.status})`);
+            setSuggestLoading(false);
+            return;
+          }
           const poll = await pollRes.json();
           if (poll.status === "complete" || poll.packages) {
             data = poll.packages ? poll : poll;
