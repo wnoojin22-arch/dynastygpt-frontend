@@ -323,7 +323,8 @@ export function useTradeBuilder({
         const targetAsset = (body.i_receive as string[])?.[0] || undefined;
         const findPosition = (body.find_position as string) || undefined;
 
-        const res = await fetch(
+        // Step 1: Fire async job
+        const startRes = await fetch(
           `${API}/api/league/${leagueId}/v2/trade-engine/generate`,
           {
             method: "POST",
@@ -339,15 +340,36 @@ export function useTradeBuilder({
             }),
           },
         );
-        if (!res.ok) {
-          const text = await res.text();
+        if (!startRes.ok) {
+          const text = await startRes.text();
           let msg = "Failed";
           try { const j = JSON.parse(text); msg = j.error || j.detail || msg; } catch { msg = text.slice(0, 120) || msg; }
           setError(msg);
           setSuggestLoading(false);
           return;
         }
-        const data = await res.json();
+        const { job_id } = await startRes.json();
+        if (!job_id) { setError("No job ID returned"); setSuggestLoading(false); return; }
+
+        // Step 2: Poll for result
+        let data: Record<string, unknown> | null = null;
+        for (let attempt = 0; attempt < 30; attempt++) {
+          await new Promise((r) => setTimeout(r, 2000));
+          const pollRes = await fetch(`${API}/api/league/${leagueId}/v2/trade-engine/status/${job_id}`);
+          if (!pollRes.ok) { setError("Poll failed"); setSuggestLoading(false); return; }
+          const poll = await pollRes.json();
+          if (poll.status === "complete" || poll.packages) {
+            data = poll.packages ? poll : poll;
+            break;
+          }
+          if (poll.status === "error") {
+            setError(poll.error || "Trade engine failed");
+            setSuggestLoading(false);
+            return;
+          }
+          // Still processing — continue polling
+        }
+        if (!data) { setError("Timed out waiting for suggestions"); setSuggestLoading(false); return; }
 
         const mapAsset = (a: Record<string, unknown>) => ({
           ...a,
@@ -364,7 +386,7 @@ export function useTradeBuilder({
         });
 
         const packages: SuggestedPackage[] = (
-          data.packages || []
+          (data as Record<string, unknown>).packages as Array<Record<string, unknown>> || []
         ).map((p: Record<string, unknown>) => {
           const give = ((p.give || []) as Array<Record<string, unknown>>).map(mapAsset);
           const receive = ((p.receive || []) as Array<Record<string, unknown>>).map(mapAsset);

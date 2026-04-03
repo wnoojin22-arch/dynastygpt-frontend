@@ -21,6 +21,27 @@ interface Trade {
   side_a_owner?: string | null; side_b_owner?: string | null;
   side_a_score?: number | null; side_b_score?: number | null;
   side_a_letter?: string | null; side_b_letter?: string | null;
+  hindsight_verdict?: string | null; hindsight_score?: number | null;
+  hindsight_confidence?: string | null; is_championship_trade?: boolean;
+}
+
+function isHindsightDisplayable(dateStr: string | null | undefined, isChamp: boolean): boolean {
+  if (isChamp) return true;
+  if (!dateStr) return false;
+  const days = (Date.now() - new Date(dateStr).getTime()) / (1000 * 60 * 60 * 24);
+  return days >= 548;
+}
+
+function hindsightLabel(dateStr: string | null | undefined, isChamp: boolean, verdict: string | null | undefined): { label: string; color: string } {
+  if (isHindsightDisplayable(dateStr, isChamp)) {
+    const v = verdict || "—";
+    const vs = getVerdictStyle(v);
+    return { label: vs?.label || v, color: vs?.color || C.dim };
+  }
+  if (!dateStr) return { label: "Pending", color: C.dim };
+  const days = (Date.now() - new Date(dateStr).getTime()) / (1000 * 60 * 60 * 24);
+  if (days >= 365) return { label: "Too Soon", color: C.dim };
+  return { label: "Pending", color: C.dim };
 }
 
 function letterFromVerdict(v: string | null | undefined): string {
@@ -212,11 +233,18 @@ export default function LeagueTradesView({ leagueId }: { leagueId: string }) {
                   borderLeft: `3px solid ${vs?.color || "transparent"}`,
                   cursor: "pointer",
                 }}>
-                {/* Top: date + verdict */}
+                {/* Top: date + dual verdict badges */}
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
                   <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.dim }}>{t.date?.slice(0, 10)}</span>
-                  {vs ? <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, letterSpacing: "0.04em", color: vs.color, background: vs.bg, padding: "2px 6px", borderRadius: 3 }}>{vs.label}</span>
-                      : !hasGrade && <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, color: C.dim, padding: "2px 6px", borderRadius: 3, background: C.elevated }}>NO GRADE</span>}
+                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    {/* Primary: hindsight verdict */}
+                    {(() => {
+                      const h = hindsightLabel(t.date, t.is_championship_trade || false, t.hindsight_verdict);
+                      return <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, letterSpacing: "0.04em", color: h.color, background: h.color === C.dim ? C.elevated : `${h.color}15`, padding: "2px 6px", borderRadius: 3, border: h.color === C.dim ? `1px solid ${C.border}` : `1px solid ${h.color}30` }}>{h.label}</span>;
+                    })()}
+                    {/* Secondary: trade day PIT verdict */}
+                    {vs && <span style={{ fontFamily: MONO, fontSize: 7, fontWeight: 700, letterSpacing: "0.04em", color: C.dim, padding: "1px 5px", borderRadius: 2, background: C.elevated }}>TD: {vs.label}</span>}
+                  </div>
                 </div>
                 {/* Two sides */}
                 <div style={{ display: "flex", gap: mobile ? 6 : 8 }}>

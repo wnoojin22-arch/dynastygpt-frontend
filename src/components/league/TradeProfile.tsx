@@ -81,6 +81,25 @@ function verdictColor(v: string | null): { color: string; bg: string } {
   return { color: "#9596a5", bg: "rgba(149,150,165,0.10)" };
 }
 
+function isHindsightDisplayable(dateStr: string | null, isChamp: boolean): boolean {
+  if (isChamp) return true;
+  if (!dateStr) return false;
+  const days = (Date.now() - new Date(dateStr).getTime()) / (1000 * 60 * 60 * 24);
+  return days >= 548;
+}
+
+function hindsightLabel(dateStr: string | null, isChamp: boolean, verdict: string | null | undefined): { label: string; color: string } {
+  if (isHindsightDisplayable(dateStr, isChamp)) {
+    const v = verdict || "—";
+    const vc = verdictColor(v);
+    return { label: v, color: vc.color };
+  }
+  if (!dateStr) return { label: "Pending", color: "#9596a5" };
+  const days = (Date.now() - new Date(dateStr).getTime()) / (1000 * 60 * 60 * 24);
+  if (days >= 365) return { label: "Too Soon", color: "#9596a5" };
+  return { label: "Pending", color: "#9596a5" };
+}
+
 function formatDate(d: string | null): string {
   if (!d) return "—";
   const dt = new Date(d);
@@ -811,19 +830,19 @@ export default function TradeProfile({ ownerName, profile }: {
           <div className="max-h-[400px] overflow-y-auto">
             {filteredTrades.slice(0, showAllTrades ? undefined : 10).map((t: any, i: number) => {
               const vc = verdictColor(t.verdict);
+              const hl = hindsightLabel(t.date, t.is_championship_trade || false, t.hindsight_verdict);
               return (
                 <div key={`${t.trade_id}-${i}`} className="px-4 py-3 border-b border-white/[0.04] hover:bg-elevated/40 transition-colors"
-                  style={{ borderLeft: `3px solid ${vc.color}` }}>
+                  style={{ borderLeft: `3px solid ${hl.color === "#9596a5" ? vc.color : hl.color}` }}>
                   <div className="flex items-center justify-between mb-1.5">
                     <div className="flex items-center gap-2">
                       <span className="font-sans text-[10px] text-dim">{formatDate(t.date)}</span>
-                      {t.verdict && (
-                        <span className="font-sans text-[9px] font-bold px-1.5 py-0.5 rounded"
-                          style={{ color: vc.color, background: vc.bg }}>{t.verdict}</span>
-                      )}
+                      {/* Primary: hindsight verdict */}
+                      <span className="font-sans text-[9px] font-bold px-1.5 py-0.5 rounded"
+                        style={{ color: hl.color, background: hl.color === "#9596a5" ? "rgba(149,150,165,0.10)" : `${hl.color}15`, border: `1px solid ${hl.color === "#9596a5" ? "rgba(149,150,165,0.20)" : `${hl.color}30`}` }}>{hl.label}</span>
+                      {/* Secondary: trade day PIT */}
                       {t.letter && (
-                        <span className="font-sans text-[9px] font-bold px-1.5 py-0.5 rounded"
-                          style={{ color: gradeColor(t.letter), background: `${gradeColor(t.letter)}15` }}>{t.letter}</span>
+                        <span className="font-sans text-[7px] font-semibold px-1 py-0.5 rounded" style={{ color: "#9596a5", background: "rgba(149,150,165,0.10)" }}>TD: {t.letter}</span>
                       )}
                     </div>
                     <span className="font-sans text-[11px] text-secondary">vs {t.partner}</span>

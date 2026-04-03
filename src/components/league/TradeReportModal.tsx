@@ -172,6 +172,23 @@ function FullReport({reportData,hindsightData,onClose}:{reportData:any;hindsight
       <div><div style={{fontFamily:MONO,fontSize:8,color:C.green,fontWeight:800,letterSpacing:'0.08em',marginBottom:3}}>{ownerA} GOT</div><div style={{fontFamily:SANS,fontSize:12,color:C.primary,fontWeight:600,lineHeight:1.4}}>{aRaw}</div></div>
     </div>
 
+    {/* GRADE SUMMARY — both grades side by side */}
+    <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:24,padding:'10px 24px',borderBottom:`1px solid ${C.border}`,background:C.card}}>
+      <div style={{display:'flex',alignItems:'center',gap:8}}>
+        <span style={{fontFamily:MONO,fontSize:8,fontWeight:800,letterSpacing:'0.08em',color:'#5eead4'}}>TRADE DAY</span>
+        <GradeCircle score={tdA.score||50} size={32}/>
+        <span style={{fontFamily:MONO,fontSize:10,color:C.dim}}>vs</span>
+        <GradeCircle score={tdB.score||50} size={32}/>
+      </div>
+      {hasHindsight&&<div style={{width:1,height:24,background:C.border}}/>}
+      {hasHindsight&&<div style={{display:'flex',alignItems:'center',gap:8}}>
+        <span style={{fontFamily:MONO,fontSize:8,fontWeight:800,letterSpacing:'0.08em',color:C.gold}}>HINDSIGHT</span>
+        <GradeCircle score={hA.score||0} size={32}/>
+        <span style={{fontFamily:MONO,fontSize:10,color:C.dim}}>vs</span>
+        <GradeCircle score={hB.score||0} size={32}/>
+      </div>}
+    </div>
+
     {/* TABS */}
     <div style={{display:'flex',borderBottom:`1px solid ${C.border}`}}>
       {(['grade','details'] as const).map(t=>(
@@ -197,7 +214,10 @@ function FullReport({reportData,hindsightData,onClose}:{reportData:any;hindsight
           <div key={idx}>
             {/* Grade + verdict */}
             <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10}}>
-              <GradeCircle score={side.td.score||50} size={44}/>
+              <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:2}}>
+                <span style={{fontFamily:MONO,fontSize:7,fontWeight:800,letterSpacing:'0.08em',color:'#5eead4'}}>TRADE DAY</span>
+                <GradeCircle score={side.td.score||50} size={44}/>
+              </div>
               <div>
                 <div style={{fontFamily:MONO,fontSize:9,fontWeight:800,letterSpacing:'0.10em',color:'#5eead4',marginBottom:3}}>{side.label.toUpperCase()} RECEIVES</div>
                 {(()=>{const v=side.td.verdict||'No Data';const vs=getVerdictStyle(v);return <span style={{fontFamily:MONO,fontSize:11,fontWeight:800,color:vs.color,padding:'2px 8px',borderRadius:3,background:vs.bg,border:`1px solid ${vs.border}`}}>{v}</span>;})()}
@@ -235,7 +255,10 @@ function FullReport({reportData,hindsightData,onClose}:{reportData:any;hindsight
           <div key={idx}>
             {/* Grade + verdict */}
             <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10}}>
-              <GradeCircle score={side.h.score||0} size={44}/>
+              <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:2}}>
+                <span style={{fontFamily:MONO,fontSize:7,fontWeight:800,letterSpacing:'0.08em',color:C.gold}}>HINDSIGHT</span>
+                <GradeCircle score={side.h.score||0} size={44}/>
+              </div>
               <div>
                 <div style={{fontFamily:MONO,fontSize:9,fontWeight:800,letterSpacing:'0.10em',color:C.gold,marginBottom:3}}>{side.label.toUpperCase()}&apos;S SIDE</div>
                 {(()=>{const v=side.h.verdict||'—';const vs=getVerdictStyle(v);return <span style={{fontFamily:MONO,fontSize:11,fontWeight:800,color:vs.color,padding:'2px 8px',borderRadius:3,background:vs.bg,border:`1px solid ${vs.border}`}}>{v}</span>;})()}

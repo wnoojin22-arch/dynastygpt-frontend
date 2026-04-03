@@ -232,6 +232,10 @@ export interface GradedTrade {
   side_b_score: number | null;
   side_a_letter: string | null;
   side_b_letter: string | null;
+  hindsight_verdict: string | null;
+  hindsight_score: number | null;
+  hindsight_confidence: string | null;
+  is_championship_trade: boolean;
 }
 
 export interface TradeGradeResponse {
