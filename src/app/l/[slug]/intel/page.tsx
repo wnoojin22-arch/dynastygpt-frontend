@@ -4,8 +4,6 @@ import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useLeagueStore } from "@/lib/stores/league-store";
 import { FranchiseIntel } from "@/components/league";
 import OpponentsGrid from "@/components/league/OpponentsGrid";
-import DraftRoom from "@/components/league/DraftRoom";
-
 const TABS = [
   { id: "my-franchise", label: "My franchise" },
   { id: "opponents", label: "Opponents" },
@@ -19,7 +17,13 @@ export default function IntelPage() {
   const { currentLeagueId: lid, currentOwner: owner, currentOwnerId } = useLeagueStore();
   const activeTab = searchParams.get("tab") || "my-franchise";
 
+  const slug = pathname.split("/")[2]; // /l/[slug]/intel
+
   const setTab = (tab: string) => {
+    if (tab === "draft") {
+      router.push(`/l/${slug}/draft`);
+      return;
+    }
     const params = new URLSearchParams(searchParams.toString());
     if (tab === "my-franchise") {
       params.delete("tab");
@@ -66,7 +70,6 @@ export default function IntelPage() {
           )
         )}
         {activeTab === "opponents" && <OpponentsGrid />}
-        {activeTab === "draft" && <DraftRoom />}
       </div>
     </div>
   );

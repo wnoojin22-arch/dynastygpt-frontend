@@ -1,16 +1,16 @@
 "use client";
 
-import React, { use, useState } from "react";
+import React, { use, useState, useEffect } from "react";
+import { useRouter, usePathname } from "next/navigation";
 import { useLeagueStore } from "@/lib/stores/league-store";
 import { useQuery } from "@tanstack/react-query";
 import {
   getOwnerProfile, getRivalries, getOwnerRecord, getChampionships,
-  getOwnerNeeds, getRoster, getGradedTradesByOwner, getDraftHistory, getDraftAnalysis,
+  getOwnerNeeds, getRoster, getGradedTradesByOwner,
   getOwners,
 } from "@/lib/api";
 import { ScoutingReport, RivalsView, TradeReportModal } from "@/components/league";
 import { TradeAssetList } from "@/components/league/TradeAssets";
-import DraftRoom from "@/components/league/DraftRoom";
 import TradeProfile from "@/components/league/TradeProfile";
 import { C, SANS, MONO, DISPLAY, SERIF, fmt, posColor, getVerdictStyle, gradeColor } from "@/components/league/tokens";
 import type { RosterPlayer } from "@/lib/types";
@@ -59,7 +59,19 @@ export default function OwnerDetailPage({ params }: { params: Promise<{ owner: s
   const { owner: ownerParam } = use(params);
   const ownerName = decodeURIComponent(ownerParam);
   const { currentLeagueId: lid } = useLeagueStore();
+  const router = useRouter();
+  const pathname = usePathname();
   const [tab, setTab] = useState<TabId>("overview");
+
+  // Redirect draft tab to unified draft page
+  const handleTab = (t: TabId) => {
+    if (t === "draft") {
+      const slug = pathname.split("/")[2];
+      router.push(`/l/${slug}/draft`);
+      return;
+    }
+    setTab(t);
+  };
   const [reportTradeId, setReportTradeId] = useState<string | null>(null);
 
   // Look up userId for this owner from the owners list
@@ -72,8 +84,6 @@ export default function OwnerDetailPage({ params }: { params: Promise<{ owner: s
   const { data: needs } = useQuery({ queryKey: ["needs", lid, ownerName], queryFn: () => getOwnerNeeds(lid!, ownerName, ownerUserId), enabled: !!lid });
   const { data: roster } = useQuery({ queryKey: ["roster", lid, ownerName], queryFn: () => getRoster(lid!, ownerName, ownerUserId), enabled: !!lid });
   const { data: graded } = useQuery({ queryKey: ["graded-owner", lid, ownerName], queryFn: () => getGradedTradesByOwner(lid!, ownerName, ownerUserId), enabled: !!lid && (tab === "trades" || tab === "overview") });
-  const { data: draft } = useQuery({ queryKey: ["draft-history", lid], queryFn: () => getDraftHistory(lid!), enabled: !!lid && tab === "draft" });
-  const { data: draftAnalysis } = useQuery({ queryKey: ["draft-analysis", lid, ownerName], queryFn: () => getDraftAnalysis(lid!, ownerName, ownerUserId), enabled: !!lid && tab === "draft" });
 
   if (!lid) return <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}><p style={{ fontFamily: MONO, fontSize: 13, color: C.dim }}>No league loaded</p></div>;
 
@@ -102,7 +112,7 @@ export default function OwnerDetailPage({ params }: { params: Promise<{ owner: s
       {/* ── TAB BAR ── */}
       <div style={{ display: "flex", gap: 0, borderBottom: `1px solid ${C.borderLt}` }}>
         {TABS.map((tb) => (
-          <div key={tb.id} onClick={() => setTab(tb.id)} style={{
+          <div key={tb.id} onClick={() => handleTab(tb.id)} style={{
             padding: "8px 16px", fontFamily: MONO, fontSize: 10, fontWeight: 800,
             letterSpacing: "0.10em", color: tab === tb.id ? C.gold : C.dim, cursor: "pointer",
             borderBottom: tab === tb.id ? `3px solid ${C.gold}` : "3px solid transparent",
@@ -187,11 +197,6 @@ export default function OwnerDetailPage({ params }: { params: Promise<{ owner: s
       {/* TRADE PROFILE */}
       {tab === "trades" && profile && (
         <TradeProfile ownerName={ownerName} profile={profile as Record<string, unknown>} />
-      )}
-
-      {/* DRAFT ROOM */}
-      {tab === "draft" && lid && (
-        <DraftRoom />
       )}
 
       {/* ROSTER */}

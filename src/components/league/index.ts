@@ -8,5 +8,4 @@ export { default as LeagueTradesView } from "./LeagueTradesView";
 export { TradeAssetList, AssetBadge } from "./TradeAssets";
 export { default as PlayerName } from "./PlayerName";
 export { default as PlayerCardModal } from "./PlayerCardModal";
-export { default as DraftRoom } from "./DraftRoom";
 export { C, SANS, MONO, DISPLAY, SERIF, fmt, posColor, getVerdictStyle, gradeColor, leaguePrefix } from "./tokens";
