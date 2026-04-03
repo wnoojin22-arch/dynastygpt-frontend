@@ -640,20 +640,33 @@ export default function MyTradesView({ leagueId, owner: ownerProp, ownerId }: { 
                             {mobile ? partner : `w/ ${partner}`}
                           </span>
                         </div>
-                        {/* Grade badges — right side */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                          {/* Hindsight (primary) */}
+                        {/* Grade badges — right side, stacked */}
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
+                          {/* Trade Day (top) */}
                           {(() => {
-                            const h = hindsightLabel(t.date, t.is_championship_trade || false, t.hindsight_verdict);
-                            const isPending = h.color === C.dim;
+                            const td = mapVerdict(_myVerdict);
+                            const tdc = td ? verdictColor(td) : C.dim;
                             return (
                               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-                                <span style={{ fontFamily: MONO, fontSize: 7, fontWeight: 700, letterSpacing: '0.06em', color: isPending ? C.dim : h.color }}>HINDSIGHT</span>
-                                <span style={{ fontFamily: MONO, fontSize: mobile ? 10 : 11, fontWeight: 800, color: h.color, padding: '3px 10px', borderRadius: 4, background: isPending ? C.elevated : `${h.color}15`, border: `1px solid ${isPending ? C.border : `${h.color}30`}`, lineHeight: 1 }}>{h.label}</span>
+                                <span style={{ fontFamily: MONO, fontSize: 7, fontWeight: 700, letterSpacing: '0.06em', color: C.dim }}>TRADE DAY</span>
+                                <span style={{ fontFamily: MONO, fontSize: mobile ? 10 : 11, fontWeight: 800, color: tdc, padding: '3px 10px', borderRadius: 4, background: td ? `${tdc}15` : C.elevated, border: `1px solid ${td ? `${tdc}30` : C.border}`, lineHeight: 1 }}>{td || '—'}</span>
                               </div>
                             );
                           })()}
-
+                          {/* Hindsight (bottom) — use API hindsight_status, not client date check */}
+                          {(() => {
+                            const isConfirmed = t.hindsight_status === 'confirmed';
+                            const hv = isConfirmed ? mapVerdict(t.hindsight_verdict) : '';
+                            const hc = hv ? verdictColor(hv) : C.dim;
+                            const label = isConfirmed && hv ? hv : 'Pending';
+                            const isPending = !isConfirmed || !hv;
+                            return (
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                                <span style={{ fontFamily: MONO, fontSize: 7, fontWeight: 700, letterSpacing: '0.06em', color: isPending ? C.dim : hc }}>HINDSIGHT</span>
+                                <span style={{ fontFamily: MONO, fontSize: mobile ? 10 : 11, fontWeight: 800, color: isPending ? C.dim : hc, padding: '3px 10px', borderRadius: 4, background: isPending ? C.elevated : `${hc}15`, border: `1px solid ${isPending ? C.border : `${hc}30`}`, lineHeight: 1 }}>{label}</span>
+                              </div>
+                            );
+                          })()}
                         </div>
                       </div>
                       {/* Row 2: Gave → Got */}

@@ -235,6 +235,8 @@ export interface GradedTrade {
   hindsight_verdict: string | null;
   hindsight_score: number | null;
   hindsight_confidence: string | null;
+  hindsight_status: string | null;
+  hindsight_label: string | null;
   is_championship_trade: boolean;
 }
 
