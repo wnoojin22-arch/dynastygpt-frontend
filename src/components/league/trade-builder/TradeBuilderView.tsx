@@ -8,7 +8,8 @@
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useTradeBuilder } from "@/hooks/useTradeBuilder";
 import TradeBuilderDesktop from "./TradeBuilderDesktop";
-import TradeBuilderMobile from "./TradeBuilderMobile";
+import TradeBuilderProvider from "./TradeBuilderProvider";
+import TradeBuilderUnified from "./TradeBuilderUnified";
 
 export default function TradeBuilderView({
   leagueId,
@@ -23,7 +24,11 @@ export default function TradeBuilderView({
   const tb = useTradeBuilder({ leagueId, owner, ownerId });
 
   if (isMobile) {
-    return <TradeBuilderMobile tb={tb} leagueId={leagueId} owner={owner} />;
+    return (
+      <TradeBuilderProvider leagueId={leagueId} owner={owner} ownerId={ownerId}>
+        <TradeBuilderUnified />
+      </TradeBuilderProvider>
+    );
   }
 
   return <TradeBuilderDesktop tb={tb} leagueId={leagueId} owner={owner} />;
