@@ -14,6 +14,7 @@ import { useLeagueStore } from "@/lib/stores/league-store";
 import { getAllRosters } from "@/lib/api";
 import AnalyzeModal from "./AnalyzeModal";
 import { C, SANS, MONO, DISPLAY, fmt, posColor } from "../tokens";
+import SwipeStack from "./SwipeStack";
 
 // ── Position badge ───────────────────────────────────────────────────────
 
@@ -392,53 +393,17 @@ export default function TradeBuilderUnified() {
             </div>
           </div>
 
-          {/* Suggestion results */}
+          {/* Suggestion results — swipeable cards */}
           {tb.suggestedPkgs.length > 0 && (
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.gold, letterSpacing: "0.08em", marginBottom: 8 }}>
-                AI SUGGESTIONS ({tb.suggestedPkgs.length})
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {tb.suggestedPkgs.map((pkg, i) => {
-                  const giveNames = pkg.i_give_names || pkg.i_give?.map((a: { name: string }) => a.name) || [];
-                  const recvNames = pkg.i_receive_names || pkg.i_receive?.map((a: { name: string }) => a.name) || [];
-                  const accPct = pkg.acceptance_likelihood || 0;
-                  const accCol = accPct >= 70 ? C.green : accPct >= 50 ? C.gold : accPct >= 30 ? C.orange : C.red;
-                  return (
-                    <button
-                      key={i}
-                      onClick={() => ctx.loadPackage(pkg)}
-                      style={{
-                        width: "100%", padding: "12px 14px", borderRadius: 10, cursor: "pointer",
-                        background: C.card, border: `1px solid ${C.border}`,
-                        textAlign: "left", transition: "border-color 0.15s",
-                      }}
-                    >
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                        <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.primary }}>
-                          {pkg.partner}
-                        </span>
-                        <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: accCol }}>
-                          {accPct}%
-                        </span>
-                      </div>
-                      <div style={{ fontFamily: SANS, fontSize: 12, color: C.red, marginBottom: 2 }}>
-                        Send: {giveNames.slice(0, 3).join(", ")}
-                      </div>
-                      <div style={{ fontFamily: SANS, fontSize: 12, color: C.green, marginBottom: 6 }}>
-                        Get: {recvNames.slice(0, 3).join(", ")}
-                      </div>
-                      <div style={{
-                        fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: "0.06em",
-                        color: C.gold, background: C.goldDim, padding: "3px 8px", borderRadius: 4,
-                        display: "inline-block",
-                      }}>
-                        TAP TO BUILD →
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
+            <div style={{ flex: 1, minHeight: 0, position: "relative" }}>
+              <SwipeStack
+                packages={tb.suggestedPkgs}
+                leagueId={leagueId}
+                owner={tb.partner || ""}
+                onSwipeRight={(pkg) => ctx.loadPackage(pkg)}
+                onSwipeLeft={() => {}}
+                onComplete={() => {}}
+              />
             </div>
           )}
         </div>
