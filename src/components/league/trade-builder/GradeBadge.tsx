@@ -2,8 +2,8 @@
 
 import { C, MONO, DISPLAY, gradeColor } from "../tokens";
 
-export default function GradeBadge({ grade, score, verdict, large }: {
-  grade: string; score: number; verdict?: string; large?: boolean;
+export default function GradeBadge({ grade, score, verdict, large, secondaryLabel }: {
+  grade: string; score: number; verdict?: string; large?: boolean; secondaryLabel?: string;
 }) {
   const color = gradeColor(grade);
   const size = large ? 72 : 48;
@@ -27,6 +27,9 @@ export default function GradeBadge({ grade, score, verdict, large }: {
       </div>
       {large && verdict && (
         <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.06em", color, textAlign: "center" }}>{verdict}</span>
+      )}
+      {secondaryLabel && (
+        <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 600, letterSpacing: "0.04em", color: C.dim, textAlign: "center" }}>{secondaryLabel}</span>
       )}
     </div>
   );
