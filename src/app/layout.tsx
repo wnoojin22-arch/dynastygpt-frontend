@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 // import { ClerkProvider } from "@clerk/nextjs"; // Bypassed for local dev
+import { Analytics } from "@vercel/analytics/next";
 import { Providers } from "@/lib/providers";
 import "./globals.css";
 
@@ -25,6 +26,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </head>
         <body className="min-h-screen bg-bg text-primary font-sans antialiased">
           <Providers>{children}</Providers>
+          <Analytics />
         </body>
       </html>
     </>
