@@ -141,25 +141,24 @@ export default function PlayerCardModal() {
           >
             <style>{`
               .player-card-modal {
-                bottom: 0; left: 0; right: 0; height: 92vh; max-height: 92vh; border-radius: 16px 16px 0 0;
+                bottom: 16px; left: 16px; right: 16px; max-height: 85vh; border-radius: 16px;
               }
               @media (min-width: 640px) {
                 .player-card-modal {
                   bottom: auto; left: 50%; right: auto; top: 50%;
                   transform: translate(-50%, -50%) !important;
-                  width: 520px; height: auto; max-height: 85vh; border-radius: 12px;
+                  width: 480px; max-height: 85vh; border-radius: 16px;
                 }
               }
               @keyframes pulse-gold{0%,100%{opacity:1}50%{opacity:.3}}
             `}</style>
 
-            {/* Drag handle */}
-            <div style={{ display: "flex", justifyContent: "center", padding: "8px 0 4px", flexShrink: 0 }}>
-              <div style={{ width: 36, height: 4, borderRadius: 2, background: C.borderLt }} />
-            </div>
-
-            {/* ── Top bar — branding + close ── */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 10, padding: "8px 12px 0", flexShrink: 0 }}>
+            {/* ── Top bar — branding + close (STICKY, doesn't scroll away) ── */}
+            <div style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              padding: "10px 12px", flexShrink: 0, position: "sticky", top: 0,
+              background: C.panel, zIndex: 10, borderBottom: `1px solid ${C.border}`,
+            }}>
               <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "3px 10px", borderRadius: 14, border: `1px solid ${C.goldBorder}`, background: C.goldGlow }}>
                 <span style={{ fontSize: 7, fontWeight: 600, color: C.gold, fontFamily: SANS, fontStyle: "italic" }}>powered by</span>
                 <span style={{ fontSize: 10, fontWeight: 900, color: C.primary, fontFamily: SANS }}>DynastyGPT<span style={{ color: C.gold }}>.com</span></span>
@@ -168,13 +167,13 @@ export default function PlayerCardModal() {
                 style={{ background: C.elevated, border: `1px solid ${C.border}`, borderRadius: 8, cursor: "pointer", padding: "6px 8px", color: C.dim, fontSize: 14, lineHeight: 1, flexShrink: 0 }}>✕</button>
             </div>
 
-            {/* ── Header — Sleeper headshot + bio ── */}
-            <div style={{ padding: "8px 20px 16px", display: "flex", alignItems: "center", gap: 16, borderBottom: `1px solid ${C.border}` }}>
+            {/* ── Header — Sleeper headshot + bio (compact on mobile) ── */}
+            <div style={{ padding: "8px 16px 10px", display: "flex", alignItems: "center", gap: 12, borderBottom: `1px solid ${C.border}` }}>
               {/* Headshot from Sleeper CDN, falls back to initials */}
               <div style={{
-                width: 68, height: 68, borderRadius: "50%", flexShrink: 0,
+                width: 48, height: 48, borderRadius: "50%", flexShrink: 0,
                 overflow: "hidden", position: "relative",
-                background: `${posCol}15`, border: `3px solid ${posCol}40`,
+                background: `${posCol}15`, border: `2px solid ${posCol}40`,
                 display: "flex", alignItems: "center", justifyContent: "center",
               }}>
                 {pc?.sleeper_id && !imgError ? (
@@ -185,21 +184,21 @@ export default function PlayerCardModal() {
                     style={{ width: "100%", height: "100%", objectFit: "cover" }}
                   />
                 ) : (
-                  <span style={{ fontFamily: DISPLAY, fontSize: 22, color: posCol, letterSpacing: "0.02em" }}>
+                  <span style={{ fontFamily: DISPLAY, fontSize: 18, color: posCol, letterSpacing: "0.02em" }}>
                     {initials}
                   </span>
                 )}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontFamily: SANS, fontSize: 20, fontWeight: 700, color: C.primary, lineHeight: 1.2 }}>
+                <div style={{ fontFamily: SANS, fontSize: 17, fontWeight: 700, color: C.primary, lineHeight: 1.2 }}>
                   {pc?.player || playerName}
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 5, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3, flexWrap: "wrap" }}>
                   {pc && (
                     <>
-                      <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: posCol, background: `${posCol}18`, padding: "3px 8px", borderRadius: 4 }}>{pc.position}</span>
-                      <span style={{ fontFamily: SANS, fontSize: 14, color: C.secondary }}>{pc.team || "FA"}</span>
-                      {pc.age != null && <span style={{ fontFamily: MONO, fontSize: 13, color: C.dim }}>Age {pc.age}</span>}
+                      <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: posCol, background: `${posCol}18`, padding: "2px 6px", borderRadius: 3 }}>{pc.position}</span>
+                      <span style={{ fontFamily: SANS, fontSize: 12, color: C.secondary }}>{pc.team || "FA"}</span>
+                      {pc.age != null && <span style={{ fontFamily: MONO, fontSize: 11, color: C.dim }}>Age {pc.age}</span>}
                     </>
                   )}
                 </div>
