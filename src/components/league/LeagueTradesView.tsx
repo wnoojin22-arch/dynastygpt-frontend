@@ -44,6 +44,23 @@ function hindsightLabel(dateStr: string | null | undefined, isChamp: boolean, ve
   return { label: "Pending", color: C.dim };
 }
 
+function mapVerdict(v: string | null | undefined): string {
+  if (!v) return "";
+  const lo = v.toLowerCase();
+  if (lo === "robbery" || lo === "victim") return "ROBBERY";
+  if (lo === "won" || lo === "slight edge") return "WON";
+  if (lo === "lost" || lo === "slight loss") return "LOST";
+  if (lo === "win-win" || lo === "push" || lo === "both lost") return "EVEN";
+  return "";
+}
+function verdictColor(label: string): string {
+  if (label === "WON") return "#7dd3a0";
+  if (label === "LOST") return "#e47272";
+  if (label === "ROBBERY") return "#ff4444";
+  if (label === "EVEN") return "#b0b2c8";
+  return "#9596a5";
+}
+
 function letterFromVerdict(v: string | null | undefined): string {
   if (!v) return "";
   const lo = v.toLowerCase();
@@ -239,10 +256,8 @@ export default function LeagueTradesView({ leagueId }: { leagueId: string }) {
                     <span style={{ fontFamily: MONO, fontSize: mobile ? 9 : 10, fontWeight: 700, color: C.dim, flexShrink: 0 }}>{t.date?.slice(0, 10)}</span>
                     <div style={{ display: "flex", alignItems: "center", gap: 4, minWidth: 0 }}>
                       <span style={{ fontFamily: SANS, fontSize: mobile ? 11 : 13, fontWeight: 700, color: C.primary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.owner}</span>
-                      {aLetter && <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: aColor, padding: "1px 4px", borderRadius: 2, background: `${aColor}15`, flexShrink: 0 }}>{aLetter}</span>}
                       <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>⇄</span>
                       <span style={{ fontFamily: SANS, fontSize: mobile ? 11 : 13, fontWeight: 700, color: C.secondary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.counter_party}</span>
-                      {bLetter && <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: bColor, padding: "1px 4px", borderRadius: 2, background: `${bColor}15`, flexShrink: 0 }}>{bLetter}</span>}
                     </div>
                   </div>
                   {/* Grade badges */}
@@ -257,12 +272,7 @@ export default function LeagueTradesView({ leagueId }: { leagueId: string }) {
                         </div>
                       );
                     })()}
-                    {vs && (
-                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
-                        <span style={{ fontFamily: MONO, fontSize: 7, fontWeight: 700, letterSpacing: "0.06em", color: C.dim }}>TRADE DAY</span>
-                        <span style={{ fontFamily: MONO, fontSize: mobile ? 9 : 10, fontWeight: 800, color: vs.color, padding: "2px 8px", borderRadius: 3, background: vs.bg, lineHeight: 1 }}>{vs.label}</span>
-                      </div>
-                    )}
+
                   </div>
                 </div>
                 {/* Row 2: Assets exchanged */}

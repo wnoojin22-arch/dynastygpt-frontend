@@ -109,15 +109,29 @@ function isHindsightDisplayable(dateStr: string | null | undefined, isChamp: boo
   return days >= 548;
 }
 
+function mapVerdict(v: string | null | undefined): string {
+  if (!v) return "";
+  const lo = v.toLowerCase();
+  if (lo === "robbery" || lo === "victim") return "ROBBERY";
+  if (lo === "won" || lo === "slight edge") return "WON";
+  if (lo === "lost" || lo === "slight loss") return "LOST";
+  if (lo === "win-win" || lo === "push" || lo === "both lost") return "EVEN";
+  return "";
+}
+function verdictColor(label: string): string {
+  if (label === "WON") return C.green;
+  if (label === "LOST") return C.red;
+  if (label === "ROBBERY") return "#ff4444";
+  if (label === "EVEN") return C.secondary;
+  return C.dim;
+}
+
 function hindsightLabel(dateStr: string | null | undefined, isChamp: boolean, verdict: string | null | undefined): { label: string; color: string } {
   if (isHindsightDisplayable(dateStr, isChamp)) {
-    const v = verdict || "—";
-    const vs = getVerdictStyle(v);
-    return { label: v, color: vs?.color || C.dim };
+    const mapped = mapVerdict(verdict);
+    if (!mapped) return { label: "—", color: C.dim };
+    return { label: mapped, color: verdictColor(mapped) };
   }
-  if (!dateStr) return { label: "Pending", color: C.dim };
-  const days = (Date.now() - new Date(dateStr).getTime()) / (1000 * 60 * 60 * 24);
-  if (days >= 365) return { label: "Too Soon", color: C.dim };
   return { label: "Pending", color: C.dim };
 }
 
@@ -639,13 +653,7 @@ export default function MyTradesView({ leagueId, owner: ownerProp, ownerId }: { 
                               </div>
                             );
                           })()}
-                          {/* Trade Day (secondary) */}
-                          {_myLetter && (
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-                              <span style={{ fontFamily: MONO, fontSize: 7, fontWeight: 700, letterSpacing: '0.06em', color: C.dim }}>TRADE DAY</span>
-                              <span style={{ fontFamily: MONO, fontSize: mobile ? 10 : 11, fontWeight: 800, color: gc, padding: '3px 10px', borderRadius: 4, background: `${gc}15`, border: `1px solid ${gc}30`, lineHeight: 1 }}>{_myLetter}</span>
-                            </div>
-                          )}
+
                         </div>
                       </div>
                       {/* Row 2: Gave → Got */}
