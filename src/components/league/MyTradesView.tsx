@@ -418,8 +418,9 @@ export default function MyTradesView({ leagueId, owner: ownerProp, ownerId }: { 
                   {recordData?.hindsight && recordData.hindsight.decided > 0 ? (<>
                     <div style={{ fontFamily: DISPLAY, fontSize: 22, fontWeight: 900, color: avgScore >= 80 ? C.green : C.red, lineHeight: 1 }}>{avgLetter}</div>
                     <div style={{ fontFamily: MONO, fontSize: 8, color: C.dim, marginTop: 3 }}>{avgScore}/100</div>
-                    <div style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, color: recordData.hindsight.win_rate >= 0.5 ? C.green : C.red, marginTop: 4 }}>{Math.round(recordData.hindsight.win_rate * 100)}%</div>
-                    <div style={{ fontFamily: MONO, fontSize: 7, color: C.dim }}>{recordData.hindsight.won}W-{recordData.hindsight.lost}L</div>
+                    <div style={{ fontFamily: MONO, fontSize: 7, color: C.dim, marginTop: 6, letterSpacing: '0.06em' }}>WIN RATE</div>
+                    <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: recordData.hindsight.win_rate >= 0.5 ? C.green : C.red }}>{Math.round(recordData.hindsight.win_rate * 100)}%</div>
+                    <div style={{ fontFamily: MONO, fontSize: 7, color: C.dim, marginTop: 2 }}>{recordData.hindsight.won}W-{recordData.hindsight.lost}L-{recordData.hindsight.even}E</div>
                   </>) : (<div style={{ fontFamily: MONO, fontSize: 8, color: C.dim }}>TBD</div>)}
                 </div>
               </div>
