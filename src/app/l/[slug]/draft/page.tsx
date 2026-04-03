@@ -33,7 +33,8 @@ type TabId = typeof TABS[number]["id"];
 const POS_C: Record<string, string> = { QB: "#EF4444", RB: "#3B82F6", WR: "#22C55E", TE: "#F59E0B" };
 const LABEL_COLORS: Record<string, string> = { Star: C.gold, Hit: C.green, Miss: C.orange, Bust: C.red, "Too Early": C.dim };
 const LABEL_BG: Record<string, string> = { Star: "#d4a53218", Hit: "#7dd3a018", Miss: "#e09c6b18", Bust: "#e4727218" };
-const GRADE_C: Record<string, string> = { "A+": "#7dd3a0", A: "#7dd3a0", "B+": "#6bb8e0", B: "#6bb8e0", C: "#d4a532", D: "#e09c6b", F: "#e47272" };
+const GRADE_C: Record<string, string> = { "A+": "#7dd3a0", A: "#7dd3a0", "A-": "#7dd3a0", "B+": "#6bb8e0", B: "#6bb8e0", "B-": "#6bb8e0", "C+": "#d4a532", C: "#d4a532", "C-": "#d4a532", "D+": "#e09c6b", D: "#e09c6b", "D-": "#e09c6b", F: "#e47272" };
+function gradeCol(g: string) { return GRADE_C[g] || (g?.startsWith("A") ? "#7dd3a0" : g?.startsWith("B") ? "#6bb8e0" : g?.startsWith("C") ? "#d4a532" : g?.startsWith("D") ? "#e09c6b" : g === "F" ? "#e47272" : C.dim); }
 const REC_C: Record<string, string> = { "USE IT": "#7dd3a0", "PACKAGE IT": "#d4a532", "TRADE BACK": "#6bb8e0", "TRADE UP": "#EF4444" };
 const IDENTITY_C: Record<string, string> = { DEVELOPER: "#7dd3a0", "PIPELINE BUILDER": "#d4a532", GAMBLER: "#e47272", INEFFICIENT: "#9596a5", BALANCED: "#6bb8e0" };
 
@@ -71,16 +72,18 @@ function StatBox({ value, label, color }: { value: string; label: string; color?
 }
 
 /** Expandable pill section */
-function Pill({ title, defaultOpen, children }: { title: string; defaultOpen?: boolean; children: React.ReactNode }) {
+function Pill({ title, defaultOpen, color, children }: { title: string; defaultOpen?: boolean; color?: string; children: React.ReactNode }) {
   const [open, setOpen] = useState(defaultOpen || false);
+  const ac = color || C.gold;
   return (
-    <div style={{ borderRadius: 8, overflow: "hidden", border: `1px solid ${C.border}`, background: C.card }}>
+    <div style={{ borderRadius: 8, overflow: "hidden", border: `1px solid ${open ? `${ac}30` : C.border}`, background: C.card, transition: "border-color 0.2s" }}>
       <button onClick={() => setOpen(!open)} style={{
-        width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
-        padding: "10px 12px", background: "transparent", border: "none", cursor: "pointer",
+        width: "100%", display: "flex", alignItems: "center", gap: 8,
+        padding: "10px 12px", background: open ? `${ac}06` : "transparent", border: "none", cursor: "pointer", transition: "background 0.2s",
       }}>
-        <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", color: open ? C.gold : C.secondary }}>{title}</span>
-        <ChevronDown size={14} style={{ color: C.dim, transition: "transform 0.2s", transform: open ? "rotate(180deg)" : "rotate(0deg)" }} />
+        <div style={{ width: 3, height: 14, borderRadius: 2, background: ac, flexShrink: 0 }} />
+        <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", color: open ? ac : C.secondary, flex: 1, textAlign: "left" }}>{title}</span>
+        <ChevronDown size={14} style={{ color: open ? ac : C.dim, transition: "transform 0.2s", transform: open ? "rotate(180deg)" : "rotate(0deg)" }} />
       </button>
       {open && <div style={{ padding: "0 12px 12px" }}>{children}</div>}
     </div>
@@ -107,16 +110,21 @@ function MyDraftRoomTab({ lid, seasons, owner, ownerId }: { lid: string; seasons
       }
     }
 
-    const total = myPicks.length;
-    const evaluated = myPicks.filter(p => p.label !== "Too Early").length;
-    const stars = myPicks.filter(p => p.label === "Star").length;
-    const hits = myPicks.filter(p => p.label === "Hit").length;
-    const busts = myPicks.filter(p => p.label === "Bust").length;
-    const misses = myPicks.filter(p => p.label === "Miss").length;
+    // Separate rookie draft picks (R1-4) from startup picks (R5+)
+    const rookiePicks = myPicks.filter(p => p.round <= 4);
+    const startupPicks = myPicks.filter(p => p.round > 4);
+
+    const total = rookiePicks.length;
+    const evaluated = rookiePicks.filter(p => p.label !== "Too Early").length;
+    const stars = rookiePicks.filter(p => p.label === "Star").length;
+    const hits = rookiePicks.filter(p => p.label === "Hit").length;
+    const busts = rookiePicks.filter(p => p.label === "Bust").length;
+    const misses = rookiePicks.filter(p => p.label === "Miss").length;
     const hitRate = evaluated > 0 ? Math.round((stars + hits) / evaluated * 100) : 0;
+    const startupCount = startupPicks.length;
 
     const byRound: Record<number, { total: number; hits: number }> = {};
-    for (const p of myPicks) {
+    for (const p of rookiePicks) {
       if (p.label === "Too Early") continue;
       if (!byRound[p.round]) byRound[p.round] = { total: 0, hits: 0 };
       byRound[p.round].total++;
@@ -127,7 +135,7 @@ function MyDraftRoomTab({ lid, seasons, owner, ownerId }: { lid: string; seasons
       .sort((a, b) => a.round - b.round);
 
     const byPos: Record<string, { total: number; hits: number }> = {};
-    for (const p of myPicks) {
+    for (const p of rookiePicks) {
       if (p.label === "Too Early") continue;
       const pos = p.position || "?";
       if (!byPos[pos]) byPos[pos] = { total: 0, hits: 0 };
@@ -138,14 +146,14 @@ function MyDraftRoomTab({ lid, seasons, owner, ownerId }: { lid: string; seasons
       .map(([pos, s]) => ({ pos, ...s, rate: s.total > 0 ? Math.round(s.hits / s.total * 100) : 0 }))
       .sort((a, b) => b.total - a.total);
 
-    const sorted = [...myPicks].sort((a, b) => (b.current_value || 0) - (a.current_value || 0));
+    const sorted = [...rookiePicks].sort((a, b) => (b.current_value || 0) - (a.current_value || 0));
     const best = sorted.slice(0, 3);
-    const worst = [...myPicks].filter(p => p.label === "Bust").sort((a, b) => (a.current_value || 0) - (b.current_value || 0)).slice(0, 3);
+    const worst = [...rookiePicks].filter(p => p.label === "Bust").sort((a, b) => (a.current_value || 0) - (b.current_value || 0)).slice(0, 3);
     const topPos = posStats.slice(0, 2).map(p => p.pos);
-    const totalValue = myPicks.reduce((s, p) => s + (p.current_value || 0), 0);
+    const totalValue = rookiePicks.reduce((s, p) => s + (p.current_value || 0), 0);
     const seasonsActive = [...new Set(myPicks.map(p => p._season))].length;
 
-    return { total, stars, hits, busts, misses, hitRate, roundStats, posStats, best, worst, topPos, totalValue, seasonsActive, evaluated };
+    return { total, stars, hits, busts, misses, hitRate, roundStats, posStats, best, worst, topPos, totalValue, seasonsActive, evaluated, startupCount };
   }, [seasons, owner, ownerId]);
 
   // ── Pick intel (from API) ──
@@ -173,11 +181,11 @@ function MyDraftRoomTab({ lid, seasons, owner, ownerId }: { lid: string; seasons
 
       {/* Hit rate by round */}
       <DCard label="HIT RATE BY ROUND">
-        <div className="flex gap-1.5">
-          {profile.roundStats.filter((r) => r.round <= 4).map((r) => (
-            <div key={r.round} className="flex-1" style={{ textAlign: "center", padding: "6px 2px", borderRadius: 6, background: C.elevated, border: `1px solid ${C.border}` }}>
+        <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(profile.roundStats.length, 4)}, 1fr)`, gap: 6 }}>
+          {profile.roundStats.map((r) => (
+            <div key={r.round} style={{ textAlign: "center", padding: "8px 4px", borderRadius: 6, background: `${hrColor(r.rate)}08`, border: `1px solid ${hrColor(r.rate)}20` }}>
               <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: hrColor(r.rate) }}>{r.rate}%</div>
-              <div style={{ fontFamily: MONO, fontSize: 8, color: C.dim, marginTop: 2 }}>RD {r.round}</div>
+              <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: hrColor(r.rate), marginTop: 2 }}>RD {r.round}</div>
               <div style={{ fontFamily: MONO, fontSize: 8, color: C.dim }}>{r.hits}/{r.total}</div>
             </div>
           ))}
@@ -186,9 +194,9 @@ function MyDraftRoomTab({ lid, seasons, owner, ownerId }: { lid: string; seasons
 
       {/* Hit rate by position */}
       <DCard label="HIT RATE BY POSITION">
-        <div className="flex gap-1.5 flex-wrap">
-          {profile.posStats.map((p) => (
-            <div key={p.pos} style={{ textAlign: "center", padding: "6px 8px", borderRadius: 6, background: `${posColor(p.pos)}08`, border: `1px solid ${posColor(p.pos)}20`, minWidth: 60 }}>
+        <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(profile.posStats.filter(p => p.pos !== "?").length, 4)}, 1fr)`, gap: 6 }}>
+          {profile.posStats.filter(p => p.pos !== "?").map((p) => (
+            <div key={p.pos} style={{ textAlign: "center", padding: "8px 4px", borderRadius: 6, background: `${posColor(p.pos)}08`, border: `1px solid ${posColor(p.pos)}20` }}>
               <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: posColor(p.pos) }}>{p.rate}%</div>
               <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: posColor(p.pos), marginTop: 1 }}>{p.pos}</div>
               <div style={{ fontFamily: MONO, fontSize: 8, color: C.dim }}>{p.hits}/{p.total}</div>
@@ -382,24 +390,24 @@ function LeagueReportTab({ lid, seasons, owner }: { lid: string; seasons: any[];
         <StatBox value={String(seasons.length)} label="DRAFTS" />
       </div>
 
-      {/* League hit rate by round — numbers with global avg, no chart */}
-      <DCard label="HIT RATE BY ROUND" right={<span style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>LEAGUE vs GLOBAL</span>}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {byRound.filter((r: any) => r.round <= 5).map((r: any) => {
+      {/* League hit rate by round — colored pills with global comparison */}
+      <DCard label="HIT RATE BY ROUND" right={<span style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>vs GLOBAL</span>}>
+        <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(byRound.filter((r: any) => r.round <= 4).length, 4)}, 1fr)`, gap: 6 }}>
+          {byRound.filter((r: any) => r.round <= 4).map((r: any) => {
             const gr = globalByRound.find((g: any) => g.round === r.round);
             const gPct = gr?.hit_pct || 0;
             const diff = r.hit_pct - gPct;
+            const rc = hrColor(r.hit_pct);
             return (
-              <div key={r.round} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.primary, width: 30 }}>R{r.round}</span>
-                <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>{r.stars}★ {r.hits}✓ / {r.total}</span>
-                <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: hrColor(r.hit_pct) }}>{r.hit_pct}%</span>
+              <div key={r.round} style={{ textAlign: "center", padding: "8px 4px", borderRadius: 6, background: `${rc}08`, border: `1px solid ${rc}20` }}>
+                <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: rc }}>{r.hit_pct}%</div>
+                <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: rc, marginTop: 2 }}>RD {r.round}</div>
+                <div style={{ fontFamily: MONO, fontSize: 8, color: C.dim }}>{r.stars}★ {r.hits}✓ / {r.total}</div>
                 {gPct > 0 && (
-                  <span style={{
-                    fontFamily: MONO, fontSize: 9, padding: "2px 6px", borderRadius: 4,
+                  <div style={{
+                    fontFamily: MONO, fontSize: 8, marginTop: 3,
                     color: diff > 0 ? C.green : diff < 0 ? C.red : C.dim,
-                    background: diff > 0 ? `${C.green}15` : diff < 0 ? `${C.red}15` : "transparent",
-                  }}>{diff > 0 ? "+" : ""}{diff}% vs avg</span>
+                  }}>{diff > 0 ? "+" : ""}{diff}% avg</div>
                 )}
               </div>
             );
@@ -407,11 +415,11 @@ function LeagueReportTab({ lid, seasons, owner }: { lid: string; seasons: any[];
         </div>
       </DCard>
 
-      {/* Hit rate by position — with global avg */}
+      {/* Hit rate by position */}
       <DCard label="HIT RATE BY POSITION">
-        <div className="flex gap-1.5 flex-wrap">
+        <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(stats.posStats.filter(p => p.pos !== "?").length, 4)}, 1fr)`, gap: 6 }}>
           {stats.posStats.filter(p => p.pos !== "?").map((p) => (
-            <div key={p.pos} style={{ textAlign: "center", padding: "6px 8px", borderRadius: 6, background: `${posColor(p.pos)}08`, border: `1px solid ${posColor(p.pos)}20`, minWidth: 60 }}>
+            <div key={p.pos} style={{ textAlign: "center", padding: "8px 4px", borderRadius: 6, background: `${posColor(p.pos)}08`, border: `1px solid ${posColor(p.pos)}20` }}>
               <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: posColor(p.pos) }}>{p.rate}%</div>
               <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: posColor(p.pos), marginTop: 1 }}>{p.pos}</div>
               <div style={{ fontFamily: MONO, fontSize: 8, color: C.dim }}>{p.hits}/{p.total}</div>
@@ -421,7 +429,7 @@ function LeagueReportTab({ lid, seasons, owner }: { lid: string; seasons: any[];
       </DCard>
 
       {/* Expandable pills */}
-      <Pill title="DRAFT POWER RANKINGS">
+      <Pill title="DRAFT POWER RANKINGS" color={C.gold}>
         {stats.ownerRanked.slice(0, 8).map((o, idx) => {
           const isMe = o.name.toLowerCase() === owner.toLowerCase();
           return (
@@ -438,7 +446,7 @@ function LeagueReportTab({ lid, seasons, owner }: { lid: string; seasons: any[];
         })}
       </Pill>
 
-      <Pill title="DRAFT CLASS GRADES">
+      <Pill title="DRAFT CLASS GRADES" color={C.green}>
         {grades?.seasons?.slice(0, 5).map((s: any) => (
           <div key={s.season} style={{ marginBottom: 10 }}>
             <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.primary, marginBottom: 4 }}>{s.season}</div>
@@ -450,7 +458,7 @@ function LeagueReportTab({ lid, seasons, owner }: { lid: string; seasons: any[];
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
               {s.grades?.slice(0, 12).map((g: any) => (
                 <div key={g.owner} style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 8px", borderRadius: 6, background: C.elevated, border: `1px solid ${C.border}` }}>
-                  <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: GRADE_C[g.grade] || C.dim }}>{g.grade}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: gradeCol(g.grade) }}>{g.grade}</span>
                   <span style={{ fontFamily: MONO, fontSize: 9, color: C.secondary, maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.owner}</span>
                 </div>
               ))}
@@ -460,7 +468,7 @@ function LeagueReportTab({ lid, seasons, owner }: { lid: string; seasons: any[];
       </Pill>
 
       {ddt && ddt.total_trades > 0 && (
-        <Pill title={`DRAFT DAY TRADES (${ddt.total_trades})`}>
+        <Pill title={`DRAFT DAY TRADES (${ddt.total_trades})`} color={C.orange}>
           {ddt.trades?.slice(0, 8).map((t: any) => (
             <div key={t.trade_id} style={{ padding: "6px 0", borderBottom: `1px solid ${C.white08}` }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
@@ -759,18 +767,22 @@ export default function DraftPage() {
       </div>
 
       {/* Tabs */}
-      <div style={{ display: "flex", borderBottom: `1px solid ${C.border}`, flexShrink: 0, overflowX: "auto" }}>
-        {TABS.map((t) => (
-          <div key={t.id} onClick={() => setTab(t.id)} style={{
-            flex: 1, padding: "10px 0", textAlign: "center", whiteSpace: "nowrap",
-            fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: "0.06em",
-            color: tab === t.id ? C.gold : C.dim,
-            borderBottom: tab === t.id ? `2px solid ${C.gold}` : "2px solid transparent",
-            cursor: "pointer", transition: "all 0.15s",
-          }}>
-            {t.label}
-          </div>
-        ))}
+      <div style={{ display: "grid", gridTemplateColumns: `repeat(${TABS.length}, 1fr)`, gap: 4, padding: "0 12px 8px", flexShrink: 0 }}>
+        {TABS.map((t) => {
+          const act = tab === t.id;
+          return (
+            <button key={t.id} onClick={() => setTab(t.id)} style={{
+              padding: "8px 0", borderRadius: 6, border: "none", cursor: "pointer",
+              fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.06em",
+              textAlign: "center", whiteSpace: "nowrap", transition: "all 0.15s",
+              background: act ? C.goldDim : C.elevated,
+              color: act ? C.gold : C.dim,
+              boxShadow: act ? `0 0 12px ${C.gold}20, inset 0 0 0 1px ${C.goldBorder}` : `inset 0 0 0 1px ${C.border}`,
+            }}>
+              {t.label}
+            </button>
+          );
+        })}
       </div>
 
       {/* Content */}
