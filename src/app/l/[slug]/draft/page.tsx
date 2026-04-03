@@ -155,8 +155,11 @@ function MyDraftRoomTab({ lid, seasons, owner, ownerId }: { lid: string; seasons
     const totalValue = rookiePicks.reduce((s, p) => s + (p.current_value || 0), 0);
     const seasonsActive = [...new Set(myPicks.map(p => p._season))].length;
 
-    return { total, stars, hits: hitCount, busts, misses, hitRate, roundStats, posStats, best, worst, topPos, totalValue, seasonsActive, evaluated, startupCount };
+    return { total, stars, hits: hitCount, busts, misses, hitRate, roundStats, posStats, best, worst, topPos, totalValue, seasonsActive, evaluated, startupCount, rookiePicks };
   }, [seasons, owner, ownerId]);
+
+  const [expandedRound, setExpandedRound] = useState<number | null>(null);
+  const [expandedPos, setExpandedPos] = useState<string | null>(null);
 
   // ── Pick intel (from API) ──
   const { data: pickIntelData } = useQuery({
@@ -181,30 +184,102 @@ function MyDraftRoomTab({ lid, seasons, owner, ownerId }: { lid: string; seasons
         <StatBox value={fmt(profile.totalValue)} label="VALUE" color={C.gold} />
       </div>
 
-      {/* Hit rate by round */}
+      {/* Hit rate by round — clickable */}
       <DCard label="HIT RATE BY ROUND">
         <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(profile.roundStats.length, 4)}, 1fr)`, gap: 6 }}>
-          {profile.roundStats.map((r) => (
-            <div key={r.round} style={{ textAlign: "center", padding: "8px 4px", borderRadius: 6, background: `${hrColor(r.rate)}08`, border: `1px solid ${hrColor(r.rate)}20` }}>
-              <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: hrColor(r.rate) }}>{r.rate}%</div>
-              <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: hrColor(r.rate), marginTop: 2 }}>RD {r.round}</div>
-              <div style={{ fontFamily: MONO, fontSize: 8, color: C.dim }}>{r.hits}/{r.total}</div>
-            </div>
-          ))}
+          {profile.roundStats.map((r) => {
+            const isOpen = expandedRound === r.round;
+            return (
+              <div key={r.round} onClick={() => { setExpandedRound(isOpen ? null : r.round); setExpandedPos(null); }} style={{
+                textAlign: "center", padding: "8px 4px", borderRadius: 6, cursor: "pointer",
+                background: isOpen ? `${hrColor(r.rate)}18` : `${hrColor(r.rate)}08`,
+                border: `1px solid ${isOpen ? hrColor(r.rate) : `${hrColor(r.rate)}20`}`,
+                transition: "all 0.15s",
+              }}>
+                <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: hrColor(r.rate) }}>{r.rate}%</div>
+                <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: hrColor(r.rate), marginTop: 2 }}>RD {r.round}</div>
+                <div style={{ fontFamily: MONO, fontSize: 8, color: C.dim }}>{r.hits}/{r.total}</div>
+                <div style={{ fontFamily: MONO, fontSize: 7, color: C.dim, marginTop: 2, opacity: 0.6 }}>tap to view</div>
+              </div>
+            );
+          })}
         </div>
+        {expandedRound !== null && (() => {
+          const picks = profile.rookiePicks.filter((p: any) => p.round === expandedRound && p.label !== "Too Early");
+          const sorted = [...picks].sort((a: any, b: any) => (b.current_value || 0) - (a.current_value || 0));
+          return (
+            <div style={{ marginTop: 10, borderTop: `1px solid ${C.border}`, paddingTop: 8 }}>
+              <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.dim, marginBottom: 6, letterSpacing: "0.06em" }}>ROUND {expandedRound} PICKS ({sorted.length})</div>
+              {sorted.map((p: any, i: number) => (
+                <div key={i} onClick={() => p.player_name && openPlayerCard(p.player_name)} style={{
+                  display: "flex", alignItems: "center", gap: 6, padding: "5px 0", cursor: p.player_name ? "pointer" : "default",
+                  borderBottom: i < sorted.length - 1 ? `1px solid ${C.white08}` : "none",
+                }}>
+                  <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.dim, width: 20, flexShrink: 0 }}>{p.round}.{String(p.slot).padStart(2, "0")}</span>
+                  <PosBadge pos={p.position || "?"} />
+                  <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 600, color: C.primary, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.player_name}</span>
+                  {p.year1_ppg > 0 && p.baseline_median > 0 && (
+                    <span style={{ fontFamily: MONO, fontSize: 8, color: p.year1_ppg >= p.baseline_median ? C.green : C.red, flexShrink: 0 }}>
+                      {p.year1_ppg.toFixed(1)} vs {p.baseline_median.toFixed(1)}
+                    </span>
+                  )}
+                  <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.gold, flexShrink: 0 }}>{fmt(p.current_value)}</span>
+                  <LabelBadge label={p.label} />
+                </div>
+              ))}
+              {sorted.length === 0 && <div style={{ fontFamily: SANS, fontSize: 11, color: C.dim, textAlign: "center", padding: 8 }}>No evaluated picks in this round</div>}
+            </div>
+          );
+        })()}
       </DCard>
 
-      {/* Hit rate by position */}
+      {/* Hit rate by position — clickable */}
       <DCard label="HIT RATE BY POSITION">
         <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(profile.posStats.filter(p => p.pos !== "?").length, 4)}, 1fr)`, gap: 6 }}>
-          {profile.posStats.filter(p => p.pos !== "?").map((p) => (
-            <div key={p.pos} style={{ textAlign: "center", padding: "8px 4px", borderRadius: 6, background: `${posColor(p.pos)}08`, border: `1px solid ${posColor(p.pos)}20` }}>
-              <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: posColor(p.pos) }}>{p.rate}%</div>
-              <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: posColor(p.pos), marginTop: 1 }}>{p.pos}</div>
-              <div style={{ fontFamily: MONO, fontSize: 8, color: C.dim }}>{p.hits}/{p.total}</div>
-            </div>
-          ))}
+          {profile.posStats.filter(p => p.pos !== "?").map((p) => {
+            const isOpen = expandedPos === p.pos;
+            return (
+              <div key={p.pos} onClick={() => { setExpandedPos(isOpen ? null : p.pos); setExpandedRound(null); }} style={{
+                textAlign: "center", padding: "8px 4px", borderRadius: 6, cursor: "pointer",
+                background: isOpen ? `${posColor(p.pos)}18` : `${posColor(p.pos)}08`,
+                border: `1px solid ${isOpen ? posColor(p.pos) : `${posColor(p.pos)}20`}`,
+                transition: "all 0.15s",
+              }}>
+                <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: posColor(p.pos) }}>{p.rate}%</div>
+                <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: posColor(p.pos), marginTop: 1 }}>{p.pos}</div>
+                <div style={{ fontFamily: MONO, fontSize: 8, color: C.dim }}>{p.hits}/{p.total}</div>
+                <div style={{ fontFamily: MONO, fontSize: 7, color: C.dim, marginTop: 2, opacity: 0.6 }}>tap to view</div>
+              </div>
+            );
+          })}
         </div>
+        {expandedPos !== null && (() => {
+          const picks = profile.rookiePicks.filter((p: any) => (p.position || "?") === expandedPos && p.label !== "Too Early");
+          const sorted = [...picks].sort((a: any, b: any) => (b.current_value || 0) - (a.current_value || 0));
+          return (
+            <div style={{ marginTop: 10, borderTop: `1px solid ${C.border}`, paddingTop: 8 }}>
+              <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.dim, marginBottom: 6, letterSpacing: "0.06em" }}>{expandedPos} PICKS ({sorted.length})</div>
+              {sorted.map((p: any, i: number) => (
+                <div key={i} onClick={() => p.player_name && openPlayerCard(p.player_name)} style={{
+                  display: "flex", alignItems: "center", gap: 6, padding: "5px 0", cursor: p.player_name ? "pointer" : "default",
+                  borderBottom: i < sorted.length - 1 ? `1px solid ${C.white08}` : "none",
+                }}>
+                  <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.dim, width: 20, flexShrink: 0 }}>{p.round}.{String(p.slot).padStart(2, "0")}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim, width: 28, flexShrink: 0 }}>{p._season}</span>
+                  <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 600, color: C.primary, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.player_name}</span>
+                  {p.year1_ppg > 0 && p.baseline_median > 0 && (
+                    <span style={{ fontFamily: MONO, fontSize: 8, color: p.year1_ppg >= p.baseline_median ? C.green : C.red, flexShrink: 0 }}>
+                      {p.year1_ppg.toFixed(1)} vs {p.baseline_median.toFixed(1)}
+                    </span>
+                  )}
+                  <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.gold, flexShrink: 0 }}>{fmt(p.current_value)}</span>
+                  <LabelBadge label={p.label} />
+                </div>
+              ))}
+              {sorted.length === 0 && <div style={{ fontFamily: SANS, fontSize: 11, color: C.dim, textAlign: "center", padding: 8 }}>No evaluated picks at this position</div>}
+            </div>
+          );
+        })()}
       </DCard>
 
       {/* Best picks */}
