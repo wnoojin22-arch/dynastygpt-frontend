@@ -7,6 +7,7 @@ import { getTradeReport, getTradeHindsight } from "@/lib/api";
 import { C, SANS, MONO, DISPLAY, SERIF, fmt, gradeColor, posColor } from "./tokens";
 import PlayerName from "./PlayerName";
 import { usePlayerCardStore } from "@/lib/stores/player-card-store";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 /* ═══════════════════════════════════════════════════════════════
    HELPERS — ported from Shadynasty
@@ -36,7 +37,7 @@ function GradeCircle({score,size=64}:{score:number;size?:number}){const letter=g
 function GradeBox({score,verdict,confidence}:{score:number;verdict:string;confidence?:string}){const vs=getVerdictStyle(verdict);return(<div style={{display:'flex',alignItems:'center',gap:14,padding:'14px 16px',borderRadius:8,background:`${vs.color}08`,border:`1px solid ${vs.border}`}}><GradeCircle score={score} size={68}/><div><span style={{fontFamily:MONO,fontSize:14,fontWeight:900,color:vs.color,padding:'4px 12px',borderRadius:4,background:vs.bg,border:`1px solid ${vs.border}`}}>{verdict}</span>{confidence&&<div style={{fontFamily:MONO,fontSize:9,color:C.dim,marginTop:8,letterSpacing:'0.06em'}}>{confidence} Confidence</div>}</div></div>);}
 
 /* ═══ SECTION DIVIDER ═══ */
-function SectionDivider({label,accent}:{label:string;accent:string}){return(<div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:16,padding:'18px 24px',borderTop:`1px solid ${C.border}`,background:`linear-gradient(180deg, ${accent}0a, transparent 80%)`}}><div style={{flex:1,height:1,background:`linear-gradient(90deg, transparent, ${accent}30)`}}/><span style={{fontFamily:MONO,fontSize:13,fontWeight:900,letterSpacing:'0.30em',color:accent}}>{label}</span><div style={{flex:1,height:1,background:`linear-gradient(90deg, ${accent}30, transparent)`}}/></div>);}
+function SectionDivider({label,accent}:{label:string;accent:string}){return(<div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:16,padding:mobile?'12px 12px':'18px 24px',borderTop:`1px solid ${C.border}`,background:`linear-gradient(180deg, ${accent}0a, transparent 80%)`}}><div style={{flex:1,height:1,background:`linear-gradient(90deg, transparent, ${accent}30)`}}/><span style={{fontFamily:MONO,fontSize:13,fontWeight:900,letterSpacing:'0.30em',color:accent}}>{label}</span><div style={{flex:1,height:1,background:`linear-gradient(90deg, ${accent}30, transparent)`}}/></div>);}
 
 function SubHeader({label}:{label:string}){return(<div style={{fontFamily:MONO,fontSize:9,fontWeight:800,letterSpacing:'0.14em',color:C.gold,padding:'6px 0',borderBottom:`1px solid ${C.gold}25`,marginBottom:8}}>{label}</div>);}
 function StatusTag({label,color,bg,border}:{label:string;color:string;bg:string;border:string}){return(<span style={{fontFamily:MONO,fontSize:7,fontWeight:800,padding:'1px 5px',borderRadius:3,background:bg,border:`1px solid ${border}`,color}}>{label}</span>);}
@@ -107,6 +108,7 @@ function ContextCard({sideData}:{sideData:any}){const ctx=sideData?.season_conte
    FULL REPORT — Two tabs: GRADE (screenshotable) + DETAILS (deep dive)
    ═══════════════════════════════════════════════════════════════ */
 function FullReport({reportData,hindsightData,onClose}:{reportData:any;hindsightData:any;onClose:()=>void}){
+  const mobile=useIsMobile();
   const [tab,setTab]=useState<'grade'|'details'>('grade');
   const sA=reportData.side_a||{};const sB=reportData.side_b||{};
   const ownerA=sA.owner||"";const ownerB=sB.owner||"";
@@ -127,7 +129,7 @@ function FullReport({reportData,hindsightData,onClose}:{reportData:any;hindsight
   const aGradeFactors=filterGF(hA.grade_factors||sA.grade_factors||[]);
   const bGradeFactors=filterGF(hB.grade_factors||sB.grade_factors||[]);
   const aKeyFactors=hA.key_factors||[];const bKeyFactors=hB.key_factors||[];
-  const gp={display:'grid' as const,gridTemplateColumns:'1fr 1fr',gap:24,padding:'16px 24px',alignItems:'stretch' as const};
+  const gp={display:'grid' as const,gridTemplateColumns:mobile?'1fr':'1fr 1fr',gap:mobile?10:24,padding:mobile?'10px 12px':'16px 24px',alignItems:'stretch' as const};
 
   // Championship check for gold highlight
   const aChamp=sA.season_context?.season_info?.champion;
@@ -161,12 +163,12 @@ function FullReport({reportData,hindsightData,onClose}:{reportData:any;hindsight
 
   return(<>
     {/* HEADER */}
-    <div style={{padding:'14px 24px',display:'flex',alignItems:'center',justifyContent:'space-between',background:`linear-gradient(135deg, ${C.gold}06, transparent 60%)`,borderBottom:`1px solid ${C.border}`}}>
-      <div style={{display:'flex',alignItems:'center',gap:12}}><div style={{width:4,height:36,borderRadius:2,background:C.gold}}/><div><div style={{fontFamily:MONO,fontSize:9,color:C.dim,letterSpacing:'0.22em'}}>TRADE REPORT</div><div style={{display:'flex',alignItems:'center',gap:8,marginTop:4}}><span style={{fontFamily:SANS,fontSize:18,fontWeight:800,color:C.primary}}>{ownerA}</span><span style={{fontFamily:SANS,fontSize:14,color:C.dim}}>⇄</span><span style={{fontFamily:SANS,fontSize:18,fontWeight:700,color:C.secondary}}>{ownerB}</span><span style={{fontFamily:MONO,fontSize:11,color:C.dim,marginLeft:4}}>{dateStr}</span></div></div></div>
-      <div style={{display:'flex',alignItems:'center',gap:12}}><div style={{display:'flex',alignItems:'center',gap:6,padding:'4px 12px',borderRadius:20,border:'1px solid rgba(212,165,50,0.22)',background:'rgba(212,165,50,0.06)'}}><span style={{fontFamily:SANS,fontSize:9,fontWeight:600,color:'#d4a532',fontStyle:'italic'}}>powered by</span><span style={{fontFamily:SANS,fontSize:12,fontWeight:900,color:'#eeeef2'}}>DynastyGPT<span style={{color:'#d4a532'}}>.com</span></span></div>{overall&&<span style={{fontFamily:MONO,fontSize:11,fontWeight:800,color:os.color,padding:'4px 12px',borderRadius:4,background:os.bg,border:`1px solid ${os.border}`}}>{overall}</span>}<div onClick={onClose} style={{width:32,height:32,borderRadius:6,background:C.elevated,border:`1px solid ${C.border}`,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',fontSize:14,color:C.dim,fontFamily:MONO}}>×</div></div></div>
+    <div style={{padding:mobile?'10px 12px':'14px 24px',display:'flex',alignItems:'center',justifyContent:'space-between',background:`linear-gradient(135deg, ${C.gold}06, transparent 60%)`,flexWrap:'wrap' as const,gap:8,borderBottom:`1px solid ${C.border}`}}>
+      <div style={{display:'flex',alignItems:'center',gap:12}}><div style={{width:4,height:36,borderRadius:2,background:C.gold}}/><div><div style={{fontFamily:MONO,fontSize:9,color:C.dim,letterSpacing:'0.22em'}}>TRADE REPORT</div><div style={{display:'flex',alignItems:'center',gap:8,marginTop:4}}><span style={{fontFamily:SANS,fontSize:mobile?14:18,fontWeight:800,color:C.primary}}>{ownerA}</span><span style={{fontFamily:SANS,fontSize:14,color:C.dim}}>⇄</span><span style={{fontFamily:SANS,fontSize:mobile?14:18,fontWeight:700,color:C.secondary}}>{ownerB}</span><span style={{fontFamily:MONO,fontSize:11,color:C.dim,marginLeft:4}}>{dateStr}</span></div></div></div>
+      <div style={{display:'flex',alignItems:'center',gap:12}}><div style={{display:mobile?'none':'flex',alignItems:'center',gap:6,padding:'4px 12px',borderRadius:20,border:'1px solid rgba(212,165,50,0.22)',background:'rgba(212,165,50,0.06)'}}><span style={{fontFamily:SANS,fontSize:9,fontWeight:600,color:'#d4a532',fontStyle:'italic'}}>powered by</span><span style={{fontFamily:SANS,fontSize:12,fontWeight:900,color:'#eeeef2'}}>DynastyGPT<span style={{color:'#d4a532'}}>.com</span></span></div>{overall&&<span style={{fontFamily:MONO,fontSize:11,fontWeight:800,color:os.color,padding:'4px 12px',borderRadius:4,background:os.bg,border:`1px solid ${os.border}`}}>{overall}</span>}<div onClick={onClose} style={{width:32,height:32,borderRadius:6,background:C.elevated,border:`1px solid ${C.border}`,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',fontSize:14,color:C.dim,fontFamily:MONO}}>×</div></div></div>
 
     {/* SUMMARY BAR */}
-    <div style={{padding:'10px 24px',borderBottom:`1px solid ${C.border}`,background:C.card,display:'grid',gridTemplateColumns:'1fr auto 1fr',gap:16,alignItems:'center'}}>
+    <div style={{padding:mobile?'8px 12px':'10px 24px',borderBottom:`1px solid ${C.border}`,background:C.card,display:'grid',gridTemplateColumns:mobile?'1fr auto 1fr':'1fr auto 1fr',gap:mobile?8:16,alignItems:'center'}}>
       <div><div style={{fontFamily:MONO,fontSize:8,color:C.red,fontWeight:800,letterSpacing:'0.08em',marginBottom:3}}>{ownerA} GAVE</div><div style={{fontFamily:SANS,fontSize:12,color:C.secondary,lineHeight:1.4}}>{bRaw}</div></div>
       <div style={{fontFamily:MONO,fontSize:18,color:`${C.gold}60`}}>⇄</div>
       <div><div style={{fontFamily:MONO,fontSize:8,color:C.green,fontWeight:800,letterSpacing:'0.08em',marginBottom:3}}>{ownerA} GOT</div><div style={{fontFamily:SANS,fontSize:12,color:C.primary,fontWeight:600,lineHeight:1.4}}>{aRaw}</div></div>
@@ -319,6 +321,7 @@ function FullReport({reportData,hindsightData,onClose}:{reportData:any;hindsight
 export default function TradeReportModal({ leagueId, tradeId, onClose }: {
   leagueId: string; tradeId: string; onClose: () => void;
 }) {
+  const mobile=useIsMobile();
   const { data: report, isLoading } = useQuery({
     queryKey: ["trade-report", leagueId, tradeId],
     queryFn: () => getTradeReport(leagueId, tradeId),
@@ -336,7 +339,7 @@ export default function TradeReportModal({ leagueId, tradeId, onClose }: {
   return(<>
     <style>{`@keyframes fadeIn{from{opacity:0}to{opacity:1}}@keyframes modalSlideIn{from{opacity:0;transform:scale(0.97) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}@keyframes radarSweep{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
     <div onClick={onClose} style={{position:'fixed',inset:0,zIndex:9999,background:'rgba(0,0,0,0.85)',backdropFilter:'blur(8px)',display:'flex',alignItems:'center',justifyContent:'center',animation:'fadeIn 0.2s ease'}}>
-      <div onClick={(e)=>e.stopPropagation()} style={{width:'94vw',maxWidth:900,maxHeight:'92vh',overflowY:'auto',background:C.bg,border:`1px solid ${C.border}`,borderRadius:12,animation:'modalSlideIn 0.25s ease',position:'relative'}}>
+      <div onClick={(e)=>e.stopPropagation()} style={{width:mobile?'100vw':'94vw',maxWidth:mobile?'100vw':900,maxHeight:mobile?'100vh':'92vh',borderRadius:mobile?0:12,overflowY:'auto',background:C.bg,border:`1px solid ${C.border}`,borderRadius:12,animation:'modalSlideIn 0.25s ease',position:'relative'}}>
         <div style={{position:'absolute',top:10,right:16,zIndex:10}}><span style={{fontFamily:SANS,fontSize:10,fontWeight:700,color:`${C.gold}60`,letterSpacing:'0.02em'}}>dynastygpt.com</span></div>
         {isLoading?<LoadingSequence/>:hasReport?<FullReport reportData={r} hindsightData={hindsight} onClose={onClose}/>:(
           <div style={{padding:40,textAlign:'center'}}><div style={{fontFamily:MONO,fontSize:12,color:C.red,marginBottom:8}}>Failed to load report</div><div style={{fontFamily:MONO,fontSize:10,color:C.dim}}>Trade ID: {tradeId}</div><div onClick={onClose} style={{marginTop:16,fontFamily:MONO,fontSize:11,color:C.gold,cursor:'pointer',padding:'6px 16px',borderRadius:4,border:`1px solid ${C.goldBorder}`,background:C.goldDim,display:'inline-block'}}>CLOSE</div></div>
