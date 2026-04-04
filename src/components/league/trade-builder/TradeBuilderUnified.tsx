@@ -11,6 +11,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { useTradeBuilderContext } from "./TradeBuilderProvider";
 import { useLeagueStore } from "@/lib/stores/league-store";
+import { useTradeBuilderStore } from "@/lib/stores/trade-builder-store";
 import { getAllRosters } from "@/lib/api";
 import AnalyzeModal from "./AnalyzeModal";
 import { C, SANS, MONO, DISPLAY, fmt, posColor } from "../tokens";
@@ -121,6 +122,164 @@ interface SearchResult {
   ownerName: string;
   position?: string;
   value?: number;
+}
+
+// ── Swipe Modal (cards + shopping cart) ──────────────────────────────────
+
+function SwipeModal({ tb, ctx, leagueId }: { tb: ReturnType<typeof useTradeBuilderContext>["tb"]; ctx: ReturnType<typeof useTradeBuilderContext>; leagueId: string }) {
+  const [showQueue, setShowQueue] = useState(false);
+  const queuedTrades = useTradeBuilderStore((s) => s.queuedTrades);
+  const removeFromQueue = useTradeBuilderStore((s) => s.removeFromQueue);
+  const clearQueue = useTradeBuilderStore((s) => s.clearQueue);
+
+  // Reset queue view when modal opens with new suggestions
+  useEffect(() => {
+    if (tb.suggestedPkgs.length > 0) setShowQueue(false);
+  }, [tb.suggestedPkgs.length]);
+
+  if (tb.suggestedPkgs.length === 0 && queuedTrades.length === 0) return null;
+  // If suggestions cleared but queue has trades, keep modal open on queue
+  const showModal = tb.suggestedPkgs.length > 0 || (showQueue && queuedTrades.length > 0);
+  if (!showModal) return null;
+
+  const handleClose = () => {
+    clearQueue();
+    tb.handleClear();
+    setShowQueue(false);
+  };
+
+  const handleBuildTrade = (pkg: typeof queuedTrades[number], index: number) => {
+    removeFromQueue(index);
+    ctx.loadPackage(pkg);
+    // If that was the last one, close modal
+    if (queuedTrades.length <= 1) {
+      tb.handleClear();
+      setShowQueue(false);
+    }
+  };
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 9998,
+      background: "rgba(6,8,13,0.97)", backdropFilter: "blur(8px)",
+      display: "flex", flexDirection: "column",
+    }}>
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px 8px", flexShrink: 0 }}>
+        <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.10em", color: C.gold }}>
+          {showQueue
+            ? `${queuedTrades.length} SAVED TRADE${queuedTrades.length !== 1 ? "S" : ""}`
+            : `${tb.suggestedPkgs.length} TRADE${tb.suggestedPkgs.length !== 1 ? "S" : ""} FOUND`}
+        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 8px", borderRadius: 10, border: `1px solid rgba(212,165,50,0.15)`, background: "rgba(212,165,50,0.04)" }}>
+            <span style={{ fontSize: 7, fontWeight: 600, color: C.gold, fontFamily: SANS, fontStyle: "italic" }}>powered by</span>
+            <span style={{ fontSize: 9, fontWeight: 900, color: C.primary, fontFamily: SANS }}>DynastyGPT<span style={{ color: C.gold }}>.com</span></span>
+          </div>
+          {/* Shopping cart button */}
+          {!showQueue && queuedTrades.length > 0 && (
+            <button onClick={() => setShowQueue(true)} style={{
+              position: "relative", background: C.elevated, border: `1px solid ${C.gold}40`,
+              borderRadius: 8, padding: "6px 10px", cursor: "pointer", fontSize: 16, lineHeight: 1, color: C.gold,
+            }}>
+              🛒
+              <span style={{
+                position: "absolute", top: -6, right: -6,
+                background: C.gold, color: C.bg, fontFamily: MONO, fontSize: 10, fontWeight: 900,
+                width: 18, height: 18, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
+              }}>
+                {queuedTrades.length}
+              </span>
+            </button>
+          )}
+          <button onClick={handleClose} style={{
+            background: C.elevated, border: `1px solid ${C.border}`, borderRadius: 8,
+            padding: "6px 10px", cursor: "pointer", fontSize: 14, lineHeight: 1, color: C.dim,
+          }}>✕</button>
+        </div>
+      </div>
+
+      {/* Content: Swipe Stack or Queue */}
+      {showQueue ? (
+        <div style={{ flex: 1, overflowY: "auto", padding: "8px 16px" }}>
+          {queuedTrades.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "40px 20px" }}>
+              <div style={{ fontFamily: DISPLAY, fontSize: 18, color: C.primary, marginBottom: 8 }}>No trades saved</div>
+              <div style={{ fontFamily: SANS, fontSize: 13, color: C.dim }}>Swipe right on trades to save them here</div>
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {queuedTrades.map((pkg, i) => (
+                <div key={`${pkg.partner}-${i}`} style={{
+                  background: C.elevated, border: `1px solid ${C.border}`, borderRadius: 12,
+                  padding: 14, display: "flex", flexDirection: "column", gap: 10,
+                }}>
+                  {/* Partner */}
+                  <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.gold, letterSpacing: "0.08em" }}>
+                    TRADE WITH {pkg.partner?.toUpperCase()}
+                  </div>
+                  {/* Assets */}
+                  <div style={{ display: "flex", gap: 10 }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.red, marginBottom: 4, letterSpacing: "0.06em" }}>YOU SEND</div>
+                      {(pkg.i_give || []).map((a) => (
+                        <div key={a.name} style={{ fontFamily: SANS, fontSize: 12, color: C.primary, padding: "2px 0", display: "flex", alignItems: "center", gap: 4 }}>
+                          <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: posColor(a.position), background: `${posColor(a.position)}18`, padding: "1px 4px", borderRadius: 3 }}>{a.position}</span>
+                          {a.name}
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.green, marginBottom: 4, letterSpacing: "0.06em" }}>YOU GET</div>
+                      {(pkg.i_receive || []).map((a) => (
+                        <div key={a.name} style={{ fontFamily: SANS, fontSize: 12, color: C.primary, padding: "2px 0", display: "flex", alignItems: "center", gap: 4 }}>
+                          <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: posColor(a.position), background: `${posColor(a.position)}18`, padding: "1px 4px", borderRadius: 3 }}>{a.position}</span>
+                          {a.name}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  {/* Actions */}
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button
+                      onClick={() => handleBuildTrade(pkg, i)}
+                      style={{
+                        flex: 1, padding: "12px 0", borderRadius: 8, border: "none",
+                        background: `linear-gradient(135deg, ${C.goldDark}, ${C.gold})`,
+                        fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.06em",
+                        color: C.bg, cursor: "pointer",
+                      }}
+                    >
+                      BUILD THIS TRADE
+                    </button>
+                    <button
+                      onClick={() => removeFromQueue(i)}
+                      style={{
+                        padding: "12px 16px", borderRadius: 8, border: `1px solid ${C.border}`,
+                        background: C.elevated, fontFamily: MONO, fontSize: 11, fontWeight: 700,
+                        color: C.dim, cursor: "pointer",
+                      }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        <SwipeStack
+          packages={tb.suggestedPkgs}
+          leagueId={leagueId}
+          owner={tb.partner || ""}
+          onSwipeRight={() => {}}
+          onSwipeLeft={() => {}}
+          onComplete={() => setShowQueue(true)}
+        />
+      )}
+    </div>
+  );
 }
 
 // ── Main Component ───────────────────────────────────────────────────────
@@ -394,39 +553,7 @@ export default function TradeBuilderUnified() {
           </div>
 
           {/* Suggestion results — full screen swipe modal */}
-          {tb.suggestedPkgs.length > 0 && (
-            <div style={{
-              position: "fixed", inset: 0, zIndex: 9998,
-              background: "rgba(6,8,13,0.97)", backdropFilter: "blur(8px)",
-              display: "flex", flexDirection: "column",
-            }}>
-              {/* Header */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px 8px", flexShrink: 0 }}>
-                <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.10em", color: C.gold }}>
-                  {tb.suggestedPkgs.length} TRADE{tb.suggestedPkgs.length !== 1 ? "S" : ""} FOUND
-                </span>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 8px", borderRadius: 10, border: `1px solid rgba(212,165,50,0.15)`, background: "rgba(212,165,50,0.04)" }}>
-                    <span style={{ fontSize: 7, fontWeight: 600, color: C.gold, fontFamily: SANS, fontStyle: "italic" }}>powered by</span>
-                    <span style={{ fontSize: 9, fontWeight: 900, color: C.primary, fontFamily: SANS }}>DynastyGPT<span style={{ color: C.gold }}>.com</span></span>
-                  </div>
-                  <button onClick={() => tb.handleClear()} style={{
-                    background: C.elevated, border: `1px solid ${C.border}`, borderRadius: 8,
-                    padding: "6px 10px", cursor: "pointer", fontSize: 14, lineHeight: 1, color: C.dim,
-                  }}>✕</button>
-                </div>
-              </div>
-              {/* Swipe stack */}
-              <SwipeStack
-                packages={tb.suggestedPkgs}
-                leagueId={leagueId}
-                owner={tb.partner || ""}
-                onSwipeRight={() => {}}
-                onSwipeLeft={() => {}}
-                onComplete={() => tb.handleClear()}
-              />
-            </div>
-          )}
+          <SwipeModal tb={tb} ctx={ctx} leagueId={leagueId} />
         </div>
       )}
 

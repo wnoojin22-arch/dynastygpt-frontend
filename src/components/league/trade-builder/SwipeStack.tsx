@@ -1,58 +1,19 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import {
   motion,
   useMotionValue,
   useTransform,
-  AnimatePresence,
+  animate,
   type PanInfo,
 } from "framer-motion";
 import SuggestionCardMobile from "./cards/SuggestionCardMobile";
-import type { SuggestedPackage, TradeAsset } from "./types";
+import { useTradeBuilderStore } from "@/lib/stores/trade-builder-store";
+import type { SuggestedPackage } from "./types";
 
-const SWIPE_THRESHOLD = 120;
-const ROTATION_FACTOR = 15; // max degrees of rotation at full drag
-const TRACK_URL = "/api/swipes/track";
-
-/** Fire-and-forget swipe tracking — never blocks UI */
-function trackSwipe(
-  pkg: SuggestedPackage,
-  action: "right" | "left",
-  ctx: { leagueId: string; owner: string; ownerId?: string | null; mode?: string; style?: string },
-) {
-  const give = (pkg.i_give || []) as TradeAsset[];
-  const receive = (pkg.i_receive || []) as TradeAsset[];
-  const payload = {
-    league_id: ctx.leagueId,
-    owner_name: ctx.owner,
-    owner_user_id: ctx.ownerId || null,
-    partner_name: pkg.partner,
-    mode: ctx.mode || null,
-    style: ctx.style || null,
-    action,
-    give_assets: give.map((a) => ({ name: a.name, position: a.position, value: a.sha ?? a.dynasty ?? 0 })),
-    receive_assets: receive.map((a) => ({ name: a.name, position: a.position, value: a.sha ?? a.dynasty ?? 0 })),
-    give_total: give.reduce((s, a) => s + (a.sha ?? a.dynasty ?? 0), 0),
-    receive_total: receive.reduce((s, a) => s + (a.sha ?? a.dynasty ?? 0), 0),
-    acceptance_score: pkg.acceptance_likelihood || 0,
-    rationale: pkg.narrative || pkg.pitch || null,
-  };
-  try {
-    if (typeof navigator !== "undefined" && navigator.sendBeacon) {
-      navigator.sendBeacon(TRACK_URL, JSON.stringify(payload));
-    } else {
-      fetch(TRACK_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-        keepalive: true,
-      }).catch(() => {});
-    }
-  } catch {
-    // Tracking is best-effort
-  }
-}
+const SWIPE_THRESHOLD = 100;
+const ROTATION_FACTOR = 15;
 
 interface Props {
   packages: SuggestedPackage[];
@@ -67,13 +28,12 @@ interface Props {
   onComplete: (built: number, skipped: number) => void;
 }
 
-export default function SwipeStack({ packages, startIndex = 0, leagueId, owner, ownerId, mode, style, onSwipeRight, onSwipeLeft, onComplete }: Props) {
+export default function SwipeStack({ packages, startIndex = 0, onSwipeRight, onSwipeLeft, onComplete }: Props) {
   const [currentIndex, setCurrentIndex] = useState(startIndex);
-  const [exitDirection, setExitDirection] = useState<"left" | "right" | null>(null);
   const [builtCount, setBuiltCount] = useState(0);
   const [skippedCount, setSkippedCount] = useState(0);
+  const advancing = useRef(false);
 
-  // Sync with startIndex when returning from build preview
   useEffect(() => {
     setCurrentIndex(startIndex);
   }, [startIndex]);
@@ -87,33 +47,40 @@ export default function SwipeStack({ packages, startIndex = 0, leagueId, owner, 
   const next = packages[currentIndex + 1];
 
   const advance = useCallback(
-    (direction: "left" | "right") => {
+    async (direction: "left" | "right") => {
+      if (advancing.current) return;
       const pkg = packages[currentIndex];
       if (!pkg) return;
+      advancing.current = true;
 
-      setExitDirection(direction);
-      trackSwipe(pkg, direction, { leagueId, owner, ownerId, mode, style });
+      const newBuilt = builtCount + (direction === "right" ? 1 : 0);
+      const newSkipped = skippedCount + (direction === "left" ? 1 : 0);
+
       if (direction === "right") {
+        useTradeBuilderStore.getState().addToQueue(pkg);
         onSwipeRight(pkg, currentIndex);
-        setBuiltCount((c) => c + 1);
+        setBuiltCount(newBuilt);
       } else {
         onSwipeLeft(pkg);
-        setSkippedCount((c) => c + 1);
+        setSkippedCount(newSkipped);
       }
 
-      // Small delay so exit animation plays
-      setTimeout(() => {
-        setExitDirection(null);
-        const nextIdx = currentIndex + 1;
-        if (nextIdx >= packages.length) {
-          onComplete(
-            builtCount + (direction === "right" ? 1 : 0),
-            skippedCount + (direction === "left" ? 1 : 0),
-          );
-        }
-        setCurrentIndex(nextIdx);
-        x.set(0);
-      }, 300);
+      // Animate card off screen via the motion value — no state toggle, no AnimatePresence fight
+      await animate(x, direction === "right" ? 400 : -400, {
+        type: "spring",
+        stiffness: 300,
+        damping: 30,
+      });
+
+      // Reset position and advance
+      x.set(0);
+      const nextIdx = currentIndex + 1;
+      setCurrentIndex(nextIdx);
+      advancing.current = false;
+
+      if (nextIdx >= packages.length) {
+        onComplete(newBuilt, newSkipped);
+      }
     },
     [currentIndex, packages, onSwipeRight, onSwipeLeft, onComplete, builtCount, skippedCount, x],
   );
@@ -129,28 +96,9 @@ export default function SwipeStack({ packages, startIndex = 0, leagueId, owner, 
     [advance],
   );
 
-  // All cards swiped — summary
+  // All cards swiped
   if (currentIndex >= packages.length) {
-    return (
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex-1 flex flex-col items-center justify-center px-8 text-center"
-      >
-        <div className="text-5xl mb-4">&#9889;</div>
-        <h2 className="font-['Archivo_Black'] text-xl text-[#eeeef2] tracking-wide mb-2">
-          ALL CAUGHT UP
-        </h2>
-        <p className="font-sans text-sm text-[#b0b2c8] leading-relaxed mb-6">
-          You reviewed {packages.length} trade{packages.length !== 1 ? "s" : ""}
-          {builtCount > 0 && <> &middot; Built <span className="text-[#d4a532] font-bold">{builtCount}</span></>}
-          {skippedCount > 0 && <> &middot; Skipped {skippedCount}</>}
-        </p>
-        <div className="font-mono text-[10px] text-[#9596a5] tracking-widest">
-          TAP A BUTTON ABOVE TO FIND MORE
-        </div>
-      </motion.div>
-    );
+    return null;
   }
 
   return (
@@ -167,70 +115,42 @@ export default function SwipeStack({ packages, startIndex = 0, leagueId, owner, 
           </div>
         )}
 
-        {/* Active card */}
-        <AnimatePresence mode="wait">
-          {current && !exitDirection && (
+        {/* Active card — single element, animate x directly */}
+        {current && (
+          <motion.div
+            key={currentIndex}
+            className="absolute inset-0 rounded-2xl border border-[#252a3e] bg-[#10131d] overflow-y-auto overflow-x-hidden shadow-2xl"
+            style={{ x, rotate, touchAction: "pan-y" }}
+            drag="x"
+            dragConstraints={{ left: 0, right: 0 }}
+            dragElastic={0.7}
+            onDragEnd={handleDragEnd}
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: "spring", stiffness: 300, damping: 25 }}
+          >
+            {/* SKIP overlay (drag left) */}
             <motion.div
-              key={currentIndex}
-              className="absolute inset-0 rounded-2xl border border-[#252a3e] bg-[#10131d] overflow-y-auto overflow-x-hidden shadow-2xl"
-              style={{ x, rotate, touchAction: "pan-y" }}
-              drag="x"
-              dragConstraints={{ left: 0, right: 0 }}
-              dragElastic={0.7}
-              onDragEnd={handleDragEnd}
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ type: "spring", stiffness: 300, damping: 25 }}
+              className="absolute inset-0 rounded-2xl z-10 pointer-events-none flex items-center justify-start pl-8"
+              style={{ opacity: skipOpacity }}
             >
-              {/* Swipe overlay labels */}
-              <motion.div
-                className="absolute inset-0 rounded-2xl z-10 pointer-events-none flex items-center justify-start pl-8"
-                style={{ opacity: skipOpacity }}
-              >
-                <div className="px-4 py-2 rounded-lg border-2 border-[#e47272] bg-[#e4727220] -rotate-12">
-                  <span className="font-['Archivo_Black'] text-lg text-[#e47272] tracking-wider">SKIP</span>
-                </div>
-              </motion.div>
-              <motion.div
-                className="absolute inset-0 rounded-2xl z-10 pointer-events-none flex items-center justify-end pr-8"
-                style={{ opacity: buildOpacity }}
-              >
-                <div className="px-4 py-2 rounded-lg border-2 border-[#d4a532] bg-[#d4a53220] rotate-12">
-                  <span className="font-['Archivo_Black'] text-lg text-[#d4a532] tracking-wider">BUILD</span>
-                </div>
-              </motion.div>
-
-              <SuggestionCardMobile pkg={current} />
+              <div className="px-4 py-2 rounded-lg border-2 border-[#e47272] bg-[#e4727220] -rotate-12">
+                <span className="font-['Archivo_Black'] text-lg text-[#e47272] tracking-wider">SKIP</span>
+              </div>
             </motion.div>
-          )}
-
-          {/* Exit animation */}
-          {current && exitDirection && (
+            {/* BUILD overlay (drag right) */}
             <motion.div
-              key={`exit-${currentIndex}`}
-              className="absolute inset-0 rounded-2xl border border-[#252a3e] bg-[#10131d] overflow-hidden shadow-2xl"
-              initial={{ x: 0, rotate: 0, opacity: 1 }}
-              animate={{
-                x: exitDirection === "right" ? 400 : -400,
-                rotate: exitDirection === "right" ? 20 : -20,
-                opacity: 0,
-              }}
-              transition={{ type: "spring", stiffness: 200, damping: 25 }}
+              className="absolute inset-0 rounded-2xl z-10 pointer-events-none flex items-center justify-end pr-8"
+              style={{ opacity: buildOpacity }}
             >
-              {/* Gold flash on build */}
-              {exitDirection === "right" && (
-                <motion.div
-                  className="absolute inset-0 rounded-2xl z-20 pointer-events-none"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: [0, 0.3, 0] }}
-                  transition={{ duration: 0.3 }}
-                  style={{ background: "radial-gradient(circle, #d4a53240 0%, transparent 70%)" }}
-                />
-              )}
-              <SuggestionCardMobile pkg={current} />
+              <div className="px-4 py-2 rounded-lg border-2 border-[#d4a532] bg-[#d4a53220] rotate-12">
+                <span className="font-['Archivo_Black'] text-lg text-[#d4a532] tracking-wider">SAVE</span>
+              </div>
             </motion.div>
-          )}
-        </AnimatePresence>
+
+            <SuggestionCardMobile pkg={current} />
+          </motion.div>
+        )}
       </div>
 
       {/* Dot indicators */}
@@ -248,7 +168,7 @@ export default function SwipeStack({ packages, startIndex = 0, leagueId, owner, 
         ))}
       </div>
 
-      {/* Manual swipe buttons (accessibility fallback) */}
+      {/* Manual swipe buttons */}
       <div className="flex gap-3 px-6 pb-4">
         <button
           onClick={() => advance("left")}
@@ -261,7 +181,7 @@ export default function SwipeStack({ packages, startIndex = 0, leagueId, owner, 
           className="flex-1 py-3 rounded-xl font-['Archivo_Black'] text-sm tracking-wider text-[#06080d] active:opacity-80 transition-opacity"
           style={{ background: "linear-gradient(135deg, #8b6914, #d4a532)" }}
         >
-          BUILD THIS TRADE
+          SAVE TRADE
         </button>
       </div>
     </div>
