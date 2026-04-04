@@ -395,7 +395,7 @@ export default function TradeBuilderUnified() {
 
           {/* Suggestion results — swipeable cards */}
           {tb.suggestedPkgs.length > 0 && (
-            <div style={{ height: "calc(100vh - 180px)", position: "relative" }}>
+            <div style={{ height: "calc(100vh - 180px)", display: "flex", flexDirection: "column" }}>
               <SwipeStack
                 packages={tb.suggestedPkgs}
                 leagueId={leagueId}
