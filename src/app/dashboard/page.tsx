@@ -41,12 +41,12 @@ export default function DashboardPage() {
   const sleeperId = user?.unsafeMetadata?.sleeper_user_id as string | undefined;
   const approvedLeagueId = user?.unsafeMetadata?.approved_league_id as string | undefined;
 
-  // Redirect to onboarding if no Sleeper username
+  // Redirect to onboarding if Sleeper account not linked yet
   useEffect(() => {
-    if (isLoaded && !sleeperUsername) {
+    if (isLoaded && !sleeperId) {
       router.push("/onboarding");
     }
-  }, [isLoaded, sleeperUsername, router]);
+  }, [isLoaded, sleeperId, router]);
 
   // Fetch leagues from Sleeper
   useEffect(() => {
