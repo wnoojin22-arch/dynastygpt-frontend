@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { useUser } from "@clerk/nextjs";
 import { useLeagueStore } from "@/lib/stores/league-store";
 import PlayerCardModal from "@/components/league/PlayerCardModal";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -311,6 +312,7 @@ function HeaderBar({ owner, owners, onOwnerChange, leagueName, syncing, onResync
 export default function LeagueLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const queryClient = useQueryClient();
+  const { user } = useUser();
   const { currentLeagueId, currentLeagueSlug, currentOwner, setLeague, setOwner, savedLeagues } = useLeagueStore();
   const slug = pathname.split("/")[2] || "";
   const [syncing, setSyncing] = useState(false);
@@ -342,7 +344,13 @@ export default function LeagueLayout({ children }: { children: React.ReactNode }
       .then((data) => {
         setLeague(data.league_id, slug, data.name);
         if (data.owners?.length && !currentOwner) {
-          setOwner(data.owners[0].name, data.owners[0].user_id);
+          // Match logged-in user's Sleeper ID to auto-select their team
+          const sleeperUid = user?.unsafeMetadata?.sleeper_user_id as string | undefined;
+          const matched = sleeperUid
+            ? data.owners.find((o: any) => o.user_id === sleeperUid)
+            : null;
+          const pick = matched || data.owners[0];
+          setOwner(pick.name, pick.user_id);
         }
       })
       .catch(() => {})

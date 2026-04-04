@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useUser, UserButton } from "@/lib/clerk-stub";
+import { useUser, UserButton } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { useLeagueStore } from "@/lib/stores/league-store";
 import { syncLeague } from "@/lib/api";
@@ -39,6 +39,7 @@ export default function DashboardPage() {
 
   const sleeperUsername = user?.unsafeMetadata?.sleeper_username as string | undefined;
   const sleeperId = user?.unsafeMetadata?.sleeper_user_id as string | undefined;
+  const approvedLeagueId = user?.unsafeMetadata?.approved_league_id as string | undefined;
 
   // Redirect to onboarding if no Sleeper username
   useEffect(() => {
@@ -109,6 +110,11 @@ export default function DashboardPage() {
 
   if (!isLoaded) return null;
 
+  // Beta gating: only show approved league if set in Clerk metadata
+  const displayLeagues = approvedLeagueId
+    ? leagues.filter((l) => l.league_id === approvedLeagueId)
+    : leagues;
+
   const isSF = (l: SleeperLeague) => (l.roster_positions || []).includes("SUPER_FLEX");
 
   return (
@@ -122,7 +128,7 @@ export default function DashboardPage() {
               Your Leagues
             </h1>
             <p style={{ fontFamily: MONO, fontSize: 12, color: C.dim, marginTop: 4 }}>
-              {sleeperUsername} · {leagues.length} dynasty league{leagues.length !== 1 ? "s" : ""}
+              {sleeperUsername} · {displayLeagues.length} dynasty league{displayLeagues.length !== 1 ? "s" : ""}
             </p>
           </div>
           <UserButton
@@ -139,7 +145,7 @@ export default function DashboardPage() {
           </div>
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340, 1fr))", gap: 12 }}>
-            {leagues.map((l) => (
+            {displayLeagues.map((l) => (
               <div
                 key={l.league_id}
                 onClick={() => !syncing && handleLeagueClick(l)}

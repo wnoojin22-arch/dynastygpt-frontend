@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { useUser } from "@/lib/clerk-stub";
+import { useUser } from "@clerk/nextjs";
 import { useLeagueStore } from "@/lib/stores/league-store";
 
 const API = "";

@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-// import { ClerkProvider } from "@clerk/nextjs"; // Bypassed for local dev
+import { ClerkProvider } from "@clerk/nextjs";
 import { Analytics } from "@vercel/analytics/next";
 import { Providers } from "@/lib/providers";
 import "./globals.css";
@@ -25,7 +25,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           />
         </head>
         <body className="min-h-screen bg-bg text-primary font-sans antialiased">
-          <Providers>{children}</Providers>
+          <ClerkProvider appearance={{ variables: { colorPrimary: "#d4a532", colorBackground: "#06080d", colorText: "#eeeef2" } }}>
+            <Providers>{children}</Providers>
+          </ClerkProvider>
           <Analytics />
         </body>
       </html>
