@@ -48,7 +48,13 @@ export default function SignInPage() {
           AI-POWERED DYNASTY INTELLIGENCE
         </p>
       </div>
-      <SignIn appearance={clerkAppearance} forceRedirectUrl="/dashboard" />
+      <SignIn
+        appearance={clerkAppearance}
+        afterSignInUrl="/dashboard"
+        afterSignUpUrl="/onboarding"
+        redirectUrl="/dashboard"
+        forceRedirectUrl="/dashboard"
+      />
     </div>
   );
 }
