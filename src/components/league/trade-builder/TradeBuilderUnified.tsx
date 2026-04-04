@@ -393,16 +393,37 @@ export default function TradeBuilderUnified() {
             </div>
           </div>
 
-          {/* Suggestion results — swipeable cards */}
+          {/* Suggestion results — full screen swipe modal */}
           {tb.suggestedPkgs.length > 0 && (
-            <div style={{ height: "calc(100vh - 180px)", display: "flex", flexDirection: "column" }}>
+            <div style={{
+              position: "fixed", inset: 0, zIndex: 9998,
+              background: "rgba(6,8,13,0.97)", backdropFilter: "blur(8px)",
+              display: "flex", flexDirection: "column",
+            }}>
+              {/* Header */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px 8px", flexShrink: 0 }}>
+                <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.10em", color: C.gold }}>
+                  {tb.suggestedPkgs.length} TRADE{tb.suggestedPkgs.length !== 1 ? "S" : ""} FOUND
+                </span>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 8px", borderRadius: 10, border: `1px solid rgba(212,165,50,0.15)`, background: "rgba(212,165,50,0.04)" }}>
+                    <span style={{ fontSize: 7, fontWeight: 600, color: C.gold, fontFamily: SANS, fontStyle: "italic" }}>powered by</span>
+                    <span style={{ fontSize: 9, fontWeight: 900, color: C.primary, fontFamily: SANS }}>DynastyGPT<span style={{ color: C.gold }}>.com</span></span>
+                  </div>
+                  <button onClick={() => tb.handleClear()} style={{
+                    background: C.elevated, border: `1px solid ${C.border}`, borderRadius: 8,
+                    padding: "6px 10px", cursor: "pointer", fontSize: 14, lineHeight: 1, color: C.dim,
+                  }}>✕</button>
+                </div>
+              </div>
+              {/* Swipe stack */}
               <SwipeStack
                 packages={tb.suggestedPkgs}
                 leagueId={leagueId}
                 owner={tb.partner || ""}
-                onSwipeRight={(pkg) => ctx.loadPackage(pkg)}
+                onSwipeRight={() => {}}
                 onSwipeLeft={() => {}}
-                onComplete={() => {}}
+                onComplete={() => tb.handleClear()}
               />
             </div>
           )}

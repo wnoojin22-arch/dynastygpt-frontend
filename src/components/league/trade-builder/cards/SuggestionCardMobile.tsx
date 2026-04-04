@@ -75,7 +75,7 @@ function AssetPill({ asset }: { asset: TradeAsset }) {
       >
         {asset.position}
       </span>
-      <span className="font-sans text-[13px] font-semibold text-[#eeeef2] truncate flex-1">
+      <span className="font-sans text-[13px] font-semibold text-[#eeeef2] flex-1">
         {asset.name}
       </span>
       {val > 0 && (
@@ -200,11 +200,14 @@ export default function SuggestionCardMobile({ pkg }: { pkg: SuggestedPackage })
         {/* Balance bar */}
         <BalanceMini give={give} receive={receive} />
 
-        {/* AI rationale — one line */}
+        {/* DynastyGPT Rationale */}
         {(pkg.narrative || pkg.pitch) && (
-          <p className="font-sans text-[12px] leading-relaxed text-[#b0b2c8] mt-3 line-clamp-2 italic">
-            &ldquo;{pkg.narrative || pkg.pitch}&rdquo;
-          </p>
+          <div className="mt-3">
+            <span className="font-mono text-[8px] font-bold tracking-widest text-[#d4a532]">DYNASTYGPT RATIONALE</span>
+            <p className="font-sans text-[12px] leading-relaxed text-[#b0b2c8] mt-1">
+              {pkg.narrative || pkg.pitch}
+            </p>
+          </div>
         )}
       </div>
 
