@@ -56,7 +56,8 @@ function buildRoster(data: unknown, picksData?: unknown): RosterPlayer[] {
     const pd = picksData as Record<string, unknown>;
     const picks = (pd.picks || []) as Array<Record<string, unknown>>;
     for (const pk of picks) {
-      const label = `${pk.season} Rd ${pk.round}${pk.is_own_pick ? "" : ` (${pk.original_owner})`}`;
+      const slotStr = pk.slot_label ? String(pk.slot_label) : `R${pk.round}`;
+      const label = `${pk.season} ${slotStr}`;
       all.push({
         name: label,
         name_clean: String(pk.season) + "_" + String(pk.round),
@@ -117,16 +118,16 @@ function AssetChip({
   const pc = posColor(position);
   const borderColor = side === "give" ? "#e4727230" : "#7dd3a030";
   return (
-    <div className="flex items-center gap-1.5 pl-2 pr-1 py-1.5 rounded-lg bg-[#10131d] border" style={{ borderColor }}>
-      <span className="font-mono text-[8px] font-black px-1 rounded shrink-0" style={{ color: pc, background: `${pc}18` }}>
+    <div className="flex items-center gap-1 pl-1.5 pr-0.5 py-1 rounded-md bg-[#10131d] border" style={{ borderColor }}>
+      <span className="font-mono text-[7px] font-black px-1 rounded shrink-0" style={{ color: pc, background: `${pc}18` }}>
         {position}
       </span>
-      <span className="font-sans text-[12px] font-semibold text-[#eeeef2] truncate flex-1">{name}</span>
+      <span className="font-sans text-[11px] font-semibold text-[#eeeef2] truncate flex-1 min-w-0">{name}</span>
       {value > 0 && (
-        <span className="font-mono text-[10px] font-bold text-[#d4a532] shrink-0">{fmt(value)}</span>
+        <span className="font-mono text-[9px] font-bold text-[#d4a532] shrink-0">{fmt(value)}</span>
       )}
       <button onClick={onRemove} className="p-0.5 rounded text-[#9596a5] active:text-[#e47272] transition-colors shrink-0">
-        <X size={12} />
+        <X size={10} />
       </button>
     </div>
   );
@@ -148,7 +149,8 @@ function RosterRow({
   return (
     <button
       onClick={onToggle}
-      className={`flex items-center gap-2 w-full px-3 py-2.5 text-left transition-colors active:bg-[#171b28] ${isSelected ? "opacity-50" : ""}`}
+      className={`flex items-center gap-1.5 w-full px-3 py-2 text-left transition-colors active:bg-[#171b28] ${isSelected ? "opacity-50" : ""}`}
+      style={isSelected ? { borderLeft: `3px solid ${pc}` } : { borderLeft: "3px solid transparent" }}
     >
       {isSelected ? (
         <div className="w-5 h-5 rounded-full bg-[#d4a53225] flex items-center justify-center shrink-0">
@@ -160,9 +162,6 @@ function RosterRow({
         </span>
       )}
       <span className="font-sans text-[13px] font-medium text-[#eeeef2] flex-1 truncate">{player.name}</span>
-      {player.age && (
-        <span className="font-mono text-[10px] text-[#9596a5] shrink-0">{player.age}</span>
-      )}
       <span className="font-mono text-[11px] font-bold text-[#d4a532] shrink-0 w-12 text-right">
         {player.sha_value > 0 ? fmt(player.sha_value) : "—"}
       </span>
@@ -311,10 +310,10 @@ export default function TapToBuild({
       {/* ══ TOP: Trade tray (fixed) ══ */}
       <div className="shrink-0 border-b border-[#1a1e30] bg-[#0a0d15]">
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-2.5">
+        <div className="flex items-center justify-between px-3 py-2">
           <div className="min-w-0">
-            <span className="font-mono text-[8px] font-bold tracking-widest text-[#9596a5]">TRADE WITH</span>
-            <h2 className="font-['Archivo_Black'] text-sm text-[#eeeef2] tracking-wide truncate">{partnerName}</h2>
+            <span className="font-mono text-[7px] font-bold tracking-widest text-[#9596a5]">TRADE WITH</span>
+            <h2 className="font-['Archivo_Black'] text-[15px] text-[#eeeef2] tracking-wide truncate">{partnerName}</h2>
           </div>
           {/* Acceptance gauge */}
           <div
@@ -323,19 +322,19 @@ export default function TapToBuild({
               filter: accPulse === "red" ? "drop-shadow(0 0 8px #e47272)" : accPulse === "green" ? "drop-shadow(0 0 8px #7dd3a0)" : "none",
             }}
           >
-            <span className="font-mono text-xl font-black transition-colors duration-300" style={{ color: accClr }}>
+            <span className="font-mono text-lg font-black transition-colors duration-300" style={{ color: accClr }}>
               {acceptance}%
             </span>
-            <div className="font-mono text-[8px] font-bold text-[#9596a5] tracking-wide">ACCEPTANCE</div>
+            <div className="font-mono text-[7px] font-bold text-[#9596a5] tracking-wide">ACCEPTANCE</div>
           </div>
         </div>
 
         {/* Send / Get chips */}
-        <div className="flex gap-2 px-4 pb-2">
+        <div className="flex gap-1.5 px-3 pb-1.5">
           {/* SEND column */}
-          <div className="flex-1 min-w-0">
-            <span className="font-mono text-[8px] font-black tracking-widest text-[#e47272] block mb-1">YOU SEND</span>
-            <div className="space-y-1">
+          <div className="flex-1 min-w-0 overflow-hidden">
+            <span className="font-mono text-[7px] font-black tracking-widest text-[#e47272] block mb-0.5">YOU SEND</span>
+            <div className="space-y-0.5">
               {giveNames.length > 0 ? (
                 giveNames.map((name) => {
                   const p = ownerRosterProp.find((r) => r.name.toLowerCase() === name.toLowerCase());
@@ -351,18 +350,18 @@ export default function TapToBuild({
                   );
                 })
               ) : (
-                <div className="py-2 text-center font-mono text-[9px] text-[#9596a540]">TAP YOUR ASSETS</div>
+                <div className="py-1.5 text-center font-mono text-[8px] text-[#9596a540]">TAP YOURS</div>
               )}
             </div>
           </div>
 
           {/* Divider */}
-          <div className="w-px bg-[#1a1e30] self-stretch mx-0.5" />
+          <div className="w-px bg-[#1a1e30] self-stretch" />
 
           {/* GET column */}
-          <div className="flex-1 min-w-0">
-            <span className="font-mono text-[8px] font-black tracking-widest text-[#7dd3a0] block mb-1">YOU GET</span>
-            <div className="space-y-1">
+          <div className="flex-1 min-w-0 overflow-hidden">
+            <span className="font-mono text-[7px] font-black tracking-widest text-[#7dd3a0] block mb-0.5">YOU GET</span>
+            <div className="space-y-0.5">
               {receiveNames.length > 0 ? (
                 receiveNames.map((name) => {
                   const p = partnerRoster.find((r) => r.name.toLowerCase() === name.toLowerCase());
@@ -378,18 +377,18 @@ export default function TapToBuild({
                   );
                 })
               ) : (
-                <div className="py-2 text-center font-mono text-[9px] text-[#9596a540]">TAP THEIR ASSETS</div>
+                <div className="py-1.5 text-center font-mono text-[8px] text-[#9596a540]">TAP THEIRS</div>
               )}
             </div>
           </div>
         </div>
 
-        {/* Balance bar */}
+        {/* Balance bar — always visible when assets selected */}
         {(giveNames.length > 0 || receiveNames.length > 0) && (
-          <div className="px-4 pb-2.5 space-y-1">
-            <div className="flex items-center gap-1.5">
-              <span className="font-mono text-[7px] font-black tracking-wide text-[#e47272] w-7">SEND</span>
-              <div className="flex-1 h-1.5 rounded-full bg-[#171b28] overflow-hidden">
+          <div className="px-3 pb-2 space-y-0.5">
+            <div className="flex items-center gap-1">
+              <span className="font-mono text-[7px] font-black tracking-wide text-[#e47272] w-6">SEND</span>
+              <div className="flex-1 h-1 rounded-full bg-[#171b28] overflow-hidden">
                 <motion.div
                   className="h-full rounded-full bg-[#e47272]"
                   animate={{ width: `${(giveTotal / maxVal) * 100}%` }}
@@ -398,9 +397,9 @@ export default function TapToBuild({
               </div>
               <span className="font-mono text-[9px] font-bold text-[#e47272] w-10 text-right">{fmt(giveTotal)}</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <span className="font-mono text-[7px] font-black tracking-wide text-[#7dd3a0] w-7">GET</span>
-              <div className="flex-1 h-1.5 rounded-full bg-[#171b28] overflow-hidden">
+            <div className="flex items-center gap-1">
+              <span className="font-mono text-[7px] font-black tracking-wide text-[#7dd3a0] w-6">GET</span>
+              <div className="flex-1 h-1 rounded-full bg-[#171b28] overflow-hidden">
                 <motion.div
                   className="h-full rounded-full bg-[#7dd3a0]"
                   animate={{ width: `${(recvTotal / maxVal) * 100}%` }}
@@ -410,7 +409,7 @@ export default function TapToBuild({
               <span className="font-mono text-[9px] font-bold text-[#7dd3a0] w-10 text-right">{fmt(recvTotal)}</span>
             </div>
             <div className="text-center">
-              <span className="font-mono text-[10px] font-black" style={{ color: gapColor }}>
+              <span className="font-mono text-[9px] font-black" style={{ color: gapColor }}>
                 {gapPct >= 0 ? "+" : ""}{gapPct.toFixed(1)}%
               </span>
             </div>
@@ -441,7 +440,7 @@ export default function TapToBuild({
         </div>
 
         {/* Position filters */}
-        <div className="flex gap-1.5 px-3 py-2 shrink-0 overflow-x-auto">
+        <div className="flex gap-1 px-3 py-1.5 shrink-0 overflow-x-auto">
           {FILTERS.map((f) => {
             const isActive = posFilter === f;
             const pc = f === FILTER_ALL ? "#d4a532" : posColor(f);
@@ -449,7 +448,7 @@ export default function TapToBuild({
               <button
                 key={f}
                 onClick={() => setPosFilter(f)}
-                className="font-mono text-[10px] font-bold tracking-wider px-2.5 py-1 rounded-lg border transition-colors shrink-0"
+                className="font-mono text-[9px] font-bold tracking-wider px-2 py-0.5 rounded border transition-colors shrink-0"
                 style={{
                   color: isActive ? pc : "#9596a5",
                   borderColor: isActive ? `${pc}40` : "#1a1e30",
@@ -486,20 +485,21 @@ export default function TapToBuild({
       </div>
 
       {/* ══ FIXED BOTTOM BUTTONS ══ */}
-      <div className="shrink-0 px-4 pb-4 pt-2 border-t border-[#1a1e30] bg-[#06080d] space-y-2">
+      <div className="shrink-0 flex gap-2 px-3 pb-3 pt-1.5 border-t border-[#1a1e30] bg-[#06080d]"
+        style={{ paddingBottom: "calc(12px + env(safe-area-inset-bottom, 0px))" }}>
+        <button
+          onClick={onBack}
+          className="py-2.5 px-4 rounded-xl border border-[#1a1e30] font-mono text-[10px] font-bold tracking-wider text-[#9596a5] active:bg-[#171b28] transition-colors"
+        >
+          ← BACK
+        </button>
         <button
           onClick={() => canSave && onSave(giveNames, receiveNames, partnerName)}
           disabled={!canSave}
-          className="w-full py-3 rounded-xl font-['Archivo_Black'] text-sm tracking-wider text-[#06080d] active:opacity-80 transition-opacity disabled:opacity-30"
+          className="flex-1 py-2.5 rounded-xl font-['Archivo_Black'] text-[12px] tracking-wider text-[#06080d] active:opacity-80 transition-opacity disabled:opacity-30"
           style={{ background: "linear-gradient(135deg, #8b6914, #d4a532)" }}
         >
           SAVE TO QUEUE
-        </button>
-        <button
-          onClick={onBack}
-          className="w-full py-2.5 rounded-xl border border-[#1a1e30] font-mono text-[11px] font-bold tracking-wider text-[#9596a5] active:bg-[#171b28] transition-colors"
-        >
-          BACK TO SUGGESTIONS
         </button>
       </div>
     </div>

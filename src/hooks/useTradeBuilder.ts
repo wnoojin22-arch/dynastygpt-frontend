@@ -102,7 +102,8 @@ function buildRoster(data: unknown, picksData?: unknown): RosterPlayer[] {
     const pd = picksData as Record<string, unknown>;
     const picks = (pd.picks || []) as Array<Record<string, unknown>>;
     for (const pk of picks) {
-      const label = `${pk.season} Rd ${pk.round}${pk.is_own_pick ? "" : ` (${pk.original_owner})`}`;
+      const slotStr = pk.slot_label ? String(pk.slot_label) : `R${pk.round}`;
+      const label = `${pk.season} ${slotStr}`;
       all.push({
         name: label,
         name_clean: String(pk.season) + "_" + String(pk.round),
