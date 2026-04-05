@@ -48,9 +48,26 @@ function parseActionItem(item: unknown): { action: string; dataPoint: string; de
 
 function GmVerdict({ text }: { text: string }) {
   const [open, setOpen] = useState(false);
-  const paragraphs = text ? text.split(/\n\n+/) : [];
-  const first = paragraphs[0] || "";
-  const rest = paragraphs.slice(1);
+
+  // Split into sentences. Show first 2 sentences collapsed, rest on expand.
+  // Handles both paragraph breaks AND single long blocks.
+  const clean = (text || "").trim();
+  if (!clean) return (
+    <div style={{
+      borderRadius: 10, padding: "20px 18px", textAlign: "center",
+      background: `linear-gradient(135deg, rgba(212,165,50,0.12), rgba(212,165,50,0.04), ${C.card})`,
+      border: `1px solid ${C.goldBorder}`, boxShadow: `0 0 60px rgba(212,165,50,0.06)`,
+    }}>
+      <div style={{ fontFamily: SANS, fontSize: 14, fontStyle: "italic", color: C.gold }}>
+        Franchise intel is being computed...
+      </div>
+    </div>
+  );
+
+  // Split on sentence boundaries or double newlines
+  const sentences = clean.split(/(?<=[.!?])\s+|\n\n+/).filter(Boolean);
+  const preview = sentences.slice(0, 2).join(" ");
+  const remaining = sentences.slice(2).join(" ");
 
   const render = (t: string) => ({
     __html: t
@@ -58,44 +75,31 @@ function GmVerdict({ text }: { text: string }) {
       .replace(/\n/g, "<br/>"),
   });
 
-  if (!first) return (
-    <div style={{
-      borderRadius: 10, padding: "20px 18px", textAlign: "center",
-      background: `linear-gradient(135deg, rgba(212,165,50,0.08), ${C.card})`,
-      border: `1px solid ${C.goldBorder}`,
-    }}>
-      <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 16, fontStyle: "italic", color: C.gold }}>
-        Franchise intel is being computed...
-      </div>
-    </div>
-  );
-
   return (
     <div style={{
       borderRadius: 10, overflow: "hidden",
-      background: `linear-gradient(135deg, rgba(212,165,50,0.06), rgba(212,165,50,0.02), ${C.card})`,
+      background: `linear-gradient(135deg, rgba(212,165,50,0.10), rgba(212,165,50,0.04), ${C.card})`,
       border: `1px solid ${C.goldBorder}`,
-      boxShadow: `0 0 40px rgba(212,165,50,0.04)`,
+      boxShadow: `0 0 60px rgba(212,165,50,0.06)`,
     }}>
-      <div style={{ padding: "12px 16px" }}>
-        <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.1em", color: C.gold, marginBottom: 8, textTransform: "uppercase" }}>GM VERDICT</div>
+      <div style={{ padding: "14px 16px" }}>
+        <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.1em", color: C.gold, marginBottom: 8 }}>GM VERDICT</div>
         <div style={{ fontFamily: SANS, fontSize: 13, fontWeight: 500, color: C.primary, lineHeight: 1.5 }}
-          dangerouslySetInnerHTML={render(first)} />
+          dangerouslySetInnerHTML={render(preview)} />
         <AnimatePresence>
-          {open && rest.length > 0 && (
+          {open && remaining && (
             <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.25 }} style={{ overflow: "hidden" }}>
-              {rest.map((p, i) => (
-                <div key={i} style={{ fontFamily: SANS, fontSize: 13, color: C.secondary, lineHeight: 1.5, marginTop: 10 }} dangerouslySetInnerHTML={render(p)} />
-              ))}
+              <div style={{ fontFamily: SANS, fontSize: 13, color: C.secondary, lineHeight: 1.5, marginTop: 10 }}
+                dangerouslySetInnerHTML={render(remaining)} />
             </motion.div>
           )}
         </AnimatePresence>
       </div>
-      {rest.length > 0 && (
+      {remaining && (
         <div onClick={() => setOpen(!open)} style={{
-          padding: "8px 18px", borderTop: `1px solid ${C.goldBorder}`, cursor: "pointer",
+          padding: "8px 16px", borderTop: `1px solid ${C.goldBorder}`, cursor: "pointer",
           display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-          background: `rgba(212,165,50,0.03)`,
+          background: `rgba(212,165,50,0.05)`,
         }}>
           <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", color: C.gold }}>
             {open ? "COLLAPSE" : "SEE FULL VERDICT"}
