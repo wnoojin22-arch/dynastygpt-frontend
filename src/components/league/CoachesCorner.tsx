@@ -68,8 +68,8 @@ function MarketIntel({ cc }: { cc: Record<string, unknown> }) {
         borderBottom: `1px solid ${C.white04}`,
       }}>
         <span className={`font-sans text-[10px] font-bold rounded px-1 py-0.5 shrink-0 ${posTagClasses(String(p.position || ""))}`}>{String(p.position || "")}</span>
-        <PlayerName name={String(p.name || "")} style={{ fontFamily: SANS, fontSize: 13, fontWeight: 500, color: C.primary, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} />
-        <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color, flexShrink: 0 }}>{pct > 0 ? "+" : ""}{pct}%</span>
+        <PlayerName name={String(p.name || "")} style={{ fontFamily: SANS, fontSize: 14, fontWeight: 500, color: C.primary, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} />
+        <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color, flexShrink: 0 }}>{pct > 0 ? "+" : ""}{pct}%</span>
       </div>
     );
   };
@@ -174,6 +174,33 @@ function PickIntel({ cc }: { cc: Record<string, unknown> }) {
       <div style={{ padding: "4px 10px", borderBottom: `1px solid ${C.white04}` }}>
         <span style={{ fontFamily: SANS, fontSize: 11, color: C.secondary }}>{summary}</span>
       </div>
+      {/* Desktop only: hit rate by round bars */}
+      {Object.keys(roundHR).length > 0 && (
+        <div className="hidden md:block" style={{ padding: "6px 10px", borderBottom: `1px solid ${C.white04}` }}>
+          <div style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, color: C.dim, letterSpacing: "0.1em", marginBottom: 4 }}>HIT RATE BY ROUND</div>
+          <div style={{ display: "flex", gap: 6 }}>
+            {[1, 2, 3, 4].map((rd) => {
+              const rh = roundHR[rd];
+              if (!rh) return null;
+              const rate = rh.rate;
+              const rc = rate >= 50 ? C.green : rate >= 30 ? C.gold : C.red;
+              const avgRate = leagueAvg || 40;
+              return (
+                <div key={rd} style={{ flex: 1, textAlign: "center" }}>
+                  <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: rc }}>{rate}%</div>
+                  <div style={{ height: 3, borderRadius: 2, background: C.elevated, overflow: "hidden", margin: "3px 0" }}>
+                    <div style={{ height: "100%", borderRadius: 2, background: rc, width: `${Math.min(rate, 100)}%` }} />
+                  </div>
+                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>R{rd} · {rh.hits}/{rh.total}</div>
+                  <div style={{ fontFamily: MONO, fontSize: 8, color: rate >= avgRate ? C.green : C.red }}>
+                    {rate >= avgRate ? "+" : ""}{rate - avgRate}% vs avg
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
       {picks.length > 0 ? picks.map((p, j) => {
         const round = p.round as number;
         const value = (p.value as number) || 0;
@@ -404,61 +431,54 @@ export default function CoachesCorner({ leagueId, owner, ownerId }: { leagueId: 
   const sellAll = [...moveNow, ...listenPlayers];
   const buyLow = (data.buy_low || []) as Array<Record<string, unknown>>;
 
+  /* shared player row — desktop gets bigger text */
+  const PRow = ({ p, dot }: { p: Record<string, unknown>; dot: string }) => (
+    <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 10px", borderBottom: `1px solid ${C.white04}` }}>
+      <div style={{ width: 5, height: 5, borderRadius: "50%", background: dot, flexShrink: 0 }} />
+      <span className={`font-sans text-[11px] md:text-[12px] font-bold rounded px-1 py-0.5 shrink-0 ${posTagClasses(String(p.position || ""))}`}>{String(p.position || "")}</span>
+      <PlayerName name={String(p.name || p.player || "")} style={{ fontFamily: SANS, fontSize: 13, fontWeight: 500, color: C.primary, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} />
+      {p.age != null && <span style={{ fontFamily: SANS, fontSize: 11, color: C.dim, flexShrink: 0 }}>{String(p.age)}</span>}
+    </div>
+  );
+
+  const ActionCol = ({ label, items, color, icon }: { label: string; items: Array<Record<string, unknown>>; color: string; icon: React.ReactNode }) => (
+    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
+      <SH icon={icon} label={`${label} · ${items.length}`} />
+      {items.length > 0 ? items.map((p, j) => <PRow key={j} p={p} dot={color} />) : (
+        <div style={{ padding: "10px", fontFamily: SANS, fontSize: 12, color: C.dim, textAlign: "center" }}>—</div>
+      )}
+    </div>
+  );
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      {/* 1. SELL + HOLD — side by side */}
-      <style>{`.two-col { display: flex; flex-direction: column; gap: 6px; } @media (min-width: 768px) { .two-col { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 6px !important; } }`}</style>
-      <div className="two-col">
-        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
-          <SH icon={<ArrowUpRight size={10} style={{ color: C.red }} />} label={`SELL · ${sellAll.length}`} />
-          {sellAll.length > 0 ? sellAll.map((p, j) => (
-            <div key={j} style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 8px", borderBottom: `1px solid ${C.white04}` }}>
-              <div style={{ width: 5, height: 5, borderRadius: "50%", background: C.red, flexShrink: 0 }} />
-              <span className={`font-sans text-[10px] font-bold rounded px-1 py-0.5 shrink-0 ${posTagClasses(String(p.position || ""))}`}>{String(p.position || "")}</span>
-              <PlayerName name={String(p.name || p.player || "")} style={{ fontFamily: SANS, fontSize: 12, fontWeight: 500, color: C.primary, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} />
-              {p.age != null && <span style={{ fontFamily: SANS, fontSize: 10, color: C.dim, flexShrink: 0 }}>{String(p.age)}</span>}
-            </div>
-          )) : <div style={{ padding: "8px 10px", fontFamily: SANS, fontSize: 11, color: C.dim, textAlign: "center" }}>—</div>}
-        </div>
-        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
-          <SH icon={<Shield size={10} style={{ color: C.blue }} />} label={`HOLD · ${holdPlayers.length}`} />
-          {holdPlayers.length > 0 ? holdPlayers.map((p, j) => (
-            <div key={j} style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 8px", borderBottom: `1px solid ${C.white04}` }}>
-              <div style={{ width: 5, height: 5, borderRadius: "50%", background: C.blue, flexShrink: 0 }} />
-              <span className={`font-sans text-[10px] font-bold rounded px-1 py-0.5 shrink-0 ${posTagClasses(String(p.position || ""))}`}>{String(p.position || "")}</span>
-              <PlayerName name={String(p.name || p.player || "")} style={{ fontFamily: SANS, fontSize: 12, fontWeight: 500, color: C.primary, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} />
-              {p.age != null && <span style={{ fontFamily: SANS, fontSize: 10, color: C.dim, flexShrink: 0 }}>{String(p.age)}</span>}
-            </div>
-          )) : <div style={{ padding: "8px 10px", fontFamily: SANS, fontSize: 11, color: C.dim, textAlign: "center" }}>—</div>}
+      <style>{`
+        .cc-top3 { display: flex; flex-direction: column; gap: 6px; }
+        @media (min-width: 768px) { .cc-top3 { display: grid !important; grid-template-columns: 1fr 1fr 1fr !important; gap: 8px !important; } }
+        .cc-mid { display: flex; flex-direction: column; gap: 6px; }
+        @media (min-width: 768px) { .cc-mid { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 8px !important; } }
+      `}</style>
+
+      {/* ROW 1: SELL | HOLD | BUY LOW — 3 columns desktop */}
+      <div className="cc-top3">
+        <ActionCol label="SELL" items={sellAll} color={C.red} icon={<ArrowUpRight size={11} style={{ color: C.red }} />} />
+        <ActionCol label="HOLD" items={holdPlayers} color={C.blue} icon={<Shield size={11} style={{ color: C.blue }} />} />
+        <ActionCol label="BUY LOW" items={buyLow} color={C.green} icon={<Target size={11} style={{ color: C.gold }} />} />
+      </div>
+
+      {/* ROW 2: Market Intel (left) | Pick Intel + Lineup (right stacked) */}
+      <div className="cc-mid">
+        {/* Left: Market Intel stacked vertically */}
+        <MarketIntel cc={data} />
+
+        {/* Right: Pick Intel + Lineup Efficiency stacked */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <PickIntel cc={data} />
+          <LineupEfficiency data={data.lineup_efficiency as Record<string, unknown> | null} />
         </div>
       </div>
 
-      {/* 2. MARKET INTEL */}
-      <MarketIntel cc={data} />
-
-      {/* 3. BUY LOW TARGETS — full width */}
-      {buyLow.length > 0 && (
-        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
-          <SH icon={<Target size={10} style={{ color: C.gold }} />} label={`BUY LOW · ${buyLow.length}`} />
-          {buyLow.map((p, j) => (
-            <div key={j} style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 8px", borderBottom: `1px solid ${C.white04}` }}>
-              <div style={{ width: 5, height: 5, borderRadius: "50%", background: C.green, flexShrink: 0 }} />
-              <span className={`font-sans text-[10px] font-bold rounded px-1 py-0.5 shrink-0 ${posTagClasses(String(p.position || ""))}`}>{String(p.position || "")}</span>
-              <PlayerName name={String(p.name || p.player || "")} style={{ fontFamily: SANS, fontSize: 12, fontWeight: 500, color: C.primary, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} />
-              {p.age != null && <span style={{ fontFamily: SANS, fontSize: 10, color: C.dim, flexShrink: 0 }}>{String(p.age)}</span>}
-              {String(p.current_owner || "") && <span style={{ fontFamily: SANS, fontSize: 10, color: C.dim, flexShrink: 0 }}>{String(p.current_owner)}</span>}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* 4. PICK INTEL — full width */}
-      <PickIntel cc={data} />
-
-      {/* 5. LINEUP EFFICIENCY — full width */}
-      <LineupEfficiency data={data.lineup_efficiency as Record<string, unknown> | null} />
-
-      {/* 6. TRADE PARTNERS — full width */}
+      {/* ROW 3: Trade Partners */}
       <TradePartners data={data.trade_partners as Record<string, unknown> | null} />
 
       {/* CTA */}
