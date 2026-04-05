@@ -618,7 +618,7 @@ export default function TradeProfile({ ownerName, profile }: {
         </Section>
 
         {/* Best / Worst trade */}
-        <div className="grid grid-cols-2 gap-4 mt-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
           {bestTrade && (
             <div className="bg-card border border-border rounded-xl overflow-hidden" style={{ borderLeft: "4px solid #7dd3a0" }}>
               <div className="px-4 py-2.5 border-b border-border flex items-center justify-between" style={{ background: "rgba(125,211,160,0.06)" }}>
@@ -671,7 +671,7 @@ export default function TradeProfile({ ownerName, profile }: {
       {/* ═══ SECTION 5: WHAT THEY TRADE FOR ═══ */}
       <div>
         <div className="font-sans text-[10px] font-bold tracking-[0.2em] text-dim mb-3 uppercase">What They Trade For</div>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Position Flow */}
           <Section label="Position Flow">
             <div className="flex flex-col gap-2.5">
@@ -732,8 +732,8 @@ export default function TradeProfile({ ownerName, profile }: {
                     const b = deadline[year];
                     const dc = deadlineColor(b);
                     return (
-                      <div key={year} className="flex flex-col items-center gap-1">
-                        <span className="font-sans text-[9px] font-bold tracking-wider px-2 py-1 rounded"
+                      <div key={year} className="flex items-center gap-1.5">
+                        <span className="font-sans text-[9px] font-bold tracking-wider px-2 py-0.5 rounded"
                           style={{ color: dc, background: `${dc}15`, border: `1px solid ${dc}30`, opacity: b === "INACTIVE" ? 0.4 : 1 }}>
                           {b === "BUYER" ? "BUY" : b === "SELLER" ? "SELL" : "—"}
                         </span>

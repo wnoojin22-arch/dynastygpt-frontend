@@ -45,7 +45,6 @@ function DCard({ label, right, children }: { label: string; right?: React.ReactN
 const TABS = [
   { id: "overview", label: "OVERVIEW" },
   { id: "trades", label: "TRADE PROFILE" },
-  { id: "draft", label: "DRAFT ROOM" },
   { id: "roster", label: "ROSTER" },
   { id: "rivals", label: "RIVALS" },
   { id: "seasons", label: "SEASONS" },
@@ -63,15 +62,7 @@ export default function OwnerDetailPage({ params }: { params: Promise<{ owner: s
   const pathname = usePathname();
   const [tab, setTab] = useState<TabId>("overview");
 
-  // Redirect draft tab to unified draft page
-  const handleTab = (t: TabId) => {
-    if (t === "draft") {
-      const slug = pathname.split("/")[2];
-      router.push(`/l/${slug}/draft`);
-      return;
-    }
-    setTab(t);
-  };
+  const handleTab = (t: TabId) => setTab(t);
   const [reportTradeId, setReportTradeId] = useState<string | null>(null);
 
   // Look up userId for this owner from the owners list
@@ -92,6 +83,10 @@ export default function OwnerDetailPage({ params }: { params: Promise<{ owner: s
 
   return (
     <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+      {/* ── BACK BUTTON (mobile) ── */}
+      <div className="md:hidden" onClick={() => router.back()} style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 4, padding: "4px 0" }}>
+        <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 600, color: C.gold }}>← Back</span>
+      </div>
       {/* ── HEADER ── */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 16px", borderRadius: 6, background: C.panel, border: `1px solid ${C.border}`, flexWrap: "wrap" }}>
         <span style={{ fontFamily: DISPLAY, fontSize: 22, color: C.primary, letterSpacing: "-0.01em" }}>{ownerName}</span>
@@ -130,7 +125,8 @@ export default function OwnerDetailPage({ params }: { params: Promise<{ owner: s
           {lid && <ScoutingReport leagueId={lid} owner={ownerName} ownerId={ownerUserId} />}
 
           {/* Stats grid */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8 }}>
+          <style>{`.stats-5 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; } @media (min-width: 768px) { .stats-5 { grid-template-columns: repeat(5, 1fr) !important; gap: 8px !important; } }`}</style>
+          <div className="stats-5">
             {[
               { label: "TRADES/YR", value: t?.trades_per_year ? String(t.trades_per_year) : "—", color: C.primary },
               { label: "WIN RATE", value: t?.trade_win_rate ? `${(Number(t.trade_win_rate) * 100).toFixed(0)}%` : "—", color: Number(t?.trade_win_rate || 0) >= 0.5 ? C.green : C.red },
@@ -146,7 +142,8 @@ export default function OwnerDetailPage({ params }: { params: Promise<{ owner: s
           </div>
 
           {/* Tendencies + Needs */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <style>{`.tend-grid { display: grid; grid-template-columns: 1fr; gap: 10px; } @media (min-width: 768px) { .tend-grid { grid-template-columns: 1fr 1fr !important; } }`}</style>
+          <div className="tend-grid">
             <DCard label="TRADE TENDENCIES">
               {t ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>

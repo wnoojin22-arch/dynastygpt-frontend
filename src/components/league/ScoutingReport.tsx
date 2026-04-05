@@ -1,7 +1,8 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { motion, AnimatePresence } from "framer-motion";
 import { getScoutingReport } from "@/lib/api";
 import {
   Crosshair, Clock, Target, ShieldAlert,
@@ -33,6 +34,61 @@ const INTEL_COLORS: Record<string, string> = {
   BAIT: "#7dd3a0",
   CAUTION: "#6bb8e0",
 };
+
+function CollapsibleNarrative({ narrative, intel }: { narrative: string; intel: Array<{ label: string; detail: string }> }) {
+  const [expanded, setExpanded] = useState(false);
+  const fullHtml = mdToHtml(narrative);
+  // Truncate to ~150 chars on sentence boundary
+  const plain = narrative.replace(/\*\*(.+?)\*\*/g, "$1").replace(/<[^>]+>/g, "");
+  const cutoff = plain.indexOf(".", 120);
+  const previewText = cutoff > 0 && cutoff < 200 ? plain.slice(0, cutoff + 1) : plain.slice(0, 150) + "…";
+  const hasMore = plain.length > previewText.length;
+
+  return (
+    <div className="space-y-3">
+      {!expanded ? (
+        <div>
+          <p className="font-sans text-sm text-secondary leading-relaxed">{previewText}</p>
+          {hasMore && (
+            <button onClick={() => setExpanded(true)} className="font-sans text-[12px] font-semibold text-gold mt-2 cursor-pointer hover:underline">
+              Read full report ↓
+            </button>
+          )}
+        </div>
+      ) : (
+        <div>
+          <div className="font-sans text-sm text-secondary leading-relaxed"
+            dangerouslySetInnerHTML={{ __html: `<p>${fullHtml}</p>` }} />
+          <button onClick={() => setExpanded(false)} className="font-sans text-[12px] font-semibold text-gold mt-2 cursor-pointer hover:underline">
+            Collapse ↑
+          </button>
+        </div>
+      )}
+
+      {/* Tactical intel cards — always visible */}
+      {intel.length > 0 && (
+        <div className="flex flex-col gap-2 pt-2 border-t border-border">
+          {intel.map((item, i) => {
+            const color = INTEL_COLORS[item.label] || "#9596a5";
+            const icon = INTEL_ICONS[item.label] || null;
+            return (
+              <div key={i} className="flex items-start gap-3 pl-3 py-2 rounded-r-lg"
+                style={{ borderLeft: `3px solid ${color}`, background: `${color}08` }}>
+                {icon && <span className="shrink-0 mt-0.5" style={{ color }}>{icon}</span>}
+                <div className="min-w-0">
+                  <span className="font-sans text-[10px] font-bold tracking-wider uppercase block mb-0.5" style={{ color }}>
+                    {item.label}
+                  </span>
+                  <p className="font-sans text-sm text-secondary leading-snug">{item.detail}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function ScoutingReport({ leagueId, owner, ownerId }: {
   leagueId: string; owner: string; ownerId?: string | null;
@@ -109,35 +165,7 @@ export default function ScoutingReport({ leagueId, owner, ownerId }: {
             AI scouting report will be available after the league has been fully analyzed.
           </p>
         ) : narrative ? (
-          <div className="space-y-4">
-            {/* Narrative paragraph */}
-            <div
-              className="font-sans text-sm text-secondary leading-relaxed"
-              dangerouslySetInnerHTML={{ __html: `<p>${mdToHtml(narrative)}</p>` }}
-            />
-
-            {/* Tactical intel cards */}
-            {intel.length > 0 && (
-              <div className="flex flex-col gap-2 pt-2 border-t border-border">
-                {intel.map((item, i) => {
-                  const color = INTEL_COLORS[item.label] || "#9596a5";
-                  const icon = INTEL_ICONS[item.label] || null;
-                  return (
-                    <div key={i} className="flex items-start gap-3 pl-3 py-2 rounded-r-lg"
-                      style={{ borderLeft: `3px solid ${color}`, background: `${color}08` }}>
-                      {icon && <span className="shrink-0 mt-0.5" style={{ color }}>{icon}</span>}
-                      <div className="min-w-0">
-                        <span className="font-sans text-[10px] font-bold tracking-wider uppercase block mb-0.5" style={{ color }}>
-                          {item.label}
-                        </span>
-                        <p className="font-sans text-sm text-secondary leading-snug">{item.detail}</p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+          <CollapsibleNarrative narrative={narrative} intel={intel} />
         ) : (
           <p className="font-sans text-sm text-dim italic">
             Scouting report is being generated. Check back shortly.
