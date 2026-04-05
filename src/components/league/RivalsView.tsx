@@ -151,19 +151,19 @@ export default function RivalsView({ leagueId, owner, ownerId }: {
   return (
     <div style={{ padding: "12px 14px" }}>
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-        <span style={{ fontFamily: SERIF, fontSize: 22, fontWeight: 900, fontStyle: "italic", color: C.goldBright }}>Rival Intelligence</span>
-        <div style={{ width: 1, height: 16, background: C.border }} />
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+        <span style={{ fontFamily: SERIF, fontSize: 20, fontWeight: 900, fontStyle: "italic", color: C.goldBright }}>Rival Intelligence</span>
         <span style={{ fontFamily: MONO, fontSize: 12, color: C.dim }}>
-          Overall: <span style={{ fontWeight: 800, color: C.primary, fontSize: 14 }}>{totalW}W-{totalL}L</span>{" "}
+          <span style={{ fontWeight: 800, color: C.primary }}>{totalW}W-{totalL}L</span>{" "}
           <span style={{ color: totalW >= totalL ? C.green : C.red }}>({totalW + totalL > 0 ? (totalW / (totalW + totalL) * 100).toFixed(0) : 0}%)</span>
         </span>
       </div>
 
       {/* TALE OF THE TAPE — Nemesis vs Punching Bag */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", marginBottom: 12, background: C.card, borderRadius: 8, border: `1px solid ${C.border}`, overflow: "hidden" }}>
+      <style>{`.tape-grid { display: flex; flex-direction: column; } @media (min-width: 768px) { .tape-grid { display: grid !important; grid-template-columns: 1fr auto 1fr !important; } } .tape-grid .vs-sep { display: none; } @media (min-width: 768px) { .tape-grid .vs-sep { display: flex !important; } }`}</style>
+      <div className="tape-grid" style={{ marginBottom: 12, background: C.card, borderRadius: 8, border: `1px solid ${C.border}`, overflow: "hidden" }}>
         <Spot r={nemesis} label="YOUR NEMESIS" lc={C.red} isNem={true} />
-        <div style={{ width: 50, display: "flex", alignItems: "center", justifyContent: "center", background: C.elevated }}>
+        <div className="vs-sep" style={{ width: 50, display: "flex", alignItems: "center", justifyContent: "center", background: C.elevated }}>
           <span style={{ fontFamily: SERIF, fontSize: 18, fontWeight: 900, fontStyle: "italic", color: C.gold }}>VS</span>
         </div>
         {bag ? <Spot r={bag} label="PUNCHING BAG" lc={C.green} isNem={false} /> : <div style={{ padding: 16, display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>NOT ENOUGH RIVALS</span></div>}
@@ -182,39 +182,26 @@ export default function RivalsView({ leagueId, owner, ownerId }: {
           return (
             <div key={i}>
               <div onClick={() => setExpanded(isExp ? null : r.opponent)} style={{
-                display: "grid", gridTemplateColumns: "20px 1.4fr 70px 50px 70px 50px 70px",
-                padding: "8px 12px", borderBottom: `1px solid ${C.white08}`, cursor: "pointer",
-                transition: "background 0.1s", alignItems: "center",
+                display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6,
+                padding: "8px 10px", borderBottom: `1px solid ${C.white08}`, cursor: "pointer",
+                transition: "background 0.1s",
                 background: isExp ? C.elevated : "transparent",
               }}
                 onMouseEnter={(e) => { if (!isExp) e.currentTarget.style.background = `${C.elevated}80`; }}
                 onMouseLeave={(e) => { e.currentTarget.style.background = isExp ? C.elevated : "transparent"; }}>
-                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.dim }}>{i + 1}</span>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, overflow: "hidden" }}>
-                  <div style={{ width: 4, height: 20, borderRadius: 2, background: pc, flexShrink: 0 }} />
-                  <span style={{ fontFamily: SANS, fontSize: 14, fontWeight: 700, color: C.primary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.opponent}</span>
-                  <TitleBadge title={r.title} />
-                </div>
-                <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: C.primary, textAlign: "center" }}>{r.wins}-{r.losses}</span>
-                <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, textAlign: "center", color: pc }}>{(pct * 100).toFixed(0)}%</span>
-                <div style={{ height: 8, borderRadius: 4, background: `${C.red}25`, overflow: "hidden" }}>
-                  <div style={{ height: "100%", borderRadius: 4, background: pc, width: `${pct * 100}%` }} />
-                </div>
-                <div style={{ textAlign: "center" }}>
-                  <span style={{
-                    fontFamily: MONO, fontSize: 10, fontWeight: 800,
-                    color: r.streak > 0 ? C.green : r.streak < 0 ? C.red : C.dim,
-                    padding: "2px 6px", borderRadius: 3,
-                    background: r.streak > 0 ? C.greenDim : r.streak < 0 ? C.redDim : "transparent",
-                  }}>{r.streak > 0 ? "W" : r.streak < 0 ? "L" : "—"}{r.streak !== 0 ? Math.abs(r.streak) : ""}</span>
-                </div>
-                <div style={{ display: "flex", justifyContent: "flex-end" }}><WLDots results={r.last5} /></div>
+                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.dim, width: 16, flexShrink: 0 }}>{i + 1}</span>
+                <div style={{ width: 4, height: 16, borderRadius: 2, background: pc, flexShrink: 0 }} />
+                <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 700, color: C.primary, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.opponent}</span>
+                <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.primary, flexShrink: 0 }}>{r.wins}-{r.losses}</span>
+                <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: pc, flexShrink: 0 }}>{(pct * 100).toFixed(0)}%</span>
+                <WLDots results={r.last5} />
               </div>
 
               {/* Expanded Detail */}
               {isExp && (
-                <div style={{ padding: "14px 16px", background: C.elevated, borderBottom: `1px solid ${C.border}` }}>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                <div style={{ padding: "10px 12px", background: C.elevated, borderBottom: `1px solid ${C.border}` }}>
+                  <style>{`.rival-detail { display: flex; flex-direction: column; gap: 12px; } @media (min-width: 768px) { .rival-detail { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 16px !important; } }`}</style>
+                  <div className="rival-detail">
                     <div>
                       <div style={{ fontFamily: SANS, fontSize: 13, color: C.secondary, lineHeight: 1.6, fontStyle: "italic", marginBottom: 12, paddingLeft: 12, borderLeft: `3px solid ${pc}` }}>
                         &ldquo;{r.flavor}&rdquo;
@@ -251,7 +238,8 @@ export default function RivalsView({ leagueId, owner, ownerId }: {
       </div>
 
       {/* BOTTOM 3-COLUMN: Superlatives + Trophies + Dominance Map */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+      <style>{`.bottom-3 { display: flex; flex-direction: column; gap: 8px; } @media (min-width: 768px) { .bottom-3 { display: grid !important; grid-template-columns: 1fr 1fr 1fr !important; } }`}</style>
+      <div className="bottom-3">
         {/* SUPERLATIVES */}
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, overflow: "hidden" }}>
           <div style={{ padding: "4px 8px", background: C.goldDim, borderBottom: `1px solid ${C.border}` }}>

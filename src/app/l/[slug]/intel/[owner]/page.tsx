@@ -87,32 +87,29 @@ export default function OwnerDetailPage({ params }: { params: Promise<{ owner: s
       <div className="md:hidden" onClick={() => router.back()} style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 4, padding: "4px 0" }}>
         <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 600, color: C.gold }}>← Back</span>
       </div>
-      {/* ── HEADER ── */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 16px", borderRadius: 6, background: C.panel, border: `1px solid ${C.border}`, flexWrap: "wrap" }}>
-        <span style={{ fontFamily: DISPLAY, fontSize: 22, color: C.primary, letterSpacing: "-0.01em" }}>{ownerName}</span>
-        {badges.map((b) => (
-          <span key={b} style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, padding: "2px 8px", borderRadius: 4, background: C.goldDim, color: C.gold, border: `1px solid ${C.goldBorder}` }}>{b}</span>
-        ))}
+      {/* ── HEADER — compact on mobile ── */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderRadius: 6, background: C.panel, border: `1px solid ${C.border}` }}>
+        <span style={{ fontFamily: DISPLAY, fontSize: 20, color: C.primary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{ownerName}</span>
         {record && (
-          <span style={{ fontFamily: MONO, fontSize: 12, color: C.secondary, marginLeft: "auto" }}>
+          <span style={{ fontFamily: MONO, fontSize: 13, color: C.secondary, flexShrink: 0 }}>
             <span style={{ fontWeight: 700, color: C.primary }}>{record.all_time_wins}W-{record.all_time_losses}L</span>
             {" "}({(record.win_pct * 100).toFixed(0)}%)
           </span>
         )}
         {champs && champs.championships > 0 && (
-          <span style={{ fontFamily: MONO, fontSize: 12, color: C.gold }}>🏆 {champs.championships}</span>
+          <span style={{ fontFamily: MONO, fontSize: 13, color: C.gold, flexShrink: 0 }}>🏆{champs.championships}</span>
         )}
       </div>
 
-      {/* ── TAB BAR ── */}
-      <div style={{ display: "flex", gap: 0, borderBottom: `1px solid ${C.borderLt}` }}>
+      {/* ── TAB BAR — horizontal scroll on mobile ── */}
+      <div style={{ display: "flex", gap: 0, borderBottom: `1px solid ${C.borderLt}`, overflowX: "auto", WebkitOverflowScrolling: "touch", scrollbarWidth: "none" }}>
+        <style>{`.tab-scroll::-webkit-scrollbar { display: none; }`}</style>
         {TABS.map((tb) => (
-          <div key={tb.id} onClick={() => handleTab(tb.id)} style={{
-            padding: "8px 16px", fontFamily: MONO, fontSize: 10, fontWeight: 800,
-            letterSpacing: "0.10em", color: tab === tb.id ? C.gold : C.dim, cursor: "pointer",
-            borderBottom: tab === tb.id ? `3px solid ${C.gold}` : "3px solid transparent",
-            boxShadow: tab === tb.id ? `0 3px 12px ${C.gold}40` : "none",
-            transition: "all 0.2s",
+          <div key={tb.id} onClick={() => handleTab(tb.id)} className="tab-scroll" style={{
+            padding: "8px 12px", fontFamily: MONO, fontSize: 11, fontWeight: 800,
+            letterSpacing: "0.08em", color: tab === tb.id ? C.gold : C.dim, cursor: "pointer",
+            borderBottom: tab === tb.id ? `2px solid ${C.gold}` : "2px solid transparent",
+            transition: "all 0.15s", whiteSpace: "nowrap", flexShrink: 0,
           }}>{tb.label}</div>
         ))}
       </div>
@@ -141,33 +138,8 @@ export default function OwnerDetailPage({ params }: { params: Promise<{ owner: s
             ))}
           </div>
 
-          {/* Tendencies + Needs */}
-          <style>{`.tend-grid { display: grid; grid-template-columns: 1fr; gap: 10px; } @media (min-width: 768px) { .tend-grid { grid-template-columns: 1fr 1fr !important; } }`}</style>
-          <div className="tend-grid">
-            <DCard label="TRADE TENDENCIES">
-              {t ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  <div>
-                    <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.dim, letterSpacing: "0.08em" }}>POSITION BIAS</span>
-                    <div style={{ display: "flex", gap: 6, marginTop: 4, flexWrap: "wrap" }}>
-                      {Object.entries(t.positional_bias || {}).filter(([k]) => k !== "UNKNOWN").map(([pos, count]) => (
-                        <span key={pos} style={{ fontFamily: MONO, fontSize: 11, padding: "2px 6px", borderRadius: 3, background: (POS[pos] || C.dim) + "15", color: POS[pos] || C.dim }}>{pos}: {count as number}</span>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.dim, letterSpacing: "0.08em" }}>TIMING</span>
-                    <div style={{ display: "flex", gap: 8, marginTop: 4, flexWrap: "wrap" }}>
-                      {Object.entries(t.seasonal_timing || {}).map(([period, count]) => (
-                        <span key={period} style={{ fontFamily: MONO, fontSize: 11, color: C.secondary }}>{period}: {count as number}</span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              ) : <p style={{ fontFamily: MONO, fontSize: 12, color: C.dim }}>Loading...</p>}
-            </DCard>
-
-            <DCard label="POSITIONAL NEEDS">
+          {/* Positional Needs */}
+          <DCard label="POSITIONAL NEEDS">
               {needs?.needs ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                   {needs.needs.map((n) => {
@@ -187,7 +159,6 @@ export default function OwnerDetailPage({ params }: { params: Promise<{ owner: s
                 </div>
               ) : <p style={{ fontFamily: MONO, fontSize: 12, color: C.dim }}>Loading...</p>}
             </DCard>
-          </div>
         </div>
       )}
 
