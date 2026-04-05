@@ -26,17 +26,20 @@ function safeText(v: unknown): string {
   return "";
 }
 
+// Strip ALL position ranks (WR11, QB5, RB15, TE1 etc) from any string
+const _stripRanks = (s: string) => s.replace(/\b(?:QB|RB|WR|TE)\d{1,3}\b/g, "").replace(/\s{2,}/g, " ").trim();
+
 function parseActionItem(item: unknown): { action: string; dataPoint: string; detail: string } {
-  if (typeof item === "string") return { action: item, dataPoint: "", detail: "" };
+  if (typeof item === "string") return { action: _stripRanks(item), dataPoint: "", detail: "" };
   if (item && typeof item === "object") {
     const o = item as Record<string, unknown>;
     return {
-      action: String(o.action || o.title || o.text || ""),
-      dataPoint: String(o.data_point || ""),
-      detail: String(o.detail || o.reason || o.description || ""),
+      action: _stripRanks(String(o.action || o.title || o.text || "")),
+      dataPoint: _stripRanks(String(o.data_point || "")),
+      detail: _stripRanks(String(o.detail || o.reason || o.description || "")),
     };
   }
-  return { action: String(item), dataPoint: "", detail: "" };
+  return { action: _stripRanks(String(item)), dataPoint: "", detail: "" };
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -371,7 +374,7 @@ export default function FranchiseIntel({ leagueId, owner, ownerId }: {
   const gm = gmVerdict as Record<string, unknown> | undefined;
   const act = actions as Record<string, unknown> | undefined;
 
-  const gmText = safeText(gm?.verdict) || safeText(aiReport?.verdict) || "";
+  const gmText = _stripRanks(safeText(gm?.verdict) || safeText(aiReport?.verdict) || "");
   const actionsData = {
     stop: (act?.stop || aiReport?.stop || []) as unknown[],
     start: (act?.start || aiReport?.start || []) as unknown[],
