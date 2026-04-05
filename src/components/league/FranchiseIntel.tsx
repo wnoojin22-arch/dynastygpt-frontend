@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { motion, AnimatePresence } from "framer-motion";
 import { getFranchiseIntel, getCoachesCorner, getGmVerdict, getActions } from "@/lib/api";
 import { C, SANS, MONO, DISPLAY, fmt, posColor } from "./tokens";
 import PlayerName from "./PlayerName";
@@ -294,6 +295,89 @@ function CoachesGradeRow({ pos, grade, isWeakest }: { pos: string; grade: string
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   STOP / START / KEEP — Tappable expandable items
+   ═══════════════════════════════════════════════════════════════ */
+
+function ActionItem({ item, color }: { item: unknown; color: string }) {
+  const [open, setOpen] = useState(false);
+  const parsed = parseActionItem(item);
+  // Extract detail from the raw item if it has a "detail" field
+  const rawObj = (item && typeof item === "object") ? item as Record<string, unknown> : {};
+  const detail = String(rawObj.detail || parsed.detail || "");
+  const headline = parsed.action
+    .replace(/^(Start |Stop |Keep |Consider )/i, "")
+    .replace(/\s+right\s+now/i, "");
+  const capitalized = headline.charAt(0).toUpperCase() + headline.slice(1);
+  const subtext = String(rawObj.data_point || parsed.detail || "");
+
+  return (
+    <div
+      onClick={() => setOpen(!open)}
+      style={{
+        cursor: "pointer",
+        borderLeft: open ? `3px solid ${C.gold}` : `3px solid transparent`,
+        paddingLeft: open ? 11 : 14,
+        transition: "all 0.15s",
+      }}
+    >
+      <div style={{ padding: "8px 0" }}>
+        <div style={{ fontFamily: SANS, fontSize: 15, fontWeight: 600, color: C.primary, lineHeight: 1.35 }}>
+          {capitalized}
+        </div>
+        {subtext && !open && (
+          <div style={{ fontFamily: SANS, fontSize: 13, color: C.dim, lineHeight: 1.3, marginTop: 2 }}>
+            {subtext.length > 65 ? subtext.slice(0, 63) + "…" : subtext}
+          </div>
+        )}
+      </div>
+      <AnimatePresence>
+        {open && detail && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            style={{ overflow: "hidden" }}
+          >
+            <div style={{
+              fontFamily: SANS, fontSize: 13, color: C.secondary, lineHeight: 1.55,
+              padding: "4px 0 10px", borderTop: `1px solid ${C.white08}`, marginTop: 2,
+            }}>
+              {detail}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function ActionsSections({ stop, start, keep }: { stop: unknown[]; start: unknown[]; keep: unknown[] }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {[
+        { label: "STOP", items: stop, color: C.red },
+        { label: "START", items: start, color: C.green },
+        { label: "KEEP", items: keep, color: C.gold },
+      ].map(({ label, items, color }) => (
+        <div key={label} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
+          <div style={{ padding: "6px 14px", borderBottom: `1px solid ${C.border}`, background: `${color}10` }}>
+            <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", color }}>{label}</span>
+          </div>
+          <div style={{ padding: "0 14px" }}>
+            {items.length > 0 ? items.slice(0, 3).map((rawItem, j) => (
+              <div key={j} style={{ borderBottom: j < Math.min(items.length, 3) - 1 ? `1px solid ${C.white08}` : "none" }}>
+                <ActionItem item={rawItem} color={color} />
+              </div>
+            )) : <div style={{ padding: "10px 0", fontFamily: SANS, fontSize: 13, color: C.dim }}>—</div>}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
    FRANCHISE INTEL — Two-tab layout matching Shadynasty
    ═══════════════════════════════════════════════════════════════ */
 export default function FranchiseIntel({ leagueId, owner, ownerId }: {
@@ -461,46 +545,9 @@ export default function FranchiseIntel({ leagueId, owner, ownerId }: {
             </div>
           </div>
 
-          {/* STOP / START / KEEP — with subtext, personal feel */}
+          {/* STOP / START / KEEP — tappable, expandable */}
           {(actionsData.stop.length > 0 || actionsData.start.length > 0 || actionsData.keep.length > 0) && (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
-              {[
-                { label: "Stop", items: actionsData.stop, color: C.red },
-                { label: "Start", items: actionsData.start, color: C.green },
-                { label: "Keep", items: actionsData.keep, color: C.gold },
-              ].map(({ label, items, color }) => (
-                <div key={label} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, overflow: "hidden" }}>
-                  <div style={{ padding: "4px 6px", borderBottom: `1px solid ${C.border}`, background: `${color}10` }}>
-                    <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color }}>{label.toUpperCase()}</span>
-                  </div>
-                  <div style={{ padding: "4px 6px" }}>
-                    {items.length > 0 ? items.slice(0, 4).map((rawItem, j) => {
-                      const { action, detail } = parseActionItem(rawItem);
-                      // Shorten: rewrite to concise imperative ("Shop X before decline" not "Start shopping X now before...")
-                      const shortened = action
-                        .replace(/^(Start |Stop |Keep |Consider )/i, "")
-                        .replace(/\s*\([^)]*\)/g, "")
-                        .replace(/\s*—\s*position.*$/i, "")
-                        .replace(/\s+now\s+before/i, " before")
-                        .replace(/\s+right\s+now/i, "");
-                      const capitalized = shortened.charAt(0).toUpperCase() + shortened.slice(1);
-                      return (
-                        <div key={j} style={{ padding: "3px 0", borderBottom: j < Math.min(items.length, 4) - 1 ? `1px solid ${C.white08}` : "none" }}>
-                          <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 600, color: C.primary, lineHeight: 1.3 }}>
-                            {capitalized}
-                          </div>
-                          {detail && (
-                            <div style={{ fontFamily: SANS, fontSize: 8, color: C.dim, lineHeight: 1.3, marginTop: 1 }}>
-                              {detail.length > 60 ? detail.slice(0, 58) + "…" : detail}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    }) : <span style={{ fontFamily: SANS, fontSize: 9, color: C.dim }}>—</span>}
-                  </div>
-                </div>
-              ))}
-            </div>
+            <ActionsSections stop={actionsData.stop} start={actionsData.start} keep={actionsData.keep} />
           )}
 
           {/* MOVEABLE ASSETS */}

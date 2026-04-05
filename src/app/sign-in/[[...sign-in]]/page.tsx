@@ -50,9 +50,6 @@ export default function SignInPage() {
       </div>
       <SignIn
         appearance={clerkAppearance}
-        afterSignInUrl="/dashboard"
-        afterSignUpUrl="/onboarding"
-        redirectUrl="/dashboard"
         forceRedirectUrl="/dashboard"
       />
     </div>
