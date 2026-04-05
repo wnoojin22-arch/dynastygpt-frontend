@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getCoachesCorner } from "@/lib/api";
 import { posColor } from "./tokens";
@@ -75,9 +75,7 @@ function MarketIntel({ cc }: { cc: Record<string, unknown> }) {
   };
 
   return (
-    <div>
-      <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.12em", color: C.gold, marginBottom: 6 }}>MARKET INTEL</div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
           <SH icon={<TrendingUp size={10} style={{ color: C.green }} />} label="ABOVE MARKET" count={above.length} />
           {above.length > 0 ? above.slice(0, 4).map((p, i) => <Row key={i} p={p} isAbove />) : (
@@ -91,7 +89,6 @@ function MarketIntel({ cc }: { cc: Record<string, unknown> }) {
           )}
         </div>
       </div>
-    </div>
   );
 }
 
@@ -242,10 +239,12 @@ function PickIntel({ cc }: { cc: Record<string, unknown> }) {
    ═══════════════════════════════════════════════════════════════ */
 
 function LineupEfficiency({ data }: { data: Record<string, unknown> | null }) {
+  const [showWeeks, setShowWeeks] = useState(false);
+
   if (!data) return (
     <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
       <SH icon={<Gauge size={10} style={{ color: C.gold }} />} label="LINEUP EFFICIENCY" />
-      <div style={{ padding: "8px 10px", fontFamily: SANS, fontSize: 11, color: C.dim, textAlign: "center" }}>No lineup data</div>
+      <div style={{ padding: "10px 12px", fontFamily: SANS, fontSize: 12, color: C.dim, textAlign: "center" }}>No lineup data</div>
     </div>
   );
 
@@ -259,55 +258,65 @@ function LineupEfficiency({ data }: { data: Record<string, unknown> | null }) {
   if (weeks === 0 && message) return (
     <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
       <SH icon={<Gauge size={10} style={{ color: C.gold }} />} label="LINEUP EFFICIENCY" />
-      <div style={{ padding: "8px 10px", fontFamily: SANS, fontSize: 11, color: C.dim, textAlign: "center" }}>{message}</div>
+      <div style={{ padding: "10px 12px", fontFamily: SANS, fontSize: 12, color: C.dim, textAlign: "center" }}>{message}</div>
     </div>
   );
 
   const effColor = eff >= 95 ? C.green : eff >= 88 ? C.gold : C.red;
+  const missedPct = (100 - eff).toFixed(1);
+  const totalLeft = weeks > 0 ? (ppg * weeks).toFixed(1) : "0";
 
   return (
     <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
       <SH icon={<Gauge size={10} style={{ color: C.gold }} />} label="LINEUP EFFICIENCY" />
-      <div style={{ padding: "8px 10px" }}>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 6 }}>
+      <div style={{ padding: "10px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
+        {/* Big number */}
+        <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
           <span style={{ fontFamily: MONO, fontSize: 28, fontWeight: 800, color: effColor, lineHeight: 1 }}>{eff}%</span>
-          <div>
-            <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 600, color: effColor }}>{eff >= 95 ? "Elite" : eff >= 90 ? "Good" : eff >= 85 ? "Average" : "Poor"}</span>
-            <span style={{ fontFamily: SANS, fontSize: 11, color: C.dim, display: "block" }}>{ppg} pts/wk on bench · {weeks}wk</span>
-          </div>
+          <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 600, color: effColor }}>{eff >= 95 ? "Elite" : eff >= 90 ? "Good" : eff >= 85 ? "Average" : "Poor"}</span>
         </div>
-        <div style={{ height: 4, background: C.elevated, borderRadius: 2, overflow: "hidden", marginBottom: 6 }}>
-          <div style={{ height: "100%", borderRadius: 2, background: effColor, width: `${Math.min(eff, 100)}%` }} />
+
+        {/* Plain English explanation */}
+        <div style={{ fontFamily: SANS, fontSize: 13, color: C.secondary, lineHeight: 1.5 }}>
+          You started your best possible lineup {eff}% of the time. The other {missedPct}% of the time, a better player was sitting on your bench.
         </div>
-        {/* Costly weeks detail */}
+
+        <div style={{ fontFamily: SANS, fontSize: 13, color: C.secondary, lineHeight: 1.5 }}>
+          You left an average of <span style={{ fontWeight: 600, color: C.primary }}>{ppg} points per week</span> on the bench from lineup mistakes — over {weeks} weeks that&apos;s <span style={{ fontWeight: 600, color: C.red }}>{totalLeft} points</span> you didn&apos;t score.
+        </div>
+
+        {/* Wins line */}
         {gamesCost > 0 ? (
-          <div style={{ marginBottom: 6, paddingBottom: 4, borderBottom: `1px solid ${C.white04}` }}>
-            <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 600, color: C.gold, marginBottom: 4 }}>
-              Lineup decisions cost you {gamesCost} win{gamesCost > 1 ? "s" : ""}
+          <div>
+            <div onClick={() => setShowWeeks(!showWeeks)} style={{ fontFamily: SANS, fontSize: 13, fontWeight: 600, color: C.gold, cursor: "pointer" }}>
+              {gamesCost} of your losses could have been wins with a perfect lineup. {showWeeks ? "▴" : "▾"}
             </div>
-            {costlyWeeks.slice(0, 3).map((w, i) => (
-              <div key={i} style={{ fontFamily: SANS, fontSize: 11, color: C.secondary, lineHeight: 1.4, padding: "2px 0" }}>
-                <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>Wk {String(w.week)}</span>
-                {" · Lost by "}
+            {showWeeks && costlyWeeks.slice(0, 4).map((w, i) => (
+              <div key={i} style={{ fontFamily: SANS, fontSize: 12, color: C.secondary, lineHeight: 1.4, padding: "3px 0 3px 12px", borderLeft: `2px solid ${C.gold}30`, marginTop: 4 }}>
+                <span style={{ fontWeight: 600, color: C.dim }}>Week {String(w.week)}</span>
+                {" — Lost by "}
                 <span style={{ color: C.red, fontWeight: 600 }}>{String(w.margin)}</span>
                 {String(w.benched || "") && String(w.started || "") && (
-                  <span>{" · Starting "}<span style={{ color: C.red }}>{String(w.started)}</span>{" over "}<span style={{ color: C.green }}>{String(w.benched)}</span></span>
+                  <span>{" — started "}<span style={{ color: C.red }}>{String(w.started)}</span>{" over "}<span style={{ color: C.green }}>{String(w.benched)}</span></span>
                 )}
               </div>
             ))}
           </div>
         ) : (
-          <div style={{ fontFamily: SANS, fontSize: 11, color: C.green, marginBottom: 6, paddingBottom: 4, borderBottom: `1px solid ${C.white04}` }}>
-            Your lineup decisions didn&apos;t cost you any wins
+          <div style={{ fontFamily: SANS, fontSize: 13, color: C.green }}>
+            None of your losses were close enough that a perfect lineup would have saved you. Good news.
           </div>
         )}
+
+        {/* Most misbenched */}
         {misbenched.length > 0 && (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 8px" }}>
+          <div>
+            <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, color: C.dim, marginBottom: 4 }}>Players you kept on the bench too often:</div>
             {misbenched.slice(0, 4).map((m, i) => (
-              <div key={i} style={{ display: "flex", alignItems: "center", gap: 4, padding: "2px 0" }}>
-                <span className={`font-sans text-[9px] font-bold rounded px-0.5 ${posTagClasses(String(m.position || ""))}`}>{String(m.position || "")}</span>
-                <span style={{ fontFamily: SANS, fontSize: 10, color: C.primary, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{String(m.player || "")}</span>
-                <span style={{ fontFamily: MONO, fontSize: 9, color: C.red, flexShrink: 0 }}>{String(m.times)}x</span>
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 5, padding: "3px 0" }}>
+                <span className={`font-sans text-[10px] font-bold rounded px-1 py-0.5 ${posTagClasses(String(m.position || ""))}`}>{String(m.position || "")}</span>
+                <span style={{ fontFamily: SANS, fontSize: 13, color: C.primary }}>{String(m.player || "")}</span>
+                <span style={{ fontFamily: SANS, fontSize: 12, color: C.dim }}>— benched {String(m.times)} time{Number(m.times) !== 1 ? "s" : ""} when they should have started</span>
               </div>
             ))}
           </div>
