@@ -62,7 +62,7 @@ function MarketIntel({ cc }: { cc: Record<string, unknown> }) {
 
   const Row = ({ p, isAbove }: { p: Record<string, unknown>; isAbove: boolean }) => {
     const pct = Number(p.pct_diff || 0);
-    const color = isAbove ? C.red : C.green;
+    const color = isAbove ? C.green : C.red;
     return (
       <div style={{
         display: "flex", alignItems: "center", gap: 6, padding: "5px 10px",
@@ -70,12 +70,7 @@ function MarketIntel({ cc }: { cc: Record<string, unknown> }) {
       }}>
         <span className={`font-sans text-[10px] font-bold rounded px-1 py-0.5 shrink-0 ${posTagClasses(String(p.position || ""))}`}>{String(p.position || "")}</span>
         <PlayerName name={String(p.name || "")} style={{ fontFamily: SANS, fontSize: 13, fontWeight: 500, color: C.primary, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} />
-        {p.age != null && <span style={{ fontFamily: SANS, fontSize: 11, color: C.dim, flexShrink: 0 }}>{String(p.age)}</span>}
         <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color, flexShrink: 0 }}>{pct > 0 ? "+" : ""}{pct}%</span>
-        <span style={{
-          fontFamily: SANS, fontSize: 9, fontWeight: 600, color, padding: "2px 6px",
-          borderRadius: 10, background: `${color}12`, border: `1px solid ${color}25`, flexShrink: 0,
-        }}>{isAbove ? "sell window" : "buy window"}</span>
       </div>
     );
   };
@@ -85,13 +80,13 @@ function MarketIntel({ cc }: { cc: Record<string, unknown> }) {
       <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.12em", color: C.gold, marginBottom: 6 }}>MARKET INTEL</div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
-          <SH icon={<TrendingUp size={10} style={{ color: C.red }} />} label="ABOVE MARKET" count={above.length} />
+          <SH icon={<TrendingUp size={10} style={{ color: C.green }} />} label="ABOVE MARKET" count={above.length} />
           {above.length > 0 ? above.slice(0, 4).map((p, i) => <Row key={i} p={p} isAbove />) : (
             <div style={{ padding: "8px 10px", fontFamily: SANS, fontSize: 11, color: C.dim, textAlign: "center" }}>No players above market</div>
           )}
         </div>
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
-          <SH icon={<TrendingDown size={10} style={{ color: C.green }} />} label="BELOW MARKET" count={below.length} />
+          <SH icon={<TrendingDown size={10} style={{ color: C.red }} />} label="BELOW MARKET" count={below.length} />
           {below.length > 0 ? below.slice(0, 4).map((p, i) => <Row key={i} p={p} isAbove={false} />) : (
             <div style={{ padding: "8px 10px", fontFamily: SANS, fontSize: 11, color: C.dim, textAlign: "center" }}>No players below market</div>
           )}
@@ -164,7 +159,7 @@ function PickIntel({ cc }: { cc: Record<string, unknown> }) {
     if (rate < 30) return { pill: "PACKAGE IT", color: C.orange };
     if (rate >= 50) return { pill: "USE IT", color: C.green };
     if (window === "CONTENDER") return { pill: "TRADE UP", color: C.blue };
-    return { pill: "EVALUATE", color: C.dim };
+    return { pill: "", color: "" };
   };
 
   let summary = "";
@@ -203,10 +198,10 @@ function PickIntel({ cc }: { cc: Record<string, unknown> }) {
             <span style={{ fontFamily: SANS, fontSize: 10, color: rateColor, flex: 1 }}>
               Your R{round}: <strong>{hitStr}</strong> vs avg {avgStr}
             </span>
-            <span style={{
+            {pill && <span style={{
               fontFamily: MONO, fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 10, flexShrink: 0,
               color, background: `${color}12`, border: `1px solid ${color}25`,
-            }}>{pill}</span>
+            }}>{pill}</span>}
           </div>
         );
       }) : (
@@ -232,6 +227,7 @@ function LineupEfficiency({ data }: { data: Record<string, unknown> | null }) {
   const ppg = Number(data.ppg_left_on_bench || 0);
   const weeks = Number(data.weeks_analyzed || 0);
   const gamesCost = Number(data.games_cost || 0);
+  const costlyWeeks = (data.costly_weeks || []) as Array<Record<string, unknown>>;
   const misbenched = (data.misbenched || []) as Array<Record<string, unknown>>;
   const message = data.message ? String(data.message) : null;
   if (weeks === 0 && message) return (
@@ -257,17 +253,28 @@ function LineupEfficiency({ data }: { data: Record<string, unknown> | null }) {
         <div style={{ height: 4, background: C.elevated, borderRadius: 2, overflow: "hidden", marginBottom: 6 }}>
           <div style={{ height: "100%", borderRadius: 2, background: effColor, width: `${Math.min(eff, 100)}%` }} />
         </div>
-        {/* Games cost from bad lineups */}
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6, padding: "4px 0", borderBottom: `1px solid ${C.white04}` }}>
-          {gamesCost > 0 ? (
-            <>
-              <span style={{ fontFamily: MONO, fontSize: 18, fontWeight: 800, color: C.gold, lineHeight: 1 }}>{gamesCost}</span>
-              <span style={{ fontFamily: SANS, fontSize: 11, color: C.secondary }}>win{gamesCost > 1 ? "s" : ""} cost by lineup mistakes</span>
-            </>
-          ) : (
-            <span style={{ fontFamily: SANS, fontSize: 11, color: C.green }}>Your lineup decisions didn&apos;t cost you any wins</span>
-          )}
-        </div>
+        {/* Costly weeks detail */}
+        {gamesCost > 0 ? (
+          <div style={{ marginBottom: 6, paddingBottom: 4, borderBottom: `1px solid ${C.white04}` }}>
+            <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 600, color: C.gold, marginBottom: 4 }}>
+              Lineup decisions cost you {gamesCost} win{gamesCost > 1 ? "s" : ""}
+            </div>
+            {costlyWeeks.slice(0, 3).map((w, i) => (
+              <div key={i} style={{ fontFamily: SANS, fontSize: 11, color: C.secondary, lineHeight: 1.4, padding: "2px 0" }}>
+                <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>Wk {String(w.week)}</span>
+                {" · Lost by "}
+                <span style={{ color: C.red, fontWeight: 600 }}>{String(w.margin)}</span>
+                {String(w.benched || "") && String(w.started || "") && (
+                  <span>{" · Starting "}<span style={{ color: C.red }}>{String(w.started)}</span>{" over "}<span style={{ color: C.green }}>{String(w.benched)}</span></span>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div style={{ fontFamily: SANS, fontSize: 11, color: C.green, marginBottom: 6, paddingBottom: 4, borderBottom: `1px solid ${C.white04}` }}>
+            Your lineup decisions didn&apos;t cost you any wins
+          </div>
+        )}
         {misbenched.length > 0 && (
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 8px" }}>
             {misbenched.slice(0, 4).map((m, i) => (
@@ -399,20 +406,59 @@ export default function CoachesCorner({ leagueId, owner, ownerId }: { leagueId: 
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      {/* Market Intel */}
-      <MarketIntel cc={data} />
-
-      {/* SELL | HOLD | BUY LOW */}
-      <TriColumn sell={sellAll} hold={holdPlayers} buy={buyLow} />
-
-      {/* Pick Intel + Lineup Efficiency — side by side */}
-      <style>{`.duo-grid { display: flex; flex-direction: column; gap: 6px; } @media (min-width: 768px) { .duo-grid { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 6px !important; } }`}</style>
-      <div className="duo-grid">
-        <PickIntel cc={data} />
-        <LineupEfficiency data={data.lineup_efficiency as Record<string, unknown> | null} />
+      {/* 1. SELL + HOLD — side by side */}
+      <style>{`.two-col { display: flex; flex-direction: column; gap: 6px; } @media (min-width: 768px) { .two-col { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 6px !important; } }`}</style>
+      <div className="two-col">
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
+          <SH icon={<ArrowUpRight size={10} style={{ color: C.red }} />} label={`SELL · ${sellAll.length}`} />
+          {sellAll.length > 0 ? sellAll.map((p, j) => (
+            <div key={j} style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 8px", borderBottom: `1px solid ${C.white04}` }}>
+              <div style={{ width: 5, height: 5, borderRadius: "50%", background: C.red, flexShrink: 0 }} />
+              <span className={`font-sans text-[10px] font-bold rounded px-1 py-0.5 shrink-0 ${posTagClasses(String(p.position || ""))}`}>{String(p.position || "")}</span>
+              <PlayerName name={String(p.name || p.player || "")} style={{ fontFamily: SANS, fontSize: 12, fontWeight: 500, color: C.primary, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} />
+              {p.age != null && <span style={{ fontFamily: SANS, fontSize: 10, color: C.dim, flexShrink: 0 }}>{String(p.age)}</span>}
+            </div>
+          )) : <div style={{ padding: "8px 10px", fontFamily: SANS, fontSize: 11, color: C.dim, textAlign: "center" }}>—</div>}
+        </div>
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
+          <SH icon={<Shield size={10} style={{ color: C.blue }} />} label={`HOLD · ${holdPlayers.length}`} />
+          {holdPlayers.length > 0 ? holdPlayers.map((p, j) => (
+            <div key={j} style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 8px", borderBottom: `1px solid ${C.white04}` }}>
+              <div style={{ width: 5, height: 5, borderRadius: "50%", background: C.blue, flexShrink: 0 }} />
+              <span className={`font-sans text-[10px] font-bold rounded px-1 py-0.5 shrink-0 ${posTagClasses(String(p.position || ""))}`}>{String(p.position || "")}</span>
+              <PlayerName name={String(p.name || p.player || "")} style={{ fontFamily: SANS, fontSize: 12, fontWeight: 500, color: C.primary, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} />
+              {p.age != null && <span style={{ fontFamily: SANS, fontSize: 10, color: C.dim, flexShrink: 0 }}>{String(p.age)}</span>}
+            </div>
+          )) : <div style={{ padding: "8px 10px", fontFamily: SANS, fontSize: 11, color: C.dim, textAlign: "center" }}>—</div>}
+        </div>
       </div>
 
-      {/* Trade Partners */}
+      {/* 2. MARKET INTEL */}
+      <MarketIntel cc={data} />
+
+      {/* 3. BUY LOW TARGETS — full width */}
+      {buyLow.length > 0 && (
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
+          <SH icon={<Target size={10} style={{ color: C.gold }} />} label={`BUY LOW · ${buyLow.length}`} />
+          {buyLow.map((p, j) => (
+            <div key={j} style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 8px", borderBottom: `1px solid ${C.white04}` }}>
+              <div style={{ width: 5, height: 5, borderRadius: "50%", background: C.green, flexShrink: 0 }} />
+              <span className={`font-sans text-[10px] font-bold rounded px-1 py-0.5 shrink-0 ${posTagClasses(String(p.position || ""))}`}>{String(p.position || "")}</span>
+              <PlayerName name={String(p.name || p.player || "")} style={{ fontFamily: SANS, fontSize: 12, fontWeight: 500, color: C.primary, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} />
+              {p.age != null && <span style={{ fontFamily: SANS, fontSize: 10, color: C.dim, flexShrink: 0 }}>{String(p.age)}</span>}
+              {String(p.current_owner || "") && <span style={{ fontFamily: SANS, fontSize: 10, color: C.dim, flexShrink: 0 }}>{String(p.current_owner)}</span>}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* 4. PICK INTEL — full width */}
+      <PickIntel cc={data} />
+
+      {/* 5. LINEUP EFFICIENCY — full width */}
+      <LineupEfficiency data={data.lineup_efficiency as Record<string, unknown> | null} />
+
+      {/* 6. TRADE PARTNERS — full width */}
       <TradePartners data={data.trade_partners as Record<string, unknown> | null} />
 
       {/* CTA */}

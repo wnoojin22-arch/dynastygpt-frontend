@@ -77,17 +77,15 @@ function GmVerdict({ text }: { text: string }) {
       border: `1px solid ${C.goldBorder}`,
       boxShadow: `0 0 40px rgba(212,165,50,0.04)`,
     }}>
-      <div style={{ padding: "16px 18px 12px" }}>
-        <div style={{ fontFamily: DISPLAY, fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.gold, marginBottom: 10, textTransform: "uppercase" }}>GM VERDICT</div>
-        <div style={{
-          fontFamily: "'Playfair Display', Georgia, serif", fontSize: 17, fontWeight: 500,
-          fontStyle: "italic", color: C.primary, lineHeight: 1.55,
-        }} dangerouslySetInnerHTML={render(first)} />
+      <div style={{ padding: "12px 16px" }}>
+        <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.1em", color: C.gold, marginBottom: 8, textTransform: "uppercase" }}>GM VERDICT</div>
+        <div style={{ fontFamily: SANS, fontSize: 13, fontWeight: 500, color: C.primary, lineHeight: 1.5 }}
+          dangerouslySetInnerHTML={render(first)} />
         <AnimatePresence>
           {open && rest.length > 0 && (
             <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.25 }} style={{ overflow: "hidden" }}>
               {rest.map((p, i) => (
-                <div key={i} style={{ fontFamily: SANS, fontSize: 13, color: C.secondary, lineHeight: 1.6, marginTop: 12 }} dangerouslySetInnerHTML={render(p)} />
+                <div key={i} style={{ fontFamily: SANS, fontSize: 13, color: C.secondary, lineHeight: 1.5, marginTop: 10 }} dangerouslySetInnerHTML={render(p)} />
               ))}
             </motion.div>
           )}
