@@ -75,7 +75,7 @@ function GmVerdict({ text }: { text: string }) {
       boxShadow: `0 0 40px rgba(212,165,50,0.04)`,
     }}>
       <div style={{ padding: "16px 18px 12px" }}>
-        <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.12em", color: C.gold, marginBottom: 10 }}>GM VERDICT</div>
+        <div style={{ fontFamily: DISPLAY, fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.gold, marginBottom: 10, textTransform: "uppercase" }}>GM VERDICT</div>
         <div style={{
           fontFamily: "'Playfair Display', Georgia, serif", fontSize: 17, fontWeight: 500,
           fontStyle: "italic", color: C.primary, lineHeight: 1.55,
@@ -189,6 +189,7 @@ function ActionItem({ item, borderColor }: { item: unknown; borderColor: string 
   const { action, dataPoint, detail } = parseActionItem(item);
   const headline = action.replace(/^(Start |Stop |Keep |Consider )/i, "").replace(/\s+right\s+now/i, "");
   const cap = headline.charAt(0).toUpperCase() + headline.slice(1);
+  const expandContent = detail || dataPoint;
 
   return (
     <div onClick={() => setOpen(!open)} style={{ cursor: "pointer", transition: "background 0.15s" }}
@@ -199,18 +200,21 @@ function ActionItem({ item, borderColor }: { item: unknown; borderColor: string 
         padding: "8px 10px 8px 12px",
         borderLeft: open ? `3px solid ${C.gold}` : `3px solid ${borderColor}25`,
       }}>
-        <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 600, color: C.primary, lineHeight: 1.35 }}>{cap}</div>
-        {dataPoint && !open && (
-          <div style={{ fontFamily: SANS, fontSize: 12, color: C.dim, lineHeight: 1.3, marginTop: 2 }}>
-            {dataPoint.length > 60 ? dataPoint.slice(0, 58) + "…" : dataPoint}
-          </div>
+        <div style={{ fontFamily: SANS, fontSize: 15, fontWeight: 600, color: C.primary, lineHeight: 1.35 }}>{cap}</div>
+        {!open && expandContent && (
+          <div style={{ fontFamily: SANS, fontSize: 11, color: C.gold, marginTop: 3, opacity: 0.7 }}>Tap to expand</div>
         )}
         <AnimatePresence>
-          {open && detail && (
+          {open && (
             <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} style={{ overflow: "hidden" }}>
-              <div style={{ fontFamily: SANS, fontSize: 13, color: C.secondary, lineHeight: 1.55, marginTop: 6, paddingTop: 6, borderTop: `1px solid ${C.white08}` }}>
-                {detail}
-              </div>
+              {dataPoint && (
+                <div style={{ fontFamily: SANS, fontSize: 13, color: C.dim, lineHeight: 1.3, marginTop: 4 }}>{dataPoint}</div>
+              )}
+              {detail && (
+                <div style={{ fontFamily: SANS, fontSize: 13, color: C.secondary, lineHeight: 1.55, marginTop: 6, paddingTop: 6, borderTop: `1px solid ${C.white08}` }}>
+                  {detail}
+                </div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>

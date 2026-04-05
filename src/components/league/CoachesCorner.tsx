@@ -198,7 +198,7 @@ function PickIntel({ cc }: { cc: Record<string, unknown> }) {
               fontFamily: MONO, fontSize: 9, fontWeight: 700, padding: "2px 5px", borderRadius: 4, flexShrink: 0,
               color: isOwn ? C.gold : "#b39ddb", background: isOwn ? `${C.gold}12` : "rgba(179,157,219,0.1)",
               border: `1px solid ${isOwn ? `${C.gold}30` : "rgba(179,157,219,0.25)"}`,
-            }}>{String(p.season).slice(2)} R{round}</span>
+            }}>{String(p.season).slice(2)} {p.slot ? `${round}.${String(p.slot).padStart(2, "0")}` : `R${round}`}</span>
             <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim, flexShrink: 0, width: 36 }}>{Math.round(value).toLocaleString()}</span>
             <span style={{ fontFamily: SANS, fontSize: 10, color: rateColor, flex: 1 }}>
               Your R{round}: <strong>{hitStr}</strong> vs avg {avgStr}
@@ -231,6 +231,7 @@ function LineupEfficiency({ data }: { data: Record<string, unknown> | null }) {
   const eff = Number(data.efficiency_pct || 0);
   const ppg = Number(data.ppg_left_on_bench || 0);
   const weeks = Number(data.weeks_analyzed || 0);
+  const gamesCost = Number(data.games_cost || 0);
   const misbenched = (data.misbenched || []) as Array<Record<string, unknown>>;
   const message = data.message ? String(data.message) : null;
   if (weeks === 0 && message) return (
@@ -255,6 +256,17 @@ function LineupEfficiency({ data }: { data: Record<string, unknown> | null }) {
         </div>
         <div style={{ height: 4, background: C.elevated, borderRadius: 2, overflow: "hidden", marginBottom: 6 }}>
           <div style={{ height: "100%", borderRadius: 2, background: effColor, width: `${Math.min(eff, 100)}%` }} />
+        </div>
+        {/* Games cost from bad lineups */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6, padding: "4px 0", borderBottom: `1px solid ${C.white04}` }}>
+          {gamesCost > 0 ? (
+            <>
+              <span style={{ fontFamily: MONO, fontSize: 18, fontWeight: 800, color: C.gold, lineHeight: 1 }}>{gamesCost}</span>
+              <span style={{ fontFamily: SANS, fontSize: 11, color: C.secondary }}>win{gamesCost > 1 ? "s" : ""} cost by lineup mistakes</span>
+            </>
+          ) : (
+            <span style={{ fontFamily: SANS, fontSize: 11, color: C.green }}>Your lineup decisions didn&apos;t cost you any wins</span>
+          )}
         </div>
         {misbenched.length > 0 && (
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 8px" }}>
