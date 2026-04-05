@@ -294,12 +294,16 @@ export default function CoachesCorner({ leagueId, owner, ownerId }: { leagueId: 
 
   if (!owner) return <div className="p-8 text-center font-sans text-sm text-dim">Select an owner.</div>;
   if (isLoading) return (
-    <div className="flex flex-col items-center justify-center py-12 gap-3">
-      <div className="relative w-12 h-12">
+    <div className="flex flex-col items-center justify-center py-16 px-6 gap-4">
+      <div className="relative w-16 h-16">
         <div className="absolute inset-0 rounded-full border-2 border-gold/20" />
         <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-gold animate-spin" />
+        <div className="absolute inset-3 rounded-full bg-gold/5 animate-pulse" />
       </div>
-      <div className="font-mono text-[10px] font-bold tracking-[0.2em] text-gold animate-pulse">ANALYZING</div>
+      <div className="text-center">
+        <div className="font-mono text-xs font-bold tracking-[0.2em] text-gold animate-pulse">GENERATING YOUR COACHES CORNER</div>
+        <div className="font-sans text-xs text-dim mt-2">Analyzing roster, trades, and market data...</div>
+      </div>
     </div>
   );
 
