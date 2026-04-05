@@ -184,7 +184,6 @@ function CoachesCardList({ label, subtitle, items, accent, max }: {
             const pos = String(p.position || "");
             const name = String(p.name || p.player || "—");
             const age = p.age != null ? Number(p.age) : null;
-            const rank = posRankLabel(p);
             const reason = p.reason || p.why || p.one_liner || "";
             return (
               <div key={j} style={{ padding: "10px 14px", borderBottom: j < capped.length - 1 ? `1px solid ${C.white08}` : "none" }}>
@@ -192,7 +191,6 @@ function CoachesCardList({ label, subtitle, items, accent, max }: {
                   <PosBadge pos={pos} />
                   <PlayerName name={name} style={{ fontFamily: SANS, fontSize: 14, fontWeight: 500, color: C.primary, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} />
                   {age != null && <span style={{ fontFamily: SANS, fontSize: 12, color: C.dim, flexShrink: 0 }}>{age}y</span>}
-                  <PosRankPill label={rank} />
                 </div>
                 {reason && (
                   <p style={{ fontFamily: SANS, fontSize: 13, color: C.secondary, lineHeight: 1.5, marginTop: 5, marginBottom: 0 }}>{String(reason)}</p>
@@ -354,26 +352,29 @@ function ActionItem({ item, color }: { item: unknown; color: string }) {
 
 function ActionsSections({ stop, start, keep }: { stop: unknown[]; start: unknown[]; keep: unknown[] }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+    <>
+      <style>{`.actions-grid { display: flex; flex-direction: column; gap: 6px; } @media (min-width: 768px) { .actions-grid { display: grid !important; grid-template-columns: 1fr 1fr 1fr !important; gap: 6px !important; } }`}</style>
+      <div className="actions-grid">
       {[
         { label: "STOP", items: stop, color: C.red },
         { label: "START", items: start, color: C.green },
         { label: "KEEP", items: keep, color: C.gold },
       ].map(({ label, items, color }) => (
-        <div key={label} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
-          <div style={{ padding: "6px 14px", borderBottom: `1px solid ${C.border}`, background: `${color}10` }}>
-            <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", color }}>{label}</span>
+        <div key={label} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, overflow: "hidden" }}>
+          <div style={{ padding: "4px 10px", borderBottom: `1px solid ${C.border}`, background: `${color}10` }}>
+            <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.08em", color }}>{label}</span>
           </div>
-          <div style={{ padding: "0 14px" }}>
+          <div style={{ padding: "0 10px" }}>
             {items.length > 0 ? items.slice(0, 3).map((rawItem, j) => (
               <div key={j} style={{ borderBottom: j < Math.min(items.length, 3) - 1 ? `1px solid ${C.white08}` : "none" }}>
                 <ActionItem item={rawItem} color={color} />
               </div>
-            )) : <div style={{ padding: "10px 0", fontFamily: SANS, fontSize: 13, color: C.dim }}>—</div>}
+            )) : <div style={{ padding: "8px 0", fontFamily: SANS, fontSize: 12, color: C.dim }}>—</div>}
           </div>
         </div>
       ))}
     </div>
+    </>
   );
 }
 
@@ -565,14 +566,10 @@ export default function FranchiseIntel({ leagueId, owner, ownerId }: {
                   const pillBg = isShopNow ? `${C.orange}15` : isSellHigh ? `${C.orange}15` : C.elevated;
                   const pillBorder = isShopNow ? `1px solid ${C.orange}30` : isSellHigh ? `1px solid ${C.orange}30` : `1px solid ${C.borderLt}`;
                   const pillLabel = isShopNow ? "shop now" : isSellHigh ? "sell high" : "available";
-                  const rankLabel = posRankLabel(a);
                   return (
                     <div key={j} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderBottom: j < moveable.slice(0, 10).length - 1 ? `1px solid ${C.white08}` : "none" }}>
                       <PosBadge pos={String(a.position || "")} />
                       <PlayerName name={String(a.name || a.player || "—")} style={{ fontFamily: SANS, fontSize: 14, fontWeight: 500, color: C.primary, flex: 1 }} />
-                      {rankLabel && !rankLabel.endsWith("depth") && (
-                        <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, color: C.secondary, background: C.elevated, padding: "2px 7px", borderRadius: 10, border: `1px solid ${C.borderLt}`, flexShrink: 0 }}>{rankLabel}</span>
-                      )}
                       <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 500, color: pillColor, padding: "2px 9px", borderRadius: 10, background: pillBg, border: pillBorder, flexShrink: 0 }}>{pillLabel}</span>
                     </div>
                   );

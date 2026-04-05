@@ -76,9 +76,9 @@ function posRankLabel(p: Record<string, unknown>): string {
 
 function SectionHeader({ icon, label }: { icon: React.ReactNode; label: string }) {
   return (
-    <div className="flex items-center gap-2 px-3 py-2 border-b border-border-lt bg-elevated">
+    <div className="flex items-center gap-1.5 px-2.5 py-1 border-b border-border-lt bg-elevated">
       {icon}
-      <span className="font-sans text-[13px] font-medium text-zinc-400 tracking-wide">{label}</span>
+      <span className="font-sans text-[11px] font-semibold text-zinc-400 tracking-wide">{label}</span>
     </div>
   );
 }
@@ -185,11 +185,11 @@ function DraftIntel({ data }: { data: Record<string, unknown> | null }) {
     <div className="bg-card border border-border rounded-lg overflow-hidden">
       <SectionHeader icon={<Trophy size={13} className="text-gold" />} label="Draft Capital" />
 
-      <div className="p-3 space-y-3">
+      <div className="p-2 space-y-2">
         {/* Hit rate hero */}
         {hitRate != null && (
-          <div className="flex items-baseline gap-3">
-            <span className={`font-sans text-[24px] font-bold tabular-nums ${hitColor}`}>{hitRate}%</span>
+          <div className="flex items-baseline gap-2">
+            <span className={`font-sans text-[20px] font-bold tabular-nums ${hitColor}`}>{hitRate}%</span>
             <span className="font-sans text-[12px] text-dim">draft hit rate</span>
             {leagueAvg != null && (
               <span className={`font-sans text-[11px] ml-auto ${hitRate > leagueAvg ? "text-accent-green" : "text-accent-red"}`}>
@@ -276,10 +276,10 @@ function TradePartners({ data }: { data: Record<string, unknown> | null }) {
     <div className="bg-card border border-border rounded-lg overflow-hidden">
       <SectionHeader icon={<Handshake size={13} className="text-gold" />} label="Trade Partners" />
 
-      <div className="p-3 space-y-3">
+      <div className="p-2 space-y-2">
         {/* My stats bar */}
         {myStats && (
-          <div className="flex items-center gap-3 flex-wrap pb-2 border-b border-border-lt">
+          <div className="flex items-center gap-2 flex-wrap pb-1.5 border-b border-border-lt">
             <div className="flex items-center gap-1">
               <Award size={12} className="text-gold" />
               <span className="font-sans text-[11px] text-dim">You:</span>
@@ -301,8 +301,8 @@ function TradePartners({ data }: { data: Record<string, unknown> | null }) {
 
         {/* Top partners */}
         {top.map((p, i) => (
-          <div key={i} className={`flex items-start gap-2 py-2 ${i < top.length - 1 ? "border-b border-white/[0.06]" : ""}`}>
-            <span className="font-sans text-[16px] font-bold text-dim/30 shrink-0 w-5 text-center tabular-nums">{i + 1}</span>
+          <div key={i} className={`flex items-start gap-1.5 py-1.5 ${i < top.length - 1 ? "border-b border-white/[0.04]" : ""}`}>
+            <span className="font-sans text-[14px] font-bold text-dim/30 shrink-0 w-4 text-center tabular-nums">{i + 1}</span>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-sans text-[13px] font-semibold text-primary">{String(p.owner)}</span>
@@ -368,10 +368,10 @@ function LineupEfficiency({ data }: { data: Record<string, unknown> | null }) {
     <div className="bg-card border border-border rounded-lg overflow-hidden">
       <SectionHeader icon={<Gauge size={13} className="text-gold" />} label="Lineup Efficiency" />
 
-      <div className="p-3 space-y-3">
+      <div className="p-2 space-y-2">
         {/* Efficiency hero */}
-        <div className="flex items-baseline gap-3">
-          <span className={`font-sans text-[28px] font-bold tabular-nums ${effColor}`}>{eff}%</span>
+        <div className="flex items-baseline gap-2">
+          <span className={`font-sans text-[22px] font-bold tabular-nums ${effColor}`}>{eff}%</span>
           <div>
             <span className={`font-sans text-[12px] font-semibold ${effColor}`}>{effLabel}</span>
             <span className="font-sans text-[11px] text-dim block">{ppg} PPG left on bench</span>
@@ -387,15 +387,16 @@ function LineupEfficiency({ data }: { data: Record<string, unknown> | null }) {
         {/* Misbenched players */}
         {misbenched.length > 0 && (
           <div>
-            <div className="font-sans text-[11px] text-dim uppercase tracking-wider mb-1.5">Most Misbenched</div>
+            <div className="font-sans text-[10px] text-dim uppercase tracking-wider mb-1">Most Misbenched</div>
+            <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
             {misbenched.map((m, i) => (
-              <div key={i} className={`flex items-center gap-2 py-1.5 ${i < misbenched.length - 1 ? "border-b border-white/[0.06]" : ""}`}>
-                <span className={`font-sans text-[11px] font-bold rounded px-1 py-0.5 ${posTagClasses(String(m.position || ""))}`}>{String(m.position || "—")}</span>
-                <PlayerName name={String(m.player || "")} className="font-sans text-[12px] font-medium text-primary flex-1 truncate" />
-                <span className="font-sans text-[11px] text-accent-red tabular-nums">{String(m.times)}x</span>
-                <span className="font-sans text-[10px] text-dim">{String(m.avg_impact)} PPG impact</span>
+              <div key={i} className="flex items-center gap-1.5 py-1">
+                <span className={`font-sans text-[10px] font-bold rounded px-1 py-0.5 ${posTagClasses(String(m.position || ""))}`}>{String(m.position || "—")}</span>
+                <PlayerName name={String(m.player || "")} className="font-sans text-[11px] font-medium text-primary flex-1 truncate" />
+                <span className="font-sans text-[10px] text-accent-red tabular-nums shrink-0">{String(m.times)}x</span>
               </div>
             ))}
+            </div>
           </div>
         )}
       </div>
@@ -651,82 +652,82 @@ export default function CoachesCorner({ leagueId, owner, ownerId }: { leagueId: 
   const listenPlayers = (data.listen || []) as Array<Record<string, unknown>>;
   const sellAll = [...moveNow, ...listenPlayers];
 
-  return (
-    <div className="space-y-4">
-      {/* Row 1: SELL (left) | HOLD (right) — side by side */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {/* SELL column */}
-        <div className="bg-card border border-border rounded-lg overflow-hidden">
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-accent-red/[0.05] border-b border-border">
-            <ArrowUpRight size={13} className="text-accent-red" />
-            <span className="font-sans text-[11px] font-semibold text-accent-red uppercase tracking-wider">Sell</span>
-            <span className="font-sans text-[11px] text-dim ml-auto">{sellAll.length}</span>
+  const buyLow = (data.buy_low || []) as Array<Record<string, unknown>>;
+
+  /* shared compact player row */
+  const PlayerRow = ({ p, j, total, accent }: { p: Record<string, unknown>; j: number; total: number; accent?: string }) => {
+    const pos = String(p.position || "");
+    const name = String(p.name || p.player || "");
+    const age = p.age != null ? String(p.age) : "";
+    const reason = String(p.target || p.reason || "");
+    return (
+      <div className={`flex items-center gap-1.5 px-2.5 py-1.5 ${j < total - 1 ? "border-b border-white/[0.04]" : ""}`}>
+        <span className={`font-sans text-[10px] font-bold rounded px-1 py-0.5 shrink-0 ${posTagClasses(pos)}`}>{pos || "—"}</span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1">
+            <PlayerName name={name} className="font-sans text-[12px] font-medium text-primary truncate" />
+            {age && <span className="font-sans text-[10px] text-dim shrink-0">{age}</span>}
           </div>
-          {sellAll.length > 0 ? sellAll.map((p, j) => {
-            const pos = String(p.position || "");
-            const name = String(p.name || p.player || "");
-            const age = p.age != null ? String(p.age) : "";
-            const reason = String(p.target || p.reason || "");
-            return (
-              <div key={`sell-${j}`} className={`flex items-center gap-2 px-3 py-2 ${j < sellAll.length - 1 ? "border-b border-white/[0.06]" : ""}`}>
-                <span className={`font-sans text-[10px] font-bold rounded px-1 py-0.5 shrink-0 ${posTagClasses(pos)}`}>{pos || "—"}</span>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
-                    <PlayerName name={name} className="font-sans text-[12px] font-medium text-primary truncate" />
-                    {age && <span className="font-sans text-[10px] text-dim shrink-0">{age}</span>}
-                  </div>
-                  {reason && <span className="font-sans text-[10px] text-secondary truncate block">{reason}</span>}
-                </div>
-              </div>
-            );
-          }) : (
-            <div className="px-3 py-4 text-center font-sans text-[11px] text-dim">No sell candidates right now</div>
+          {reason && <span className="font-sans text-[10px] text-secondary truncate block leading-tight">{reason}</span>}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-2">
+      {/* Row 1: SELL | HOLD | BUY LOW — 3-column desktop, stacked mobile */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+        {/* SELL */}
+        <div className="bg-card border border-border rounded-md overflow-hidden">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-accent-red/[0.05] border-b border-border">
+            <ArrowUpRight size={11} className="text-accent-red" />
+            <span className="font-sans text-[10px] font-semibold text-accent-red uppercase tracking-wider">Sell</span>
+            <span className="font-sans text-[10px] text-dim ml-auto">{sellAll.length}</span>
+          </div>
+          {sellAll.length > 0 ? sellAll.map((p, j) => <PlayerRow key={`s-${j}`} p={p} j={j} total={sellAll.length} />) : (
+            <div className="px-2.5 py-3 text-center font-sans text-[10px] text-dim">No sell candidates</div>
           )}
         </div>
 
-        {/* HOLD column */}
-        <div className="bg-card border border-border rounded-lg overflow-hidden">
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-accent-green/[0.05] border-b border-border">
-            <Shield size={13} className="text-accent-green" />
-            <span className="font-sans text-[11px] font-semibold text-accent-green uppercase tracking-wider">Hold</span>
-            <span className="font-sans text-[11px] text-dim ml-auto">{holdPlayers.length}</span>
+        {/* HOLD */}
+        <div className="bg-card border border-border rounded-md overflow-hidden">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-accent-green/[0.05] border-b border-border">
+            <Shield size={11} className="text-accent-green" />
+            <span className="font-sans text-[10px] font-semibold text-accent-green uppercase tracking-wider">Hold</span>
+            <span className="font-sans text-[10px] text-dim ml-auto">{holdPlayers.length}</span>
           </div>
-          {holdPlayers.length > 0 ? holdPlayers.map((p, j) => {
-            const pos = String(p.position || "");
-            const name = String(p.name || p.player || "");
-            const age = p.age != null ? String(p.age) : "";
-            const reason = String(p.reason || "");
-            return (
-              <div key={`hold-${j}`} className={`flex items-center gap-2 px-3 py-2 ${j < holdPlayers.length - 1 ? "border-b border-white/[0.06]" : ""}`}>
-                <span className={`font-sans text-[10px] font-bold rounded px-1 py-0.5 shrink-0 ${posTagClasses(pos)}`}>{pos || "—"}</span>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
-                    <PlayerName name={name} className="font-sans text-[12px] font-medium text-primary truncate" />
-                    {age && <span className="font-sans text-[10px] text-dim shrink-0">{age}</span>}
-                  </div>
-                  {reason && <span className="font-sans text-[10px] text-secondary truncate block">{reason}</span>}
-                </div>
-              </div>
-            );
-          }) : (
-            <div className="px-3 py-4 text-center font-sans text-[11px] text-dim">No core assets identified</div>
+          {holdPlayers.length > 0 ? holdPlayers.map((p, j) => <PlayerRow key={`h-${j}`} p={p} j={j} total={holdPlayers.length} />) : (
+            <div className="px-2.5 py-3 text-center font-sans text-[10px] text-dim">No core assets</div>
+          )}
+        </div>
+
+        {/* BUY LOW */}
+        <div className="bg-card border border-border rounded-md overflow-hidden">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-gold/[0.05] border-b border-border">
+            <Target size={11} className="text-gold" />
+            <span className="font-sans text-[10px] font-semibold text-gold uppercase tracking-wider">Buy Low</span>
+            <span className="font-sans text-[10px] text-dim ml-auto">{buyLow.length}</span>
+          </div>
+          {buyLow.length > 0 ? buyLow.map((p, j) => <PlayerRow key={`b-${j}`} p={p} j={j} total={buyLow.length} />) : (
+            <div className="px-2.5 py-3 text-center font-sans text-[10px] text-dim">No buy targets</div>
           )}
         </div>
       </div>
 
-      {/* Row 2: Buy Low Targets */}
-      <RosterActionsTable cc={data} />
-
-      {/* Row 3: Pick Intel */}
+      {/* Pick Intel */}
       <PickIntel cc={data} />
 
-      {/* Row 4: Trade Partners */}
-      <TradePartners data={data.trade_partners as Record<string, unknown> | null} />
-
-      {/* Row 5: Lineup Efficiency */}
+      {/* Lineup Efficiency */}
       <LineupEfficiency data={data.lineup_efficiency as Record<string, unknown> | null} />
 
-      {/* Row 6: Build Trade CTA */}
+      {/* Trade Partners */}
+      <TradePartners data={data.trade_partners as Record<string, unknown> | null} />
+
+      {/* Competitive Landscape */}
+      <CompetitiveLandscape data={data.competitive_landscape as Array<Record<string, unknown>> | null} />
+
+      {/* Build Trade CTA */}
       <BuildTradeCTA />
     </div>
   );
