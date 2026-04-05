@@ -77,8 +77,7 @@ function MarketIntel({ cc }: { cc: Record<string, unknown> }) {
   return (
     <div>
       <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.12em", color: C.gold, marginBottom: 6 }}>MARKET INTEL</div>
-      <style>{`.mkt-grid { display: flex; flex-direction: column; gap: 6px; } @media (min-width: 768px) { .mkt-grid { display: grid !important; grid-template-columns: 1fr 1fr !important; } }`}</style>
-      <div className="mkt-grid">
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
           <SH icon={<TrendingUp size={10} style={{ color: C.green }} />} label="ABOVE MARKET" count={above.length} />
           {above.length > 0 ? above.slice(0, 4).map((p, i) => <Row key={i} p={p} isAbove />) : (
