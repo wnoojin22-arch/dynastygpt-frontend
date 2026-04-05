@@ -8,18 +8,14 @@ import PlayerName from "./PlayerName";
 import { useRouter } from "next/navigation";
 import { useLeagueStore } from "@/lib/stores/league-store";
 import {
-  ArrowUpRight, Shield, Eye, Target, AlertTriangle,
-  Trophy, TrendingUp, TrendingDown, Minus, Zap,
-  Users, BarChart3, Crosshair, ChevronRight,
-  Sparkles, CircleDot, Award, Handshake, Gauge,
+  ArrowUpRight, Shield, Target, AlertTriangle,
+  Trophy, TrendingUp, TrendingDown,
+  Sparkles, Award, Handshake, Gauge, ChevronRight,
 } from "lucide-react";
 
 /* ═══════════════════════════════════════════════════════════════
-   COACHES CORNER — Full GM Dashboard
-   7 sections, 2-column grid, all Tailwind
+   COACHES CORNER — Dense GM Dashboard
    ═══════════════════════════════════════════════════════════════ */
-
-// ── Tailwind helpers ──
 
 function posTagClasses(pos: string): string {
   switch (pos) {
@@ -31,320 +27,145 @@ function posTagClasses(pos: string): string {
   }
 }
 
-function posTextClass(pos: string): string {
-  switch (pos) {
-    case "QB": return "text-accent-red";
-    case "RB": return "text-accent-blue";
-    case "WR": return "text-accent-green";
-    case "TE": return "text-accent-orange";
-    default: return "text-dim";
-  }
-}
-
-function actionPillClasses(action: string): string {
-  switch (action) {
-    case "SELL": return "text-accent-red bg-accent-red/15 border-accent-red/30";
-    case "HOLD": return "text-accent-green bg-accent-green/15 border-accent-green/30";
-    case "LISTEN":
-    case "CAUTIOUS": return "text-accent-orange bg-accent-orange/15 border-accent-orange/30";
-    default: return "text-dim bg-elevated border-border-lt";
-  }
-}
-
-function gradeTagClasses(grade: string): string {
-  switch (grade) {
-    case "ELITE": return "text-accent-green bg-accent-green/10 border-accent-green/25";
-    case "STRONG": return "text-accent-blue bg-accent-blue/10 border-accent-blue/25";
-    case "AVERAGE": return "text-gold bg-gold/10 border-gold/25";
-    case "WEAK": return "text-accent-orange bg-accent-orange/10 border-accent-orange/25";
-    case "CRITICAL": return "text-accent-red bg-accent-red/10 border-accent-red/25";
-    default: return "text-dim bg-elevated border-border-lt";
-  }
-}
-
-function posRankLabel(p: Record<string, unknown>): string {
-  if (p.sha_pos_rank && typeof p.sha_pos_rank === "string" && p.sha_pos_rank.trim()) return p.sha_pos_rank.trim();
-  if (typeof p.sha_pos_rank === "number") {
-    const pos = String(p.position || "");
-    return pos ? `${pos}${p.sha_pos_rank}` : `#${p.sha_pos_rank}`;
-  }
-  if (p.pos_rank && typeof p.pos_rank === "string") return p.pos_rank.trim();
-  return "";
-}
-
-// ── Section header ──
-
-function SectionHeader({ icon, label }: { icon: React.ReactNode; label: string }) {
+function SH({ icon, label }: { icon: React.ReactNode; label: string }) {
   return (
-    <div className="flex items-center gap-1.5 px-2.5 py-1 border-b border-border-lt bg-elevated">
+    <div className="flex items-center gap-1.5 px-2 py-0.5 border-b border-border-lt bg-elevated">
       {icon}
-      <span className="font-sans text-[11px] font-semibold text-zinc-400 tracking-wide">{label}</span>
+      <span className="font-sans text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">{label}</span>
     </div>
   );
 }
 
-// ── Skeleton ──
+/* ── Market Intel ── */
 
-function Skel() {
-  return (
-    <div className="bg-card border border-border rounded-lg p-5">
-      <div className="h-3.5 w-24 bg-elevated rounded mb-3 animate-pulse" />
-      <div className="h-4 w-full bg-elevated rounded mb-2 animate-pulse" />
-      <div className="h-4 w-3/4 bg-elevated rounded animate-pulse" />
-    </div>
-  );
-}
+function MarketIntel({ cc }: { cc: Record<string, unknown> }) {
+  const above = (cc.market_above || []) as Array<Record<string, unknown>>;
+  const below = (cc.market_below || []) as Array<Record<string, unknown>>;
+  if (!above.length && !below.length) return null;
 
-/* ═══════════════════════════════════════════════════════════════
-   SECTION 1: ROSTER ACTIONS TABLE
-   ═══════════════════════════════════════════════════════════════ */
-
-function RosterActionsTable({ cc }: { cc: Record<string, unknown> }) {
-  const buyLow = (cc.buy_low || []) as Array<Record<string, unknown>>;
-
-  if (!buyLow.length) return null;
-
-  return (
-    <div className="bg-card border border-border rounded-lg overflow-hidden">
-      <div className="flex items-center gap-2 px-3 py-1.5 bg-gold/[0.05] border-b border-border">
-        <Target size={13} className="text-gold" />
-        <span className="font-sans text-[11px] font-semibold text-gold uppercase tracking-wider">Buy Low Targets</span>
-        <span className="font-sans text-[11px] text-dim ml-auto">{buyLow.length}</span>
+  const Row = ({ p, isAbove }: { p: Record<string, unknown>; isAbove: boolean }) => {
+    const pct = Number(p.pct_diff || 0);
+    const color = isAbove ? "text-accent-red" : "text-accent-green";
+    const label = isAbove ? "sell window" : "buy window";
+    return (
+      <div className="flex items-center gap-1.5 py-1 px-2">
+        <span className={`font-sans text-[10px] font-bold rounded px-1 py-0.5 shrink-0 ${posTagClasses(String(p.position || ""))}`}>{String(p.position || "")}</span>
+        <PlayerName name={String(p.name || "")} className="font-sans text-[11px] font-medium text-primary flex-1 truncate" />
+        {p.age != null && <span className="font-sans text-[10px] text-dim shrink-0">{String(p.age)}</span>}
+        <span className={`font-sans text-[10px] font-bold tabular-nums shrink-0 ${color}`}>{pct > 0 ? "+" : ""}{pct}%</span>
+        <span className={`font-sans text-[9px] rounded-full px-1.5 py-0.5 border shrink-0 ${isAbove ? "text-accent-red bg-accent-red/10 border-accent-red/25" : "text-accent-green bg-accent-green/10 border-accent-green/25"}`}>{label}</span>
       </div>
-      {buyLow.map((p, j) => (
-        <div key={`buy-${j}`} className={`px-3 py-2 flex items-center gap-2 ${j < buyLow.length - 1 ? "border-b border-white/[0.06]" : ""}`}>
-          <span className={`font-sans text-[10px] font-bold shrink-0 rounded px-1 py-0.5 ${posTagClasses(String(p.position || ""))}`}>{String(p.position || "—")}</span>
-          <div className="min-w-0 flex-1">
-            <PlayerName name={String(p.name || p.player || "—")} className="font-sans text-[12px] font-medium text-primary truncate" />
-            {String(p.reason || "") && <span className="font-sans text-[10px] text-secondary truncate block">{String(p.reason)}</span>}
+    );
+  };
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
+      <div className="bg-card border border-border rounded-md overflow-hidden">
+        <SH icon={<TrendingUp size={10} className="text-accent-red" />} label="Above Market" />
+        {above.length > 0 ? above.slice(0, 3).map((p, i) => <Row key={i} p={p} isAbove />) : (
+          <div className="px-2 py-2 font-sans text-[10px] text-dim text-center">No overvalued assets</div>
+        )}
+      </div>
+      <div className="bg-card border border-border rounded-md overflow-hidden">
+        <SH icon={<TrendingDown size={10} className="text-accent-green" />} label="Below Market" />
+        {below.length > 0 ? below.slice(0, 3).map((p, i) => <Row key={i} p={p} isAbove={false} />) : (
+          <div className="px-2 py-2 font-sans text-[10px] text-dim text-center">No undervalued assets</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ── Pick Intel ── */
+
+function PickIntel({ cc }: { cc: Record<string, unknown> }) {
+  const draftIntel = cc.draft_intel as Record<string, unknown> | null;
+  const window = String(cc.owner_window || cc.window || "BALANCED");
+  const weakest = cc.weakest_position as string | null;
+  const picks = (draftIntel?.current_picks || []) as Array<Record<string, unknown>>;
+  const roundEff = (draftIntel?.round_efficiency || []) as Array<Record<string, unknown>>;
+  const hitRate = draftIntel?.hit_rate as number | null;
+  const leagueAvg = draftIntel?.league_avg_hit_rate as number | null;
+
+  // Build round hit rate lookup
+  const roundHR: Record<number, { rate: number; picks: number; total: number }> = {};
+  for (const r of roundEff) {
+    const rd = Number(r.round);
+    roundHR[rd] = { rate: Number(r.hit_rate || 0), picks: Number(r.hits || 0), total: Number(r.picks || 0) };
+  }
+
+  const getPill = (round: number, value: number): { pill: string; cls: string } => {
+    const rh = roundHR[round];
+    const rate = rh?.rate ?? 50;
+    if (window === "CONTENDER") {
+      if (round <= 1 && value >= 4000) return { pill: "USE IT", cls: "text-accent-green bg-accent-green/15 border-accent-green/30" };
+      if (round >= 3) return { pill: "PACKAGE", cls: "text-accent-orange bg-accent-orange/15 border-accent-orange/30" };
+      return { pill: "TRADE UP", cls: "text-accent-blue bg-accent-blue/15 border-accent-blue/30" };
+    }
+    if (window === "REBUILDER") {
+      if (round <= 1) return { pill: "USE IT", cls: "text-accent-green bg-accent-green/15 border-accent-green/30" };
+      if (rate >= 40) return { pill: "USE IT", cls: "text-accent-green bg-accent-green/15 border-accent-green/30" };
+      return { pill: "PACKAGE", cls: "text-accent-orange bg-accent-orange/15 border-accent-orange/30" };
+    }
+    if (round <= 1) return { pill: "USE IT", cls: "text-accent-green bg-accent-green/15 border-accent-green/30" };
+    if (rate < 30) return { pill: "PACKAGE", cls: "text-accent-orange bg-accent-orange/15 border-accent-orange/30" };
+    return { pill: "EVALUATE", cls: "text-dim bg-elevated border-border-lt" };
+  };
+
+  // Summary line
+  let summary = "";
+  if (!picks.length) {
+    summary = weakest ? `No picks on roster. Target rebuilding teams — you need ${weakest}.` : "No picks on roster.";
+  } else if (hitRate != null && hitRate > 55) {
+    summary = `You draft well (${hitRate}% hit rate). Hold your picks and trust the process.`;
+  } else if (hitRate != null && hitRate < 35) {
+    summary = `${hitRate}% hit rate — trade picks for proven production.`;
+  } else {
+    summary = `${picks.length} pick${picks.length > 1 ? "s" : ""} on roster${hitRate != null ? ` · ${hitRate}% career hit rate` : ""}.`;
+  }
+
+  return (
+    <div className="bg-card border border-border rounded-md overflow-hidden">
+      <SH icon={<Sparkles size={10} className="text-gold" />} label="Pick Intel" />
+      <div className="px-2 py-1.5 border-b border-white/[0.04]">
+        <p className="font-sans text-[11px] text-secondary leading-snug">{summary}</p>
+      </div>
+      {picks.length > 0 ? picks.map((p, j) => {
+        const season = String(p.season || "");
+        const round = p.round as number;
+        const isOwn = p.is_own as boolean;
+        const value = (p.value as number) || 0;
+        const rh = roundHR[round];
+        const { pill, cls } = getPill(round, value);
+        const hitStr = rh ? `${rh.rate}% (${rh.picks}/${rh.total})` : "—";
+        const avgStr = leagueAvg != null ? `${leagueAvg}%` : "—";
+
+        return (
+          <div key={j} className={`flex items-center gap-1.5 px-2 py-1 ${j < picks.length - 1 ? "border-b border-white/[0.04]" : ""}`}>
+            <span className={`font-sans text-[9px] font-bold rounded px-1 py-0.5 shrink-0 ${isOwn ? "text-gold bg-gold/10 border border-gold/25" : "text-[#b39ddb] bg-[#b39ddb]/10 border border-[#b39ddb]/25"}`}>
+              {season.slice(2)} R{round}
+            </span>
+            <span className="font-sans text-[10px] text-dim tabular-nums shrink-0">{Math.round(value).toLocaleString()}</span>
+            <span className="font-sans text-[9px] text-secondary flex-1 truncate">
+              Your R{round}: {hitStr} vs avg {avgStr}
+            </span>
+            <span className={`font-sans text-[9px] font-bold rounded-full px-1.5 py-0.5 border shrink-0 ${cls}`}>{pill}</span>
           </div>
-          {String(p.current_owner || "") && <span className="font-sans text-[10px] text-dim shrink-0">{String(p.current_owner)}</span>}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   SECTION 2: POSITION GRADES + NEEDS
-   ═══════════════════════════════════════════════════════════════ */
-
-function PositionGrades({ cc }: { cc: Record<string, unknown> }) {
-  const grades = cc.positional_grades as Record<string, string> | undefined;
-  const weakest = cc.weakest_position as string | undefined;
-  if (!grades) return null;
-
-  return (
-    <div className="bg-card border border-border rounded-lg overflow-hidden">
-      <SectionHeader icon={<BarChart3 size={13} className="text-gold" />} label="Position Grades" />
-      <div className="p-3 flex flex-col gap-1.5">
-        {(["QB", "RB", "WR", "TE"] as const).map((pos) => {
-          const grade = grades[pos] || "—";
-          const isWeakest = pos === weakest;
-          return (
-            <div key={pos} className={`flex items-center gap-2 py-1.5 px-2 rounded ${isWeakest ? "bg-accent-orange/[0.07]" : ""}`}>
-              <span className={`font-sans text-[12px] font-bold w-7 ${posTextClass(pos)}`}>{pos}</span>
-              <span className={`font-sans text-[11px] font-semibold rounded px-2 py-0.5 min-w-[64px] text-center border ${gradeTagClasses(grade)}`}>{grade}</span>
-              {isWeakest && <AlertTriangle size={11} className="text-accent-orange ml-auto shrink-0" />}
-            </div>
-          );
-        })}
-      </div>
-      {weakest && (
-        <div className="px-3 py-2 border-t border-border-lt flex items-center gap-1.5">
-          <AlertTriangle size={12} className="text-accent-orange" />
-          <span className="font-sans text-[11px] text-accent-orange">Priority need: {weakest}</span>
-        </div>
+        );
+      }) : (
+        <div className="px-2 py-2 text-center font-sans text-[10px] text-dim">No picks on roster</div>
       )}
     </div>
   );
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   SECTION 3: DRAFT CAPITAL + HIT RATES
-   ═══════════════════════════════════════════════════════════════ */
-
-function DraftIntel({ data }: { data: Record<string, unknown> | null }) {
-  if (!data) return (
-    <div className="bg-card border border-border rounded-lg overflow-hidden">
-      <SectionHeader icon={<Trophy size={13} className="text-gold" />} label="Draft Capital" />
-      <div className="p-4 font-sans text-[12px] text-dim text-center">No draft data available</div>
-    </div>
-  );
-
-  const hitRate = data.hit_rate as number | null;
-  const bustRate = data.bust_rate as number | null;
-  const leagueAvg = data.league_avg_hit_rate as number | null;
-  const rounds = (data.round_efficiency || []) as Array<Record<string, unknown>>;
-  const picks = (data.current_picks || []) as Array<Record<string, unknown>>;
-  const coaching = String(data.coaching_line || "");
-
-  const hitColor = hitRate != null ? (hitRate > 50 ? "text-accent-green" : hitRate < 35 ? "text-accent-red" : "text-gold") : "text-dim";
-
-  return (
-    <div className="bg-card border border-border rounded-lg overflow-hidden">
-      <SectionHeader icon={<Trophy size={13} className="text-gold" />} label="Draft Capital" />
-
-      <div className="p-2 space-y-2">
-        {/* Hit rate hero */}
-        {hitRate != null && (
-          <div className="flex items-baseline gap-2">
-            <span className={`font-sans text-[20px] font-bold tabular-nums ${hitColor}`}>{hitRate}%</span>
-            <span className="font-sans text-[12px] text-dim">draft hit rate</span>
-            {leagueAvg != null && (
-              <span className={`font-sans text-[11px] ml-auto ${hitRate > leagueAvg ? "text-accent-green" : "text-accent-red"}`}>
-                league avg {leagueAvg}%
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* Round efficiency */}
-        {rounds.length > 0 && (
-          <div className="space-y-1">
-            {rounds.map((r) => {
-              const rd = Number(r.round);
-              const hr = Number(r.hit_rate || 0);
-              return (
-                <div key={rd} className="flex items-center gap-2">
-                  <span className="font-sans text-[11px] text-dim w-6 shrink-0">R{rd}</span>
-                  <div className="flex-1 h-1.5 bg-elevated rounded-full overflow-hidden">
-                    <div className={`h-full rounded-full ${hr > 50 ? "bg-accent-green" : hr > 30 ? "bg-gold" : "bg-accent-red"}`} style={{ width: `${Math.min(hr, 100)}%` }} />
-                  </div>
-                  <span className="font-sans text-[11px] text-secondary tabular-nums w-10 text-right">{hr.toFixed(0)}%</span>
-                  <span className="font-sans text-[10px] text-dim w-12 text-right">{String(r.picks || 0)} picks</span>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Current draft capital */}
-        {picks.length > 0 && (
-          <div>
-            <div className="font-sans text-[11px] text-dim uppercase tracking-wider mb-1.5">Current Picks</div>
-            <div className="flex flex-wrap gap-1.5">
-              {picks.map((p, i) => (
-                <span key={i} className={`font-sans text-[11px] font-semibold rounded-full px-2 py-0.5 border ${p.is_own ? "text-gold bg-gold/10 border-gold/25" : "text-secondary bg-elevated border-border-lt"}`}>
-                  {String(p.season).slice(2)} R{String(p.round)}
-                  {!p.is_own && <span className="text-dim ml-0.5">({String(p.original_owner).slice(0, 8)})</span>}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Coaching line */}
-        {coaching && (
-          <div className="flex items-start gap-1.5 pt-1 border-t border-border-lt">
-            <Sparkles size={12} className="text-gold shrink-0 mt-0.5" />
-            <span className="font-sans text-[12px] text-secondary leading-tight">{coaching}</span>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   SECTION 4: TRADE PARTNERS
-   ═══════════════════════════════════════════════════════════════ */
-
-function TradePartners({ data }: { data: Record<string, unknown> | null }) {
-  if (!data) return (
-    <div className="bg-card border border-border rounded-lg overflow-hidden">
-      <SectionHeader icon={<Handshake size={13} className="text-gold" />} label="Trade Partners" />
-      <div className="p-4 font-sans text-[12px] text-dim text-center">No trade partner data available</div>
-    </div>
-  );
-
-  const top = (data.top || []) as Array<Record<string, unknown>>;
-  const avoid = (data.avoid || []) as Array<Record<string, unknown>>;
-  const myStats = data.my_stats as Record<string, unknown> | null;
-
-  const badgeClasses = (b: string) => {
-    switch (b) {
-      case "top match": return "text-accent-green bg-accent-green/10 border-accent-green/25";
-      case "panic trader": return "text-accent-red bg-accent-red/10 border-accent-red/25";
-      case "frequent partner": return "text-accent-blue bg-accent-blue/10 border-accent-blue/25";
-      case "good fit": return "text-gold bg-gold/10 border-gold/25";
-      default: return "text-dim bg-elevated border-border-lt";
-    }
-  };
-
-  return (
-    <div className="bg-card border border-border rounded-lg overflow-hidden">
-      <SectionHeader icon={<Handshake size={13} className="text-gold" />} label="Trade Partners" />
-
-      <div className="p-2 space-y-2">
-        {/* My stats bar */}
-        {myStats && (
-          <div className="flex items-center gap-2 flex-wrap pb-1.5 border-b border-border-lt">
-            <div className="flex items-center gap-1">
-              <Award size={12} className="text-gold" />
-              <span className="font-sans text-[11px] text-dim">You:</span>
-              <span className="font-sans text-[12px] font-semibold text-primary">{String(myStats.record || "0-0-0")}</span>
-            </div>
-            {myStats.win_rate != null && (
-              <span className={`font-sans text-[11px] font-semibold ${Number(myStats.win_rate) > 55 ? "text-accent-green" : Number(myStats.win_rate) < 45 ? "text-accent-red" : "text-secondary"}`}>
-                {String(myStats.win_rate)}% win rate
-              </span>
-            )}
-            {!!myStats.archetype && (
-              <span className="font-sans text-[10px] text-dim bg-elevated rounded-full px-2 py-0.5 border border-border-lt">{String(myStats.archetype)}</span>
-            )}
-            {((myStats.badges || []) as string[]).slice(0, 2).map((b, i) => (
-              <span key={i} className="font-sans text-[10px] text-gold bg-gold/10 rounded-full px-2 py-0.5 border border-gold/20">{b}</span>
-            ))}
-          </div>
-        )}
-
-        {/* Top partners */}
-        {top.map((p, i) => (
-          <div key={i} className={`flex items-start gap-1.5 py-1.5 ${i < top.length - 1 ? "border-b border-white/[0.04]" : ""}`}>
-            <span className="font-sans text-[14px] font-bold text-dim/30 shrink-0 w-4 text-center tabular-nums">{i + 1}</span>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-sans text-[13px] font-semibold text-primary">{String(p.owner)}</span>
-                {!!p.badge && <span className={`font-sans text-[10px] font-semibold rounded-full px-2 py-0.5 border ${badgeClasses(String(p.badge))}`}>{String(p.badge)}</span>}
-                {!!p.archetype && <span className="font-sans text-[10px] text-dim">{String(p.archetype).replace(/_/g, " ").toLowerCase()}</span>}
-              </div>
-              <div className="font-sans text-[12px] text-secondary mt-0.5">{String(p.reason)}</div>
-            </div>
-            <div className="shrink-0 text-right">
-              <div className="font-sans text-[12px] font-semibold text-secondary tabular-nums">{String(p.h2h_record)}</div>
-              <div className="font-sans text-[10px] text-dim">h2h record</div>
-            </div>
-          </div>
-        ))}
-
-        {/* Avoid section */}
-        {avoid.length > 0 && (
-          <div className="pt-2 border-t border-border-lt">
-            <div className="font-sans text-[10px] text-dim uppercase tracking-wider mb-1.5">Avoid</div>
-            {avoid.map((p, i) => (
-              <div key={i} className="flex items-center gap-2 py-1">
-                <Minus size={11} className="text-accent-red shrink-0" />
-                <span className="font-sans text-[12px] text-dim">{String(p.owner)}</span>
-                <span className="font-sans text-[10px] text-dim/60 ml-auto">{String(p.reason)}</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   SECTION 5: LINEUP EFFICIENCY
-   ═══════════════════════════════════════════════════════════════ */
+/* ── Lineup Efficiency ── */
 
 function LineupEfficiency({ data }: { data: Record<string, unknown> | null }) {
   if (!data) return (
-    <div className="bg-card border border-border rounded-lg overflow-hidden">
-      <SectionHeader icon={<Gauge size={13} className="text-gold" />} label="Lineup Efficiency" />
-      <div className="p-4 font-sans text-[12px] text-dim text-center">No lineup data available</div>
+    <div className="bg-card border border-border rounded-md overflow-hidden">
+      <SH icon={<Gauge size={10} className="text-gold" />} label="Lineup Efficiency" />
+      <div className="px-2 py-2 font-sans text-[10px] text-dim text-center">No lineup data</div>
     </div>
   );
 
@@ -355,9 +176,9 @@ function LineupEfficiency({ data }: { data: Record<string, unknown> | null }) {
   const message = data.message ? String(data.message) : null;
 
   if (weeks === 0 && message) return (
-    <div className="bg-card border border-border rounded-lg overflow-hidden">
-      <SectionHeader icon={<Gauge size={13} className="text-gold" />} label="Lineup Efficiency" />
-      <div className="p-4 font-sans text-[12px] text-dim text-center">{message}</div>
+    <div className="bg-card border border-border rounded-md overflow-hidden">
+      <SH icon={<Gauge size={10} className="text-gold" />} label="Lineup Efficiency" />
+      <div className="px-2 py-2 font-sans text-[10px] text-dim text-center">{message}</div>
     </div>
   );
 
@@ -365,38 +186,26 @@ function LineupEfficiency({ data }: { data: Record<string, unknown> | null }) {
   const effLabel = eff >= 95 ? "Elite" : eff >= 90 ? "Good" : eff >= 85 ? "Average" : "Poor";
 
   return (
-    <div className="bg-card border border-border rounded-lg overflow-hidden">
-      <SectionHeader icon={<Gauge size={13} className="text-gold" />} label="Lineup Efficiency" />
-
-      <div className="p-2 space-y-2">
-        {/* Efficiency hero */}
+    <div className="bg-card border border-border rounded-md overflow-hidden">
+      <SH icon={<Gauge size={10} className="text-gold" />} label="Lineup Efficiency" />
+      <div className="px-2 py-1.5 space-y-1.5">
         <div className="flex items-baseline gap-2">
-          <span className={`font-sans text-[22px] font-bold tabular-nums ${effColor}`}>{eff}%</span>
-          <div>
-            <span className={`font-sans text-[12px] font-semibold ${effColor}`}>{effLabel}</span>
-            <span className="font-sans text-[11px] text-dim block">{ppg} PPG left on bench</span>
-          </div>
-          {weeks > 0 && <span className="font-sans text-[10px] text-dim ml-auto">{weeks} weeks</span>}
+          <span className={`font-sans text-[20px] font-bold tabular-nums ${effColor}`}>{eff}%</span>
+          <span className={`font-sans text-[11px] font-semibold ${effColor}`}>{effLabel}</span>
+          <span className="font-sans text-[10px] text-dim ml-auto">{ppg} pts/wk on bench · {weeks}wk</span>
         </div>
-
-        {/* Progress bar */}
-        <div className="h-2 bg-elevated rounded-full overflow-hidden">
-          <div className={`h-full rounded-full transition-all ${eff >= 95 ? "bg-accent-green" : eff >= 88 ? "bg-gold" : "bg-accent-red"}`} style={{ width: `${Math.min(eff, 100)}%` }} />
+        <div className="h-1.5 bg-elevated rounded-full overflow-hidden">
+          <div className={`h-full rounded-full ${eff >= 95 ? "bg-accent-green" : eff >= 88 ? "bg-gold" : "bg-accent-red"}`} style={{ width: `${Math.min(eff, 100)}%` }} />
         </div>
-
-        {/* Misbenched players */}
         {misbenched.length > 0 && (
-          <div>
-            <div className="font-sans text-[10px] text-dim uppercase tracking-wider mb-1">Most Misbenched</div>
-            <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
-            {misbenched.map((m, i) => (
-              <div key={i} className="flex items-center gap-1.5 py-1">
-                <span className={`font-sans text-[10px] font-bold rounded px-1 py-0.5 ${posTagClasses(String(m.position || ""))}`}>{String(m.position || "—")}</span>
-                <PlayerName name={String(m.player || "")} className="font-sans text-[11px] font-medium text-primary flex-1 truncate" />
-                <span className="font-sans text-[10px] text-accent-red tabular-nums shrink-0">{String(m.times)}x</span>
+          <div className="grid grid-cols-2 gap-x-2 gap-y-0">
+            {misbenched.slice(0, 4).map((m, i) => (
+              <div key={i} className="flex items-center gap-1 py-0.5">
+                <span className={`font-sans text-[9px] font-bold rounded px-0.5 ${posTagClasses(String(m.position || ""))}`}>{String(m.position || "")}</span>
+                <span className="font-sans text-[10px] text-primary truncate flex-1">{String(m.player || "")}</span>
+                <span className="font-sans text-[9px] text-accent-red tabular-nums shrink-0">{String(m.times)}x</span>
               </div>
             ))}
-            </div>
           </div>
         )}
       </div>
@@ -404,225 +213,76 @@ function LineupEfficiency({ data }: { data: Record<string, unknown> | null }) {
   );
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   SECTION 6: COMPETITIVE LANDSCAPE
-   ═══════════════════════════════════════════════════════════════ */
+/* ── Trade Partners ── */
 
-function CompetitiveLandscape({ data }: { data: Array<Record<string, unknown>> | null }) {
-  if (!data || !data.length) return (
-    <div className="bg-card border border-border rounded-lg overflow-hidden">
-      <SectionHeader icon={<TrendingUp size={13} className="text-gold" />} label="Competitive Landscape" />
-      <div className="p-4 font-sans text-[12px] text-dim text-center">No trending data available</div>
+function TradePartners({ data }: { data: Record<string, unknown> | null }) {
+  if (!data) return (
+    <div className="bg-card border border-border rounded-md overflow-hidden">
+      <SH icon={<Handshake size={10} className="text-gold" />} label="Trade Partners" />
+      <div className="px-2 py-2 font-sans text-[10px] text-dim text-center">No trade partner data</div>
     </div>
   );
 
-  const maxDelta = Math.max(...data.map((d) => Math.abs(Number(d.delta || 0))), 1);
+  const top = (data.top || []) as Array<Record<string, unknown>>;
+  const myStats = data.my_stats as Record<string, unknown> | null;
+
+  const badgeCls = (b: string) => {
+    switch (b) {
+      case "top match": return "text-accent-green bg-accent-green/10 border-accent-green/25";
+      case "panic trader": return "text-accent-red bg-accent-red/10 border-accent-red/25";
+      case "frequent partner": return "text-accent-blue bg-accent-blue/10 border-accent-blue/25";
+      case "good fit": return "text-gold bg-gold/10 border-gold/25";
+      default: return "text-dim bg-elevated border-border-lt";
+    }
+  };
 
   return (
-    <div className="bg-card border border-border rounded-lg overflow-hidden">
-      <SectionHeader icon={<TrendingUp size={13} className="text-gold" />} label="30-Day Competitive Landscape" />
-
-      <div className="p-0">
-        {data.map((entry, i) => {
-          const delta = Number(entry.delta || 0);
-          const dir = String(entry.direction || "stable");
-          const isMe = !!entry.is_me;
-          const tag = entry.tag ? String(entry.tag) : null;
-          const barWidth = Math.abs(delta) / maxDelta * 100;
-
-          return (
-            <div key={i} className={`flex items-center gap-2 px-3 py-1.5 ${isMe ? "bg-gold/[0.06]" : ""} ${i < data.length - 1 ? "border-b border-white/[0.04]" : ""}`}>
-              <span className="font-sans text-[11px] text-dim w-4 text-center tabular-nums">{i + 1}</span>
-              <span className={`font-sans text-[12px] truncate flex-1 min-w-0 ${isMe ? "font-semibold text-gold" : "text-primary"}`}>
-                {String(entry.owner)}{isMe ? " (you)" : ""}
-              </span>
-              {tag && (
-                <span className={`font-sans text-[9px] font-semibold uppercase tracking-wider rounded-full px-1.5 py-0.5 shrink-0 ${tag === "rising threat" ? "text-accent-green bg-accent-green/10" : "text-accent-red bg-accent-red/10"}`}>{tag}</span>
-              )}
-              <div className="w-16 flex items-center justify-end gap-1 shrink-0">
-                {dir === "up" ? <TrendingUp size={11} className="text-accent-green" /> :
-                 dir === "down" ? <TrendingDown size={11} className="text-accent-red" /> :
-                 <Minus size={11} className="text-dim" />}
-                <span className={`font-sans text-[11px] font-semibold tabular-nums ${dir === "up" ? "text-accent-green" : dir === "down" ? "text-accent-red" : "text-dim"}`}>
-                  {delta > 0 ? "+" : ""}{delta}
-                </span>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   SECTION 7: BUILD TRADE CTA
-   ═══════════════════════════════════════════════════════════════ */
-
-/* ═══════════════════════════════════════════════════════════════
-   PICK INTEL — narrative + per-pick recommendations
-   ═══════════════════════════════════════════════════════════════ */
-
-function generatePickNarrative(
-  draftIntel: Record<string, unknown> | null,
-  window: string,
-  weakestPosition: string | null,
-): string {
-  const picks = (draftIntel?.current_picks || []) as Array<Record<string, unknown>>;
-  const hitRate = draftIntel?.hit_rate as number | undefined;
-  const roundEff = (draftIntel?.round_efficiency || []) as Array<Record<string, unknown>>;
-
-  if (!picks.length) {
-    const posStr = weakestPosition ? ` needing ${weakestPosition}` : "";
-    return `You have no picks on your roster. As a ${window.toLowerCase()} team${posStr}, target rebuilding teams — offer aging veterans or depth pieces to acquire early capital.`;
-  }
-
-  // Find best round by hit rate
-  const bestRound = roundEff.length > 0
-    ? roundEff.reduce((a, b) => ((a.hit_rate as number || 0) > (b.hit_rate as number || 0) ? a : b))
-    : null;
-  const bestRoundLabel = bestRound ? `Round ${bestRound.round}` : "early round";
-
-  if (hitRate != null && hitRate > 60) {
-    return `You draft well (${hitRate}% hit rate) — hold your picks and trust your process. Your ${bestRoundLabel} picks especially are valuable given your ${Math.round(bestRound?.hit_rate as number || hitRate)}% efficiency there.`;
-  }
-
-  if (hitRate != null && hitRate < 40) {
-    return `Your draft hit rate (${hitRate}%) suggests trading picks for proven production may serve you better. Consider packaging picks for established starters at your positions of need.`;
-  }
-
-  // Check if contender with only late picks
-  const hasEarly = picks.some(p => (p.round as number) <= 1);
-  if (window === "CONTENDER" && !hasEarly) {
-    return "Late picks don't move the needle for a contender. Shop them to rebuilders who need capital — package for a win-now upgrade at your weakest position.";
-  }
-
-  // Default
-  const pickCount = picks.length;
-  const rateStr = hitRate != null ? ` (${hitRate}% career hit rate)` : "";
-  return `You have ${pickCount} pick${pickCount > 1 ? "s" : ""} available${rateStr}. Evaluate each based on your competitive window and positional needs.`;
-}
-
-function getPickRecommendation(
-  pick: Record<string, unknown>,
-  roundEff: Array<Record<string, unknown>>,
-  window: string,
-): { pill: string; reason: string; pillClass: string } {
-  const round = pick.round as number;
-  const isOwn = pick.is_own as boolean;
-  const season = String(pick.season || "");
-  const value = (pick.value as number) || 0;
-
-  // Find hit rate for this round
-  const roundData = roundEff.find(r => r.round === round);
-  const roundHitRate = roundData ? (roundData.hit_rate as number || 0) : 50;
-
-  // Contender logic
-  if (window === "CONTENDER") {
-    if (round <= 1 && value >= 4000) {
-      return { pill: "HOLD", reason: `High-value asset (${Math.round(value).toLocaleString()}) — use to acquire a championship piece`, pillClass: "text-accent-green bg-accent-green/15 border-accent-green/30" };
-    }
-    if (round >= 3) {
-      return { pill: "SELL", reason: "Late picks are expendable for contenders — package for immediate help", pillClass: "text-accent-red bg-accent-red/15 border-accent-red/30" };
-    }
-    return { pill: "PACKAGE", reason: `${roundHitRate}% hit rate at Round ${round} — trade if it lands you a starter`, pillClass: "text-accent-orange bg-accent-orange/15 border-accent-orange/30" };
-  }
-
-  // Rebuilder logic
-  if (window === "REBUILDER") {
-    if (round <= 1) {
-      return { pill: "HOLD", reason: `Core rebuild asset — ${roundHitRate}% hit rate at Round ${round}`, pillClass: "text-accent-green bg-accent-green/15 border-accent-green/30" };
-    }
-    if (round === 2 && roundHitRate >= 40) {
-      return { pill: "HOLD", reason: `Round ${round} picks hit at ${roundHitRate}% — worth keeping`, pillClass: "text-accent-green bg-accent-green/15 border-accent-green/30" };
-    }
-    return { pill: "SELL", reason: `Round ${round} picks hit at ${roundHitRate}% — sell for better capital`, pillClass: "text-accent-red bg-accent-red/15 border-accent-red/30" };
-  }
-
-  // Balanced
-  if (round <= 1) {
-    return { pill: "HOLD", reason: `Premium pick — ${roundHitRate}% hit rate`, pillClass: "text-accent-green bg-accent-green/15 border-accent-green/30" };
-  }
-  return { pill: "EVALUATE", reason: `Round ${round} at ${roundHitRate}% hit rate — hold or trade based on need`, pillClass: "text-dim bg-elevated border-border-lt" };
-}
-
-function PickIntel({ cc }: { cc: Record<string, unknown> }) {
-  const draftIntel = cc.draft_intel as Record<string, unknown> | null;
-  const window = String(cc.owner_window || cc.window || "BALANCED");
-  const weakest = cc.weakest_position as string | null;
-
-  const picks = (draftIntel?.current_picks || []) as Array<Record<string, unknown>>;
-  const roundEff = (draftIntel?.round_efficiency || []) as Array<Record<string, unknown>>;
-  const narrative = generatePickNarrative(draftIntel, window, weakest);
-
-  return (
-    <div className="bg-card border border-border rounded-lg overflow-hidden">
-      <SectionHeader icon={<Sparkles size={13} className="text-gold" />} label="Pick Intel" />
-
-      {/* Narrative */}
-      <div className="px-3 py-2.5 border-b border-border">
-        <p className="font-sans text-[12px] text-secondary leading-relaxed">{narrative}</p>
-      </div>
-
-      {/* Per-pick rows */}
-      {picks.length > 0 ? picks.map((p, j) => {
-        const season = String(p.season || "");
-        const round = p.round as number;
-        const isOwn = p.is_own as boolean;
-        const origOwner = String(p.original_owner || "");
-        const value = (p.value as number) || 0;
-        const { pill, reason, pillClass } = getPickRecommendation(p, roundEff, window);
-
-        // Pick label
-        const pickLabel = `${season} Round ${round}`;
-        const ownerTag = isOwn ? "" : ` (${origOwner})`;
-
-        return (
-          <div key={`pick-${j}`} className={`flex items-center gap-2 px-3 py-2 ${j < picks.length - 1 ? "border-b border-white/[0.06]" : ""}`}>
-            {/* Pick badge */}
-            <span className={`font-sans text-[10px] font-bold rounded px-1.5 py-0.5 shrink-0 ${isOwn ? "text-gold bg-gold/10 border border-gold/25" : "text-[#b39ddb] bg-[#b39ddb]/10 border border-[#b39ddb]/25"}`}>
-              {pickLabel}
-            </span>
-            {/* Details */}
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5">
-                {ownerTag && <span className="font-sans text-[10px] text-dim">{ownerTag}</span>}
-                <span className="font-sans text-[10px] text-dim ml-auto">{Math.round(value).toLocaleString()} val</span>
-              </div>
-              <span className="font-sans text-[9px] text-secondary truncate block">{reason}</span>
-            </div>
-            {/* Recommendation pill */}
-            <span className={`font-sans text-[9px] font-bold rounded-full px-1.5 py-0.5 border shrink-0 ${pillClass}`}>{pill}</span>
+    <div className="bg-card border border-border rounded-md overflow-hidden">
+      <SH icon={<Handshake size={10} className="text-gold" />} label="Trade Partners" />
+      <div className="px-2 py-1">
+        {myStats && (
+          <div className="flex items-center gap-2 flex-wrap py-1 border-b border-white/[0.04]">
+            <Award size={10} className="text-gold" />
+            <span className="font-sans text-[11px] font-semibold text-primary">{String(myStats.record || "0-0-0")}</span>
+            {myStats.win_rate != null && <span className={`font-sans text-[10px] font-semibold ${Number(myStats.win_rate) > 55 ? "text-accent-green" : "text-secondary"}`}>{String(myStats.win_rate)}%</span>}
+            {((myStats.badges || []) as string[]).slice(0, 2).map((b, i) => (
+              <span key={i} className="font-sans text-[9px] text-gold bg-gold/10 rounded-full px-1.5 py-0.5 border border-gold/20">{b}</span>
+            ))}
           </div>
-        );
-      }) : (
-        <div className="px-3 py-4 text-center font-sans text-[11px] text-dim">
-          No picks on roster — target rebuilding teams at your position of need
-        </div>
-      )}
+        )}
+        {top.map((p, i) => (
+          <div key={i} className={`flex items-center gap-1.5 py-1 ${i < top.length - 1 ? "border-b border-white/[0.04]" : ""}`}>
+            <span className="font-sans text-[12px] font-bold text-dim/30 w-3 text-center">{i + 1}</span>
+            <span className="font-sans text-[12px] font-semibold text-primary truncate flex-1">{String(p.owner)}</span>
+            {!!p.badge && <span className={`font-sans text-[9px] font-semibold rounded-full px-1.5 py-0.5 border ${badgeCls(String(p.badge))}`}>{String(p.badge)}</span>}
+            <span className="font-sans text-[11px] font-semibold text-secondary tabular-nums shrink-0">{String(p.h2h_record)}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
+
+/* ── Build Trade CTA ── */
 
 function BuildTradeCTA() {
   const router = useRouter();
   const { currentLeagueSlug } = useLeagueStore();
-  const goToTrades = () => router.push(`/l/${currentLeagueSlug}/trades`);
   return (
-    <div className="bg-card border border-gold/20 rounded-lg overflow-hidden flex items-center justify-between px-5 py-4">
+    <div className="bg-card border border-gold/20 rounded-md flex items-center justify-between px-3 py-2">
       <div>
-        <div className="font-sans text-[13px] font-semibold text-primary">Ready to make moves?</div>
-        <div className="font-sans text-[12px] text-dim mt-0.5">The trade builder matches you with the right partners and assets.</div>
+        <div className="font-sans text-[12px] font-semibold text-primary">Ready to make moves?</div>
+        <div className="font-sans text-[10px] text-dim">The trade builder matches you with the right partners.</div>
       </div>
-      <button onClick={goToTrades} className="flex items-center gap-1.5 font-sans text-[13px] font-semibold text-card bg-gold hover:bg-gold-bright rounded-full px-5 py-2 transition-colors cursor-pointer shrink-0">
-        Build a trade <ChevronRight size={14} />
+      <button onClick={() => router.push(`/l/${currentLeagueSlug}/trades`)} className="flex items-center gap-1 font-sans text-[11px] font-semibold text-card bg-gold hover:bg-gold-bright rounded-full px-4 py-1.5 transition-colors cursor-pointer shrink-0">
+        Build trade <ChevronRight size={12} />
       </button>
     </div>
   );
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   MAIN COMPONENT — 7-section grid layout
+   MAIN COMPONENT
    ═══════════════════════════════════════════════════════════════ */
 
 export default function CoachesCorner({ leagueId, owner, ownerId }: { leagueId: string; owner: string; ownerId?: string | null }) {
@@ -632,102 +292,78 @@ export default function CoachesCorner({ leagueId, owner, ownerId }: { leagueId: 
     enabled: !!owner,
   });
 
-  if (!owner) return (
-    <div className="p-10 text-center font-sans text-sm text-dim">Select an owner to view coaching intel.</div>
-  );
-
+  if (!owner) return <div className="p-8 text-center font-sans text-sm text-dim">Select an owner.</div>;
   if (isLoading) return (
-    <div className="space-y-3 p-4">
-      <Skel /><div className="grid grid-cols-2 gap-3"><Skel /><Skel /></div><Skel />
+    <div className="flex flex-col items-center justify-center py-12 gap-3">
+      <div className="relative w-12 h-12">
+        <div className="absolute inset-0 rounded-full border-2 border-gold/20" />
+        <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-gold animate-spin" />
+      </div>
+      <div className="font-mono text-[10px] font-bold tracking-[0.2em] text-gold animate-pulse">ANALYZING</div>
     </div>
   );
 
   const data = cc as Record<string, unknown> | undefined;
-  if (!data) return (
-    <div className="p-10 text-center font-sans text-sm text-dim">Coaches corner data unavailable.</div>
-  );
+  if (!data) return <div className="p-8 text-center font-sans text-sm text-dim">Data unavailable.</div>;
 
   const moveNow = (data.move_now || []) as Array<Record<string, unknown>>;
   const holdPlayers = (data.hold || []) as Array<Record<string, unknown>>;
   const listenPlayers = (data.listen || []) as Array<Record<string, unknown>>;
   const sellAll = [...moveNow, ...listenPlayers];
-
   const buyLow = (data.buy_low || []) as Array<Record<string, unknown>>;
 
-  /* shared compact player row */
-  const PlayerRow = ({ p, j, total, accent }: { p: Record<string, unknown>; j: number; total: number; accent?: string }) => {
+  const PlayerRow = ({ p, j, total }: { p: Record<string, unknown>; j: number; total: number }) => {
     const pos = String(p.position || "");
     const name = String(p.name || p.player || "");
     const age = p.age != null ? String(p.age) : "";
     const reason = String(p.target || p.reason || "");
     return (
-      <div className={`flex items-center gap-1.5 px-2.5 py-1.5 ${j < total - 1 ? "border-b border-white/[0.04]" : ""}`}>
-        <span className={`font-sans text-[10px] font-bold rounded px-1 py-0.5 shrink-0 ${posTagClasses(pos)}`}>{pos || "—"}</span>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1">
-            <PlayerName name={name} className="font-sans text-[12px] font-medium text-primary truncate" />
-            {age && <span className="font-sans text-[10px] text-dim shrink-0">{age}</span>}
-          </div>
-          {reason && <span className="font-sans text-[10px] text-secondary truncate block leading-tight">{reason}</span>}
-        </div>
+      <div className={`flex items-center gap-1.5 px-2 py-1 ${j < total - 1 ? "border-b border-white/[0.04]" : ""}`}>
+        <span className={`font-sans text-[9px] font-bold rounded px-1 py-0.5 shrink-0 ${posTagClasses(pos)}`}>{pos || "—"}</span>
+        <PlayerName name={name} className="font-sans text-[11px] font-medium text-primary truncate flex-1" />
+        {age && <span className="font-sans text-[10px] text-dim shrink-0">{age}</span>}
+        {reason && <span className="font-sans text-[9px] text-secondary truncate max-w-[120px] shrink-0 hidden md:block">{reason}</span>}
       </div>
     );
   };
 
   return (
-    <div className="space-y-2">
-      {/* Row 1: SELL | HOLD | BUY LOW — 3-column desktop, stacked mobile */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-        {/* SELL */}
+    <div className="space-y-1.5">
+      {/* Market Intel */}
+      <MarketIntel cc={data} />
+
+      {/* SELL | HOLD | BUY LOW */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-1.5">
         <div className="bg-card border border-border rounded-md overflow-hidden">
-          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-accent-red/[0.05] border-b border-border">
-            <ArrowUpRight size={11} className="text-accent-red" />
-            <span className="font-sans text-[10px] font-semibold text-accent-red uppercase tracking-wider">Sell</span>
-            <span className="font-sans text-[10px] text-dim ml-auto">{sellAll.length}</span>
-          </div>
+          <SH icon={<ArrowUpRight size={10} className="text-accent-red" />} label={`Sell · ${sellAll.length}`} />
           {sellAll.length > 0 ? sellAll.map((p, j) => <PlayerRow key={`s-${j}`} p={p} j={j} total={sellAll.length} />) : (
-            <div className="px-2.5 py-3 text-center font-sans text-[10px] text-dim">No sell candidates</div>
+            <div className="px-2 py-2 text-center font-sans text-[10px] text-dim">None</div>
           )}
         </div>
-
-        {/* HOLD */}
         <div className="bg-card border border-border rounded-md overflow-hidden">
-          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-accent-green/[0.05] border-b border-border">
-            <Shield size={11} className="text-accent-green" />
-            <span className="font-sans text-[10px] font-semibold text-accent-green uppercase tracking-wider">Hold</span>
-            <span className="font-sans text-[10px] text-dim ml-auto">{holdPlayers.length}</span>
-          </div>
+          <SH icon={<Shield size={10} className="text-accent-green" />} label={`Hold · ${holdPlayers.length}`} />
           {holdPlayers.length > 0 ? holdPlayers.map((p, j) => <PlayerRow key={`h-${j}`} p={p} j={j} total={holdPlayers.length} />) : (
-            <div className="px-2.5 py-3 text-center font-sans text-[10px] text-dim">No core assets</div>
+            <div className="px-2 py-2 text-center font-sans text-[10px] text-dim">None</div>
           )}
         </div>
-
-        {/* BUY LOW */}
         <div className="bg-card border border-border rounded-md overflow-hidden">
-          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-gold/[0.05] border-b border-border">
-            <Target size={11} className="text-gold" />
-            <span className="font-sans text-[10px] font-semibold text-gold uppercase tracking-wider">Buy Low</span>
-            <span className="font-sans text-[10px] text-dim ml-auto">{buyLow.length}</span>
-          </div>
+          <SH icon={<Target size={10} className="text-gold" />} label={`Buy Low · ${buyLow.length}`} />
           {buyLow.length > 0 ? buyLow.map((p, j) => <PlayerRow key={`b-${j}`} p={p} j={j} total={buyLow.length} />) : (
-            <div className="px-2.5 py-3 text-center font-sans text-[10px] text-dim">No buy targets</div>
+            <div className="px-2 py-2 text-center font-sans text-[10px] text-dim">None</div>
           )}
         </div>
       </div>
 
-      {/* Pick Intel */}
-      <PickIntel cc={data} />
-
-      {/* Lineup Efficiency */}
-      <LineupEfficiency data={data.lineup_efficiency as Record<string, unknown> | null} />
+      {/* Pick Intel + Lineup Efficiency — side by side desktop */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
+        <PickIntel cc={data} />
+        <LineupEfficiency data={data.lineup_efficiency as Record<string, unknown> | null} />
+      </div>
 
       {/* Trade Partners */}
       <TradePartners data={data.trade_partners as Record<string, unknown> | null} />
 
-      {/* Competitive Landscape */}
-      <CompetitiveLandscape data={data.competitive_landscape as Array<Record<string, unknown>> | null} />
-
-      {/* Build Trade CTA */}
+      {/* CTA */}
       <BuildTradeCTA />
     </div>
   );
