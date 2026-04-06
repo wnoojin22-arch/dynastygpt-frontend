@@ -15,9 +15,12 @@ import {
 function mdToHtml(md: unknown): string {
   if (typeof md !== "string") return "";
   return md
+    // Force paragraph breaks before bold section headers
+    .replace(/(?<!\n)\*\*(Key Move|Recommendation|Bottom Line|Action Item|The Move|Priority|Focus|Verdict|Assessment|Summary|Outlook|Warning|Opportunity|Exploit|Timing|Bait|Caution)(.+?)\*\*/gi,
+      '\n\n**$1$2**')
     .replace(/<strong>/g, '<strong class="text-primary font-semibold">')
     .replace(/\*\*(.+?)\*\*/g, '<strong class="text-primary font-semibold">$1</strong>')
-    .replace(/\n\n/g, "</p><p class='mt-3'>")
+    .replace(/\n\n+/g, "</p><p class='mt-3'>")
     .replace(/\n/g, "<br/>");
 }
 

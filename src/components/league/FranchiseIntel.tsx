@@ -62,7 +62,11 @@ function GmVerdict({ text }: { text: string }) {
 
   const render = (t: string) => ({
     __html: t
+      // Force paragraph breaks before bold section headers like **Key Move:** **Recommendation:** etc
+      .replace(/(?<!\n)\*\*(Key Move|Recommendation|Bottom Line|Action Item|The Move|Priority|Focus|Verdict|Assessment|Summary|Outlook|Warning|Opportunity)(.+?)\*\*/gi,
+        '\n\n**$1$2**')
       .replace(/\*\*(.+?)\*\*/g, '<strong style="color:#f5e6a3;font-weight:700">$1</strong>')
+      .replace(/\n\n+/g, '</p><p style="margin-top:10px">')
       .replace(/\n/g, "<br/>"),
   });
 
