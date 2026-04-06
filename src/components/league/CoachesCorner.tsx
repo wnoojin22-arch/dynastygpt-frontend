@@ -292,12 +292,20 @@ function LineupEfficiency({ data }: { data: Record<string, unknown> | null }) {
               {gamesCost} of your losses could have been wins with a perfect lineup. {showWeeks ? "▴" : "▾"}
             </div>
             {showWeeks && costlyWeeks.slice(0, 4).map((w, i) => (
-              <div key={i} style={{ fontFamily: SANS, fontSize: 12, color: C.secondary, lineHeight: 1.4, padding: "3px 0 3px 12px", borderLeft: `2px solid ${C.gold}30`, marginTop: 4 }}>
+              <div key={i} style={{ fontFamily: SANS, fontSize: 12, color: C.secondary, lineHeight: 1.5, padding: "4px 0 4px 12px", borderLeft: `2px solid ${C.gold}30`, marginTop: 4 }}>
                 <span style={{ fontWeight: 600, color: C.dim }}>Week {String(w.week)}</span>
                 {" — Lost by "}
                 <span style={{ color: C.red, fontWeight: 600 }}>{String(w.margin)}</span>
-                {String(w.benched || "") && String(w.started || "") && (
-                  <span>{" — started "}<span style={{ color: C.red }}>{String(w.started)}</span>{" over "}<span style={{ color: C.green }}>{String(w.benched)}</span></span>
+                {String(w.started || "") && String(w.benched || "") && (
+                  <div style={{ marginTop: 2 }}>
+                    Started <span className={`font-sans text-[10px] font-bold rounded px-1 py-0.5 ${posTagClasses(String(w.started_pos || ""))}`}>{String(w.started_pos || "")}</span>{" "}
+                    <span style={{ color: C.red, fontWeight: 600 }}>{String(w.started)}</span>
+                    <span style={{ color: C.dim }}> ({String(w.started_pts)} pts)</span>
+                    {" over "}
+                    <span className={`font-sans text-[10px] font-bold rounded px-1 py-0.5 ${posTagClasses(String(w.benched_pos || ""))}`}>{String(w.benched_pos || "")}</span>{" "}
+                    <span style={{ color: C.green, fontWeight: 600 }}>{String(w.benched)}</span>
+                    <span style={{ color: C.dim }}> ({String(w.benched_pts)} pts)</span>
+                  </div>
                 )}
               </div>
             ))}
