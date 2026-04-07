@@ -67,7 +67,24 @@ export default function OnboardingPage() {
         },
       });
 
-      // 4. Auto-approve: check if user is in an approved league
+      // 4. Enforce one Sleeper account per DynastyGPT account
+      const linkRes = await fetch("/api/user/link-sleeper", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sleeper_user_id: sleeperId,
+          clerk_user_id: user.id,
+          sleeper_username: displayName,
+        }),
+      });
+      if (linkRes.status === 409) {
+        const linkData = await linkRes.json();
+        setError(linkData.detail || "This Sleeper account is already connected to another DynastyGPT account. Please use the correct login.");
+        setLoading(false);
+        return;
+      }
+
+      // 5. Auto-approve: check if user is in an approved league
       try {
         const approveRes = await fetch("/api/user/approve", {
           method: "POST",
