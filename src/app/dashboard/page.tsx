@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { getOverview, syncLeague } from "@/lib/api";
+import { useLeagueStore } from "@/lib/stores/league-store";
 import { DEV_BYPASS_ACTIVE, DEV_USER_METADATA } from "@/hooks/useDevUser";
 
 const C = {
@@ -24,6 +25,7 @@ export default function DashboardPage() {
     ? DEV_USER_METADATA
     : (user?.unsafeMetadata ?? {});
 
+  const { setLeague, setOwner } = useLeagueStore();
   const sleeperUsername = metadata.sleeper_username as string | undefined;
   const sleeperId = metadata.sleeper_user_id as string | undefined;
   const approvedLeagueId = metadata.approved_league_id as string | undefined;
@@ -45,13 +47,19 @@ export default function DashboardPage() {
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/(^-|-$)/g, "");
 
+    const go = (name: string) => {
+      const slug = toSlug(name);
+      setLeague(approvedLeagueId!, slug, name);
+      if (sleeperId) setOwner(sleeperUsername || "", sleeperId);
+      router.replace(`/l/${slug}`);
+    };
+
     getOverview(approvedLeagueId)
-      .then((res) => router.replace(`/l/${toSlug(res.name)}`))
+      .then((res) => go(res.name))
       .catch(() => {
-        // Overview failed (league not cached) — trigger sync then redirect
         syncLeague(approvedLeagueId!)
-          .then((res) => router.replace(`/l/${toSlug(res.name)}`))
-          .catch(() => router.replace(`/l/${toSlug(approvedLeagueId!)}`));
+          .then((res) => go(res.name))
+          .catch(() => go(approvedLeagueId!));
       });
   }, [isLoaded, sleeperId, approvedLeagueId, router]);
 
