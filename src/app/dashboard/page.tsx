@@ -54,13 +54,18 @@ export default function DashboardPage() {
       router.replace(`/l/${slug}`);
     };
 
+    // Redirect immediately with a temporary slug — don't wait for API
+    // The league page will load the real name once it fetches overview
+    const fallbackSlug = toSlug(approvedLeagueId!);
+    setLeague(approvedLeagueId!, fallbackSlug, approvedLeagueId!);
+    if (sleeperId) setOwner(sleeperUsername || "", sleeperId);
+
+    // Try to get real name for a nicer slug, but redirect either way after 3s
+    const timeout = setTimeout(() => router.replace(`/l/${fallbackSlug}`), 3000);
+
     getOverview(approvedLeagueId)
-      .then((res) => go(res.name))
-      .catch(() => {
-        syncLeague(approvedLeagueId!)
-          .then((res) => go(res.name))
-          .catch(() => go(approvedLeagueId!));
-      });
+      .then((res) => { clearTimeout(timeout); go(res.name); })
+      .catch(() => { clearTimeout(timeout); router.replace(`/l/${fallbackSlug}`); });
   }, [isLoaded, sleeperId, approvedLeagueId, router]);
 
   if (!isLoaded && !DEV_BYPASS_ACTIVE) return null;
