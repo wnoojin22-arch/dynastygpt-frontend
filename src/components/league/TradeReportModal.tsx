@@ -88,8 +88,8 @@ function AssetCard({asset,allAssets,gradeFactors,allTrades,sideOwner}:{asset:any
       fullGave=otherSide?.assets_raw?otherSide.assets_raw.split(', ').filter(Boolean):[];
       fullGot=ownerSide?.assets_raw?ownerSide.assets_raw.split(', ').filter(Boolean):[];
     }
-    if(!fullGave.length)fullGave=c.gave?c.gave.split(', ').filter(Boolean):[asset.name];
-    if(!fullGot.length)fullGot=c.got_back?c.got_back.split(', ').filter(Boolean):[];
+    if(!fullGave.length)fullGave=c.gave?(Array.isArray(c.gave)?c.gave:String(c.gave).split(', ')).filter(Boolean):[asset.name];
+    if(!fullGot.length)fullGot=c.got_back?(Array.isArray(c.got_back)?c.got_back:String(c.got_back).split(', ')).filter(Boolean):[];
     return{...c,fullGave,fullGot,partner:flipTrade?(flipTrade.side_a?.owner?.toLowerCase()===ownerLower?flipTrade.side_b?.owner:flipTrade.side_a?.owner):c.flipped_to};
   }):[];
 
