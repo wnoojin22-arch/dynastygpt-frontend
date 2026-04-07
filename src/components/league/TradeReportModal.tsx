@@ -42,12 +42,12 @@ function LoadingSequence(){const[phase,setPhase]=useState(0);const[systems,setSy
 function GradeCircle({score,size=64}:{score:number;size?:number}){const letter=getLetterGrade(score);const color=getGradeColor(score);const r=(size-8)/2;const circ=2*Math.PI*r;const pct=Math.min(score/100,1);return(<div style={{position:'relative',width:size,height:size,flexShrink:0}}><svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}><circle cx={size/2} cy={size/2} r={r} fill="none" stroke={C.border} strokeWidth="3"/><circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeDasharray={`${pct*circ} ${circ}`} transform={`rotate(-90 ${size/2} ${size/2})`}/></svg><div style={{position:'absolute',inset:0,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}}><div style={{fontFamily:MONO,fontSize:size*0.3,fontWeight:900,color,lineHeight:1}}>{letter}</div><div style={{fontFamily:MONO,fontSize:size*0.15,fontWeight:700,color:C.dim,lineHeight:1,marginTop:2}}>{score}</div></div></div>);}
 
 /* ═══ GRADE BOX ═══ */
-function GradeBox({score,verdict,confidence}:{score:number;verdict:string;confidence?:string}){const vs=getVerdictStyle(verdict);return(<div style={{display:'flex',alignItems:'center',gap:10,padding:'8px 10px',borderRadius:6,background:`${vs.color}08`,border:`1px solid ${vs.border}`}}><GradeCircle score={score} size={56}/><div><span style={{fontFamily:MONO,fontSize:13,fontWeight:900,color:vs.color,padding:'3px 10px',borderRadius:4,background:vs.bg,border:`1px solid ${vs.border}`}}>{verdict}</span>{confidence&&<div style={{fontFamily:MONO,fontSize:9,color:C.dim,marginTop:4,letterSpacing:'0.06em'}}>{confidence}</div>}</div></div>);}
+function GradeBox({score,verdict,confidence,mobile}:{score:number;verdict:string;confidence?:string;mobile?:boolean}){const vs=getVerdictStyle(verdict);return(<div style={{display:'flex',alignItems:'center',gap:mobile?6:10,paddingTop:mobile?4:8,paddingBottom:mobile?4:8,paddingLeft:mobile?6:10,paddingRight:mobile?6:10,borderRadius:6,background:`${vs.color}08`,border:`1px solid ${vs.border}`}}><GradeCircle score={score} size={mobile?40:56}/><div><span style={{fontFamily:MONO,fontSize:mobile?11:13,fontWeight:900,color:vs.color,paddingTop:2,paddingBottom:2,paddingLeft:mobile?6:10,paddingRight:mobile?6:10,borderRadius:4,background:vs.bg,border:`1px solid ${vs.border}`}}>{verdict}</span>{confidence&&<div style={{fontFamily:MONO,fontSize:9,color:C.dim,marginTop:3,letterSpacing:'0.06em'}}>{confidence}</div>}</div></div>);}
 
 /* ═══ SECTION DIVIDER ═══ */
 function SectionDivider({label,accent}:{label:string;accent:string}){return(<div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:10,paddingTop:6,paddingBottom:6,paddingLeft:12,paddingRight:12,borderTop:`1px solid ${C.border}`,background:`linear-gradient(180deg, ${accent}0a, transparent 80%)`}}><div style={{flex:1,height:1,background:`linear-gradient(90deg, transparent, ${accent}30)`}}/><span style={{fontFamily:MONO,fontSize:11,fontWeight:900,letterSpacing:'0.20em',color:accent}}>{label}</span><div style={{flex:1,height:1,background:`linear-gradient(90deg, ${accent}30, transparent)`}}/></div>);}
 
-function SubHeader({label}:{label:string}){return(<div style={{fontFamily:MONO,fontSize:9,fontWeight:800,letterSpacing:'0.14em',color:C.gold,padding:'6px 0',borderBottom:`1px solid ${C.gold}25`,marginBottom:8}}>{label}</div>);}
+function SubHeader({label}:{label:string}){return(<div style={{fontFamily:MONO,fontSize:9,fontWeight:800,letterSpacing:'0.12em',color:C.gold,paddingTop:3,paddingBottom:3,borderBottom:`1px solid ${C.gold}25`,marginBottom:4}}>{label}</div>);}
 function StatusTag({label,color,bg,border}:{label:string;color:string;bg:string;border:string}){return(<span style={{fontFamily:MONO,fontSize:7,fontWeight:800,padding:'1px 5px',borderRadius:3,background:bg,border:`1px solid ${border}`,color}}>{label}</span>);}
 
 /* ═══ GRADE FACTOR CARD ═══ */
@@ -59,10 +59,10 @@ function GradeFactorCard({factor}:{factor:any}){
     negative:{color:C.red,bg:'rgba(228,114,114,0.12)',border:'rgba(228,114,114,0.25)',icon:'▼'},
   };
   const s=sm[factor.sentiment]||sm.neutral;
-  return(<div style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',borderRadius:6,background:s.bg,border:`1px solid ${s.border}`,marginBottom:4}}>
-    <span style={{fontSize:12,flexShrink:0,color:s.color,fontWeight:900,width:20,textAlign:'center'}}>{s.icon}</span>
-    <div style={{flex:1,minWidth:0}}><div style={{fontFamily:SANS,fontSize:12,fontWeight:700,color:s.color}}>{noSHA(factor.title)}</div><div style={{fontFamily:SANS,fontSize:10,color:C.dim,marginTop:1,lineHeight:1.3}}>{noSHA(factor.detail||'')}</div></div>
-    {factor.value&&<span style={{fontFamily:MONO,fontSize:12,fontWeight:900,color:s.color,flexShrink:0}}>{factor.value}</span>}
+  return(<div style={{display:'flex',alignItems:'center',gap:6,paddingTop:4,paddingBottom:4,paddingLeft:8,paddingRight:8,borderRadius:5,background:s.bg,border:`1px solid ${s.border}`,marginBottom:3}}>
+    <span style={{fontSize:10,flexShrink:0,color:s.color,fontWeight:900,width:16,textAlign:'center'}}>{s.icon}</span>
+    <div style={{flex:1,minWidth:0}}><div style={{fontFamily:SANS,fontSize:11,fontWeight:700,color:s.color,lineHeight:1.2}}>{noSHA(factor.title)}</div>{factor.detail&&<div style={{fontFamily:SANS,fontSize:10,color:C.dim,marginTop:1,lineHeight:1.2}}>{noSHA(factor.detail)}</div>}</div>
+    {factor.value&&<span style={{fontFamily:MONO,fontSize:11,fontWeight:900,color:s.color,flexShrink:0}}>{factor.value}</span>}
   </div>);
 }
 
@@ -118,7 +118,7 @@ function AssetCard({asset,allAssets,gradeFactors,allTrades,sideOwner}:{asset:any
     return{cost,sale,profit:sale-cost};
   })():null;
 
-  return(<div style={{padding:'12px 14px',borderRadius:6,background:C.elevated,border:`1px solid ${C.border}`,display:'flex',flexDirection:'column',gap:6}}>
+  return(<div style={{paddingTop:6,paddingBottom:6,paddingLeft:8,paddingRight:8,borderRadius:5,background:C.elevated,border:`1px solid ${C.border}`,display:'flex',flexDirection:'column',gap:4}}>
     {/* Name + Age + Status Tags */}
     <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
       {isPick&&<StatusTag label="PICK" color={C.gold} bg={C.goldDim} border={C.goldBorder}/>}
@@ -191,12 +191,12 @@ function ContextCard({sideData}:{sideData:any}){const ctx=sideData?.season_conte
 /* ═══ COLLAPSIBLE SECTION ═══ */
 function CollapsiblePill({label,defaultOpen,children}:{label:string;defaultOpen:boolean;children:React.ReactNode}){
   const [open,setOpen]=useState(defaultOpen);
-  return(<div style={{marginBottom:2,borderRadius:6,border:`1px solid ${C.border}`,overflow:'hidden'}}>
-    <div onClick={()=>setOpen(!open)} style={{padding:'4px 8px',background:C.elevated,cursor:'pointer',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+  return(<div style={{marginBottom:2,borderRadius:5,border:`1px solid ${C.border}`,overflow:'hidden'}}>
+    <div onClick={()=>setOpen(!open)} style={{paddingTop:5,paddingBottom:5,paddingLeft:8,paddingRight:8,background:C.elevated,cursor:'pointer',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
       <span style={{fontFamily:MONO,fontSize:9,fontWeight:800,letterSpacing:'0.10em',color:C.gold}}>{label}</span>
       <span style={{fontFamily:MONO,fontSize:12,color:C.dim}}>{open?'▴':'▾'}</span>
     </div>
-    {open&&<div style={{padding:'4px 6px'}}>{children}</div>}
+    {open&&<div style={{paddingTop:3,paddingBottom:3,paddingLeft:2,paddingRight:2}}>{children}</div>}
   </div>);
 }
 
@@ -248,9 +248,9 @@ function FullReport({reportData,hindsightData,onClose}:{reportData:any;hindsight
   const myGradeFactors=filterGF(myH.grade_factors||mySide.grade_factors||[]);
   const theirGradeFactors=filterGF(theirH.grade_factors||theirSide.grade_factors||[]);
   const myKeyFactors=myH.key_factors||[];const theirKeyFactors=theirH.key_factors||[];
-  const fp={display:'flex' as const,flexDirection:'row' as const,gap:0,paddingTop:mobile?2:8,paddingBottom:mobile?2:8,paddingLeft:mobile?0:16,paddingRight:mobile?0:16};
-  const colL={flex:1,minWidth:0,overflow:'hidden' as const,paddingTop:4,paddingBottom:4,paddingLeft:mobile?6:10,paddingRight:mobile?8:14,borderRight:`1px solid ${C.border}`};
-  const colR={flex:1,minWidth:0,overflow:'hidden' as const,paddingTop:4,paddingBottom:4,paddingLeft:mobile?8:14,paddingRight:mobile?6:10};
+  const fp={display:'flex' as const,flexDirection:'row' as const,gap:0,paddingTop:mobile?2:8,paddingBottom:mobile?2:8,paddingLeft:mobile?2:16,paddingRight:mobile?2:16};
+  const colL={flex:1,minWidth:0,overflow:'hidden' as const,paddingTop:3,paddingBottom:3,paddingLeft:mobile?4:10,paddingRight:mobile?6:14,borderRight:`1px solid ${C.border}`};
+  const colR={flex:1,minWidth:0,overflow:'hidden' as const,paddingTop:3,paddingBottom:3,paddingLeft:mobile?6:14,paddingRight:mobile?4:10};
 
   // Championship check for gold highlight
   const myChamp=mySide.season_context?.season_info?.champion;
@@ -284,9 +284,24 @@ function FullReport({reportData,hindsightData,onClose}:{reportData:any;hindsight
 
   return(<>
     {/* HEADER */}
-    <div style={{padding:mobile?'10px 12px':'14px 24px',display:'flex',alignItems:'center',justifyContent:'space-between',background:`linear-gradient(135deg, ${C.gold}06, transparent 60%)`,flexWrap:'wrap' as const,gap:8,borderBottom:`1px solid ${C.border}`}}>
-      <div style={{display:'flex',alignItems:'center',gap:12}}><div style={{width:4,height:36,borderRadius:2,background:C.gold}}/><div><div style={{fontFamily:MONO,fontSize:9,color:C.dim,letterSpacing:'0.22em'}}>TRADE REPORT</div><div style={{display:'flex',alignItems:'center',gap:8,marginTop:4}}><span style={{fontFamily:SANS,fontSize:mobile?14:18,fontWeight:800,color:C.primary}}>{myName}</span><span style={{fontFamily:SANS,fontSize:14,color:C.dim}}>⇄</span><span style={{fontFamily:SANS,fontSize:mobile?14:18,fontWeight:700,color:C.secondary}}>{theirName}</span><span style={{fontFamily:MONO,fontSize:11,color:C.dim,marginLeft:4}}>{dateStr}</span></div></div></div>
-      <div style={{display:'flex',alignItems:'center',gap:12}}>{overall&&<span style={{fontFamily:MONO,fontSize:11,fontWeight:800,color:os.color,padding:'4px 12px',borderRadius:4,background:os.bg,border:`1px solid ${os.border}`}}>{overall}</span>}<div onClick={onClose} style={{width:mobile?40:32,height:mobile?40:32,borderRadius:mobile?20:6,background:mobile?C.card:C.elevated,border:`1px solid ${mobile?C.goldBorder:C.border}`,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',fontSize:mobile?18:14,color:mobile?C.gold:C.dim,fontFamily:MONO,flexShrink:0}}>×</div></div></div>
+    <div style={{paddingTop:mobile?6:14,paddingBottom:mobile?6:14,paddingLeft:mobile?10:24,paddingRight:mobile?10:24,display:'flex',alignItems:'center',justifyContent:'space-between',background:`linear-gradient(135deg, ${C.gold}06, transparent 60%)`,gap:8,borderBottom:`1px solid ${C.border}`}}>
+      <div style={{display:'flex',alignItems:'center',gap:mobile?8:12,flex:1,minWidth:0}}>
+        <div style={{width:3,height:mobile?28:36,borderRadius:2,background:C.gold,flexShrink:0}}/>
+        <div style={{minWidth:0,flex:1}}>
+          <div style={{fontFamily:MONO,fontSize:mobile?8:9,color:C.dim,letterSpacing:'0.18em'}}>TRADE REPORT</div>
+          <div style={{display:'flex',alignItems:'center',gap:mobile?4:8,marginTop:2}}>
+            <span style={{fontFamily:SANS,fontSize:mobile?13:18,fontWeight:800,color:C.primary,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{myName}</span>
+            <span style={{fontFamily:SANS,fontSize:mobile?12:14,color:C.dim,flexShrink:0}}>⇄</span>
+            <span style={{fontFamily:SANS,fontSize:mobile?13:18,fontWeight:700,color:C.secondary,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{theirName}</span>
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:6,marginTop:2}}>
+            <span style={{fontFamily:MONO,fontSize:mobile?10:11,color:C.dim}}>{dateStr}</span>
+            {overall&&<span style={{fontFamily:MONO,fontSize:mobile?10:11,fontWeight:800,color:os.color,paddingTop:1,paddingBottom:1,paddingLeft:8,paddingRight:8,borderRadius:3,background:os.bg,border:`1px solid ${os.border}`}}>{overall}</span>}
+          </div>
+        </div>
+      </div>
+      <div onClick={onClose} style={{width:32,height:32,borderRadius:16,background:C.elevated,border:`1px solid ${C.border}`,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',fontSize:16,color:C.dim,fontFamily:MONO,flexShrink:0}}>×</div>
+    </div>
 
     {/* SUMMARY BAR — from YOUR perspective */}
     <div style={{paddingTop:mobile?4:8,paddingBottom:mobile?4:8,paddingLeft:mobile?8:24,paddingRight:mobile?8:24,borderBottom:`1px solid ${C.border}`,background:C.card,display:'flex',flexDirection:'row',alignItems:'center',gap:mobile?6:16}}>
@@ -336,7 +351,7 @@ function FullReport({reportData,hindsightData,onClose}:{reportData:any;hindsight
             <div style={{fontFamily:MONO,fontSize:mobile?11:13,fontWeight:900,letterSpacing:'0.06em',color:s.label==='YOU'?C.gold:C.primary,marginBottom:4,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{s.header}</div>
             {/* Grade circle + verdict */}
             <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
-              <GradeCircle score={s.side.score||50} size={mobile?56:64}/>
+              <GradeCircle score={s.side.score||50} size={mobile?44:64}/>
               <div style={{fontFamily:MONO,fontSize:13,fontWeight:800,color:vs.color,lineHeight:1.3}}>{v}</div>
             </div>
             {/* Assets */}
@@ -364,7 +379,7 @@ function FullReport({reportData,hindsightData,onClose}:{reportData:any;hindsight
             <div style={{fontFamily:MONO,fontSize:mobile?11:13,fontWeight:900,letterSpacing:'0.06em',color:s.label==='YOU'?C.gold:C.primary,marginBottom:4,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{s.header}</div>
             {hasHindsight?(<>
               <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
-                <GradeCircle score={s.h.score||0} size={mobile?56:64}/>
+                <GradeCircle score={s.h.score||0} size={mobile?44:64}/>
                 <div style={{fontFamily:MONO,fontSize:13,fontWeight:800,color:vs.color,lineHeight:1.3}}>{v}</div>
               </div>
               {s.bullets.length>0&&s.bullets.map((b:{text:string;color:string;isChamp?:boolean},i:number)=>(
@@ -389,7 +404,7 @@ function FullReport({reportData,hindsightData,onClose}:{reportData:any;hindsight
           {[{label:`${myLabel} RECEIVES`,td:myTD},{label:`${theirLabel} RECEIVES`,td:theirTD}].map((side,idx)=>(
             <div key={idx} style={idx===0?colL:colR}>
               <div style={{fontFamily:MONO,fontSize:12,fontWeight:800,letterSpacing:'0.10em',color:'#5eead4',marginBottom:6}}>{side.label}</div>
-              <GradeBox score={side.td.score||50} verdict={side.td.verdict||'No Data'}/>
+              <GradeBox score={side.td.score||50} verdict={side.td.verdict||'No Data'} mobile={mobile}/>
             </div>
           ))}
         </div>
@@ -425,7 +440,7 @@ function FullReport({reportData,hindsightData,onClose}:{reportData:any;hindsight
             {[{label:`${myLabel}'S SIDE`,h:myH},{label:`${theirLabel}'S SIDE`,h:theirH}].map((side,idx)=>(
               <div key={idx} style={idx===0?colL:colR}>
                 <div style={{fontFamily:MONO,fontSize:12,fontWeight:800,letterSpacing:'0.10em',color:C.gold,marginBottom:6}}>{side.label}</div>
-                <GradeBox score={side.h.score||0} verdict={side.h.verdict||'—'} confidence={side.h.confidence}/>
+                <GradeBox score={side.h.score||0} verdict={side.h.verdict||'—'} confidence={side.h.confidence} mobile={mobile}/>
               </div>
             ))}
           </div>
@@ -522,12 +537,24 @@ export default function TradeReportModal({ leagueId, tradeId, onClose }: {
   const hasReport = r && (r.side_a || r.sides);
 
   return(<>
-    <style>{`@keyframes fadeIn{from{opacity:0}to{opacity:1}}@keyframes modalSlideIn{from{opacity:0;transform:scale(0.97) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}@keyframes radarSweep{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
-    <div onClick={onClose} style={{position:'fixed',inset:0,zIndex:9999,background:'rgba(0,0,0,0.85)',backdropFilter:'blur(8px)',display:'flex',alignItems:mobile?'flex-start':'center',justifyContent:'center',animation:'fadeIn 0.2s ease'}}>
-      <div onClick={(e)=>e.stopPropagation()} style={{width:mobile?'100vw':'96vw',maxWidth:mobile?'100vw':1100,maxHeight:mobile?'100vh':'92vh',borderRadius:mobile?0:12,overflowY:'auto',background:C.bg,border:mobile?'none':`1px solid ${C.border}`,animation:'modalSlideIn 0.25s ease',position:'relative'}}>
-        <div style={{position:'absolute',top:mobile?6:10,right:mobile?10:16,zIndex:10}}><div style={{display:'flex',alignItems:'center',gap:4,padding:mobile?'2px 6px':'3px 10px',borderRadius:12,background:'rgba(212,165,50,0.06)',border:'1px solid rgba(212,165,50,0.22)'}}><span style={{fontFamily:SANS,fontSize:mobile?7:9,fontWeight:600,color:'#d4a532',fontStyle:'italic'}}>powered by</span><span style={{fontFamily:SANS,fontSize:mobile?8:10,fontWeight:900,color:'#eeeef2'}}>DynastyGPT<span style={{color:'#d4a532'}}>.com</span></span></div></div>
+    <style>{`@keyframes fadeIn{from{opacity:0}to{opacity:1}}@keyframes modalSlideUp{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:translateY(0)}}@keyframes modalSlideIn{from{opacity:0;transform:scale(0.97) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}@keyframes radarSweep{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
+    <div onClick={onClose} style={{position:'fixed',inset:0,zIndex:9999,background:'rgba(0,0,0,0.85)',backdropFilter:'blur(8px)',display:'flex',alignItems:mobile?'flex-end':'center',justifyContent:'center',animation:'fadeIn 0.2s ease'}}>
+      <div onClick={(e)=>e.stopPropagation()} style={{
+        width:mobile?'100vw':'96vw',maxWidth:mobile?'100vw':1100,
+        height:mobile?'calc(100vh - 56px)':undefined,maxHeight:mobile?undefined:'92vh',
+        borderRadius:mobile?'12px 12px 0 0':12,overflowY:'auto',background:C.bg,
+        border:mobile?'none':`1px solid ${C.border}`,
+        animation:mobile?'modalSlideUp 0.25s ease':'modalSlideIn 0.25s ease',
+        position:'relative',paddingBottom:mobile?16:0,
+      }}>
+        {/* Close handle — mobile: drag handle + X at top right */}
+        {mobile&&<div style={{display:'flex',alignItems:'center',justifyContent:'center',paddingTop:8,paddingBottom:4}}>
+          <div style={{width:36,height:4,borderRadius:2,background:C.borderLt}}/>
+        </div>}
+        {/* Powered by — desktop only */}
+        {!mobile&&<div style={{position:'absolute',top:10,right:16,zIndex:10}}><div style={{display:'flex',alignItems:'center',gap:4,paddingTop:3,paddingBottom:3,paddingLeft:10,paddingRight:10,borderRadius:12,background:'rgba(212,165,50,0.06)',border:'1px solid rgba(212,165,50,0.22)'}}><span style={{fontFamily:SANS,fontSize:9,fontWeight:600,color:'#d4a532',fontStyle:'italic'}}>powered by</span><span style={{fontFamily:SANS,fontSize:10,fontWeight:900,color:'#eeeef2'}}>DynastyGPT<span style={{color:'#d4a532'}}>.com</span></span></div></div>}
         {isLoading?<LoadingSequence/>:hasReport?<FullReport reportData={r} hindsightData={hindsight} onClose={onClose}/>:(
-          <div style={{padding:40,textAlign:'center'}}><div style={{fontFamily:MONO,fontSize:12,color:C.red,marginBottom:8}}>Failed to load report</div><div style={{fontFamily:MONO,fontSize:10,color:C.dim}}>Trade ID: {tradeId}</div><div onClick={onClose} style={{marginTop:16,fontFamily:MONO,fontSize:11,color:C.gold,cursor:'pointer',padding:'6px 16px',borderRadius:4,border:`1px solid ${C.goldBorder}`,background:C.goldDim,display:'inline-block'}}>CLOSE</div></div>
+          <div style={{paddingTop:40,paddingBottom:40,paddingLeft:20,paddingRight:20,textAlign:'center'}}><div style={{fontFamily:MONO,fontSize:12,color:C.red,marginBottom:8}}>Failed to load report</div><div style={{fontFamily:MONO,fontSize:10,color:C.dim}}>Trade ID: {tradeId}</div><div onClick={onClose} style={{marginTop:16,fontFamily:MONO,fontSize:11,color:C.gold,cursor:'pointer',paddingTop:6,paddingBottom:6,paddingLeft:16,paddingRight:16,borderRadius:4,border:`1px solid ${C.goldBorder}`,background:C.goldDim,display:'inline-block'}}>CLOSE</div></div>
         )}
       </div>
     </div>
