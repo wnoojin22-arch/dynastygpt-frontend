@@ -24,9 +24,10 @@ const clerkAppearance = {
   variables: {
     colorPrimary: GOLD,
     colorBackground: "#0d1117",
-    colorText: TEXT,
+    colorText: "#eeeef2",
     colorTextSecondary: "#b0b2c8",
-    colorInputBackground: "#06080d",
+    colorNeutral: "#eeeef2",
+    colorInputBackground: "#0d1117",
     colorInputText: "#eeeef2",
     borderRadius: "8px",
     fontFamily: SANS,
