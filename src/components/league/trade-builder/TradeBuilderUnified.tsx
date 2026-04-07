@@ -280,9 +280,41 @@ function SwipeModal({ tb, ctx, leagueId }: { tb: ReturnType<typeof useTradeBuild
   );
 }
 
-// ── Builder Layer (mobile trade builder) ─────────────────────────────────
+// ── Acceptance estimator (client-side, instant feedback) ─────────────────
 
-function BuilderLayer({ tb, ctx, owners, giveAssets, getAssets, sendTotal, getTotal, balance, balancePct, balanceColor, canAnalyze, suggestContext, activeTab, setActiveTab, posFilter, setPosFilter, roster, filtered, selectedNames, toggleFn }: {
+function estimateAcceptance(giveTotal: number, recvTotal: number, giveCount: number, recvCount: number): number {
+  if (giveTotal <= 0 || recvTotal <= 0) return 25;
+  const gapPct = Math.abs(recvTotal - giveTotal) / Math.max(giveTotal, recvTotal) * 100;
+  let fairness = 50;
+  if (gapPct > 40) fairness = 10;
+  else if (gapPct > 25) fairness = 20;
+  else if (gapPct > 15) fairness = 30;
+  else if (gapPct > 5) fairness = 40;
+  if (giveTotal > recvTotal) fairness = Math.min(fairness + 10, 50);
+  let consolPenalty = 0;
+  if (giveCount >= 3 && recvCount === 1) consolPenalty = 15;
+  else if (giveCount >= 2 && recvCount === 1) consolPenalty = 8;
+  return Math.max(10, Math.min(90, fairness - consolPenalty + 20));
+}
+
+function acceptColor(s: number) {
+  if (s >= 70) return "#7dd3a0";
+  if (s >= 50) return "#d4a532";
+  if (s >= 30) return "#e09c6b";
+  return "#e47272";
+}
+
+function windowBadge(w: string | undefined) {
+  if (!w) return { label: "BALANCED", color: "#d4a532" };
+  const u = w.toUpperCase();
+  if (u.includes("CONTEND") || u.includes("WIN")) return { label: "WIN-NOW", color: "#e47272" };
+  if (u.includes("REBUILD")) return { label: "REBUILDER", color: "#6bb8e0" };
+  return { label: "BALANCED", color: "#d4a532" };
+}
+
+// ── Builder Layer (mobile trade builder — live negotiation feel) ─────────
+
+function BuilderLayer({ tb, ctx, owners, giveAssets, getAssets, sendTotal, getTotal, balance, balancePct, balanceColor, canAnalyze, suggestContext, activeTab, setActiveTab, posFilter, setPosFilter, roster, filtered, selectedNames, toggleFn, partnerWindow }: {
   tb: ReturnType<typeof useTradeBuilderContext>["tb"];
   ctx: ReturnType<typeof useTradeBuilderContext>;
   owners: Array<{ name: string }>;
@@ -295,205 +327,235 @@ function BuilderLayer({ tb, ctx, owners, giveAssets, getAssets, sendTotal, getTo
   roster: Array<{ name: string; position: string; sha_value: number; sha_pos_rank: string; age: number | null }>;
   filtered: Array<{ name: string; position: string; sha_value: number; sha_pos_rank: string; age: number | null }>;
   selectedNames: string[]; toggleFn: (name: string) => void;
+  partnerWindow?: string;
 }) {
-  const [expandedPos, setExpandedPos] = useState<Set<string>>(() => new Set(["QB"]));
-
-  const toggleGroup = (pos: string) => {
-    setExpandedPos((prev) => {
-      const next = new Set(prev);
-      if (next.has(pos)) next.delete(pos);
-      else next.add(pos);
-      return next;
-    });
-  };
+  const win = windowBadge(partnerWindow);
+  const maxBar = Math.max(sendTotal, getTotal, 1);
+  const barColor = getTotal > sendTotal ? "#7dd3a0" : getTotal < sendTotal ? "#e47272" : "#d4a532";
+  const gapPct = sendTotal > 0 ? ((getTotal - sendTotal) / sendTotal) * 100 : 0;
+  const acceptance = estimateAcceptance(sendTotal, getTotal, giveAssets.length, getAssets.length);
+  const accClr = acceptColor(acceptance);
 
   return (
     <>
-      {/* Error display */}
+      {/* Error */}
       {tb.error && (
-        <div style={{
-          padding: "6px 12px", margin: "6px 10px 0", borderRadius: 6,
-          background: C.redDim, border: `1px solid ${C.red}30`,
-          fontFamily: MONO, fontSize: 11, color: C.red,
-        }}>
+        <div style={{ padding: "6px 12px", margin: "6px 10px 0", borderRadius: 6, background: C.redDim, border: `1px solid ${C.red}30`, fontFamily: MONO, fontSize: 11, color: C.red }}>
           {tb.error}
         </div>
       )}
 
-      {/* ── FIXED HEADER ── */}
-      <div style={{ flexShrink: 0, borderBottom: `1px solid ${C.border}`, background: C.panel }}>
-        {/* Partner dropdown — full width */}
-        <div style={{ padding: "8px 10px 6px" }}>
-          <select
-            value={tb.partner}
-            onChange={(e) => ctx.selectPartner(e.target.value)}
-            style={{
-              width: "100%", padding: "8px 10px", borderRadius: 8,
-              background: C.elevated, border: `1px solid ${C.border}`,
-              color: C.primary, fontFamily: MONO, fontSize: 13, fontWeight: 700,
-              cursor: "pointer", appearance: "none",
-              backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239596a5' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`,
-              backgroundRepeat: "no-repeat", backgroundPosition: "right 10px center",
-            }}
-          >
-            <option value="">Select trade partner...</option>
-            {owners.map((o) => <option key={o.name} value={o.name}>{o.name}</option>)}
-          </select>
-        </div>
+      {/* ═══ FIXED TOP — NEGOTIATION HEADER ═══ */}
+      <div style={{ flexShrink: 0, background: C.panel, borderBottom: `1px solid ${C.border}` }}>
 
-        {/* YOU SEND — horizontal scroll chips */}
-        <div style={{ padding: "2px 10px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 900, color: C.red, letterSpacing: "0.08em", flexShrink: 0 }}>SEND</span>
-            <div style={{ display: "flex", gap: 4, overflowX: "auto", flex: 1, minWidth: 0, paddingBottom: 2 }}>
-              {giveAssets.length === 0 ? (
-                <span style={{ fontFamily: SANS, fontSize: 11, color: `${C.dim}60`, whiteSpace: "nowrap" }}>Tap your players</span>
-              ) : (
-                giveAssets.map((p) => (
-                  <span key={p.name} onClick={() => tb.toggleGive(p.name)} style={{
-                    display: "inline-flex", alignItems: "center", gap: 3, padding: "3px 6px",
-                    background: `${posColor(p.position)}08`, border: `1px solid ${posColor(p.position)}25`,
-                    borderRadius: 5, cursor: "pointer", flexShrink: 0, whiteSpace: "nowrap",
-                  }}>
-                    <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, color: posColor(p.position) }}>{p.position}</span>
-                    <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, color: C.primary }}>{p.name}</span>
-                    <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.gold }}>{fmt(p.sha_value)}</span>
-                    <span style={{ color: C.dim, fontSize: 12, lineHeight: 1, marginLeft: 2 }}>✕</span>
-                  </span>
-                ))
-              )}
+        {/* Partner name + window badge + acceptance */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px 4px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, color: C.dim, letterSpacing: "0.1em", marginBottom: 1 }}>TRADE WITH</div>
+              <select
+                value={tb.partner}
+                onChange={(e) => ctx.selectPartner(e.target.value)}
+                style={{
+                  background: "transparent", border: "none", color: C.primary, padding: 0,
+                  fontFamily: DISPLAY, fontSize: 20, fontWeight: 900, cursor: "pointer",
+                  maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis",
+                  appearance: "none", WebkitAppearance: "none",
+                }}
+              >
+                {owners.map((o) => <option key={o.name} value={o.name} style={{ background: C.bg }}>{o.name}</option>)}
+              </select>
             </div>
-          </div>
-        </div>
-
-        {/* YOU GET — horizontal scroll chips */}
-        <div style={{ padding: "2px 10px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 900, color: C.green, letterSpacing: "0.08em", flexShrink: 0, width: 32 }}>GET</span>
-            <div style={{ display: "flex", gap: 4, overflowX: "auto", flex: 1, minWidth: 0, paddingBottom: 2 }}>
-              {getAssets.length === 0 ? (
-                <span style={{ fontFamily: SANS, fontSize: 11, color: `${C.dim}60`, whiteSpace: "nowrap" }}>Tap their players</span>
-              ) : (
-                getAssets.map((p) => (
-                  <span key={p.name} onClick={() => tb.toggleReceive(p.name)} style={{
-                    display: "inline-flex", alignItems: "center", gap: 3, padding: "3px 6px",
-                    background: `${posColor(p.position)}08`, border: `1px solid ${posColor(p.position)}25`,
-                    borderRadius: 5, cursor: "pointer", flexShrink: 0, whiteSpace: "nowrap",
-                  }}>
-                    <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, color: posColor(p.position) }}>{p.position}</span>
-                    <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, color: C.primary }}>{p.name}</span>
-                    <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.gold }}>{fmt(p.sha_value)}</span>
-                    <span style={{ color: C.dim, fontSize: 12, lineHeight: 1, marginLeft: 2 }}>✕</span>
-                  </span>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Balance row — compact one-liner */}
-        {(sendTotal > 0 || getTotal > 0) && (
-          <div style={{
-            display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-            padding: "4px 10px 6px",
-          }}>
-            <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.red }}>{fmt(sendTotal)}</span>
-            <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>→</span>
-            <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.green }}>{fmt(getTotal)}</span>
             <span style={{
-              fontFamily: MONO, fontSize: 11, fontWeight: 800, color: balanceColor,
-              padding: "1px 6px", borderRadius: 4, background: `${balanceColor}15`,
+              fontFamily: MONO, fontSize: 7, fontWeight: 800, letterSpacing: "0.1em",
+              color: win.color, background: `${win.color}12`, border: `1px solid ${win.color}25`,
+              padding: "2px 6px", borderRadius: 4, flexShrink: 0,
             }}>
-              {balance >= 0 ? "+" : ""}{fmt(balance)}
+              {win.label}
             </span>
-            {balancePct !== 0 && (
-              <span style={{ fontFamily: MONO, fontSize: 9, color: `${C.dim}80` }}>
-                ({balancePct > 0 ? "+" : ""}{balancePct}%)
-              </span>
-            )}
           </div>
+          {/* Acceptance % */}
+          <div style={{ textAlign: "right", flexShrink: 0, marginLeft: 8 }}>
+            <motion.div
+              key={acceptance}
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.2 }}
+              style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: accClr, lineHeight: 1 }}
+            >
+              {acceptance}%
+            </motion.div>
+            <div style={{ fontFamily: MONO, fontSize: 7, fontWeight: 700, color: `${C.dim}80`, letterSpacing: "0.06em" }}>LIKELY TO ACCEPT</div>
+          </div>
+        </div>
+
+        {/* ── SEND row ── */}
+        <div style={{ padding: "4px 12px 2px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 900, color: C.gold, letterSpacing: "0.1em", flexShrink: 0 }}>SEND</span>
+            <div style={{ display: "flex", gap: 4, overflowX: "auto", flex: 1, minWidth: 0, paddingBottom: 2 }}>
+              <AnimatePresence mode="popLayout">
+                {giveAssets.length === 0 ? (
+                  <motion.span key="empty-give" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                    style={{ fontFamily: SANS, fontSize: 11, color: `${C.gold}50`, whiteSpace: "nowrap", paddingTop: 2 }}>
+                    Tap your players below ↓
+                  </motion.span>
+                ) : (
+                  giveAssets.map((p) => (
+                    <motion.span
+                      key={p.name} layout
+                      initial={{ scale: 0.8, opacity: 0, y: 6 }}
+                      animate={{ scale: 1, opacity: 1, y: 0 }}
+                      exit={{ scale: 0.8, opacity: 0, x: -16 }}
+                      transition={{ type: "spring", damping: 22, stiffness: 300 }}
+                      onClick={() => tb.toggleGive(p.name)}
+                      style={{
+                        display: "inline-flex", alignItems: "center", gap: 3, padding: "3px 6px",
+                        background: `${posColor(p.position)}0a`, border: `1px solid ${posColor(p.position)}20`,
+                        borderRadius: 5, cursor: "pointer", flexShrink: 0, whiteSpace: "nowrap",
+                      }}
+                    >
+                      <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, color: posColor(p.position) }}>{p.position}</span>
+                      <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, color: C.primary }}>{p.name}</span>
+                      <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.gold }}>{fmt(p.sha_value)}</span>
+                      <span style={{ color: `${C.dim}60`, fontSize: 11, lineHeight: 1, marginLeft: 1 }}>✕</span>
+                    </motion.span>
+                  ))
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Live balance bar ── */}
+        {(sendTotal > 0 || getTotal > 0) ? (
+          <div style={{ padding: "3px 12px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.red, flexShrink: 0 }}>{fmt(sendTotal)}</span>
+              <div style={{ flex: 1, height: 5, borderRadius: 3, background: "#171b28", overflow: "hidden", position: "relative" }}>
+                <motion.div
+                  style={{ position: "absolute", top: 0, bottom: 0, left: 0, borderRadius: 3, background: barColor }}
+                  animate={{ width: `${(Math.max(sendTotal, getTotal) / maxBar) * 100}%` }}
+                  transition={{ type: "spring", damping: 20, stiffness: 200 }}
+                />
+              </div>
+              <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.green, flexShrink: 0 }}>{fmt(getTotal)}</span>
+              <motion.span
+                key={Math.round(gapPct)}
+                initial={{ scale: 1.2 }}
+                animate={{ scale: 1 }}
+                transition={{ duration: 0.15 }}
+                style={{
+                  fontFamily: MONO, fontSize: 10, fontWeight: 900, color: barColor,
+                  background: `${barColor}15`, padding: "1px 5px", borderRadius: 4, flexShrink: 0,
+                }}
+              >
+                {gapPct >= 0 ? "+" : ""}{gapPct.toFixed(0)}%
+              </motion.span>
+            </div>
+          </div>
+        ) : (
+          <div style={{ height: 4 }} />
         )}
+
+        {/* ── GET row ── */}
+        <div style={{ padding: "2px 12px 8px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 900, color: "#7dd3a0", letterSpacing: "0.1em", flexShrink: 0, width: 32 }}>GET</span>
+            <div style={{ display: "flex", gap: 4, overflowX: "auto", flex: 1, minWidth: 0, paddingBottom: 2 }}>
+              <AnimatePresence mode="popLayout">
+                {getAssets.length === 0 ? (
+                  <motion.span key="empty-get" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                    style={{ fontFamily: SANS, fontSize: 11, color: "#7dd3a050", whiteSpace: "nowrap", paddingTop: 2 }}>
+                    Tap their players →
+                  </motion.span>
+                ) : (
+                  getAssets.map((p) => (
+                    <motion.span
+                      key={p.name} layout
+                      initial={{ scale: 0.8, opacity: 0, y: 6 }}
+                      animate={{ scale: 1, opacity: 1, y: 0 }}
+                      exit={{ scale: 0.8, opacity: 0, x: -16 }}
+                      transition={{ type: "spring", damping: 22, stiffness: 300 }}
+                      onClick={() => tb.toggleReceive(p.name)}
+                      style={{
+                        display: "inline-flex", alignItems: "center", gap: 3, padding: "3px 6px",
+                        background: `${posColor(p.position)}0a`, border: `1px solid ${posColor(p.position)}20`,
+                        borderRadius: 5, cursor: "pointer", flexShrink: 0, whiteSpace: "nowrap",
+                      }}
+                    >
+                      <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, color: posColor(p.position) }}>{p.position}</span>
+                      <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, color: C.primary }}>{p.name}</span>
+                      <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.gold }}>{fmt(p.sha_value)}</span>
+                      <span style={{ color: `${C.dim}60`, fontSize: 11, lineHeight: 1, marginLeft: 1 }}>✕</span>
+                    </motion.span>
+                  ))
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* ── SCROLLABLE ROSTER ── */}
+      {/* ═══ SCROLLABLE ROSTER ═══ */}
       <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
         {/* Tab bar */}
         <div style={{ display: "flex", borderBottom: `1px solid ${C.border}`, position: "sticky", top: 0, zIndex: 5, background: C.bg }}>
           {(["yours", "theirs"] as const).map((tab) => (
             <div key={tab} onClick={() => setActiveTab(tab)} style={{
-              flex: 1, padding: "9px 0", textAlign: "center",
+              flex: 1, padding: "10px 0", textAlign: "center",
               fontFamily: MONO, fontSize: 11, fontWeight: 700, letterSpacing: "0.06em",
               color: activeTab === tab ? C.gold : C.dim,
               borderBottom: activeTab === tab ? `2px solid ${C.gold}` : "2px solid transparent",
               cursor: "pointer", transition: "all 0.15s",
             }}>
-              {tab === "yours" ? "YOUR ROSTER" : `${(tb.partner || "THEIR").toUpperCase()} ROSTER`}
+              {tab === "yours" ? "YOUR ROSTER" : (tb.partner || "THEIR").toUpperCase()}
             </div>
           ))}
         </div>
 
         {/* Position filters */}
-        <div style={{ display: "flex", gap: 3, padding: "6px 10px", overflowX: "auto", position: "sticky", top: 37, zIndex: 4, background: C.bg }}>
+        <div style={{ display: "flex", gap: 4, padding: "6px 10px", overflowX: "auto", position: "sticky", top: 39, zIndex: 4, background: C.bg }}>
           {["ALL", "QB", "RB", "WR", "TE", "PICK"].map((pos) => (
             <button key={pos} onClick={() => setPosFilter(pos)} style={{
-              padding: "3px 10px", borderRadius: 4, border: "none", cursor: "pointer",
-              background: posFilter === pos ? `${C.gold}20` : C.elevated,
+              padding: "4px 12px", borderRadius: 6, cursor: "pointer", flexShrink: 0,
+              background: posFilter === pos ? `${C.gold}18` : C.elevated,
               color: posFilter === pos ? C.gold : C.dim,
+              border: `1px solid ${posFilter === pos ? `${C.gold}30` : C.border}`,
               fontFamily: MONO, fontSize: 10, fontWeight: 700, letterSpacing: "0.04em",
-              transition: "all 0.12s", flexShrink: 0,
+              transition: "all 0.12s",
             }}>
               {pos}
             </button>
           ))}
         </div>
 
-        {/* Player list */}
+        {/* Player list — ALL OPEN, no collapsing */}
         <div>
           {posFilter === "ALL" ? (
-            (["QB", "RB", "WR", "TE", "PICK"] as const).map((pos, posIdx) => {
+            (["QB", "RB", "WR", "TE", "PICK"] as const).map((pos) => {
               const group = roster.filter((p) => p.position === pos).sort((a, b) => b.sha_value - a.sha_value);
               if (!group.length) return null;
-              const isExpanded = expandedPos.has(pos);
               return (
                 <div key={pos}>
-                  {/* Collapsible group header */}
-                  <div
-                    onClick={() => toggleGroup(pos)}
-                    style={{
-                      display: "flex", alignItems: "center", gap: 6, padding: "6px 12px",
-                      background: C.elevated, cursor: "pointer",
-                      borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`,
-                      WebkitTapHighlightColor: "transparent",
-                    }}
-                  >
+                  <div style={{
+                    display: "flex", alignItems: "center", gap: 6, padding: "4px 12px",
+                    background: C.elevated, borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`,
+                  }}>
                     <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: posColor(pos), letterSpacing: "0.08em" }}>{pos}</span>
-                    <span style={{ fontFamily: MONO, fontSize: 9, color: `${C.dim}80` }}>({group.length})</span>
-                    <span style={{ marginLeft: "auto", fontSize: 10, color: C.dim, transition: "transform 0.15s", transform: isExpanded ? "rotate(180deg)" : "rotate(0)" }}>▾</span>
+                    <span style={{ fontFamily: MONO, fontSize: 9, color: `${C.dim}60` }}>{group.length}</span>
                   </div>
-                  {/* Players — collapsed or expanded */}
-                  {isExpanded && group.map((p) => (
-                    <PlayerRow
-                      key={p.name}
-                      name={p.name}
-                      position={p.position}
-                      value={p.sha_value}
-                      selected={selectedNames.includes(p.name)}
-                      onTap={() => toggleFn(p.name)}
-                    />
+                  {group.map((p) => (
+                    <PlayerRow key={p.name} name={p.name} position={p.position} value={p.sha_value}
+                      selected={selectedNames.includes(p.name)} onTap={() => toggleFn(p.name)} />
                   ))}
                 </div>
               );
             })
           ) : (
             filtered.sort((a, b) => b.sha_value - a.sha_value).map((p) => (
-              <PlayerRow
-                key={p.name}
-                name={p.name}
-                position={p.position}
-                value={p.sha_value}
-                selected={selectedNames.includes(p.name)}
-                onTap={() => toggleFn(p.name)}
-              />
+              <PlayerRow key={p.name} name={p.name} position={p.position} value={p.sha_value}
+                selected={selectedNames.includes(p.name)} onTap={() => toggleFn(p.name)} />
             ))
           )}
           {filtered.length === 0 && posFilter !== "ALL" && (
@@ -509,9 +571,9 @@ function BuilderLayer({ tb, ctx, owners, giveAssets, getAssets, sendTotal, getTo
         </div>
       </div>
 
-      {/* ── FIXED BOTTOM BAR ── */}
+      {/* ═══ FIXED BOTTOM BAR ═══ */}
       <div style={{
-        flexShrink: 0, display: "flex", gap: 6,
+        flexShrink: 0, display: "flex", alignItems: "center", gap: 6,
         padding: "8px 10px", paddingBottom: "calc(8px + env(safe-area-inset-bottom, 0px))",
         background: "rgba(6,8,13,0.95)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
         borderTop: `1px solid rgba(212,165,50,0.15)`,
@@ -539,6 +601,12 @@ function BuilderLayer({ tb, ctx, owners, giveAssets, getAssets, sendTotal, getTo
         >
           {tb.suggestLoading ? "SCANNING..." : "⚡ SUGGEST"}
         </button>
+        {/* Gap label between buttons */}
+        {(sendTotal > 0 || getTotal > 0) && (
+          <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 900, color: barColor, flexShrink: 0 }}>
+            {gapPct >= 0 ? "+" : ""}{gapPct.toFixed(0)}%
+          </span>
+        )}
         <button
           onClick={async () => { await tb.handleAnalyze(); ctx.openAnalyze(); }}
           disabled={!canAnalyze}
@@ -551,19 +619,6 @@ function BuilderLayer({ tb, ctx, owners, giveAssets, getAssets, sendTotal, getTo
           }}
         >
           {tb.analyzing ? "..." : "🔍 ANALYZE"}
-        </button>
-        <button
-          disabled={!tb.evaluation}
-          onClick={() => { if (tb.evaluation) ctx.openAnalyze(); }}
-          style={{
-            flex: 0.6, padding: "12px 0", borderRadius: 10,
-            background: "rgba(255,255,255,0.04)", border: `1px solid rgba(255,255,255,0.12)`,
-            fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.06em",
-            color: tb.evaluation ? C.primary : C.dim, cursor: tb.evaluation ? "pointer" : "default",
-            minHeight: 44, opacity: tb.evaluation ? 1 : 0.4,
-          }}
-        >
-          ↗ SHARE
         </button>
       </div>
     </>
@@ -856,6 +911,7 @@ export default function TradeBuilderUnified() {
           posFilter={posFilter} setPosFilter={setPosFilter}
           roster={roster} filtered={filtered}
           selectedNames={selectedNames} toggleFn={toggleFn}
+          partnerWindow={ownerWindows[tb.partner] || "BALANCED"}
         />
       )}
 

@@ -24,6 +24,55 @@ const API = "";
 
 interface Message { role: 'user' | 'assistant'; content: string; }
 
+/**
+ * Format assistant message for display:
+ * - Split into lines, render bullets with spacing
+ * - Strip parenthetical values like (9,351) from non-value context lines
+ */
+function formatAssistantContent(text: string) {
+  if (!text) return null;
+  const lines = text.split('\n').filter(l => l.trim());
+  if (lines.length <= 1) return <span>{text}</span>;
+
+  // Lines where values are relevant — contain these keywords
+  const VALUE_KEYWORDS = /\b(value|ranked|score|capital|total|worth|sha_value|market price|PPG)\b/i;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {lines.map((line, i) => {
+        const isBullet = line.trim().startsWith('•') || line.trim().startsWith('-') || line.trim().startsWith('–');
+        let displayLine = line;
+
+        // Strip parenthetical numbers on non-value lines
+        // Matches: (9,351) or (4,468) or (12,400.5) — numbers with commas in parens
+        if (!VALUE_KEYWORDS.test(line)) {
+          displayLine = displayLine.replace(/\s*\(\d[\d,.]*\)/g, '');
+        }
+
+        if (isBullet) {
+          return (
+            <div key={i} style={{
+              paddingLeft: 4,
+              lineHeight: 1.6,
+            }}>
+              {displayLine}
+            </div>
+          );
+        }
+        // First line (summary) or non-bullet lines
+        return (
+          <div key={i} style={{
+            fontWeight: i === 0 ? 600 : 400,
+            lineHeight: 1.6,
+          }}>
+            {displayLine}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 interface ChatPanelProps {
   leagueId: string;
   owner: string;
@@ -257,9 +306,11 @@ export default function ChatPanel({ leagueId, owner, activeTrade, suggestedPacka
               transition: 'border-color 0.3s, box-shadow 0.3s',
             }}>
               <div style={{
-                fontFamily: SANS, fontSize: 13, color: C.primary, lineHeight: 1.55, whiteSpace: 'pre-wrap',
+                fontFamily: SANS, fontSize: 13, color: C.primary, lineHeight: 1.6,
               }}>
-                {msg.content || (isStreamingMsg ? (
+                {msg.content ? (
+                  isUser ? msg.content : formatAssistantContent(msg.content)
+                ) : (isStreamingMsg ? (
                   <span style={{ color: C.gold, fontFamily: MONO, fontSize: 12 }}>
                     <span style={{ animation: 'pulse-gold 1s ease infinite' }}>●</span> thinking...
                   </span>

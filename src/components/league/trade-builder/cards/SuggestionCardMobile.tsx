@@ -204,9 +204,11 @@ export default function SuggestionCardMobile({ pkg }: { pkg: SuggestedPackage })
         {(pkg.narrative || pkg.pitch) && (
           <div className="mt-3">
             <span className="font-mono text-[8px] font-bold tracking-widest text-[#d4a532]">DYNASTYGPT RATIONALE</span>
-            <p className="font-sans text-[12px] leading-relaxed text-[#b0b2c8] mt-1">
-              {pkg.narrative || pkg.pitch}
-            </p>
+            <div className="mt-1.5 space-y-1">
+              {(pkg.narrative || pkg.pitch || "").split("\n").filter(Boolean).map((line, i) => (
+                <p key={i} className="font-sans text-[12px] leading-snug text-[#b0b2c8]">{line}</p>
+              ))}
+            </div>
           </div>
         )}
       </div>
@@ -324,17 +326,7 @@ export default function SuggestionCardMobile({ pkg }: { pkg: SuggestedPackage })
                 </div>
               )}
 
-              {/* Full narrative */}
-              {pkg.narrative && pkg.narrative.length > 80 && (
-                <div>
-                  <span className="font-mono text-[9px] font-black tracking-widest text-[#d4a532]">
-                    AI RATIONALE
-                  </span>
-                  <p className="font-sans text-[12px] leading-relaxed text-[#b0b2c8] mt-1">
-                    {pkg.narrative}
-                  </p>
-                </div>
-              )}
+              {/* Rationale already shown in compact section — no duplicate here */}
 
               {/* Acceptance factors */}
               {acceptanceFactors?.modifiers && acceptanceFactors.modifiers.length > 0 && (

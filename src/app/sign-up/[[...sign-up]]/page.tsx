@@ -16,6 +16,7 @@ const clerkAppearance = {
     headerSubtitle: { color: "#9596a5" },
     formFieldLabel: { color: "#b0b2c8" },
     formFieldInput: { background: "#06080d", border: "1px solid #1a1e30", color: "#eeeef2" },
+    otpCodeFieldInput: { background: "#06080d", border: "1px solid #1a1e30", color: "#eeeef2" },
     formButtonPrimary: { background: "linear-gradient(135deg, #d4a532, #8b6914)", color: "#06080d", fontWeight: "700" },
     footerActionLink: { color: "#d4a532" },
     socialButtonsBlockButton: { background: "#171b28", border: "1px solid #1a1e30", color: "#eeeef2" },

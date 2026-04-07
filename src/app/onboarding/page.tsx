@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
+import { DEV_BYPASS_ACTIVE, DEV_USER_METADATA } from "@/hooks/useDevUser";
 
 const C = {
   bg: "#06080d", card: "#10131d", border: "#1a1e30",
@@ -24,11 +25,16 @@ export default function OnboardingPage() {
   const [leagues, setLeagues] = useState<Array<{ league_id: string; name: string; season: string }> | null>(null);
 
   // If user already has sleeper_username, skip to dashboard
-  const existingUsername = user?.unsafeMetadata?.sleeper_username as string | undefined;
-  if (isLoaded && existingUsername) {
-    router.push("/dashboard");
-    return null;
-  }
+  const metadata = DEV_BYPASS_ACTIVE
+    ? DEV_USER_METADATA
+    : (user?.unsafeMetadata ?? {});
+  const existingUsername = metadata.sleeper_username as string | undefined;
+
+  useEffect(() => {
+    if ((isLoaded || DEV_BYPASS_ACTIVE) && existingUsername) {
+      router.push("/dashboard");
+    }
+  }, [isLoaded, existingUsername, router]);
 
   const handleLink = async () => {
     if (!username.trim() || !user) return;
@@ -63,7 +69,26 @@ export default function OnboardingPage() {
         },
       });
 
-      // 4. Show their leagues
+      // 4. Auto-approve: check if user is in an approved league
+      try {
+        console.log("[ONBOARD] Calling /api/user/approve with: sleeper_user_id=" + sleeperId + " clerk_user_id=" + user.id);
+        const approveRes = await fetch("/api/user/approve", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sleeper_user_id: sleeperId,
+            clerk_user_id: user.id,
+          }),
+        });
+        const approveData = await approveRes.json();
+        console.log("[ONBOARD] /api/user/approve response: status=" + approveRes.status + " body=" + JSON.stringify(approveData));
+        if (approveRes.ok && approveData.approved) {
+          router.push(`/dashboard?league_id=${approveData.league_id}`);
+          return;
+        }
+      } catch (err) { console.error("[ONBOARD] /api/user/approve error:", err); }
+
+      // 5. Show their leagues
       setLeagues(dynastyLeagues.map((l: Record<string, unknown>) => ({
         league_id: l.league_id as string,
         name: l.name as string,
@@ -81,7 +106,7 @@ export default function OnboardingPage() {
     router.push("/dashboard");
   };
 
-  if (!isLoaded) return null;
+  if (!isLoaded && !DEV_BYPASS_ACTIVE) return null;
 
   return (
     <div style={{

@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useUser } from "@clerk/nextjs";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { getOverview, syncLeague } from "@/lib/api";
 import { useLeagueStore } from "@/lib/stores/league-store";
 import { DEV_BYPASS_ACTIVE, DEV_USER_METADATA } from "@/hooks/useDevUser";
@@ -25,10 +25,18 @@ export default function DashboardPage() {
     ? DEV_USER_METADATA
     : (user?.unsafeMetadata ?? {});
 
-  const { setLeague, setOwner } = useLeagueStore();
+  const searchParams = useSearchParams();
+  const { setLeague } = useLeagueStore();
   const sleeperUsername = metadata.sleeper_username as string | undefined;
   const sleeperId = metadata.sleeper_user_id as string | undefined;
-  const approvedLeagueId = metadata.approved_league_id as string | undefined;
+  const urlLeagueId = searchParams.get("league_id");
+  const approvedLeagueId = urlLeagueId
+    || (metadata.approved_league_id as string | undefined)
+    || (typeof window !== "undefined" ? localStorage.getItem("approved_league_id") : null)
+    || undefined;
+  if (approvedLeagueId && typeof window !== "undefined") {
+    localStorage.setItem("approved_league_id", approvedLeagueId);
+  }
 
   // Route: no sleeper → onboarding, has approved league → fetch overview & redirect to /l/{slug}
   useEffect(() => {
@@ -50,22 +58,20 @@ export default function DashboardPage() {
     const go = (name: string) => {
       const slug = toSlug(name);
       setLeague(approvedLeagueId!, slug, name);
-      if (sleeperId) setOwner(sleeperUsername || "", sleeperId);
-      router.replace(`/l/${slug}`);
+      router.replace(`/l/${slug}?league_id=${approvedLeagueId}`);
     };
 
     // Redirect immediately with a temporary slug — don't wait for API
     // The league page will load the real name once it fetches overview
     const fallbackSlug = toSlug(approvedLeagueId!);
     setLeague(approvedLeagueId!, fallbackSlug, approvedLeagueId!);
-    if (sleeperId) setOwner(sleeperUsername || "", sleeperId);
 
     // Try to get real name for a nicer slug, but redirect either way after 3s
-    const timeout = setTimeout(() => router.replace(`/l/${fallbackSlug}`), 3000);
+    const timeout = setTimeout(() => router.replace(`/l/${fallbackSlug}?league_id=${approvedLeagueId}`), 3000);
 
     getOverview(approvedLeagueId)
       .then((res) => { clearTimeout(timeout); go(res.name); })
-      .catch(() => { clearTimeout(timeout); router.replace(`/l/${fallbackSlug}`); });
+      .catch(() => { clearTimeout(timeout); router.replace(`/l/${fallbackSlug}?league_id=${approvedLeagueId}`); });
   }, [isLoaded, sleeperId, approvedLeagueId, router]);
 
   if (!isLoaded && !DEV_BYPASS_ACTIVE) return null;

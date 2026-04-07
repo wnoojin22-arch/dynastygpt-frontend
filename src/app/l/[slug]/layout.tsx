@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import { usePathname, useRouter } from "next/navigation";
-import { useUser } from "@clerk/nextjs";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useUser, SignOutButton } from "@clerk/nextjs";
 import { useLeagueStore } from "@/lib/stores/league-store";
+import { DEV_BYPASS_ACTIVE, DEV_USER_METADATA } from "@/hooks/useDevUser";
 import PlayerCardModal from "@/components/league/PlayerCardModal";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getOwners, getOverview, getRankings, syncLeague, getLeagueBySlug } from "@/lib/api";
@@ -125,6 +126,16 @@ function IconSidebar({ basePath, pathname, owner, shaRank }: {
       {/* Spacer */}
       <div className="flex-1" />
 
+      {/* Sign Out */}
+      <SignOutButton redirectUrl="/sign-in">
+        <button
+          onClick={() => localStorage.removeItem("approved_league_id")}
+          className="w-full px-2 py-2 text-center cursor-pointer hover:bg-elevated transition-colors"
+        >
+          <span className="font-sans text-[8px] font-bold tracking-wide text-dim hover:text-primary">SIGN OUT</span>
+        </button>
+      </SignOutButton>
+
       {/* Bottom status */}
       <div className="w-full px-2 py-3 border-t border-border flex items-center justify-center gap-1.5">
         <div className="w-1.5 h-1.5 rounded-full bg-accent-green animate-pulse" style={{ boxShadow: `0 0 6px ${C.green}60` }} />
@@ -242,30 +253,20 @@ function HeaderBar({ owner, owners, onOwnerChange, leagueName, syncing, onResync
         })()}
       </div>
 
-      <div className="hidden sm:block" style={{ width: 1, height: 24, background: C.border }} />
-
-      {/* Owner Select */}
-      <select
-        value={owner || ""}
-        onChange={(e) => {
-          const val = e.target.value;
-          const match = owners.find((o) => String(o.name) === val);
-          onOwnerChange(val, match ? String(match.platform_user_id || "") || null : null);
-        }}
-        className="flex-1 sm:flex-none min-w-0"
-        style={{
-          padding: "5px 10px", borderRadius: 4,
-          border: `1px solid ${owner ? C.goldBorder : C.border}`,
-          background: owner ? C.goldDim : C.card,
-          color: C.primary, fontSize: 12, fontFamily: SANS,
-          fontWeight: 600, outline: "none", cursor: "pointer",
-        }}
-      >
-        <option value="" style={{ background: C.card }}>Select Owner</option>
-        {owners.map((o: Record<string, unknown>, i: number) => (
-          <option key={String(o.platform_user_id || o.slot || i)} value={String(o.name)} style={{ background: C.card }}>{String(o.name)}</option>
-        ))}
-      </select>
+      {owner && (
+        <>
+          <div className="hidden sm:block" style={{ width: 1, height: 24, background: C.border }} />
+          <div style={{
+            padding: "5px 10px", borderRadius: 4,
+            border: `1px solid ${C.goldBorder}`,
+            background: C.goldDim,
+            color: C.primary, fontSize: 12, fontFamily: SANS,
+            fontWeight: 600,
+          }}>
+            {owner}
+          </div>
+        </>
+      )}
 
       {/* Resync Button */}
       <button
@@ -311,12 +312,29 @@ function HeaderBar({ owner, owners, onOwnerChange, leagueName, syncing, onResync
    ═══════════════════════════════════════════════════════════════ */
 export default function LeagueLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const queryClient = useQueryClient();
-  const { user } = useUser();
+  const { user, isLoaded } = useUser();
   const { currentLeagueId, currentLeagueSlug, currentOwner, setLeague, setOwner, savedLeagues } = useLeagueStore();
   const slug = pathname.split("/")[2] || "";
   const [syncing, setSyncing] = useState(false);
   const hydrating = useRef(false);
+
+  // ── Auth gate ──
+  const searchParams = useSearchParams();
+  const gateMetadata = DEV_BYPASS_ACTIVE
+    ? DEV_USER_METADATA
+    : (user?.unsafeMetadata ?? {});
+  const gateSleeperUserId = gateMetadata.sleeper_user_id as string | undefined;
+  const urlLeagueId = searchParams.get("league_id");
+  const gateApprovedLeagueId = urlLeagueId
+    || (gateMetadata.approved_league_id as string | undefined)
+    || (typeof window !== "undefined" ? localStorage.getItem("approved_league_id") : null)
+    || undefined;
+  if (gateApprovedLeagueId && typeof window !== "undefined") {
+    localStorage.setItem("approved_league_id", gateApprovedLeagueId);
+  }
+  const [gateChecked, setGateChecked] = useState(false);
 
   // ── Hydrate store from URL params or slug API ──
   // No persist, no localStorage — store is in-memory only.
@@ -356,6 +374,18 @@ export default function LeagueLayout({ children }: { children: React.ReactNode }
       .catch(() => {})
       .finally(() => { hydrating.current = false; });
   }, [slug, currentLeagueId, setLeague, setOwner, currentOwner]);
+
+  // ── Gate: redirect if user lacks access ──
+  useEffect(() => {
+    if (gateChecked) return; // gate already passed, don't re-evaluate
+    if (!isLoaded && !DEV_BYPASS_ACTIVE) return; // wait for Clerk session
+    if (DEV_BYPASS_ACTIVE) { setGateChecked(true); return; }
+    if (!currentLeagueId) return; // wait for hydration
+    if (!gateSleeperUserId) { router.replace("/onboarding"); return; }
+    if (!gateApprovedLeagueId) { router.replace("/dashboard"); return; }
+    if (gateApprovedLeagueId !== currentLeagueId) { router.replace("/dashboard"); return; }
+    setGateChecked(true);
+  }, [isLoaded, currentLeagueId, gateSleeperUserId, gateApprovedLeagueId, router]);
 
   const { data: overview } = useQuery({
     queryKey: ["overview", currentLeagueId],
@@ -398,7 +428,20 @@ export default function LeagueLayout({ children }: { children: React.ReactNode }
 
   const owners = ownersData?.owners || [];
   const basePath = `/l/${slug}`;
+
+  // Auto-select the logged-in user's team by matching platform_user_id
+  useEffect(() => {
+    if (!owners.length || !gateSleeperUserId) return;
+    const myOwner = owners.find((o: any) => o.platform_user_id === gateSleeperUserId || o.user_id === gateSleeperUserId);
+    if (myOwner) {
+      setOwner((myOwner as any).name, gateSleeperUserId);
+    }
+  }, [owners, gateSleeperUserId, setOwner]);
+
   const myRank = rankings?.rankings?.find((r) => r.owner.toLowerCase() === (currentOwner || "").toLowerCase());
+
+  // Don't render league content until gate passes (skip in dev bypass)
+  if (!DEV_BYPASS_ACTIVE && !gateChecked) return null;
 
   return (
     <div style={{

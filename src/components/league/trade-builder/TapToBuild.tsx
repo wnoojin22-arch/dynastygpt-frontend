@@ -2,15 +2,15 @@
 
 /**
  * TAP-TO-BUILD — full mobile trade customization screen.
- * Arrives pre-loaded from a swipe suggestion. User can add/remove
- * assets from either roster to tweak the package.
+ * Arrives pre-loaded from a swipe suggestion or empty from partner select.
+ * Feels like a live negotiation — balance, acceptance, and chips animate in real-time.
  */
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Check, ChevronDown } from "lucide-react";
+import { X } from "lucide-react";
 import { getRoster, getPicks } from "@/lib/api";
-import type { SuggestedPackage, TradeAsset, RosterPlayer } from "./types";
+import type { SuggestedPackage, RosterPlayer } from "./types";
 
 /* ── helpers ── */
 function posColor(pos: string) {
@@ -27,11 +27,17 @@ function acceptColor(s: number) {
   if (s >= 30) return "#e09c6b";
   return "#e47272";
 }
+function windowColor(w: string | undefined) {
+  if (!w) return { label: "BALANCED", color: "#d4a532" };
+  const u = w.toUpperCase();
+  if (u.includes("CONTEND") || u.includes("WIN")) return { label: "WIN-NOW", color: "#e47272" };
+  if (u.includes("REBUILD")) return { label: "REBUILDER", color: "#6bb8e0" };
+  return { label: "BALANCED", color: "#d4a532" };
+}
 function fmt(n: number) {
   return n.toLocaleString("en-US", { maximumFractionDigits: 0 });
 }
 
-/** Build a RosterPlayer[] from the raw API response + picks */
 function buildRoster(data: unknown, picksData?: unknown): RosterPlayer[] {
   const all: RosterPlayer[] = [];
   if (data) {
@@ -71,98 +77,68 @@ function buildRoster(data: unknown, picksData?: unknown): RosterPlayer[] {
   return all;
 }
 
-/**
- * Client-side acceptance estimate. NOT the full server model — just a
- * quick approximation so the gauge moves in real-time.
- * Based on value gap, consolidation, and asset count.
- */
 function estimateAcceptance(giveTotal: number, recvTotal: number, giveCount: number, recvCount: number): number {
   if (giveTotal <= 0 || recvTotal <= 0) return 25;
-  // Base: value fairness (0-50 pts)
   const gapPct = Math.abs(recvTotal - giveTotal) / Math.max(giveTotal, recvTotal) * 100;
   let fairness = 50;
   if (gapPct > 40) fairness = 10;
   else if (gapPct > 25) fairness = 20;
   else if (gapPct > 15) fairness = 30;
   else if (gapPct > 5) fairness = 40;
-  // Bonus if owner overpays (partner gets more value)
   if (giveTotal > recvTotal) fairness = Math.min(fairness + 10, 50);
-  // Consolidation penalty (3-for-1 to partner = hard sell)
   let consolPenalty = 0;
   if (giveCount >= 3 && recvCount === 1) consolPenalty = 15;
   else if (giveCount >= 2 && recvCount === 1) consolPenalty = 8;
-  // Simple sum capped at 10-90
   return Math.max(10, Math.min(90, fairness - consolPenalty + 20));
 }
 
-const FILTER_ALL = "ALL" as const;
-const FILTERS = [FILTER_ALL, "QB", "RB", "WR", "TE", "PICK"] as const;
-type PosFilter = (typeof FILTERS)[number];
+const FILTERS = ["ALL", "QB", "RB", "WR", "TE", "PICK"] as const;
 
-/* ══════════════════════════════════════════════════
-   ASSET CHIP — removable item in the trade tray
-   ══════════════════════════════════════════════════ */
-function AssetChip({
-  name,
-  position,
-  value,
-  onRemove,
-  side,
-}: {
-  name: string;
-  position: string;
-  value: number;
-  onRemove: () => void;
-  side: "give" | "receive";
+/* ── Animated chip (appears in SEND/GET rows) ── */
+function TradeChip({ name, position, value, onRemove }: {
+  name: string; position: string; value: number; onRemove: () => void;
 }) {
   const pc = posColor(position);
-  const borderColor = side === "give" ? "#e4727230" : "#7dd3a030";
   return (
-    <div className="flex items-center gap-1 pl-1.5 pr-0.5 py-1 rounded-md bg-[#10131d] border" style={{ borderColor }}>
-      <span className="font-mono text-[7px] font-black px-1 rounded shrink-0" style={{ color: pc, background: `${pc}18` }}>
-        {position}
-      </span>
-      <span className="font-sans text-[11px] font-semibold text-[#eeeef2] truncate flex-1 min-w-0">{name}</span>
-      {value > 0 && (
-        <span className="font-mono text-[9px] font-bold text-[#d4a532] shrink-0">{fmt(value)}</span>
-      )}
-      <button onClick={onRemove} className="p-0.5 rounded text-[#9596a5] active:text-[#e47272] transition-colors shrink-0">
+    <motion.div
+      layout
+      initial={{ scale: 0.8, opacity: 0, y: 8 }}
+      animate={{ scale: 1, opacity: 1, y: 0 }}
+      exit={{ scale: 0.8, opacity: 0, x: -20 }}
+      transition={{ type: "spring", damping: 22, stiffness: 300 }}
+      className="flex items-center gap-1.5 pl-1.5 pr-1 py-1 rounded-md shrink-0"
+      style={{ background: `${pc}0a`, border: `1px solid ${pc}20` }}
+    >
+      <span className="font-mono text-[8px] font-black px-1 rounded" style={{ color: pc, background: `${pc}18` }}>{position}</span>
+      <span className="font-sans text-[11px] font-semibold text-[#eeeef2] whitespace-nowrap">{name}</span>
+      <span className="font-mono text-[9px] font-bold text-[#d4a532]">{fmt(value)}</span>
+      <button onClick={(e) => { e.stopPropagation(); onRemove(); }} className="ml-0.5 text-[#9596a560] active:text-[#e47272] transition-colors">
         <X size={10} />
       </button>
-    </div>
+    </motion.div>
   );
 }
 
-/* ══════════════════════════════════════════════════
-   ROSTER ROW — tappable player in the asset picker
-   ══════════════════════════════════════════════════ */
-function RosterRow({
-  player,
-  isSelected,
-  onToggle,
-}: {
-  player: RosterPlayer;
-  isSelected: boolean;
-  onToggle: () => void;
+/* ── Player row ── */
+function PlayerRow({ player, isSelected, onToggle }: {
+  player: RosterPlayer; isSelected: boolean; onToggle: () => void;
 }) {
   const pc = posColor(player.position);
   return (
     <button
       onClick={onToggle}
-      className={`flex items-center gap-1.5 w-full px-3 py-2 text-left transition-colors active:bg-[#171b28] ${isSelected ? "opacity-50" : ""}`}
-      style={isSelected ? { borderLeft: `3px solid ${pc}` } : { borderLeft: "3px solid transparent" }}
+      className="flex items-center gap-2 w-full px-3 text-left transition-all active:bg-[#171b28]"
+      style={{
+        minHeight: 44, padding: "10px 12px",
+        background: isSelected ? "#d4a53208" : "transparent",
+        borderLeft: isSelected ? `3px solid #d4a532` : "3px solid transparent",
+        borderBottom: "1px solid #ffffff08",
+      }}
     >
-      {isSelected ? (
-        <div className="w-5 h-5 rounded-full bg-[#d4a53225] flex items-center justify-center shrink-0">
-          <Check size={12} className="text-[#d4a532]" />
-        </div>
-      ) : (
-        <span className="font-mono text-[9px] font-black px-1.5 py-0.5 rounded shrink-0" style={{ color: pc, background: `${pc}15` }}>
-          {player.position}
-        </span>
-      )}
+      <span className="font-mono text-[9px] font-black px-1.5 py-0.5 rounded shrink-0"
+        style={{ color: pc, background: `${pc}15` }}>{player.position}</span>
       <span className="font-sans text-[13px] font-medium text-[#eeeef2] flex-1 truncate">{player.name}</span>
-      <span className="font-mono text-[11px] font-bold text-[#d4a532] shrink-0 w-12 text-right">
+      <span className="font-mono text-[11px] font-bold text-[#d4a532] shrink-0">
         {player.sha_value > 0 ? fmt(player.sha_value) : "—"}
       </span>
     </button>
@@ -178,7 +154,10 @@ export default function TapToBuild({
   owner,
   ownerId,
   ownerRoster: ownerRosterProp,
+  partnerWindow,
   onSave,
+  onSuggest,
+  onAnalyze,
   onBack,
 }: {
   pkg: SuggestedPackage;
@@ -186,12 +165,15 @@ export default function TapToBuild({
   owner: string;
   ownerId?: string | null;
   ownerRoster: RosterPlayer[];
+  partnerWindow?: string;
   onSave: (giveNames: string[], receiveNames: string[], partnerName: string) => void;
+  onSuggest?: () => void;
+  onAnalyze?: () => void;
   onBack: () => void;
 }) {
   const partnerName = pkg.partner || "";
+  const win = windowColor(partnerWindow);
 
-  // Fetch partner roster + picks
   const { data: partnerRosterData } = useQuery({
     queryKey: ["roster", leagueId, partnerName],
     queryFn: () => getRoster(leagueId, partnerName),
@@ -210,53 +192,36 @@ export default function TapToBuild({
     [partnerRosterData, partnerPicksData],
   );
 
-  // Trade state — initialized from the suggestion
   const [giveNames, setGiveNames] = useState<string[]>(
     () => (pkg.i_give_names || []).filter(Boolean),
   );
   const [receiveNames, setReceiveNames] = useState<string[]>(
     () => (pkg.i_receive_names || []).filter(Boolean),
   );
-
-  // Asset picker state
   const [activeTab, setActiveTab] = useState<"yours" | "theirs">("yours");
-  const [posFilter, setPosFilter] = useState<PosFilter>(FILTER_ALL);
+  const [posFilter, setPosFilter] = useState<string>("ALL");
 
-  // Selected name sets for quick lookup
   const giveSet = useMemo(() => new Set(giveNames.map((n) => n.toLowerCase())), [giveNames]);
   const receiveSet = useMemo(() => new Set(receiveNames.map((n) => n.toLowerCase())), [receiveNames]);
 
-  // Filtered roster for picker
   const filteredRoster = useMemo(() => {
     const roster = activeTab === "yours" ? ownerRosterProp : partnerRoster;
-    let filtered = roster.filter((p) => p.sha_value > 0 || p.position === "PICK");
-    if (posFilter !== FILTER_ALL) {
-      filtered = filtered.filter((p) => p.position === posFilter);
-    }
-    return filtered.sort((a, b) => b.sha_value - a.sha_value);
+    let list = roster.filter((p) => p.sha_value > 0 || p.position === "PICK");
+    if (posFilter !== "ALL") list = list.filter((p) => p.position === posFilter);
+    return list.sort((a, b) => b.sha_value - a.sha_value);
   }, [activeTab, ownerRosterProp, partnerRoster, posFilter]);
 
-  // Value calculations
   const getVal = useCallback(
-    (name: string, roster: RosterPlayer[]) => {
-      const p = roster.find((r) => r.name.toLowerCase() === name.toLowerCase());
-      return p?.sha_value || 0;
-    },
+    (name: string, roster: RosterPlayer[]) => roster.find((r) => r.name.toLowerCase() === name.toLowerCase())?.sha_value || 0,
     [],
   );
 
-  const giveTotal = useMemo(
-    () => giveNames.reduce((s, n) => s + getVal(n, ownerRosterProp), 0),
-    [giveNames, ownerRosterProp, getVal],
-  );
-  const recvTotal = useMemo(
-    () => receiveNames.reduce((s, n) => s + getVal(n, partnerRoster), 0),
-    [receiveNames, partnerRoster, getVal],
-  );
+  const giveTotal = useMemo(() => giveNames.reduce((s, n) => s + getVal(n, ownerRosterProp), 0), [giveNames, ownerRosterProp, getVal]);
+  const recvTotal = useMemo(() => receiveNames.reduce((s, n) => s + getVal(n, partnerRoster), 0), [receiveNames, partnerRoster, getVal]);
 
-  const maxVal = Math.max(giveTotal, recvTotal, 1);
+  const maxBar = Math.max(giveTotal, recvTotal, 1);
   const gapPct = giveTotal > 0 ? ((recvTotal - giveTotal) / giveTotal) * 100 : 0;
-  const gapColor = Math.abs(gapPct) <= 5 ? "#7dd3a0" : Math.abs(gapPct) <= 15 ? "#d4a532" : "#e47272";
+  const barColor = recvTotal > giveTotal ? "#7dd3a0" : recvTotal < giveTotal ? "#e47272" : "#d4a532";
 
   const acceptance = useMemo(
     () => estimateAcceptance(giveTotal, recvTotal, giveNames.length, receiveNames.length),
@@ -264,195 +229,153 @@ export default function TapToBuild({
   );
   const accClr = acceptColor(acceptance);
 
-  // Low acceptance pulse
-  const [accPulse, setAccPulse] = useState<"red" | "green" | null>(null);
-  const prevAcc = useMemo(() => acceptance, []); // initial only
-  useEffect(() => {
-    if (acceptance < 30) setAccPulse("red");
-    else if (acceptance > 70) setAccPulse("green");
-    else setAccPulse(null);
-    const t = setTimeout(() => setAccPulse(null), 600);
-    return () => clearTimeout(t);
-  }, [acceptance]);
+  const toggleAsset = useCallback((name: string) => {
+    if (activeTab === "yours") {
+      setGiveNames((p) => p.some((n) => n.toLowerCase() === name.toLowerCase())
+        ? p.filter((n) => n.toLowerCase() !== name.toLowerCase()) : [...p, name]);
+    } else {
+      setReceiveNames((p) => p.some((n) => n.toLowerCase() === name.toLowerCase())
+        ? p.filter((n) => n.toLowerCase() !== name.toLowerCase()) : [...p, name]);
+    }
+  }, [activeTab]);
 
-  // Toggle asset in trade
-  const toggleAsset = useCallback(
-    (name: string) => {
-      if (activeTab === "yours") {
-        setGiveNames((prev) =>
-          prev.some((n) => n.toLowerCase() === name.toLowerCase())
-            ? prev.filter((n) => n.toLowerCase() !== name.toLowerCase())
-            : [...prev, name],
-        );
-      } else {
-        setReceiveNames((prev) =>
-          prev.some((n) => n.toLowerCase() === name.toLowerCase())
-            ? prev.filter((n) => n.toLowerCase() !== name.toLowerCase())
-            : [...prev, name],
-        );
-      }
-    },
-    [activeTab],
-  );
-
-  const removeGive = useCallback((name: string) => {
-    setGiveNames((prev) => prev.filter((n) => n.toLowerCase() !== name.toLowerCase()));
-  }, []);
-
-  const removeReceive = useCallback((name: string) => {
-    setReceiveNames((prev) => prev.filter((n) => n.toLowerCase() !== name.toLowerCase()));
-  }, []);
-
-  const canSave = giveNames.length > 0 && receiveNames.length > 0;
+  const canAnalyze = giveNames.length > 0 && receiveNames.length > 0;
 
   return (
     <div className="flex flex-col h-full bg-[#06080d]">
-      {/* ══ TOP: Trade tray (fixed) ══ */}
+
+      {/* ═══ FIXED TOP ═══ */}
       <div className="shrink-0 border-b border-[#1a1e30] bg-[#0a0d15]">
-        {/* Header */}
-        <div className="flex items-center justify-between px-3 py-2">
-          <div className="min-w-0">
-            <span className="font-mono text-[7px] font-bold tracking-widest text-[#9596a5]">TRADE WITH</span>
-            <h2 className="font-['Archivo_Black'] text-[15px] text-[#eeeef2] tracking-wide truncate">{partnerName}</h2>
-          </div>
-          {/* Acceptance gauge */}
-          <div
-            className="text-right transition-all duration-300"
-            style={{
-              filter: accPulse === "red" ? "drop-shadow(0 0 8px #e47272)" : accPulse === "green" ? "drop-shadow(0 0 8px #7dd3a0)" : "none",
-            }}
-          >
-            <span className="font-mono text-lg font-black transition-colors duration-300" style={{ color: accClr }}>
-              {acceptance}%
+
+        {/* Partner header */}
+        <div className="flex items-center justify-between px-4 pt-3 pb-1">
+          <div className="flex items-center gap-2 min-w-0">
+            <button onClick={onBack} className="text-[#9596a5] active:text-[#eeeef2] transition-colors shrink-0 p-1 -ml-1">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M15 18l-6-6 6-6"/></svg>
+            </button>
+            <div className="min-w-0">
+              <h2 className="font-['Archivo_Black'] text-[17px] text-[#eeeef2] tracking-wide truncate leading-tight">{partnerName}</h2>
+            </div>
+            <span className="font-mono text-[8px] font-bold tracking-widest px-2 py-0.5 rounded shrink-0"
+              style={{ color: win.color, background: `${win.color}12`, border: `1px solid ${win.color}25` }}>
+              {win.label}
             </span>
-            <div className="font-mono text-[7px] font-bold text-[#9596a5] tracking-wide">ACCEPTANCE</div>
+          </div>
+          {/* Acceptance */}
+          <div className="text-right shrink-0 ml-2">
+            <motion.span
+              key={acceptance}
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.2 }}
+              className="font-mono text-xl font-black block leading-none"
+              style={{ color: accClr }}
+            >
+              {acceptance}%
+            </motion.span>
+            <span className="font-mono text-[7px] font-bold text-[#9596a580] tracking-wide">LIKELY TO ACCEPT</span>
           </div>
         </div>
 
-        {/* Send / Get chips */}
-        <div className="flex gap-1.5 px-3 pb-1.5">
-          {/* SEND column */}
-          <div className="flex-1 min-w-0 overflow-hidden">
-            <span className="font-mono text-[7px] font-black tracking-widest text-[#e47272] block mb-0.5">YOU SEND</span>
-            <div className="space-y-0.5">
-              {giveNames.length > 0 ? (
-                giveNames.map((name) => {
-                  const p = ownerRosterProp.find((r) => r.name.toLowerCase() === name.toLowerCase());
-                  return (
-                    <AssetChip
-                      key={name}
-                      name={name}
-                      position={p?.position || "?"}
-                      value={p?.sha_value || 0}
-                      onRemove={() => removeGive(name)}
-                      side="give"
-                    />
-                  );
-                })
-              ) : (
-                <div className="py-1.5 text-center font-mono text-[8px] text-[#9596a540]">TAP YOURS</div>
-              )}
-            </div>
-          </div>
-
-          {/* Divider */}
-          <div className="w-px bg-[#1a1e30] self-stretch" />
-
-          {/* GET column */}
-          <div className="flex-1 min-w-0 overflow-hidden">
-            <span className="font-mono text-[7px] font-black tracking-widest text-[#7dd3a0] block mb-0.5">YOU GET</span>
-            <div className="space-y-0.5">
-              {receiveNames.length > 0 ? (
-                receiveNames.map((name) => {
-                  const p = partnerRoster.find((r) => r.name.toLowerCase() === name.toLowerCase());
-                  return (
-                    <AssetChip
-                      key={name}
-                      name={name}
-                      position={p?.position || "?"}
-                      value={p?.sha_value || 0}
-                      onRemove={() => removeReceive(name)}
-                      side="receive"
-                    />
-                  );
-                })
-              ) : (
-                <div className="py-1.5 text-center font-mono text-[8px] text-[#9596a540]">TAP THEIRS</div>
-              )}
+        {/* SEND row */}
+        <div className="px-4 pt-1 pb-0.5">
+          <div className="flex items-start gap-2">
+            <span className="font-mono text-[9px] font-black tracking-widest text-[#d4a532] mt-1.5 shrink-0 w-9">SEND</span>
+            <div className="flex-1 min-w-0 overflow-x-auto">
+              <div className="flex gap-1.5 pb-1">
+                <AnimatePresence mode="popLayout">
+                  {giveNames.length > 0 ? giveNames.map((name) => {
+                    const p = ownerRosterProp.find((r) => r.name.toLowerCase() === name.toLowerCase());
+                    return (
+                      <TradeChip key={name} name={name} position={p?.position || "?"} value={p?.sha_value || 0}
+                        onRemove={() => setGiveNames((prev) => prev.filter((n) => n.toLowerCase() !== name.toLowerCase()))} />
+                    );
+                  }) : (
+                    <motion.span key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                      className="font-sans text-[11px] text-[#d4a53250] py-1">Tap your players below ↓</motion.span>
+                  )}
+                </AnimatePresence>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Balance bar — always visible when assets selected */}
-        {(giveNames.length > 0 || receiveNames.length > 0) && (
-          <div className="px-3 pb-2 space-y-0.5">
-            <div className="flex items-center gap-1">
-              <span className="font-mono text-[7px] font-black tracking-wide text-[#e47272] w-6">SEND</span>
-              <div className="flex-1 h-1 rounded-full bg-[#171b28] overflow-hidden">
+        {/* Balance bar — single bar showing direction */}
+        {(giveTotal > 0 || recvTotal > 0) && (
+          <div className="px-4 py-1">
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-[9px] font-bold text-[#e47272]">{fmt(giveTotal)}</span>
+              <div className="flex-1 h-1.5 rounded-full bg-[#171b28] overflow-hidden relative">
                 <motion.div
-                  className="h-full rounded-full bg-[#e47272]"
-                  animate={{ width: `${(giveTotal / maxVal) * 100}%` }}
-                  transition={{ duration: 0.3 }}
+                  className="absolute left-0 top-0 bottom-0 rounded-full"
+                  style={{ background: barColor }}
+                  animate={{ width: `${(Math.max(giveTotal, recvTotal) / maxBar) * 100}%` }}
+                  transition={{ type: "spring", damping: 20, stiffness: 200 }}
                 />
               </div>
-              <span className="font-mono text-[9px] font-bold text-[#e47272] w-10 text-right">{fmt(giveTotal)}</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <span className="font-mono text-[7px] font-black tracking-wide text-[#7dd3a0] w-6">GET</span>
-              <div className="flex-1 h-1 rounded-full bg-[#171b28] overflow-hidden">
-                <motion.div
-                  className="h-full rounded-full bg-[#7dd3a0]"
-                  animate={{ width: `${(recvTotal / maxVal) * 100}%` }}
-                  transition={{ duration: 0.3 }}
-                />
-              </div>
-              <span className="font-mono text-[9px] font-bold text-[#7dd3a0] w-10 text-right">{fmt(recvTotal)}</span>
-            </div>
-            <div className="text-center">
-              <span className="font-mono text-[9px] font-black" style={{ color: gapColor }}>
-                {gapPct >= 0 ? "+" : ""}{gapPct.toFixed(1)}%
+              <span className="font-mono text-[9px] font-bold text-[#7dd3a0]">{fmt(recvTotal)}</span>
+              <span className="font-mono text-[10px] font-black px-1.5 py-0.5 rounded"
+                style={{ color: barColor, background: `${barColor}15` }}>
+                {gapPct >= 0 ? "+" : ""}{gapPct.toFixed(0)}%
               </span>
             </div>
           </div>
         )}
+
+        {/* GET row */}
+        <div className="px-4 pt-0.5 pb-2">
+          <div className="flex items-start gap-2">
+            <span className="font-mono text-[9px] font-black tracking-widest text-[#7dd3a0] mt-1.5 shrink-0 w-9">GET</span>
+            <div className="flex-1 min-w-0 overflow-x-auto">
+              <div className="flex gap-1.5 pb-1">
+                <AnimatePresence mode="popLayout">
+                  {receiveNames.length > 0 ? receiveNames.map((name) => {
+                    const p = partnerRoster.find((r) => r.name.toLowerCase() === name.toLowerCase());
+                    return (
+                      <TradeChip key={name} name={name} position={p?.position || "?"} value={p?.sha_value || 0}
+                        onRemove={() => setReceiveNames((prev) => prev.filter((n) => n.toLowerCase() !== name.toLowerCase()))} />
+                    );
+                  }) : (
+                    <motion.span key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                      className="font-sans text-[11px] text-[#7dd3a050] py-1">Tap their players →</motion.span>
+                  )}
+                </AnimatePresence>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* ══ BOTTOM: Asset picker (scrollable) ══ */}
+      {/* ═══ SCROLLABLE ROSTER ═══ */}
       <div className="flex-1 flex flex-col min-h-0">
         {/* Tab bar */}
         <div className="flex border-b border-[#1a1e30] shrink-0">
-          <button
-            onClick={() => { setActiveTab("yours"); setPosFilter(FILTER_ALL); }}
-            className={`flex-1 py-2.5 font-mono text-[11px] font-bold tracking-wider text-center transition-colors border-b-2 ${
-              activeTab === "yours" ? "text-[#e47272] border-[#e47272]" : "text-[#9596a5] border-transparent"
-            }`}
-          >
-            YOUR ASSETS
-          </button>
-          <button
-            onClick={() => { setActiveTab("theirs"); setPosFilter(FILTER_ALL); }}
-            className={`flex-1 py-2.5 font-mono text-[11px] font-bold tracking-wider text-center transition-colors border-b-2 ${
-              activeTab === "theirs" ? "text-[#7dd3a0] border-[#7dd3a0]" : "text-[#9596a5] border-transparent"
-            }`}
-          >
-            THEIR ASSETS
-          </button>
+          {(["yours", "theirs"] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => { setActiveTab(tab); setPosFilter("ALL"); }}
+              className={`flex-1 py-2.5 font-mono text-[11px] font-bold tracking-wider text-center transition-colors border-b-2 ${
+                activeTab === tab ? "text-[#d4a532] border-[#d4a532]" : "text-[#9596a5] border-transparent"
+              }`}
+            >
+              {tab === "yours" ? "YOUR ROSTER" : partnerName.toUpperCase()}
+            </button>
+          ))}
         </div>
 
         {/* Position filters */}
-        <div className="flex gap-1 px-3 py-1.5 shrink-0 overflow-x-auto">
+        <div className="flex gap-1.5 px-3 py-1.5 shrink-0 overflow-x-auto">
           {FILTERS.map((f) => {
             const isActive = posFilter === f;
-            const pc = f === FILTER_ALL ? "#d4a532" : posColor(f);
             return (
               <button
                 key={f}
                 onClick={() => setPosFilter(f)}
-                className="font-mono text-[9px] font-bold tracking-wider px-2 py-0.5 rounded border transition-colors shrink-0"
+                className="font-mono text-[9px] font-bold tracking-wider px-2.5 py-1 rounded-md transition-colors shrink-0"
                 style={{
-                  color: isActive ? pc : "#9596a5",
-                  borderColor: isActive ? `${pc}40` : "#1a1e30",
-                  background: isActive ? `${pc}10` : "transparent",
+                  color: isActive ? "#d4a532" : "#9596a5",
+                  background: isActive ? "#d4a53218" : "#10131d",
+                  border: `1px solid ${isActive ? "#d4a53230" : "#1a1e30"}`,
                 }}
               >
                 {f}
@@ -461,8 +384,8 @@ export default function TapToBuild({
           })}
         </div>
 
-        {/* Player list */}
-        <div className="flex-1 overflow-y-auto divide-y divide-[#1a1e3050]">
+        {/* Player list — open, no collapsing */}
+        <div className="flex-1 overflow-y-auto">
           {filteredRoster.length === 0 ? (
             <div className="py-8 text-center font-mono text-xs text-[#9596a5]">
               {partnerRoster.length === 0 && activeTab === "theirs" ? "Loading roster..." : "No players at this position"}
@@ -470,12 +393,11 @@ export default function TapToBuild({
           ) : (
             filteredRoster.map((player) => {
               const selectedSet = activeTab === "yours" ? giveSet : receiveSet;
-              const isSelected = selectedSet.has(player.name.toLowerCase());
               return (
-                <RosterRow
+                <PlayerRow
                   key={player.name}
                   player={player}
-                  isSelected={isSelected}
+                  isSelected={selectedSet.has(player.name.toLowerCase())}
                   onToggle={() => toggleAsset(player.name)}
                 />
               );
@@ -484,23 +406,40 @@ export default function TapToBuild({
         </div>
       </div>
 
-      {/* ══ FIXED BOTTOM BUTTONS ══ */}
-      <div className="shrink-0 flex gap-2 px-3 pb-3 pt-1.5 border-t border-[#1a1e30] bg-[#06080d]"
-        style={{ paddingBottom: "calc(12px + env(safe-area-inset-bottom, 0px))" }}>
-        <button
-          onClick={onBack}
-          className="py-2.5 px-4 rounded-xl border border-[#1a1e30] font-mono text-[10px] font-bold tracking-wider text-[#9596a5] active:bg-[#171b28] transition-colors"
-        >
-          ← BACK
-        </button>
-        <button
-          onClick={() => canSave && onSave(giveNames, receiveNames, partnerName)}
-          disabled={!canSave}
-          className="flex-1 py-2.5 rounded-xl font-['Archivo_Black'] text-[12px] tracking-wider text-[#06080d] active:opacity-80 transition-opacity disabled:opacity-30"
-          style={{ background: "linear-gradient(135deg, #8b6914, #d4a532)" }}
-        >
-          SAVE TO QUEUE
-        </button>
+      {/* ═══ FIXED BOTTOM BAR ═══ */}
+      <div className="shrink-0 border-t border-[#1a1e30] bg-[#06080d]"
+        style={{ padding: "8px 12px", paddingBottom: "calc(8px + env(safe-area-inset-bottom, 0px))" }}>
+        <div className="flex items-center gap-2">
+          {/* SUGGEST */}
+          {onSuggest && (
+            <button
+              onClick={onSuggest}
+              className="flex-1 py-3 rounded-xl font-mono text-[11px] font-black tracking-wider text-[#06080d] active:opacity-80 transition-opacity"
+              style={{ background: "linear-gradient(135deg, #8b6914, #d4a532)" }}
+            >
+              ⚡ SUGGEST
+            </button>
+          )}
+          {/* Gap label */}
+          {(giveTotal > 0 || recvTotal > 0) && (
+            <span className="font-mono text-[10px] font-black shrink-0" style={{ color: barColor }}>
+              {gapPct >= 0 ? "+" : ""}{gapPct.toFixed(0)}%
+            </span>
+          )}
+          {/* ANALYZE */}
+          <button
+            onClick={() => canAnalyze && onAnalyze?.()}
+            disabled={!canAnalyze}
+            className="flex-1 py-3 rounded-xl font-mono text-[11px] font-black tracking-wider transition-all"
+            style={{
+              background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.12)",
+              color: canAnalyze ? "#eeeef2" : "#9596a5",
+              opacity: canAnalyze ? 1 : 0.4,
+            }}
+          >
+            🔍 ANALYZE
+          </button>
+        </div>
       </div>
     </div>
   );

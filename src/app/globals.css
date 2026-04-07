@@ -202,6 +202,12 @@
     grid-template-columns: 1fr 28px 1fr !important;
   }
 
+  /* Exception: trade report modal — always 2-col */
+  .trade-report-grid {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+  }
+
   /* ── Fix fixed-width sidebars/panels ── */
   div[style*="width: 340"],
   div[style*="width: 350"],
@@ -393,6 +399,12 @@
   @media (max-width: 640px) {
     max-height: 60vh !important;
   }
+}
+
+/* ── Trade report grid — always 2-col at every viewport ── */
+.trade-report-grid {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
 }
 
 /* ═══════════════════════════════════════════════════════════════

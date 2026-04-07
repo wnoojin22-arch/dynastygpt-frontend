@@ -1,9 +1,13 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import { redirect } from "next/navigation";
 import { useLeagueStore } from "@/lib/stores/league-store";
 
 export default function DebugPage() {
+  if (process.env.NODE_ENV !== "development") {
+    redirect("/dashboard");
+  }
   const renderCount = useRef(0);
   renderCount.current += 1;
 
