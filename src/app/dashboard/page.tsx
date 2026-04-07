@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getOverview, syncLeague } from "@/lib/api";
@@ -18,6 +18,18 @@ const SANS = "-apple-system, 'SF Pro Display', 'Inter', system-ui, sans-serif";
 const SERIF = "'Playfair Display', Georgia, serif";
 
 export default function DashboardPage() {
+  return (
+    <Suspense fallback={
+      <div style={{ minHeight: "100vh", background: "#06080d", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: "#d4a532", letterSpacing: "0.1em" }}>LOADING...</span>
+      </div>
+    }>
+      <DashboardContent />
+    </Suspense>
+  );
+}
+
+function DashboardContent() {
   const { user, isLoaded } = useUser();
   const router = useRouter();
 
