@@ -457,22 +457,26 @@ function FullReport({reportData,hindsightData,onClose}:{reportData:any;hindsight
         </div>
       </CollapsiblePill>
 
-      {/* Replacement Impact — collapsible */}
+      {/* Replacement Impact — ported from Shadynasty ImpactCard */}
       {(()=>{const myI=myAssets.filter((a:any)=>a.replacement_impact?.career?.impact&&Math.abs(a.replacement_impact.career.impact)>=3);const theirI=theirAssets.filter((a:any)=>a.replacement_impact?.career?.impact&&Math.abs(a.replacement_impact.career.impact)>=3);if(!myI.length&&!theirI.length)return null;return(
         <CollapsiblePill label="REPLACEMENT IMPACT" defaultOpen={false}>
           <div style={fp}>
             {[myI,theirI].map((assets,idx)=>(
               <div key={idx} style={idx===0?colL:colR}>
-                {assets.length>0?assets.map((a:any,i:number)=>{const ri=a.replacement_impact.career;const ic=ri.impact>=0?C.green:C.red;return(
-                  <div key={i} style={{marginBottom:6}}>
-                    <div style={{display:'flex',justifyContent:'space-between',marginBottom:2,minWidth:0}}>
+                {assets.length>0?assets.map((a:any,i:number)=>{const ri=a.replacement_impact.career;const ic=ri.impact>=0?C.green:C.red;
+                  const seasons=a.replacement_impact.seasons||{};const allRep:string[]=[];Object.values(seasons).forEach((s:any)=>{if((s as any).replacements)allRep.push(...(s as any).replacements);});
+                  const uniqRep=[...new Set(allRep)].slice(0,3);
+                  return(
+                  <div key={i} style={{marginBottom:i<assets.length-1?12:0}}>
+                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:4,minWidth:0}}>
                       <span style={{fontFamily:SANS,fontSize:13,fontWeight:700,color:C.primary,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',minWidth:0}}>{cleanPickName(a.name)}</span>
-                      <span style={{fontFamily:MONO,fontSize:11,fontWeight:800,color:ic,flexShrink:0}}>{ri.impact>=0?'+':''}{ri.impact.toFixed(1)}</span>
+                      <span style={{fontFamily:MONO,fontSize:12,fontWeight:800,color:ic,paddingTop:2,paddingBottom:2,paddingLeft:8,paddingRight:8,borderRadius:4,background:ri.impact>=0?'rgba(125,211,160,0.12)':'rgba(228,114,114,0.12)',flexShrink:0}}>{ri.impact>=0?'+':''}{ri.impact.toFixed(1)} PPG</span>
                     </div>
-                    <div style={{fontFamily:MONO,fontSize:12,color:C.dim,display:'flex',gap:8}}>
-                      <span>W/ <span style={{color:C.green,fontWeight:700}}>{ri.avg_with?.toFixed(1)}</span></span>
-                      <span>W/O <span style={{color:C.red,fontWeight:700}}>{ri.avg_without?.toFixed(1)}</span></span>
+                    <div style={{fontFamily:MONO,fontSize:10,color:C.dim,display:'flex',gap:16}}>
+                      <span>With: <span style={{color:C.green,fontWeight:700}}>{ri.avg_with?.toFixed(1)}</span>{ri.total_weeks_with!=null&&` (${ri.total_weeks_with}wk)`}</span>
+                      <span>Without: <span style={{color:C.red,fontWeight:700}}>{ri.avg_without?.toFixed(1)}</span>{ri.total_weeks_without!=null&&` (${ri.total_weeks_without}wk)`}</span>
                     </div>
+                    {uniqRep.length>0&&<div style={{fontFamily:SANS,fontSize:10,color:C.dim,marginTop:3}}>Replaced by: <span style={{color:C.secondary}}>{uniqRep.join(', ')}</span></div>}
                   </div>
                 );}):(<span style={{fontFamily:MONO,fontSize:12,color:C.dim}}>—</span>)}
               </div>
