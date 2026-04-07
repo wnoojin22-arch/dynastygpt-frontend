@@ -27,7 +27,12 @@ function getVerdictStyle(v: string) {
 }
 function ordinal(n:number){if(!n||isNaN(n))return'—';const s=['th','st','nd','rd'];const v=n%100;return n+(s[(v-20)%10]||s[v]||s[0]);}
 function noSHA(s:string){return s.replace(/\bSHA\b/gi,'value').replace(/\bsha\b/g,'value');}
-function cleanPickName(name:string){return name.replace(/\s*\([^)]*\)/g,'');}
+function cleanPickName(name:string,slot?:string|null){
+  const base=name.replace(/\s*\([^)]*\)/g,'');
+  // 2026 picks: show slot number (e.g. "2026 1.07") instead of "2026 Round 1"
+  if(slot&&base.includes('2026')){return `2026 ${slot}`;}
+  return base;
+}
 
 
 /* ═══ LOADING ═══ */
@@ -118,7 +123,7 @@ function AssetCard({asset,allAssets,gradeFactors,allTrades,sideOwner}:{asset:any
     <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
       {isPick&&<StatusTag label="PICK" color={C.gold} bg={C.goldDim} border={C.goldBorder}/>}
       {position&&!isPick&&<span style={{fontFamily:MONO,fontSize:8,fontWeight:800,color:posColor(position),padding:'1px 4px',borderRadius:3,background:`${posColor(position)}15`,border:`1px solid ${posColor(position)}25`}}>{position}</span>}
-      {isPick?<span style={{fontFamily:SANS,fontSize:14,fontWeight:700,color:C.primary}}>{cleanPickName(asset.name)}</span>:<PlayerName name={asset.name} style={{fontFamily:SANS,fontSize:14,fontWeight:700,color:isCut?C.red:C.primary,cursor:'pointer'}} />}
+      {isPick?<span style={{fontFamily:SANS,fontSize:14,fontWeight:700,color:C.primary}}>{cleanPickName(asset.name,asset.resolved_slot)}</span>:<PlayerName name={asset.name} style={{fontFamily:SANS,fontSize:14,fontWeight:700,color:isCut?C.red:C.primary,cursor:'pointer'}} />}
       {age&&<span style={{fontFamily:MONO,fontSize:10,color:C.dim}}>({Math.round(age)})</span>}
       {hasChain&&<StatusTag label="FLIPPED" color={C.orange} bg="rgba(224,156,107,0.12)" border="rgba(224,156,107,0.25)"/>}
       {hasChain&&vDelta!=null&&vDelta>0&&<StatusTag label="PROFIT" color={C.green} bg="rgba(125,211,160,0.12)" border="rgba(125,211,160,0.25)"/>}
@@ -339,7 +344,7 @@ function FullReport({reportData,hindsightData,onClose}:{reportData:any;hindsight
               <div key={i} style={{display:'flex',alignItems:'center',gap:3,minWidth:0,marginBottom:1}}>
                 {a.type==='pick'?<span style={{fontFamily:MONO,fontSize:11,fontWeight:800,color:C.gold,flexShrink:0}}>PK</span>:
                 a.position&&<span style={{fontFamily:MONO,fontSize:11,fontWeight:800,color:posColor(a.position),flexShrink:0}}>{a.position}</span>}
-                <span style={{fontFamily:SANS,fontSize:14,fontWeight:600,color:C.primary,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1,minWidth:0}}>{a.name.replace(/\s*\([^)]*\)/g,'')}</span>
+                <span style={{fontFamily:SANS,fontSize:14,fontWeight:600,color:C.primary,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1,minWidth:0}}>{cleanPickName(a.name,a.resolved_slot)}</span>
                 <span style={{fontFamily:MONO,fontSize:12,fontWeight:700,color:C.secondary,flexShrink:0}}>{fmt(a.value_at_trade?.value)}</span>
               </div>
             ))}
@@ -402,7 +407,7 @@ function FullReport({reportData,hindsightData,onClose}:{reportData:any;hindsight
                     <div style={{display:'flex',alignItems:'center',gap:3,minWidth:0,flex:1}}>
                       {a.type==='pick'&&<StatusTag label="PK" color={C.gold} bg={C.goldDim} border={C.goldBorder}/>}
                       {a.position&&a.type!=='pick'&&<span style={{fontFamily:MONO,fontSize:12,fontWeight:800,color:posColor(a.position),padding:'1px 3px',borderRadius:2,background:`${posColor(a.position)}15`,flexShrink:0}}>{a.position}</span>}
-                      <span style={{fontFamily:SANS,fontSize:13,fontWeight:600,color:C.primary,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',minWidth:0}}>{cleanPickName(a.name)}</span>
+                      <span style={{fontFamily:SANS,fontSize:13,fontWeight:600,color:C.primary,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',minWidth:0}}>{cleanPickName(a.name,a.resolved_slot)}</span>
                     </div>
                     <span style={{fontFamily:MONO,fontSize:11,fontWeight:700,color:C.secondary,flexShrink:0,marginLeft:4}}>{fmt(a.value_at_trade?.value)}</span>
                   </div>
@@ -469,7 +474,7 @@ function FullReport({reportData,hindsightData,onClose}:{reportData:any;hindsight
                   return(
                   <div key={i} style={{marginBottom:i<assets.length-1?12:0}}>
                     <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:4,minWidth:0}}>
-                      <span style={{fontFamily:SANS,fontSize:13,fontWeight:700,color:C.primary,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',minWidth:0}}>{cleanPickName(a.name)}</span>
+                      <span style={{fontFamily:SANS,fontSize:13,fontWeight:700,color:C.primary,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',minWidth:0}}>{cleanPickName(a.name,a.resolved_slot)}</span>
                       <span style={{fontFamily:MONO,fontSize:12,fontWeight:800,color:ic,paddingTop:2,paddingBottom:2,paddingLeft:8,paddingRight:8,borderRadius:4,background:ri.impact>=0?'rgba(125,211,160,0.12)':'rgba(228,114,114,0.12)',flexShrink:0}}>{ri.impact>=0?'+':''}{ri.impact.toFixed(1)} PPG</span>
                     </div>
                     <div style={{fontFamily:MONO,fontSize:10,color:C.dim,display:'flex',gap:16}}>
