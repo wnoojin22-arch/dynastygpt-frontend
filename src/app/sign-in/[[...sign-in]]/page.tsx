@@ -43,7 +43,7 @@ const clerkAppearance = {
       background: CARD,
       border: `1px solid rgba(212, 165, 50, 0.35)`,
       borderRadius: "14px",
-      boxShadow: "0 0 60px rgba(212,165,50,0.15), 0 0 0 1px rgba(212,165,50,0.3)",
+      boxShadow: "0 0 80px rgba(212,165,50,0.25), 0 0 160px rgba(212,165,50,0.1), 0 0 0 1px rgba(212,165,50,0.4)",
       padding: "36px 40px",
       fontFamily: SANS,
     },
@@ -115,6 +115,49 @@ export default function SignInPage() {
         backgroundRepeat: "repeat", backgroundSize: "256px 256px",
       }} />
 
+      {/* Force Clerk dark theme overrides */}
+      <style>{`
+        .cl-formFieldLabel, .cl-footerActionText, .cl-dividerText, .cl-headerSubtitle,
+        .cl-footerAction__signUp, .cl-footerAction__signIn, .cl-footerActionText__signUp,
+        .cl-footerActionText__signIn, .cl-identityPreviewText, .cl-formFieldSuccessText,
+        .cl-otpCodeFieldInput, .cl-formFieldHintText {
+          color: #b0b2c8 !important;
+        }
+        .cl-formFieldInput, .cl-otpCodeFieldInput {
+          background-color: #0d1117 !important;
+          color: #eeeef2 !important;
+          border-color: #1a1e30 !important;
+        }
+        .cl-formFieldInput:focus, .cl-otpCodeFieldInput:focus {
+          border-color: #d4a532 !important;
+          box-shadow: 0 0 0 1px #d4a532 !important;
+        }
+        .cl-footerActionLink {
+          color: #d4a532 !important;
+        }
+        .cl-dividerLine {
+          background-color: #1a1e30 !important;
+        }
+        .cl-card {
+          background-color: #0d1117 !important;
+          border: 1px solid rgba(212,165,50,0.35) !important;
+          box-shadow: 0 0 80px rgba(212,165,50,0.2), 0 0 160px rgba(212,165,50,0.08) !important;
+          border-radius: 14px !important;
+        }
+        .cl-cardBox {
+          box-shadow: 0 0 100px rgba(212,165,50,0.25), 0 0 200px rgba(212,165,50,0.1) !important;
+          border-radius: 14px !important;
+          overflow: visible !important;
+        }
+        .cl-socialButtonsBlockButton {
+          background-color: rgba(255,255,255,0.03) !important;
+          border-color: #1a1e30 !important;
+        }
+        .cl-socialButtonsBlockButton:hover {
+          border-color: rgba(212,165,50,0.5) !important;
+        }
+      `}</style>
+
       {/* Content */}
       <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", alignItems: "center" }}>
 
@@ -157,10 +200,7 @@ export default function SignInPage() {
           marginTop: 40, display: "flex", alignItems: "center", gap: 16,
           fontFamily: SANS, fontSize: 11, color: TEXT_MUTED,
         }}>
-          <span>&copy; DynastyGPT</span>
-          <span style={{ color: BORDER }}>|</span>
-          <a href="https://dynastygpt.com" style={{ color: TEXT_MUTED, textDecoration: "none", transition: "color 0.15s" }}>Home</a>
-          <a href="https://dynastygpt.com/faq" style={{ color: TEXT_MUTED, textDecoration: "none", transition: "color 0.15s" }}>FAQ</a>
+          <a href="https://dynastygpt.com" style={{ color: TEXT_MUTED, textDecoration: "none" }}>dynastygpt.com</a>
         </div>
       </div>
     </div>
