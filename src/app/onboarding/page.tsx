@@ -8,13 +8,11 @@ import { DEV_BYPASS_ACTIVE, DEV_USER_METADATA } from "@/hooks/useDevUser";
 const C = {
   bg: "#06080d", card: "#10131d", border: "#1a1e30",
   primary: "#eeeef2", secondary: "#b0b2c8", dim: "#9596a5",
-  gold: "#d4a532", goldBright: "#f5e6a3", goldDim: "rgba(212,165,50,0.10)",
+  gold: "#d4a532", goldDim: "rgba(212,165,50,0.10)",
   goldBorder: "rgba(212,165,50,0.22)", green: "#7dd3a0", red: "#e47272",
 };
-const MONO = "'JetBrains Mono', 'SF Mono', monospace";
 const SANS = "-apple-system, 'SF Pro Display', 'Inter', system-ui, sans-serif";
-const SERIF = "'Playfair Display', Georgia, serif";
-const DISPLAY = "'Archivo Black', sans-serif";
+const MONO = "'JetBrains Mono', 'SF Mono', monospace";
 
 export default function OnboardingPage() {
   const { user, isLoaded } = useUser();
@@ -71,7 +69,6 @@ export default function OnboardingPage() {
 
       // 4. Auto-approve: check if user is in an approved league
       try {
-        console.log("[ONBOARD] Calling /api/user/approve with: sleeper_user_id=" + sleeperId + " clerk_user_id=" + user.id);
         const approveRes = await fetch("/api/user/approve", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -81,12 +78,11 @@ export default function OnboardingPage() {
           }),
         });
         const approveData = await approveRes.json();
-        console.log("[ONBOARD] /api/user/approve response: status=" + approveRes.status + " body=" + JSON.stringify(approveData));
         if (approveRes.ok && approveData.approved) {
           router.push(`/dashboard?league_id=${approveData.league_id}`);
           return;
         }
-      } catch (err) { console.error("[ONBOARD] /api/user/approve error:", err); }
+      } catch { /* non-critical — fall through to league list */ }
 
       // 5. Show their leagues
       setLeagues(dynastyLeagues.map((l: Record<string, unknown>) => ({
@@ -113,30 +109,33 @@ export default function OnboardingPage() {
       minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
       background: C.bg, padding: 20,
     }}>
-      <div style={{
-        maxWidth: 520, width: "100%", background: C.card,
-        border: `1px solid ${C.border}`, borderRadius: 12, overflow: "hidden",
-      }}>
+      <div style={{ maxWidth: 460, width: "100%" }}>
         {/* Header */}
-        <div style={{
-          padding: "24px 28px", borderBottom: `1px solid ${C.border}`,
-          background: C.goldDim,
-        }}>
-          <h1 style={{ fontFamily: SERIF, fontSize: 28, fontWeight: 900, fontStyle: "italic", color: C.goldBright, margin: 0 }}>
-            Link Your Sleeper Account
-          </h1>
-          <p style={{ fontFamily: SANS, fontSize: 14, color: C.secondary, marginTop: 8 }}>
-            Enter your Sleeper username so we can find your dynasty leagues.
+        <div style={{ marginBottom: 32 }}>
+          <div style={{
+            fontFamily: SANS, fontSize: 26, fontWeight: 800, letterSpacing: "-0.5px",
+            color: C.primary, margin: 0,
+          }}>
+            Connect your Sleeper account<span style={{ color: C.gold }}>.</span>
+          </div>
+          <p style={{ fontFamily: SANS, fontSize: 14, color: C.dim, marginTop: 8, lineHeight: 1.5 }}>
+            Enter your Sleeper username so we can find your league.
           </p>
         </div>
 
-        {/* Content */}
-        <div style={{ padding: "24px 28px" }}>
+        {/* Card */}
+        <div style={{
+          background: C.card, border: `1px solid ${C.border}`, borderRadius: 10,
+          padding: "28px 28px",
+        }}>
           {!leagues ? (
             <>
-              {/* Username input */}
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.12em", color: C.gold, display: "block", marginBottom: 8 }}>
+              <div style={{ marginBottom: 20 }}>
+                <label style={{
+                  fontFamily: MONO, fontSize: 9, fontWeight: 700,
+                  letterSpacing: "0.12em", color: C.dim,
+                  display: "block", marginBottom: 8,
+                }}>
                   SLEEPER USERNAME
                 </label>
                 <input
@@ -144,22 +143,24 @@ export default function OnboardingPage() {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleLink()}
-                  placeholder="e.g. DukeNukem"
+                  placeholder="e.g. moranimals34"
                   style={{
-                    width: "100%", padding: "12px 16px", borderRadius: 6,
+                    width: "100%", padding: "12px 14px", borderRadius: 6,
                     background: C.bg, border: `1px solid ${C.border}`,
-                    color: C.primary, fontFamily: SANS, fontSize: 16,
-                    outline: "none",
+                    color: C.primary, fontFamily: SANS, fontSize: 15,
+                    outline: "none", transition: "border-color 0.15s",
                   }}
+                  onFocus={(e) => e.currentTarget.style.borderColor = C.gold}
+                  onBlur={(e) => e.currentTarget.style.borderColor = C.border}
                   autoFocus
                 />
               </div>
 
               {error && (
                 <div style={{
-                  fontFamily: MONO, fontSize: 12, color: C.red,
-                  padding: "8px 12px", borderRadius: 4, background: "rgba(228,114,114,0.12)",
-                  marginBottom: 16,
+                  fontFamily: SANS, fontSize: 13, color: C.red,
+                  padding: "10px 12px", borderRadius: 6, background: "rgba(228,114,114,0.08)",
+                  border: "1px solid rgba(228,114,114,0.15)", marginBottom: 16,
                 }}>
                   {error}
                 </div>
@@ -169,44 +170,52 @@ export default function OnboardingPage() {
                 onClick={handleLink}
                 disabled={loading || !username.trim()}
                 style={{
-                  width: "100%", padding: "14px 0", borderRadius: 6, border: "none",
-                  background: loading ? C.dim : C.gold, color: C.bg,
-                  fontFamily: MONO, fontSize: 14, fontWeight: 800, letterSpacing: "0.06em",
+                  width: "100%", padding: "13px 0", borderRadius: 6, border: "none",
+                  background: loading ? C.dim : C.gold, color: "#06080d",
+                  fontFamily: SANS, fontSize: 14, fontWeight: 700,
                   cursor: loading ? "wait" : "pointer",
-                  transition: "background 0.2s",
+                  transition: "background 0.15s",
                 }}
               >
-                {loading ? "SEARCHING SLEEPER..." : "LINK ACCOUNT"}
+                {loading ? "Searching..." : "Connect Account"}
               </button>
 
-              <p style={{ fontFamily: SANS, fontSize: 12, color: C.dim, textAlign: "center", marginTop: 16 }}>
-                Your Sleeper username is your display name on the Sleeper app. We only read public league data — nothing is modified.
+              <p style={{
+                fontFamily: SANS, fontSize: 12, color: "#4a4b5a",
+                textAlign: "center", marginTop: 16, lineHeight: 1.5,
+              }}>
+                We only read public league data. Nothing is modified.
               </p>
             </>
           ) : (
             <>
-              {/* League discovery results */}
-              <div style={{ marginBottom: 16 }}>
-                <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.12em", color: C.green, marginBottom: 4 }}>
-                  ✓ ACCOUNT LINKED
+              {/* Linked state */}
+              <div style={{ marginBottom: 20 }}>
+                <div style={{
+                  fontFamily: MONO, fontSize: 9, fontWeight: 700,
+                  letterSpacing: "0.12em", color: C.green, marginBottom: 6,
+                }}>
+                  ACCOUNT LINKED
                 </div>
                 <div style={{ fontFamily: SANS, fontSize: 14, color: C.secondary }}>
                   Found <strong style={{ color: C.gold }}>{leagues.length}</strong> dynasty league{leagues.length !== 1 ? "s" : ""} on Sleeper
                 </div>
               </div>
 
-              {/* League list */}
-              <div style={{ maxHeight: 300, overflowY: "auto", marginBottom: 20 }}>
+              <div style={{ maxHeight: 240, overflowY: "auto", marginBottom: 20 }}>
                 {leagues.map((l) => (
                   <div key={l.league_id} style={{
-                    display: "flex", alignItems: "center", gap: 12,
-                    padding: "10px 12px", borderBottom: `1px solid ${C.border}`,
+                    display: "flex", alignItems: "center", gap: 10,
+                    padding: "10px 0", borderBottom: `1px solid ${C.border}`,
                   }}>
                     <div style={{
-                      width: 8, height: 8, borderRadius: "50%", background: C.green, flexShrink: 0,
+                      width: 6, height: 6, borderRadius: "50%", background: C.green, flexShrink: 0,
                     }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 600, color: C.primary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <div style={{
+                        fontFamily: SANS, fontSize: 14, fontWeight: 600, color: C.primary,
+                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                      }}>
                         {l.name}
                       </div>
                       <div style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>{l.season}</div>
@@ -215,7 +224,7 @@ export default function OnboardingPage() {
                 ))}
                 {leagues.length === 0 && (
                   <div style={{ fontFamily: SANS, fontSize: 14, color: C.dim, textAlign: "center", padding: 20 }}>
-                    No dynasty leagues found for this season. You can still enter a league ID manually.
+                    No dynasty leagues found for this season.
                   </div>
                 )}
               </div>
@@ -223,16 +232,25 @@ export default function OnboardingPage() {
               <button
                 onClick={handleContinue}
                 style={{
-                  width: "100%", padding: "14px 0", borderRadius: 6, border: "none",
-                  background: C.gold, color: C.bg,
-                  fontFamily: MONO, fontSize: 14, fontWeight: 800, letterSpacing: "0.06em",
+                  width: "100%", padding: "13px 0", borderRadius: 6, border: "none",
+                  background: C.gold, color: "#06080d",
+                  fontFamily: SANS, fontSize: 14, fontWeight: 700,
                   cursor: "pointer",
                 }}
               >
-                GO TO DASHBOARD →
+                Continue
               </button>
             </>
           )}
+        </div>
+
+        {/* Footer */}
+        <div style={{
+          textAlign: "center", marginTop: 24,
+          fontFamily: MONO, fontSize: 9, fontWeight: 500,
+          letterSpacing: "0.1em", color: "#4a4b5a",
+        }}>
+          DYNASTYGPT
         </div>
       </div>
     </div>
