@@ -417,7 +417,7 @@ export default function TapToBuild({
               className="flex-1 py-3 rounded-xl font-mono text-[11px] font-black tracking-wider text-[#06080d] active:opacity-80 transition-opacity"
               style={{ background: "linear-gradient(135deg, #8b6914, #d4a532)" }}
             >
-              ⚡ SUGGEST
+              SUGGEST
             </button>
           )}
           {/* Gap label */}

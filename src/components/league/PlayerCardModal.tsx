@@ -25,7 +25,6 @@ type Tab = "overview" | "trades" | "market" | "value";
 const TABS: { key: Tab; label: string }[] = [
   { key: "overview", label: "OVERVIEW" },
   { key: "trades", label: "TRADES" },
-  { key: "market", label: "MARKET" },
   { key: "value", label: "VALUE" },
 ];
 
@@ -243,8 +242,6 @@ export default function PlayerCardModal() {
                 <OverviewTab pc={pc} seasons={seasons} history={history} />
               ) : tab === "trades" ? (
                 <TradesTab trades={trades} timeline={timeline} playerName={playerName} pc={pc} />
-              ) : tab === "market" ? (
-                <MarketTab priceHistory={priceData as Record<string, unknown> | undefined} pc={pc} />
               ) : (
                 <ValueTab history={history} priceHistory={priceData as Record<string, unknown> | undefined} />
               )}
@@ -858,6 +855,34 @@ function ValueTab({ history, priceHistory }: { history: ValueHistoryPoint[]; pri
           </div>
         </div>
       )}
+
+      {/* Similar Value players — ported from Market tab */}
+      {(() => {
+        const comps = Array.isArray((ph as any)?.comparable_players) ? (ph as any).comparable_players as Array<Record<string, unknown>> : [];
+        if (!comps.length) return null;
+        return (
+          <div>
+            <SectionLabel text="SIMILAR VALUE" />
+            <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2, WebkitOverflowScrolling: "touch" as const }}>
+              {comps.slice(0, 8).map((comp, i) => {
+                const pc2 = posColor(String(comp.position || ""));
+                return (
+                  <div key={i} style={{ flexShrink: 0, borderRadius: 4, padding: "4px 8px", display: "flex", alignItems: "center", gap: 4, background: C.card, border: `1px solid ${C.border}` }}>
+                    <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, color: pc2 }}>{String(comp.position || "")}</span>
+                    <span style={{ fontFamily: SANS, fontSize: 10, fontWeight: 600, color: C.secondary, whiteSpace: "nowrap" }}>{String(comp.name || "")}</span>
+                    <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.gold }}>{fmt(typeof comp.sha_value === "number" ? comp.sha_value : 0)}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Consensus explainer */}
+      <div style={{ fontFamily: SANS, fontSize: 10, color: C.dim, lineHeight: 1.5, padding: "8px 0 4px", borderTop: `1px solid ${C.border}` }}>
+        <span style={{ fontWeight: 700, color: C.gold }}>Consensus</span> is the blended expert valuation from dynasty rankings sources. <span style={{ fontWeight: 700, color: "#6bb8e0" }}>Trade Market</span> is the actual price players are moving for in real trades across 1.5M+ dynasty transactions.
+      </div>
     </div>
   );
 }
