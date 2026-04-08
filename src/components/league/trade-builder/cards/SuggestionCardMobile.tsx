@@ -176,8 +176,7 @@ export default function SuggestionCardMobile({ pkg }: { pkg: SuggestedPackage })
             )}
           </div>
 
-          {/* Acceptance ring */}
-          <AcceptanceRing score={acc} />
+          {/* Acceptance ring — disabled, will revisit */}
         </div>
 
         {/* Send / Get columns */}
@@ -204,10 +203,14 @@ export default function SuggestionCardMobile({ pkg }: { pkg: SuggestedPackage })
         {(pkg.narrative || pkg.pitch) && (
           <div className="mt-3">
             <span className="font-mono text-[8px] font-bold tracking-widest text-[#d4a532]">DYNASTYGPT RATIONALE</span>
-            <div className="mt-1.5 space-y-1">
-              {(pkg.narrative || pkg.pitch || "").split("\n").filter(Boolean).map((line, i) => (
-                <p key={i} className="font-sans text-[12px] leading-snug text-[#b0b2c8]">{line}</p>
-              ))}
+            <div className="mt-2 flex flex-col gap-2">
+              {(pkg.narrative || pkg.pitch || "")
+                .split(/\n|(?= • )/)
+                .map((s) => s.trim())
+                .filter(Boolean)
+                .map((line, i) => (
+                  <p key={i} className="font-sans text-[12px] leading-relaxed text-[#b0b2c8]">{line}</p>
+                ))}
             </div>
           </div>
         )}

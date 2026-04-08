@@ -31,9 +31,11 @@ export default function ThumbsFeedback({ prompt, tradeId, suggestionId, context 
     if (voted) return; // already voted
     setVoted(vote);
     try {
+      const { authHeaders } = await import("@/lib/api");
+      const hdrs = await authHeaders();
       await fetch(`${API}/api/feedback`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: hdrs,
         body: JSON.stringify({
           clerk_user_id: user?.id,
           email: user?.primaryEmailAddress?.emailAddress,

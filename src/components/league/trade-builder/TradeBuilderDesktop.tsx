@@ -80,14 +80,15 @@ function PackageCard({ pkg, onBuild }: { pkg: SuggestedPackage; onBuild: () => v
           </div>
           {pkg.market_comparison && <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim }}>{pkg.market_comparison}</div>}
         </div>
-        <div style={{ textAlign: "right", flexShrink: 0 }}><span style={{ fontFamily: MONO, fontSize: 18, fontWeight: 700, color: accColor }}>{pkg.acceptance_likelihood}</span>
-          <div style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>acceptance</div></div>
+        {/* Acceptance score — disabled, will revisit */}
       </div>
 
       {/* Narrative — the AI's league-first explanation */}
       {pkg.narrative && (
-        <div style={{ fontFamily: SANS, fontSize: 13, lineHeight: 1.55, color: C.secondary, padding: "10px 12px", background: C.elevated, borderRadius: 6, borderLeft: `3px solid ${C.gold}50`, marginBottom: 10 }}>
-          {pkg.narrative}
+        <div style={{ fontFamily: SANS, fontSize: 13, color: C.secondary, padding: "10px 12px", background: C.elevated, borderRadius: 6, borderLeft: `3px solid ${C.gold}50`, marginBottom: 10, display: "flex", flexDirection: "column", gap: 6 }}>
+          {pkg.narrative.split(/\n|(?= • )/).map((s: string) => s.trim()).filter(Boolean).map((line: string, i: number) => (
+            <div key={i} style={{ lineHeight: 1.55 }}>{line}</div>
+          ))}
         </div>
       )}
 

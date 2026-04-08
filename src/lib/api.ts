@@ -12,8 +12,29 @@ import type {
 
 const API = "";
 
+async function getAuthToken(): Promise<string | null> {
+  try {
+    // window.Clerk is injected by ClerkProvider after mount
+    // In dev bypass mode or SSR, it won't exist — that's fine
+    const clerk = (window as any).Clerk;
+    if (!clerk?.session) return null;
+    const token = await clerk.session.getToken();
+    return token || null;
+  } catch {
+    return null;
+  }
+}
+
+async function authHeaders(): Promise<Record<string, string>> {
+  const token = await getAuthToken();
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  return headers;
+}
+
 async function get<T>(path: string): Promise<T> {
-  const res = await fetch(`${API}${path}`);
+  const headers = await authHeaders();
+  const res = await fetch(`${API}${path}`, { headers });
   if (!res.ok) {
     const text = await res.text();
     throw new Error(`API ${res.status}: ${text}`);
@@ -22,9 +43,10 @@ async function get<T>(path: string): Promise<T> {
 }
 
 async function post<T>(path: string, body?: unknown): Promise<T> {
+  const headers = await authHeaders();
   const res = await fetch(`${API}${path}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: body ? JSON.stringify(body) : undefined,
   });
   if (!res.ok) {
@@ -33,6 +55,9 @@ async function post<T>(path: string, body?: unknown): Promise<T> {
   }
   return res.json();
 }
+
+/** Get auth headers for direct fetch calls outside this module */
+export { authHeaders };
 
 const L = (id: string) => `/api/league/${id}`;
 const E = (s: string) => encodeURIComponent(s);
@@ -125,6 +150,7 @@ export const getLeagueIntel = (id: string) => get<{ owners: LeagueIntelOwner[] }
 
 // ── League Report Card ──────────────────────────────────────────────────
 export const getReportCard = (id: string) => get<LeagueReportCardResponse>(`${L(id)}/report-card`);
+export const getMarketPulse = (id: string) => get<{ league_id: string; most_traded: { player: string; trade_count: number }[]; above_market: { player: string; position: string; pct_diff: number; sha_value: number; market_price: number }[]; below_market: { player: string; position: string; pct_diff: number; sha_value: number; market_price: number }[] }>(`${L(id)}/market-pulse`);
 
 // ── Positional Power ─────────────────────────────────────────────────────
 export const getPositionalPower = (id: string, pos: string) => get<{ rankings: PositionalPowerEntry[] }>(`${L(id)}/positional-power/${pos}`);

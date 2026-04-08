@@ -96,7 +96,7 @@ export default function RosterColumn({ title, roster, selectedNames, onToggle, s
                       {selected && <span style={{ color: "#fff", fontSize: 11, fontWeight: 900, lineHeight: 1 }}>✓</span>}
                     </div>
 
-                    {/* Name + age inline */}
+                    {/* Name + subtext (age for players, original owner for picks) */}
                     <div
                       style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "baseline", gap: 5, cursor: !isPick ? "pointer" : "default" }}
                       onClick={() => !isPick && openPlayerCard(p.name)}
@@ -110,6 +110,9 @@ export default function RosterColumn({ title, roster, selectedNames, onToggle, s
                       </span>
                       {!isPick && p.age && (
                         <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim, flexShrink: 0 }}>{p.age}</span>
+                      )}
+                      {isPick && p.original_owner && !p.name.includes(".") && (
+                        <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim, flexShrink: 0 }}>({p.original_owner})</span>
                       )}
                     </div>
 

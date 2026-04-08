@@ -119,6 +119,8 @@ export interface RosterPlayer {
   ktc_value?: number;
   trend_label?: string;
   mkt_vs_pct?: number;
+  original_owner?: string;
+  is_own_pick?: boolean;
 }
 
 export interface LiveBalance {

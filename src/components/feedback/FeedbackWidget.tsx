@@ -48,9 +48,11 @@ export default function FeedbackWidget() {
     setSubmitting(true);
     try {
       const isMobile = /iPhone|iPad|Android|Mobile/i.test(navigator.userAgent);
+      const { authHeaders } = await import("@/lib/api");
+      const hdrs = await authHeaders();
       await fetch(`${API}/api/feedback`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: hdrs,
         body: JSON.stringify({
           clerk_user_id: user?.id,
           email: user?.primaryEmailAddress?.emailAddress,

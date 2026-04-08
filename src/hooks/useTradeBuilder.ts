@@ -106,15 +106,19 @@ function buildRoster(data: unknown, picksData?: unknown): RosterPlayer[] {
     const pd = picksData as Record<string, unknown>;
     const picks = (pd.picks || []) as Array<Record<string, unknown>>;
     for (const pk of picks) {
-      const slotStr = pk.slot_label ? String(pk.slot_label) : `R${pk.round}`;
+      const season = Number(pk.season);
+      // 2026: show exact slot "2026 3.10". 2027+: no slots known, show "2027 Rd 1"
+      const slotStr = season <= 2026 && pk.slot_label ? String(pk.slot_label) : `Rd ${pk.round}`;
       const label = `${pk.season} ${slotStr}`;
       all.push({
         name: label,
-        name_clean: String(pk.season) + "_" + String(pk.round),
+        name_clean: String(pk.season) + "_" + String(pk.round) + "_" + String(pk.original_owner || ""),
         position: "PICK",
         sha_value: Number(pk.sha_value || 0),
         sha_pos_rank: "",
         age: null,
+        original_owner: pk.is_own_pick ? undefined : String(pk.original_owner || ""),
+        is_own_pick: Boolean(pk.is_own_pick),
       });
     }
   }
@@ -265,11 +269,13 @@ export function useTradeBuilder({
     setAnalyzing(true);
     setError(null);
     try {
+      const { authHeaders } = await import("@/lib/api");
+      const hdrs = await authHeaders();
       const res = await fetch(
         `${API}/api/league/${leagueId}/trade-builder/evaluate`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: hdrs,
           body: JSON.stringify({
             owner,
             partner,
@@ -330,11 +336,13 @@ export function useTradeBuilder({
         const findPosition = (body.find_position as string) || undefined;
 
         // Step 1: Fire async job
+        const { authHeaders: getHdrs } = await import("@/lib/api");
+        const suggestHdrs = await getHdrs();
         const startRes = await fetch(
           `${API}/api/league/${leagueId}/v2/trade-engine/generate`,
           {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: suggestHdrs,
             body: JSON.stringify({
               owner,
               asset: sellAsset || undefined,
@@ -362,7 +370,7 @@ export function useTradeBuilder({
         let data: Record<string, unknown> | null = null;
         for (let attempt = 0; attempt < 30; attempt++) {
           await new Promise((r) => setTimeout(r, 2000));
-          const pollRes = await fetch(`${API}/api/league/${leagueId}/v2/trade-engine/status/${job_id}`, { cache: "no-store" });
+          const pollRes = await fetch(`${API}/api/league/${leagueId}/v2/trade-engine/status/${job_id}`, { cache: "no-store", headers: suggestHdrs });
           if (!pollRes.ok) {
             if (pollRes.status === 404 && attempt < 3) continue; // job may not be registered yet
             setError(`Poll failed (${pollRes.status})`);

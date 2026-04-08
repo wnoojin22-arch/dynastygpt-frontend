@@ -30,6 +30,9 @@
   --color-gold: #d4a532;
   --color-gold-bright: #f5e6a3;
   --color-gold-dark: #8b6914;
+  --color-gold-dim: rgba(212, 165, 50, 0.10);
+  --color-gold-border: rgba(212, 165, 50, 0.22);
+  --color-gold-glow: rgba(212, 165, 50, 0.06);
 
   /* ── Semantic Colors ── */
   --color-accent-blue: #6bb8e0;
