@@ -27,7 +27,7 @@ function safeText(v: unknown): string {
 }
 
 // Strip ALL position ranks (WR11, QB5, RB15, TE1 etc) from any string
-const _stripRanks = (s: string) => s.replace(/\b(?:QB|RB|WR|TE)\d{1,3}\b/g, "").replace(/\s{2,}/g, " ").trim();
+const _stripRanks = (s: string) => s.replace(/\b(?:QB|RB|WR|TE)\d{1,3}\b/g, "").replace(/[^\S\n]{2,}/g, " ").trim();
 
 function parseActionItem(item: unknown): { action: string; dataPoint: string; detail: string } {
   if (typeof item === "string") return { action: _stripRanks(item), dataPoint: "", detail: "" };
@@ -60,15 +60,26 @@ function GmVerdict({ text }: { text: string }) {
     </div>
   );
 
-  const render = (t: string) => ({
+  // Always 3 sections: Overview, Roster Strength, Offseason Moves
+  // Split by double newlines, strip any AI-generated bold headers, assign our own labels
+  const LABELS = ["Overview", "Roster Strength", "Offseason Moves"];
+  const rawParas = clean.split(/\n\n+/).filter(Boolean);
+  // Strip leading **HEADER** lines from each paragraph — we use our own labels
+  const stripped = rawParas.map(p => p.replace(/^\*\*[^*]+\*\*\s*/m, '').trim()).filter(Boolean);
+  // Assign paragraphs to 3 buckets: first → Overview, second → Roster, third+ → Offseason
+  const grouped: { label: string; body: string }[] = LABELS.map((label, i) => {
+    if (i < 2) return { label, body: stripped[i] || "" };
+    // Third section gets all remaining paragraphs joined
+    return { label, body: stripped.slice(2).join("\n\n") };
+  }).filter(s => s.body);
+
+  const renderHtml = (t: string) => ({
     __html: t
-      // Force paragraph breaks before bold section headers like **Key Move:** **Recommendation:** etc
-      .replace(/(?<!\n)\*\*(Key Move|Recommendation|Bottom Line|Action Item|The Move|Priority|Focus|Verdict|Assessment|Summary|Outlook|Warning|Opportunity)(.+?)\*\*/gi,
-        '\n\n**$1$2**')
       .replace(/\*\*(.+?)\*\*/g, '<strong style="color:#f5e6a3;font-weight:700">$1</strong>')
-      .replace(/\n\n+/g, '</p><p style="margin-top:10px">')
       .replace(/\n/g, "<br/>"),
   });
+
+  const preview = stripped[0] || clean;
 
   return (
     <div style={{
@@ -79,15 +90,21 @@ function GmVerdict({ text }: { text: string }) {
     }}>
       <div style={{ padding: "14px 16px" }}>
         <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.1em", color: C.gold, marginBottom: 8 }}>GM VERDICT</div>
-        {/* Collapsed: CSS clamp to 3 lines max. Expanded: full text */}
         {!open ? (
           <div style={{
             fontFamily: SANS, fontSize: 13, fontWeight: 500, color: C.primary, lineHeight: 1.5,
             display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" as const, overflow: "hidden",
-          }} dangerouslySetInnerHTML={render(clean)} />
+          }} dangerouslySetInnerHTML={renderHtml(preview)} />
         ) : (
-          <div style={{ fontFamily: SANS, fontSize: 13, fontWeight: 500, color: C.primary, lineHeight: 1.5 }}
-            dangerouslySetInnerHTML={render(clean)} />
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {grouped.map((s, i) => (
+              <div key={i}>
+                <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.10em", color: C.gold, marginBottom: 6, textTransform: "uppercase" }}>{s.label}</div>
+                <div style={{ fontFamily: SANS, fontSize: 13, fontWeight: 500, color: C.primary, lineHeight: 1.6 }}
+                  dangerouslySetInnerHTML={renderHtml(s.body)} />
+              </div>
+            ))}
+          </div>
         )}
       </div>
       <div onClick={() => setOpen(!open)} style={{
@@ -334,16 +351,19 @@ export default function FranchiseIntel({ leagueId, owner, ownerId }: {
     queryKey: ["franchise-intel", leagueId, owner],
     queryFn: () => getFranchiseIntel(leagueId, owner, ownerId),
     enabled: !!owner,
+    staleTime: 4 * 60 * 60 * 1000,
   });
   const { data: gmVerdict } = useQuery({
     queryKey: ["gm-verdict", leagueId, owner],
     queryFn: () => getGmVerdict(leagueId, owner, ownerId),
     enabled: !!owner,
+    staleTime: 4 * 60 * 60 * 1000,
   });
   const { data: actions } = useQuery({
     queryKey: ["actions", leagueId, owner],
     queryFn: () => getActions(leagueId, owner, ownerId),
     enabled: !!owner,
+    staleTime: 4 * 60 * 60 * 1000,
   });
 
   const i = intel as Record<string, unknown> | undefined;

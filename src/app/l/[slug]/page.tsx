@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { useLeagueStore } from "@/lib/stores/league-store";
+import { usePlayerCardStore } from "@/lib/stores/player-card-store";
 import { useQuery } from "@tanstack/react-query";
 import {
   getRankings, getRecentTrades, getTrending, getOwnerProfiles,
@@ -867,15 +868,15 @@ export default function LeagueHome() {
         {/* ── MARKET PULSE ── */}
         <AnimatedSection className="order-3">
           <SectionLabel title="MARKET PULSE" />
-          <div className="text-[8px] font-bold tracking-[0.1em] text-dim/50 mb-4" style={{ fontFamily: SANS }}>PLATFORM-WIDE · 1.5M+ TRADES</div>
 
           {/* Most Traded Assets */}
-          <div className="text-[9px] font-black tracking-[0.12em] text-dim mb-3" style={{ fontFamily: SANS }}>MOST TRADED ASSETS</div>
+          <div className="text-[10px] font-black tracking-[0.12em] text-dim mb-0.5" style={{ fontFamily: SANS }}>MOST TRADED ASSETS — LAST 120 DAYS</div>
+          <div className="text-[10px] text-secondary/60 mb-3" style={{ fontFamily: SANS }}>DynastyGPT wide — 1.5M+ trades</div>
           <div className="flex flex-col mb-5">
             {(marketPulse?.most_traded || []).slice(0, 6).map((p: any, i: number) => (
-              <div key={i} className="flex items-center gap-2 py-2 border-b border-border last:border-0">
+              <div key={i} className="flex items-center gap-2 py-2 border-b border-border last:border-0 cursor-pointer hover:bg-elevated/50 transition-colors rounded-sm" onClick={() => usePlayerCardStore.getState().openPlayerCard(p.player)}>
                 <span className="text-[10px] font-black text-dim w-4 text-right shrink-0" style={{ fontFamily: MONO }}>{i + 1}</span>
-                <PlayerHeadshot name={p.player} position={p.position || ""} size={22} sleeperId={p.sleeper_id} />
+                <PlayerHeadshot name={p.player} position={p.position || ""} size={22} />
                 <PlayerName name={p.player} style={{ fontSize: 12, fontWeight: 600, color: C.primary, fontFamily: SANS }} />
                 <span className="text-[10px] font-bold text-gold ml-auto shrink-0" style={{ fontFamily: MONO }}>{p.trade_count}</span>
               </div>
@@ -886,12 +887,12 @@ export default function LeagueHome() {
           </div>
 
           {/* Above/Below Consensus */}
-          <div className="text-[9px] font-black tracking-[0.12em] text-dim mb-3" style={{ fontFamily: SANS }}>ABOVE / BELOW CONSENSUS</div>
+          <div className="text-[10px] font-black tracking-[0.12em] text-dim mb-3" style={{ fontFamily: SANS }}>TRADE MARKET — ABOVE/BELOW CONSENSUS</div>
           <div className="flex flex-col gap-1">
             {(marketPulse?.above_market || []).slice(0, 3).map((p: any, i: number) => (
-              <div key={`a${i}`} className="flex items-center gap-2 py-1.5">
-                <PlayerHeadshot name={p.player} position={p.position || ""} size={20} sleeperId={p.sleeper_id} />
-                <span className="text-[11px] font-semibold text-primary truncate flex-1" style={{ fontFamily: SANS }}>{p.player}</span>
+              <div key={`a${i}`} className="flex items-center gap-2 py-1.5 cursor-pointer hover:bg-elevated/50 transition-colors rounded-sm" onClick={() => usePlayerCardStore.getState().openPlayerCard(p.player)}>
+                <PlayerHeadshot name={p.player} position={p.position || ""} size={20} />
+                <PlayerName name={p.player} style={{ fontSize: 11, fontWeight: 600, color: C.primary, fontFamily: SANS }} className="truncate flex-1" />
                 <span className="text-[10px] font-black text-accent-green shrink-0" style={{ fontFamily: MONO }}>+{Math.round(p.pct_diff)}%</span>
               </div>
             ))}
@@ -899,9 +900,9 @@ export default function LeagueHome() {
               <div className="h-px bg-border my-1" />
             )}
             {(marketPulse?.below_market || []).slice(0, 3).map((p: any, i: number) => (
-              <div key={`b${i}`} className="flex items-center gap-2 py-1.5">
-                <PlayerHeadshot name={p.player} position={p.position || ""} size={20} sleeperId={p.sleeper_id} />
-                <span className="text-[11px] font-semibold text-primary truncate flex-1" style={{ fontFamily: SANS }}>{p.player}</span>
+              <div key={`b${i}`} className="flex items-center gap-2 py-1.5 cursor-pointer hover:bg-elevated/50 transition-colors rounded-sm" onClick={() => usePlayerCardStore.getState().openPlayerCard(p.player)}>
+                <PlayerHeadshot name={p.player} position={p.position || ""} size={20} />
+                <PlayerName name={p.player} style={{ fontSize: 11, fontWeight: 600, color: C.primary, fontFamily: SANS }} className="truncate flex-1" />
                 <span className="text-[10px] font-black text-accent-red shrink-0" style={{ fontFamily: MONO }}>{Math.round(p.pct_diff)}%</span>
               </div>
             ))}
