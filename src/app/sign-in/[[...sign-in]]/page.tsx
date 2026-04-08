@@ -243,9 +243,16 @@ export default function SignInPage() {
           forceRedirectUrl="/dashboard"
         />
 
+        <p style={{
+          fontFamily: SANS, fontSize: 13, color: "#6b6d7d", textAlign: "center",
+          maxWidth: 480, lineHeight: 1.5, margin: "24px 0 0",
+        }}>
+          Your account links you to your league. We use it to show your roster, your trades, and your stats — nothing else.
+        </p>
+
         {/* Footer */}
         <div style={{
-          marginTop: 32, fontFamily: SANS, fontSize: 11, color: TEXT_MUTED, textAlign: "center",
+          marginTop: 24, fontFamily: SANS, fontSize: 11, color: TEXT_MUTED, textAlign: "center",
         }}>
           <a href="https://dynastygpt.com" style={{ color: TEXT_MUTED, textDecoration: "none" }}>dynastygpt.com</a>
         </div>

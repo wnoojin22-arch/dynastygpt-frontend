@@ -211,7 +211,7 @@ export default function TradeBuilderDesktop({
         <div style={{ flex: 1, display: "flex", gap: 12, padding: "12px 20px", minHeight: 0, overflow: "hidden" }}>
           {/* LEFT: Owner roster */}
           <RosterColumn title={owner} roster={myRoster} selectedNames={giveNames}
-            onToggle={partner || hasTray ? toggleGive : handleSellAsset} side="give" posGrades={myGrades}
+            onToggle={toggleGive} side="give" posGrades={myGrades}
             windowToggle={<WindowToggle label="MY MODE" value={myWindow} computed={computedOW} onChange={setMyWindow} />} />
 
           {/* CENTER: Tray or empty */}
@@ -226,7 +226,7 @@ export default function TradeBuilderDesktop({
           {/* RIGHT: Partner roster or Results or Explore */}
           {partner ? (
             <RosterColumn title={partner} roster={theirRoster} selectedNames={receiveNames}
-              onToggle={hasTray ? toggleReceive : handleTargetPlayer} side="receive" posGrades={theirGrades}
+              onToggle={toggleReceive} side="receive" posGrades={theirGrades}
               windowToggle={<WindowToggle label="THEIR LENS" value={theirWindow} computed={computedPW} onChange={setTheirWindow} />} />
           ) : showResults ? (
             <ResultsPanel packages={suggestedPkgs} loading={suggestLoading} query={suggestQuery} onBuild={buildPackage} onBack={() => handleClear()} />

@@ -116,6 +116,9 @@ export interface RosterPlayer {
   age: number | null;
   dynasty_value?: number;
   redraft_value?: number;
+  ktc_value?: number;
+  trend_label?: string;
+  mkt_vs_pct?: number;
 }
 
 export interface LiveBalance {

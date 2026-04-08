@@ -86,6 +86,7 @@ function buildRoster(data: unknown, picksData?: unknown): RosterPlayer[] {
     if (bp) {
       for (const pos of ["QB", "RB", "WR", "TE"] as const) {
         for (const p of bp[pos] || []) {
+          const trend = p.trend_30d as Record<string, unknown> | undefined;
           all.push({
             name: String(p.name || ""),
             name_clean: String(p.name_clean || ""),
@@ -93,6 +94,9 @@ function buildRoster(data: unknown, picksData?: unknown): RosterPlayer[] {
             sha_value: Number(p.sha_value || 0),
             sha_pos_rank: String(p.sha_pos_rank || ""),
             age: p.age ? Number(p.age) : null,
+            ktc_value: p.ktc_value ? Number(p.ktc_value) : undefined,
+            trend_label: trend?.label ? String(trend.label) : undefined,
+            mkt_vs_pct: p.mkt_vs_pct != null ? Number(p.mkt_vs_pct) : undefined,
           });
         }
       }
@@ -321,6 +325,7 @@ export function useTradeBuilder({
       setError(null);
       try {
         const sellAsset = (body.sell_asset as string) || undefined;
+        const sellAssets = (body.sell_assets as string[]) || undefined;
         const targetAsset = (body.i_receive as string[])?.[0] || undefined;
         const findPosition = (body.find_position as string) || undefined;
 
@@ -333,6 +338,7 @@ export function useTradeBuilder({
             body: JSON.stringify({
               owner,
               asset: sellAsset || undefined,
+              assets: sellAssets || undefined,
               target_asset: targetAsset || undefined,
               mode,
               partner: (body.partner as string) || undefined,
@@ -461,20 +467,27 @@ export function useTradeBuilder({
   );
 
   const handleSuggestWithPartner = useCallback(() => {
-    fireSuggest(
-      {
-        sell_asset: activeSellAsset || undefined,
-        partner: partner || undefined,
-      },
-      activeSellAsset
-        ? partner
-          ? `Best trades with ${partner} for ${activeSellAsset}`
-          : `Exploring trades for ${activeSellAsset}`
-        : partner
-          ? `Best trades with ${partner}`
-          : `Best available trades`,
-    );
-  }, [fireSuggest, partner, activeSellAsset]);
+    const body: Record<string, unknown> = {};
+    if (partner) body.partner = partner;
+    // Send all checked players as context
+    if (giveNames.length > 0) {
+      body.sell_asset = giveNames[0];
+      if (giveNames.length > 1) body.sell_assets = giveNames;
+    } else if (activeSellAsset) {
+      body.sell_asset = activeSellAsset;
+    }
+    if (receiveNames.length > 0) {
+      body.i_receive = receiveNames;
+    }
+
+    const parts: string[] = [];
+    if (giveNames.length > 0) parts.push(`selling ${giveNames.join(", ")}`);
+    if (receiveNames.length > 0) parts.push(`targeting ${receiveNames.join(", ")}`);
+    if (partner) parts.push(`with ${partner}`);
+    const label = parts.length > 0 ? parts.join(" ") : "Best available trades";
+
+    fireSuggest(body, label);
+  }, [fireSuggest, partner, activeSellAsset, giveNames, receiveNames]);
 
   const handleTargetPlayer = useCallback(
     (name: string) => {
