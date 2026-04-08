@@ -172,31 +172,33 @@ export default function ChatPanel({ leagueId, owner, activeTrade, suggestedPacka
     : ["Who should I trade with?", "Best trade I can make?", "Who overpays for picks?", "Positions to target?"]
   ) : null;
 
-  // ── COLLAPSED: slim "AI" tab on right edge ──
+  // ── COLLAPSED: visible tab on right edge ──
   if (collapsed) {
     return (
       <div onClick={onToggle} style={{
-        width: 40, height: '100%', flexShrink: 0, cursor: 'pointer',
-        background: 'linear-gradient(180deg, rgba(10,13,21,0.95) 0%, rgba(16,19,29,0.95) 100%)',
-        borderLeft: `1px solid ${C.gold}25`,
+        width: 48, height: '100%', flexShrink: 0, cursor: 'pointer',
+        background: `linear-gradient(180deg, ${C.gold}08 0%, ${C.gold}04 50%, ${C.gold}08 100%)`,
+        borderLeft: `2px solid ${C.gold}50`,
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+        gap: 12,
         transition: 'all 0.2s',
       }}
-        onMouseEnter={e => e.currentTarget.style.borderLeftColor = `${C.gold}60`}
-        onMouseLeave={e => e.currentTarget.style.borderLeftColor = `${C.gold}25`}
+        onMouseEnter={e => { e.currentTarget.style.borderLeftColor = C.gold; e.currentTarget.style.background = `${C.gold}12`; }}
+        onMouseLeave={e => { e.currentTarget.style.borderLeftColor = `${C.gold}50`; e.currentTarget.style.background = `linear-gradient(180deg, ${C.gold}08 0%, ${C.gold}04 50%, ${C.gold}08 100%)`; }}
       >
         <div style={{
-          width: 28, height: 28, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: `${C.gold}15`, border: `1px solid ${C.gold}30`,
-          boxShadow: `0 0 12px ${C.gold}15`,
+          width: 32, height: 32, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: `linear-gradient(135deg, ${C.goldDark}, ${C.gold})`,
+          boxShadow: `0 0 16px ${C.gold}30`,
         }}>
-          <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.gold }}>AI</span>
+          <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: '#000' }}>AI</span>
         </div>
         <span style={{
-          fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.gold, letterSpacing: '0.2em',
-          writingMode: 'vertical-rl', marginTop: 12,
-        }}>ADVISOR</span>
-        {messages.length > 0 && <div style={{ width: 6, height: 6, borderRadius: '50%', background: C.green, marginTop: 8, boxShadow: `0 0 6px ${C.green}80` }} />}
+          fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.gold, letterSpacing: '0.15em',
+          writingMode: 'vertical-rl',
+        }}>TRADE ADVISOR</span>
+        {messages.length > 0 && <div style={{ width: 7, height: 7, borderRadius: '50%', background: C.green, marginTop: 4, boxShadow: `0 0 8px ${C.green}`, animation: 'pulse-gold 2s ease infinite' }} />}
+        <span style={{ fontFamily: MONO, fontSize: 8, color: `${C.gold}80`, writingMode: 'vertical-rl', letterSpacing: '0.1em' }}>CLICK TO OPEN</span>
       </div>
     );
   }
