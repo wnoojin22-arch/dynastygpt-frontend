@@ -290,30 +290,6 @@ export default function SuggestionCardMobile({ pkg }: { pkg: SuggestedPackage })
                 </div>
               )}
 
-              {/* Negotiation insights */}
-              {insights.length > 0 && (
-                <div>
-                  <span className="font-mono text-[9px] font-black tracking-widest text-[#d4a532]">
-                    NEGOTIATION INTEL
-                  </span>
-                  <div className="mt-2 space-y-2">
-                    {insights.slice(0, 3).map((ins, i) => (
-                      <div
-                        key={i}
-                        className="flex items-start gap-2 text-[12px] font-sans text-[#b0b2c8]"
-                      >
-                        <span className="font-mono text-[8px] font-bold tracking-wide mt-0.5 shrink-0 px-1 rounded" style={{
-                          color: ins.type === "leverage" ? "#7dd3a0" : ins.type === "warning" ? "#e47272" : "#d4a532",
-                          background: ins.type === "leverage" ? "#7dd3a018" : ins.type === "warning" ? "#e4727218" : "#d4a53218",
-                        }}>
-                          {ins.type === "leverage" ? "LEVERAGE" : ins.type === "warning" ? "WARNING" : "TACTIC"}
-                        </span>
-                        <span className="leading-snug">{ins.insight}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
 
               {/* Trade comps */}
               {comps.length > 0 && (

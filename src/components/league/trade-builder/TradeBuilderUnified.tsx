@@ -599,7 +599,7 @@ function BuilderLayer({ tb, ctx, owners, giveAssets, getAssets, sendTotal, getTo
             boxShadow: "0 0 16px rgba(212,165,50,0.12)",
           }}
         >
-          {tb.suggestLoading ? "SCANNING..." : "⚡ SUGGEST"}
+          {tb.suggestLoading ? "SCANNING..." : "SUGGEST"}
         </button>
         {/* Gap label between buttons */}
         {(sendTotal > 0 || getTotal > 0) && (
@@ -862,7 +862,7 @@ export default function TradeBuilderUnified() {
               boxShadow: `0 0 20px rgba(212,165,50,0.15)`,
             }}
           >
-            {tb.suggestLoading ? "SCANNING..." : "⚡ SUGGEST TRADES"}
+            {tb.suggestLoading ? "SCANNING..." : "SUGGEST TRADES"}
           </button>
 
           {/* Error display */}
