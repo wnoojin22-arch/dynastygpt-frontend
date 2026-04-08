@@ -67,50 +67,81 @@ export default function RosterColumn({ title, roster, selectedNames, onToggle, s
                 const selected = selectedSet.has(p.name.toLowerCase());
                 const isPick = p.position === "PICK";
                 const isUntouchable = side === "receive" && !isPick && p.sha_value > 2000 && moveableNames && moveableNames.size > 0 && !moveableNames.has(p.name_clean);
+                const accentColor = side === "give" ? C.red : C.green;
 
                 return (
                   <div key={`${side}-${pos}-${p.name}-${idx}`}
-                    onClick={() => onToggle(p.name)}
                     style={{
-                      display: "flex", alignItems: "center", gap: 8, padding: "5px 14px",
-                      cursor: isUntouchable ? "not-allowed" : "pointer",
-                      borderLeft: `3px solid ${selected ? C.gold : "transparent"}`,
-                      background: selected ? `${C.gold}15` : "transparent",
-                      opacity: selected ? 0.55 : isUntouchable ? 0.4 : 1,
+                      display: "flex", alignItems: "center", gap: 8, padding: "6px 10px 6px 14px",
+                      borderLeft: `3px solid ${selected ? accentColor : "transparent"}`,
+                      background: selected ? `${accentColor}08` : "transparent",
+                      opacity: isUntouchable ? 0.4 : 1,
                       transition: "all 0.15s",
+                      cursor: isUntouchable ? "not-allowed" : "default",
                     }}
-                    onMouseEnter={(e) => { if (!selected) e.currentTarget.style.background = C.white08; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = selected ? `${C.gold}15` : "transparent"; }}>
-                    <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 4 }}>
-                      <span style={{
-                        fontFamily: SANS, fontSize: 13, fontWeight: 500, color: selected ? C.dim : C.primary,
-                        whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1,
-                        textDecoration: selected ? "line-through" : "none",
+                    onMouseEnter={(e) => { if (!selected && !isUntouchable) e.currentTarget.style.background = C.white08; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = selected ? `${accentColor}08` : "transparent"; }}>
+
+                    {/* Checkbox */}
+                    <div
+                      onClick={() => !isUntouchable && onToggle(p.name)}
+                      style={{
+                        width: 18, height: 18, borderRadius: 4, flexShrink: 0, cursor: isUntouchable ? "not-allowed" : "pointer",
+                        border: `2px solid ${selected ? accentColor : C.border}`,
+                        background: selected ? accentColor : "transparent",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        transition: "all 0.12s",
+                      }}
+                    >
+                      {selected && <span style={{ color: "#fff", fontSize: 11, fontWeight: 900, lineHeight: 1 }}>✓</span>}
+                    </div>
+
+                    {/* Name + age subtext */}
+                    <div
+                      style={{ flex: 1, minWidth: 0, cursor: !isPick ? "pointer" : "default" }}
+                      onClick={() => !isPick && openPlayerCard(p.name)}
+                    >
+                      <div style={{
+                        fontFamily: SANS, fontSize: 13, fontWeight: 500, color: C.primary,
+                        whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
                       }}>
                         {p.name}
                         {isUntouchable && <span style={{ fontSize: 11, opacity: 0.5, marginLeft: 4 }}>🔒</span>}
-                      </span>
-                      {!isPick && (
-                        <span onClick={(e) => { e.stopPropagation(); openPlayerCard(p.name); }}
-                          style={{ fontSize: 12, color: C.dim, cursor: "pointer", padding: "2px 4px", borderRadius: 3, flexShrink: 0, lineHeight: 1, opacity: 0.5, transition: "opacity 0.15s" }}
-                          onMouseEnter={(e) => { e.currentTarget.style.opacity = "1"; e.currentTarget.style.color = C.gold; }}
-                          onMouseLeave={(e) => { e.currentTarget.style.opacity = "0.5"; e.currentTarget.style.color = C.dim; }}
-                          title="View player card">ⓘ</span>
+                      </div>
+                      {!isPick && p.age && (
+                        <div style={{ fontFamily: MONO, fontSize: 10, color: C.dim, marginTop: 1 }}>
+                          Age {p.age}
+                          {p.trend_label && p.trend_label !== "—" && (
+                            <span style={{
+                              marginLeft: 6,
+                              color: p.trend_label.startsWith("-") ? C.red : p.trend_label.startsWith("+") || Number(p.trend_label) > 0 ? C.green : C.dim,
+                            }}>
+                              {p.trend_label.startsWith("-") || p.trend_label.startsWith("+") ? p.trend_label : `+${p.trend_label}`} rank
+                            </span>
+                          )}
+                        </div>
                       )}
                     </div>
-                    {/* Positional rank badge */}
+
+                    {/* Position rank badge */}
                     {p.sha_pos_rank && (
                       <span style={{
                         fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "1px 5px",
                         borderRadius: 3, background: C.elevated, color: posColor(pos),
                       }}>{p.sha_pos_rank}</span>
                     )}
-                    <span style={{ fontFamily: MONO, fontSize: 12, color: C.gold, minWidth: 48, textAlign: "right" }}>
+
+                    {/* Market value (KTC) */}
+                    {!isPick && p.ktc_value && p.ktc_value > 0 && (
+                      <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim, minWidth: 40, textAlign: "right" }}>
+                        {fmt(p.ktc_value)}
+                      </span>
+                    )}
+
+                    {/* Dynasty value */}
+                    <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.gold, minWidth: 48, textAlign: "right" }}>
                       {p.sha_value > 0 ? fmt(p.sha_value) : "—"}
                     </span>
-                    {!isPick && p.age && (
-                      <span style={{ fontFamily: MONO, fontSize: 11, color: C.dim, minWidth: 18, textAlign: "right" }}>{p.age}</span>
-                    )}
                   </div>
                 );
               })}

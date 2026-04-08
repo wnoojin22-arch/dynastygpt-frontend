@@ -86,6 +86,7 @@ function buildRoster(data: unknown, picksData?: unknown): RosterPlayer[] {
     if (bp) {
       for (const pos of ["QB", "RB", "WR", "TE"] as const) {
         for (const p of bp[pos] || []) {
+          const trend = p.trend_30d as Record<string, unknown> | undefined;
           all.push({
             name: String(p.name || ""),
             name_clean: String(p.name_clean || ""),
@@ -93,6 +94,8 @@ function buildRoster(data: unknown, picksData?: unknown): RosterPlayer[] {
             sha_value: Number(p.sha_value || 0),
             sha_pos_rank: String(p.sha_pos_rank || ""),
             age: p.age ? Number(p.age) : null,
+            ktc_value: p.ktc_value ? Number(p.ktc_value) : undefined,
+            trend_label: trend?.label ? String(trend.label) : undefined,
           });
         }
       }
