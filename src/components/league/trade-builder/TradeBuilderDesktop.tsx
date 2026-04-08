@@ -9,7 +9,7 @@
  *
  * Now uses the shared useTradeBuilder hook for all state/API logic.
  */
-import React from "react";
+import React, { useEffect } from "react";
 import { C, SANS, MONO, DISPLAY, SERIF, fmt, posColor } from "../tokens";
 import RosterColumn from "./RosterColumn";
 import TradeTray from "./TradeTray";
@@ -148,6 +148,16 @@ export default function TradeBuilderDesktop({
     handleSuggestWithPartner, handleTargetPlayer, buildPackage, handleClear,
     setGiveNames, setReceiveNames, setEvaluation,
   } = tb;
+
+  // Auto-collapse chat panel when window is too narrow for it
+  useEffect(() => {
+    const check = () => {
+      if (window.innerWidth < 1100 && !chatCollapsed) setChatCollapsed(true);
+    };
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, [chatCollapsed, setChatCollapsed]);
 
   if (!owner) return <div style={{ padding: 32, textAlign: "center", fontFamily: MONO, fontSize: 12, color: C.dim }}>Select an owner to use the Trade Builder.</div>;
 

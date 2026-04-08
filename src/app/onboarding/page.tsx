@@ -162,7 +162,7 @@ export default function OnboardingPage() {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleLink()}
-                  placeholder="e.g. moranimals34"
+                  placeholder="e.g. dynastygpt"
                   style={{
                     width: "100%", padding: "12px 14px", borderRadius: 6,
                     background: C.bg, border: `1px solid ${C.border}`,
