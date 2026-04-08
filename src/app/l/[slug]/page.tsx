@@ -118,12 +118,15 @@ function AnimatedSection({ children, className = "" }: { children: React.ReactNo
   );
 }
 
-function SectionLabel({ title }: { title: string }) {
+function SectionLabel({ title, badge }: { title: string; badge?: string }) {
   return (
     <div className="mb-5">
-      <h2 className="text-[11px] font-black tracking-[0.16em] text-primary uppercase mb-2" style={{ fontFamily: SANS }}>
-        {title}
-      </h2>
+      <div className="flex items-center gap-3 mb-2">
+        <h2 className="text-[11px] font-black tracking-[0.16em] text-primary uppercase" style={{ fontFamily: SANS }}>
+          {title}
+        </h2>
+        {badge && <span className="text-[8px] font-black tracking-[0.12em] px-2.5 py-0.5 rounded-full" style={{ fontFamily: MONO, color: C.gold, background: `${C.gold}12`, border: `1px solid ${C.gold}30`, boxShadow: `0 0 8px ${C.gold}15` }}>{badge}</span>}
+      </div>
       <div className="h-px bg-gold/30" />
     </div>
   );
@@ -394,15 +397,13 @@ function StatCard({ label, value, display, inView }: { label: string; value: num
    NEWS CARD — reusable for League News & My News
    ═══════════════════════════════════════════════════════════════ */
 
-function NewsCard({ tag, tagColor, headline, lede, link, linkLabel = "Read More →", isHero = false, topColor }: {
+function NewsCard({ tag, tagColor, headline, lede, isHero = false, topColor }: {
   tag: string; tagColor: string; headline: string; lede: string;
-  link?: string; linkLabel?: string; isHero?: boolean; topColor?: string;
+  isHero?: boolean; topColor?: string;
 }) {
-  const router = useRouter();
   return (
     <div
-      className={`bg-card border border-border overflow-hidden cursor-pointer group transition-all duration-300 hover:border-gold/25 ${isHero ? "rounded-xl hover:shadow-[0_8px_40px_rgba(212,165,50,0.06)]" : "rounded-lg hover:-translate-y-0.5 hover:shadow-[0_4px_20px_rgba(0,0,0,0.3)]"}`}
-      onClick={() => link && router.push(link)}
+      className={`bg-card border border-border overflow-hidden group transition-all duration-300 ${isHero ? "rounded-xl" : "rounded-lg"}`}
     >
       {topColor && <div className={`h-[3px]`} style={{ background: topColor }} />}
       <div className={isHero ? "px-5 pt-4 pb-5" : "px-3.5 pt-3 pb-3.5"}>
@@ -415,11 +416,6 @@ function NewsCard({ tag, tagColor, headline, lede, link, linkLabel = "Read More 
         <p className={`text-dim leading-relaxed ${isHero ? "text-sm line-clamp-3" : "text-xs line-clamp-2"}`} style={{ fontFamily: SANS }}>
           {lede}
         </p>
-        {link && (
-          <span className="inline-flex items-center gap-1 text-xs font-bold text-gold mt-3 group-hover:text-gold-bright transition-colors" style={{ fontFamily: SANS }}>
-            {linkLabel}
-          </span>
-        )}
       </div>
     </div>
   );
@@ -774,15 +770,13 @@ export default function LeagueHome() {
 
         {/* ── MY NEWS (first on mobile) ── */}
         <AnimatedSection className="order-1 lg:order-2">
-          <SectionLabel title="MY NEWS" />
+          <SectionLabel title="MY NEWS" badge="COMING SOON" />
           <div className="flex flex-col gap-3">
             {currentOwner ? (
               <>
                 <NewsCard
                   tag="GM REPORT" tagColor="text-accent-orange bg-accent-orange/10"
                   headline={myHeadline} lede={myLede}
-                  link={currentOwner ? `${basePath}/intel/${encodeURIComponent(currentOwner)}` : undefined}
-                  linkLabel="Get Full Breakdown →"
                   isHero topColor={C.orange}
                 />
                 <NewsCard
@@ -795,27 +789,15 @@ export default function LeagueHome() {
                       : `Your ${myIntel.positional_needs[0]} Room Needs an Upgrade`
                     : "No Weak Spots — This Roster Is Built to Compete"}
                   lede={myIntel?.positional_needs?.length
-                    ? `${myIntel.positional_needs.map(pos => `${pos} graded ${myIntel.positional_grades?.[pos] || "—"}`).join(", ")}. See where to target upgrades.`
-                    : "Every position group is holding strong. See the full positional breakdown."}
-                  link={currentOwner ? `${basePath}/intel/${encodeURIComponent(currentOwner)}` : undefined}
-                  linkLabel="See Full Analysis →"
+                    ? `Positional gaps identified. Full breakdown and upgrade targets available soon.`
+                    : "Every position group is holding strong. Full positional breakdown available soon."}
                   topColor={C.gold}
                 />
                 <NewsCard
-                  tag="TRADE RECORD" tagColor={myQuality && myQuality.win_pct >= 50 ? "text-accent-green bg-accent-green/10" : "text-accent-red bg-accent-red/10"}
-                  headline={myQuality
-                    ? myQuality.win_pct >= 65
-                      ? `${currentOwner} Is Dominating the Trade Market at ${myQuality.win_pct}%`
-                      : myQuality.win_pct >= 50
-                      ? `${currentOwner} Is Winning More Than Losing — ${myQuality.wins}W-${(myQuality as any).losses ?? 0}L`
-                      : `${currentOwner}'s Trade Record Needs Work — ${myQuality.win_pct}% Win Rate`
-                    : "No Trade History on File Yet"}
-                  lede={myQuality
-                    ? `${myQuality.trades} trades graded across all seasons${myQuality.avg_sha_net >= 0 ? `, netting +${fmt(myQuality.avg_sha_net)} in value per deal` : ` with an average loss of ${fmt(myQuality.avg_sha_net)} per deal`}. See every verdict.`
-                    : "Start making moves to build your trade record."}
-                  link={`${basePath}/trades`}
-                  linkLabel="See Every Verdict →"
-                  topColor={myQuality && myQuality.win_pct >= 50 ? C.green : C.red}
+                  tag="TRADE INTEL" tagColor="text-accent-green bg-accent-green/10"
+                  headline={`${currentOwner}'s Trade History — Full Breakdown Coming Soon`}
+                  lede="Every trade graded with AI-powered verdicts. Detailed win/loss records, trade tendencies, and partner history dropping soon."
+                  topColor={C.green}
                 />
               </>
             ) : (
@@ -829,7 +811,7 @@ export default function LeagueHome() {
 
         {/* ── LEAGUE NEWS ── */}
         <AnimatedSection className="order-2 lg:order-1">
-          <SectionLabel title="LEAGUE NEWS" />
+          <SectionLabel title="LEAGUE NEWS" badge="COMING SOON" />
           <div className="flex flex-col gap-3">
             {rcLoading ? (
               <><CardSkeleton isHero /><CardSkeleton /><CardSkeleton /></>
@@ -837,27 +819,20 @@ export default function LeagueHome() {
               <>
                 <NewsCard
                   tag="LEAGUE REPORT" tagColor="text-gold bg-gold/10"
-                  headline={leagueHeadline} lede={leagueLede}
-                  link={`${basePath}/trades`} linkLabel="Read More →"
+                  headline={leagueHeadline}
+                  lede={personality ? `A ${personality.type.toLowerCase()} league with its own trading identity. Full season report and league-wide analytics dropping soon.` : "Full season report and league-wide analytics dropping soon."}
                   isHero topColor={C.gold}
                 />
                 <NewsCard
                   tag="TRADES" tagColor="text-accent-green bg-accent-green/10"
-                  headline={tradeHeadline}
-                  lede={reportCard?.biggest_robbery ? `The biggest imbalance this season: ${reportCard.biggest_robbery.winner} acquired ${reportCard.biggest_robbery.winner_got.slice(0, 2).join(" and ")} while ${reportCard.biggest_robbery.loser} got the short end.` : `${reportCard?.total_trades || tradeCount} trades analyzed with full AI verdicts.`}
-                  link={`${basePath}/trades`}
+                  headline="Trade Verdicts — Who's Winning and Who's Getting Fleeced"
+                  lede="AI-graded trade verdicts for every deal in your league. Robbery alerts, win streaks, and the full leaderboard coming soon."
                   topColor={C.green}
                 />
                 <NewsCard
                   tag="MARKET" tagColor="text-accent-blue bg-accent-blue/10"
                   headline={marketHeadline}
-                  lede={(() => {
-                    const r = trending?.risers?.[0];
-                    const f = trending?.fallers?.[0];
-                    if (r && f) return `${r.player} is up +${fmt(r.sha_delta)} this week while ${f.player} dropped ${fmt(f.sha_delta)}. Full trending data inside.`;
-                    if (r) return `${r.player} gained +${fmt(r.sha_delta)} in value — leading all movers this week.`;
-                    return "Value shifts tracked across every roster in your league.";
-                  })()}
+                  lede="Weekly value movers, buy/sell windows, and market trends across your league. Full market intelligence dropping soon."
                   topColor={C.blue}
                 />
               </>
