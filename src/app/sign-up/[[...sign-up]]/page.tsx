@@ -144,15 +144,45 @@ export default function SignUpPage() {
         }
         .cl-rootBox {
           width: 100% !important;
+          max-width: 480px !important;
+          margin: 0 auto !important;
+        }
+        .cl-cardBox {
+          width: 100% !important;
+          margin: 0 auto !important;
+          display: flex !important;
+          flex-direction: column !important;
+          align-items: center !important;
         }
         .cl-card {
-          padding: 28px 24px !important;
+          width: 100% !important;
+          padding: 28px 20px !important;
         }
-        .cl-headerTitle {
+        .cl-footer {
+          width: 100% !important;
+          justify-content: center !important;
           text-align: center !important;
         }
-        .cl-headerSubtitle {
+        .cl-footerAction {
+          display: flex !important;
+          justify-content: center !important;
+          align-items: baseline !important;
+          width: 100% !important;
           text-align: center !important;
+          gap: 4px !important;
+          flex-wrap: nowrap !important;
+        }
+        .cl-footerActionText {
+          margin: 0 !important;
+          line-height: 1 !important;
+        }
+        .cl-footerActionLink {
+          margin: 0 !important;
+          line-height: 1 !important;
+        }
+        .cl-headerTitle, .cl-headerSubtitle {
+          text-align: center !important;
+          width: 100% !important;
         }
         @media (min-width: 480px) {
           .cl-card {
