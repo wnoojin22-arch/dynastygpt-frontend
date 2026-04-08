@@ -361,15 +361,8 @@ export default function LeagueLayout({ children }: { children: React.ReactNode }
     getLeagueBySlug(slug)
       .then((data) => {
         setLeague(data.league_id, slug, data.name);
-        if (data.owners?.length && !currentOwner) {
-          // Match logged-in user's Sleeper ID to auto-select their team
-          const sleeperUid = user?.unsafeMetadata?.sleeper_user_id as string | undefined;
-          const matched = sleeperUid
-            ? data.owners.find((o: any) => o.user_id === sleeperUid)
-            : null;
-          const pick = matched || data.owners[0];
-          setOwner(pick.name, pick.user_id);
-        }
+        // Owner auto-select is handled by the dedicated useEffect below
+        // that matches gateSleeperUserId against platform_user_id
       })
       .catch(() => {})
       .finally(() => { hydrating.current = false; });
