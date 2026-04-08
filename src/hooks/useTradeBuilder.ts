@@ -325,6 +325,7 @@ export function useTradeBuilder({
       setError(null);
       try {
         const sellAsset = (body.sell_asset as string) || undefined;
+        const sellAssets = (body.sell_assets as string[]) || undefined;
         const targetAsset = (body.i_receive as string[])?.[0] || undefined;
         const findPosition = (body.find_position as string) || undefined;
 
@@ -337,6 +338,7 @@ export function useTradeBuilder({
             body: JSON.stringify({
               owner,
               asset: sellAsset || undefined,
+              assets: sellAssets || undefined,
               target_asset: targetAsset || undefined,
               mode,
               partner: (body.partner as string) || undefined,
@@ -465,20 +467,27 @@ export function useTradeBuilder({
   );
 
   const handleSuggestWithPartner = useCallback(() => {
-    fireSuggest(
-      {
-        sell_asset: activeSellAsset || undefined,
-        partner: partner || undefined,
-      },
-      activeSellAsset
-        ? partner
-          ? `Best trades with ${partner} for ${activeSellAsset}`
-          : `Exploring trades for ${activeSellAsset}`
-        : partner
-          ? `Best trades with ${partner}`
-          : `Best available trades`,
-    );
-  }, [fireSuggest, partner, activeSellAsset]);
+    const body: Record<string, unknown> = {};
+    if (partner) body.partner = partner;
+    // Send all checked players as context
+    if (giveNames.length > 0) {
+      body.sell_asset = giveNames[0];
+      if (giveNames.length > 1) body.sell_assets = giveNames;
+    } else if (activeSellAsset) {
+      body.sell_asset = activeSellAsset;
+    }
+    if (receiveNames.length > 0) {
+      body.i_receive = receiveNames;
+    }
+
+    const parts: string[] = [];
+    if (giveNames.length > 0) parts.push(`selling ${giveNames.join(", ")}`);
+    if (receiveNames.length > 0) parts.push(`targeting ${receiveNames.join(", ")}`);
+    if (partner) parts.push(`with ${partner}`);
+    const label = parts.length > 0 ? parts.join(" ") : "Best available trades";
+
+    fireSuggest(body, label);
+  }, [fireSuggest, partner, activeSellAsset, giveNames, receiveNames]);
 
   const handleTargetPlayer = useCallback(
     (name: string) => {

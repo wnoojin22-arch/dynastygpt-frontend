@@ -113,13 +113,14 @@ export default function RosterColumn({ title, roster, selectedNames, onToggle, s
                       )}
                     </div>
 
-                    {/* Market vs consensus % */}
-                    {!isPick && p.mkt_vs_pct != null && Math.abs(p.mkt_vs_pct) >= 1 && (
+                    {/* Market vs consensus % — same logic as dashboard roster */}
+                    {!isPick && (
                       <span style={{
-                        fontFamily: MONO, fontSize: 10, fontWeight: 700, minWidth: 40, textAlign: "right",
-                        color: p.mkt_vs_pct > 5 ? C.green : p.mkt_vs_pct < -5 ? C.red : C.dim,
+                        fontFamily: MONO, fontSize: 10, fontWeight: p.mkt_vs_pct != null ? 700 : 400,
+                        minWidth: 40, textAlign: "right",
+                        color: p.mkt_vs_pct == null ? C.dim : p.mkt_vs_pct > 0 ? C.green : p.mkt_vs_pct < 0 ? C.red : C.dim,
                       }}>
-                        {p.mkt_vs_pct > 0 ? "+" : ""}{Math.round(p.mkt_vs_pct)}%
+                        {p.mkt_vs_pct == null ? "—" : `${p.mkt_vs_pct > 0 ? "+" : ""}${Math.round(p.mkt_vs_pct)}%`}
                       </span>
                     )}
 
