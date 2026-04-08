@@ -37,7 +37,7 @@ const clerkAppearance = {
     socialButtonsVariant: "blockButton" as const,
   },
   elements: {
-    rootBox: { width: "100%", maxWidth: 480 },
+    rootBox: { width: "100%", maxWidth: 480, margin: "0 auto" },
     cardBox: { boxShadow: "none", background: "transparent" },
     card: {
       background: CARD,
@@ -156,14 +156,31 @@ export default function SignInPage() {
         .cl-socialButtonsBlockButton:hover {
           border-color: rgba(212,165,50,0.5) !important;
         }
+        .cl-rootBox {
+          width: 100% !important;
+        }
+        .cl-card {
+          padding: 28px 24px !important;
+        }
+        .cl-headerTitle {
+          text-align: center !important;
+        }
+        .cl-headerSubtitle {
+          text-align: center !important;
+        }
+        @media (min-width: 480px) {
+          .cl-card {
+            padding: 36px 40px !important;
+          }
+        }
       `}</style>
 
       {/* Content */}
-      <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", alignItems: "center" }}>
+      <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", alignItems: "center", width: "100%", maxWidth: 480, padding: "0 16px", boxSizing: "border-box" }}>
 
         {/* Logo — exact match to dynastygpt.com */}
-        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 48 }}>
-          <svg width={40} height={44} viewBox="0 0 52 58" xmlns="http://www.w3.org/2000/svg" style={{ filter: "drop-shadow(0 0 12px rgba(212,168,67,0.4))" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 44 }}>
+          <svg width={36} height={40} viewBox="0 0 52 58" xmlns="http://www.w3.org/2000/svg" style={{ filter: "drop-shadow(0 0 12px rgba(212,168,67,0.4))" }}>
             <defs>
               <linearGradient id="siGold" x1="0" y1="0" x2="1" y2="1">
                 <stop offset="0%" stopColor={GOLD_DARK} /><stop offset="30%" stopColor={GOLD} />
@@ -178,13 +195,14 @@ export default function SignInPage() {
             <path d="M26,8 L42,17 L42,33 Q42,46 26,51 Q10,46 10,33 L10,17 Z" fill="url(#siGold)" opacity="0.08" />
             <text x="26" y="40" textAnchor="middle" fontFamily={DISPLAY} fontWeight="900" fontSize="30" fill="url(#siText)">D</text>
           </svg>
-          <span style={{ fontFamily: DISPLAY, fontSize: 28, fontWeight: 800, letterSpacing: "-0.5px", color: TEXT }}>
+          <span style={{ fontFamily: DISPLAY, fontSize: 24, fontWeight: 800, letterSpacing: "-0.5px", color: TEXT }}>
             Dynasty<span style={{ color: GOLD }}>GPT</span>
           </span>
         </div>
         <div style={{
-          fontFamily: MONO, fontSize: 10, fontWeight: 600, letterSpacing: "0.2em",
-          color: GOLD, textTransform: "uppercase", marginTop: -36, marginBottom: 40,
+          fontFamily: MONO, fontSize: 9, fontWeight: 600, letterSpacing: "0.18em",
+          color: GOLD, textTransform: "uppercase", marginTop: -32, marginBottom: 36,
+          textAlign: "center",
         }}>
           The Platform That Knows Your League
         </div>
@@ -197,8 +215,7 @@ export default function SignInPage() {
 
         {/* Footer */}
         <div style={{
-          marginTop: 40, display: "flex", alignItems: "center", gap: 16,
-          fontFamily: SANS, fontSize: 11, color: TEXT_MUTED,
+          marginTop: 32, fontFamily: SANS, fontSize: 11, color: TEXT_MUTED, textAlign: "center",
         }}>
           <a href="https://dynastygpt.com" style={{ color: TEXT_MUTED, textDecoration: "none" }}>dynastygpt.com</a>
         </div>
