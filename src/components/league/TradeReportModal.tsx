@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getTradeReport, getTradeHindsight } from "@/lib/api";
+import { getTradeReport, getTradeHindsight, getPicks } from "@/lib/api";
 import { C, SANS, MONO, DISPLAY, SERIF, fmt, gradeColor, posColor } from "./tokens";
 import PlayerName from "./PlayerName";
 import { usePlayerCardStore } from "@/lib/stores/player-card-store";
@@ -27,10 +27,15 @@ function getVerdictStyle(v: string) {
 }
 function ordinal(n:number){if(!n||isNaN(n))return'—';const s=['th','st','nd','rd'];const v=n%100;return n+(s[(v-20)%10]||s[v]||s[0]);}
 function noSHA(s:string){return s.replace(/\bSHA\b/gi,'value').replace(/\bsha\b/g,'value');}
-function cleanPickName(name:string,slot?:string|null){
+function cleanPickName(name:string,slot?:string|null,slotMap?:Record<string,string>){
   const base=name.replace(/\s*\([^)]*\)/g,'');
   // 2026 picks: show slot number (e.g. "2026 1.07") instead of "2026 Round 1"
   if(slot&&base.includes('2026')){return `2026 ${slot}`;}
+  // Fallback: look up slot from picks data if resolved_slot is null
+  if(!slot&&slotMap&&base.includes('2026')){
+    const mapped=slotMap[name.toLowerCase().trim()];
+    if(mapped) return `2026 ${mapped}`;
+  }
   return base;
 }
 
@@ -67,7 +72,7 @@ function GradeFactorCard({factor}:{factor:any}){
 }
 
 /* ═══ ASSET CARD — ported from Shadynasty ═══ */
-function AssetCard({asset,allAssets,gradeFactors,allTrades,sideOwner}:{asset:any;allAssets?:any[];gradeFactors?:any[];allTrades?:any[];sideOwner?:string}){
+function AssetCard({asset,allAssets,gradeFactors,allTrades,sideOwner,pickSlotMap}:{asset:any;allAssets?:any[];gradeFactors?:any[];allTrades?:any[];sideOwner?:string;pickSlotMap?:Record<string,string>}){
   const openCard = usePlayerCardStore.getState().openPlayerCard;
   const isPick=asset.type==='pick';const prod=asset.production;const isCut=asset.roster_status?.status==='not_rostered';
   const isTraded=asset.roster_status?.status==='traded_away';const chain=asset.chain||[];const hasChain=chain.length>0;
@@ -123,12 +128,13 @@ function AssetCard({asset,allAssets,gradeFactors,allTrades,sideOwner}:{asset:any
     <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
       {isPick&&<StatusTag label="PICK" color={C.gold} bg={C.goldDim} border={C.goldBorder}/>}
       {position&&!isPick&&<span style={{fontFamily:MONO,fontSize:8,fontWeight:800,color:posColor(position),padding:'1px 4px',borderRadius:3,background:`${posColor(position)}15`,border:`1px solid ${posColor(position)}25`}}>{position}</span>}
-      {isPick?<span style={{fontFamily:SANS,fontSize:14,fontWeight:700,color:C.primary}}>{cleanPickName(asset.name,asset.resolved_slot)}</span>:<PlayerName name={asset.name} style={{fontFamily:SANS,fontSize:14,fontWeight:700,color:isCut?C.red:C.primary,cursor:'pointer'}} />}
+      {isPick?<span style={{fontFamily:SANS,fontSize:14,fontWeight:700,color:C.primary}}>{cleanPickName(asset.name,asset.resolved_slot,pickSlotMap)}</span>:<PlayerName name={asset.name} style={{fontFamily:SANS,fontSize:14,fontWeight:700,color:isCut?C.red:C.primary,cursor:'pointer'}} />}
       {age&&<span style={{fontFamily:MONO,fontSize:10,color:C.dim}}>({Math.round(age)})</span>}
       {hasChain&&<StatusTag label="FLIPPED" color={C.orange} bg="rgba(224,156,107,0.12)" border="rgba(224,156,107,0.25)"/>}
       {hasChain&&vDelta!=null&&vDelta>0&&<StatusTag label="PROFIT" color={C.green} bg="rgba(125,211,160,0.12)" border="rgba(125,211,160,0.25)"/>}
       {isCut&&!hasChain&&<StatusTag label="CUT" color={C.red} bg="rgba(228,114,114,0.12)" border="rgba(228,114,114,0.25)"/>}
       {isTraded&&!hasChain&&<StatusTag label="TRADED" color={C.blue} bg="rgba(107,184,224,0.12)" border="rgba(107,184,224,0.25)"/>}
+      {isPick&&(()=>{const yrM=asset.name.match(/(\d{4})/);const yr=yrM?parseInt(yrM[1]):0;const now=new Date().getFullYear();if(yr>now) return <StatusTag label="PENDING" color="#d4a017" bg="rgba(212,160,23,0.12)" border="rgba(212,160,23,0.25)"/>;if(yr<=now&&(!asset.resolved_player||asset.resolved_player==='Not yet drafted')) return <StatusTag label="UNRESOLVED" color="#d4a017" bg="rgba(212,160,23,0.12)" border="rgba(212,160,23,0.25)"/>;return null;})()}
     </div>
 
     {/* Value at trade → now */}
@@ -157,23 +163,23 @@ function AssetCard({asset,allAssets,gradeFactors,allTrades,sideOwner}:{asset:any
     {/* Pick resolution */}
     {isPick&&asset.resolved_player&&<div style={{fontFamily:MONO,fontSize:9,color:C.dim}}>{asset.resolved_slot&&<span style={{color:C.secondary}}>{asset.resolved_slot} → </span>}{asset.resolved_player==="Not yet drafted"?"Not yet drafted":<span style={{color:C.primary,fontWeight:600}}>{asset.resolved_player}</span>}</div>}
 
-    {/* PPG Stats */}
-    {!isPick&&prod&&prod.total_points>0&&<div style={{marginTop:2}}>
-      <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:4}}><span style={{fontFamily:MONO,fontSize:11,fontWeight:800,color:C.primary}}>{prod.total_points?.toFixed(1)} pts</span><span style={{fontFamily:MONO,fontSize:9,color:C.dim}}>across {prod.games_on_roster} games</span></div>
+    {/* PPG Stats — show for players AND resolved picks with production */}
+    {(()=>{const showProd=isPick?(asset.became_production||prod):prod;const hasProd=showProd&&showProd.total_points>0;if((!isPick||asset.resolved_player)&&hasProd){const _ppgA=showProd.games_started>0?(showProd.total_points/showProd.games_started):null;const _ppgR=showProd.games_on_roster>0?(showProd.total_points/showProd.games_on_roster):null;return(<div style={{marginTop:2}}>
+      <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:4}}><span style={{fontFamily:MONO,fontSize:11,fontWeight:800,color:C.primary}}>{showProd.total_points?.toFixed(1)} pts</span><span style={{fontFamily:MONO,fontSize:9,color:C.dim}}>across {showProd.games_on_roster} games</span>{isPick&&<span style={{fontFamily:MONO,fontSize:8,color:C.gold,fontWeight:700}}>as {(asset.resolved_player||'').split(' (')[0]}</span>}</div>
       <div style={{display:'flex',gap:0,borderRadius:5,overflow:'hidden',border:`1px solid ${C.border}`,background:C.card}}>
-        {ppgA!=null&&<div style={{flex:1,padding:'8px 12px',borderRight:`1px solid ${C.border}`}}>
+        {_ppgA!=null&&<div style={{flex:1,padding:'8px 12px',borderRight:`1px solid ${C.border}`}}>
           <div style={{fontFamily:MONO,fontSize:7,fontWeight:800,letterSpacing:'0.08em',color:C.dim,marginBottom:3}}>PPG ACTIVE</div>
-          <div style={{display:'flex',alignItems:'baseline',gap:4}}><span style={{fontFamily:MONO,fontSize:22,fontWeight:900,color:ppgA>=15?C.green:ppgA>=10?C.primary:C.orange}}>{ppgA.toFixed(1)}</span><span style={{fontFamily:MONO,fontSize:9,color:C.dim}}>({prod.games_started}G)</span></div>
+          <div style={{display:'flex',alignItems:'baseline',gap:4}}><span style={{fontFamily:MONO,fontSize:22,fontWeight:900,color:_ppgA>=15?C.green:_ppgA>=10?C.primary:C.orange}}>{_ppgA.toFixed(1)}</span><span style={{fontFamily:MONO,fontSize:9,color:C.dim}}>({showProd.games_started}G)</span></div>
           <div style={{fontFamily:MONO,fontSize:8,color:C.dim,marginTop:2}}>pts per start</div>
         </div>}
-        {ppgR!=null&&<div style={{flex:1,padding:'8px 12px'}}>
+        {_ppgR!=null&&<div style={{flex:1,padding:'8px 12px'}}>
           <div style={{fontFamily:MONO,fontSize:7,fontWeight:800,letterSpacing:'0.08em',color:C.dim,marginBottom:3}}>PPG ROSTERED</div>
-          <div style={{display:'flex',alignItems:'baseline',gap:4}}><span style={{fontFamily:MONO,fontSize:22,fontWeight:900,color:ppgR>=12?C.green:ppgR>=7?C.primary:C.red}}>{ppgR.toFixed(1)}</span><span style={{fontFamily:MONO,fontSize:9,color:C.dim}}>({prod.games_on_roster}G)</span></div>
+          <div style={{display:'flex',alignItems:'baseline',gap:4}}><span style={{fontFamily:MONO,fontSize:22,fontWeight:900,color:_ppgR>=12?C.green:_ppgR>=7?C.primary:C.red}}>{_ppgR.toFixed(1)}</span><span style={{fontFamily:MONO,fontSize:9,color:C.dim}}>({showProd.games_on_roster}G)</span></div>
           <div style={{fontFamily:MONO,fontSize:8,color:C.dim,marginTop:2}}>pts per week owned</div>
         </div>}
       </div>
-      {prod.seasons&&Object.entries(prod.seasons).map(([yr,s]:any)=>(<div key={yr} style={{fontFamily:MONO,fontSize:9,color:C.dim,marginTop:1,paddingLeft:4}}>{yr}: {s.points?.toFixed(1)} pts ({s.games}G, {s.ppg?.toFixed(1)} PPG)</div>))}
-    </div>}
+      {showProd.seasons&&Object.entries(showProd.seasons).map(([yr,s]:any)=>(<div key={yr} style={{fontFamily:MONO,fontSize:9,color:C.dim,marginTop:1,paddingLeft:4}}>{yr}: {s.points?.toFixed(1)} pts ({s.games}G, {s.ppg?.toFixed(1)} PPG)</div>))}
+    </div>);}return null;})()}
 
     {/* Positional impact */}
     {posImpact&&posImpact.impact!=null&&Math.abs(posImpact.impact)>=0.1&&<div style={{marginTop:2,padding:'5px 10px',borderRadius:5,background:posImpact.impact>=0?'rgba(125,211,160,0.12)':'rgba(228,114,114,0.12)',border:`1px solid ${posImpact.impact>=0?'rgba(125,211,160,0.25)':'rgba(228,114,114,0.25)'}`,fontFamily:MONO,fontSize:10,display:'flex',alignItems:'center',gap:6}}>
@@ -203,7 +209,7 @@ function CollapsiblePill({label,defaultOpen,children}:{label:string;defaultOpen:
 /* ═══════════════════════════════════════════════════════════════
    FULL REPORT — Two tabs: GRADE (screenshotable) + DETAILS (deep dive)
    ═══════════════════════════════════════════════════════════════ */
-function FullReport({reportData,hindsightData,onClose}:{reportData:any;hindsightData:any;onClose:()=>void}){
+function FullReport({reportData,hindsightData,onClose,pickSlotMap}:{reportData:any;hindsightData:any;onClose:()=>void;pickSlotMap:Record<string,string>}){
   const mobile=useIsMobile();
   const [tab,setTab]=useState<'grade'|'details'>('grade');
   const currentOwner=useLeagueStore((s)=>s.currentOwner);
@@ -233,15 +239,21 @@ function FullReport({reportData,hindsightData,onClose}:{reportData:any;hindsight
   const hasHindsight=(myH.score>0||theirH.score>0);
   const overall=td.overall||h.overall||"";const os=getVerdictStyle(overall);
 
+  // Hindsight confidence status — mirrors backend get_hindsight_display_label() thresholds
+  const tradeDate=reportData.trade_date?new Date(reportData.trade_date):null;
+  const daysAgo=tradeDate?Math.floor((Date.now()-tradeDate.getTime())/(1000*60*60*24)):0;
+  const hindsightStatus:('confirmed'|'too_soon'|'pending')=daysAgo>=548?'confirmed':daysAgo>=365?'too_soon':'pending';
+
+
   // Assets — from MY perspective (what I received = mySide.assets)
   const myAssets=mySide.assets||[];const theirAssets=theirSide.assets||[];
   const myTotal=myAssets.reduce((s:number,a:any)=>s+(a.value_at_trade?.value||0),0);
   const theirTotal=theirAssets.reduce((s:number,a:any)=>s+(a.value_at_trade?.value||0),0);
+
   // GAVE = what the other side received (theirSide.assets_raw). GOT = what I received (mySide.assets_raw).
   const myGave=theirSide.assets_raw||theirAssets.map((a:any)=>a.name).join(", ");
   const myGot=mySide.assets_raw||myAssets.map((a:any)=>a.name).join(", ");
 
-  const tradeDate=reportData.trade_date?new Date(reportData.trade_date):null;
   const tradeAgeMonths=tradeDate?((Date.now()-tradeDate.getTime())/(1000*60*60*24*30.44)):999;
   const hideRemaining=tradeAgeMonths<12;
   const filterGF=(factors:any[])=>factors?factors.filter((f:any)=>!(hideRemaining&&f.category==='remaining')):[];
@@ -310,20 +322,41 @@ function FullReport({reportData,hindsightData,onClose}:{reportData:any;hindsight
       <div style={{flex:1,minWidth:0}}><div style={{fontFamily:MONO,fontSize:mobile?10:12,color:C.green,fontWeight:800,letterSpacing:'0.06em',marginBottom:2}}>{amInTrade?'YOU GOT':`${myLabel} GOT`}</div><div style={{fontFamily:SANS,fontSize:mobile?12:13,color:C.primary,fontWeight:600,lineHeight:1.3}}>{myGot}</div></div>
     </div>
 
-    {/* GRADE SUMMARY — desktop only */}
-    {!mobile&&<div style={{display:'flex',flexDirection:'row',paddingTop:8,paddingBottom:8,paddingLeft:24,paddingRight:24,borderBottom:`1px solid ${C.border}`,background:C.card,alignItems:'center'}}>
-      <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
-        <div style={{textAlign:'center'}}><div style={{fontFamily:MONO,fontSize:9,fontWeight:700,color:'#5eead4',marginBottom:2}}>TD</div><GradeCircle score={myTD.score||50} size={28}/></div>
-        <div style={{textAlign:'center'}}><div style={{fontFamily:MONO,fontSize:9,fontWeight:700,color:C.gold,marginBottom:2}}>HS</div><GradeCircle score={myH.score||0} size={28}/></div>
-        <div style={{fontFamily:MONO,fontSize:12,fontWeight:800,color:C.primary,marginLeft:2}}>{myLabel}</div>
-      </div>
-      <div style={{width:1,height:28,background:C.border,margin:'0 4px',flexShrink:0}}/>
-      <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
-        <div style={{fontFamily:MONO,fontSize:12,fontWeight:800,color:C.secondary,marginRight:2}}>{theirLabel}</div>
-        <div style={{textAlign:'center'}}><div style={{fontFamily:MONO,fontSize:9,fontWeight:700,color:'#5eead4',marginBottom:2}}>TD</div><GradeCircle score={theirTD.score||50} size={28}/></div>
-        <div style={{textAlign:'center'}}><div style={{fontFamily:MONO,fontSize:9,fontWeight:700,color:C.gold,marginBottom:2}}>HS</div><GradeCircle score={theirH.score||0} size={28}/></div>
-      </div>
-    </div>}
+    {/* GRADE SUMMARY — readable blocks */}
+    <div style={{display:'flex',flexDirection:'row',paddingTop:mobile?6:10,paddingBottom:mobile?6:10,paddingLeft:mobile?8:24,paddingRight:mobile?8:24,borderBottom:`1px solid ${C.border}`,background:C.card,gap:mobile?6:12}}>
+      {[
+        {label:'TRADE DAY',color:'#5eead4',score:myTD.score||50,verdict:myTD.verdict,theirScore:theirTD.score||50,theirVerdict:theirTD.verdict},
+        {label:'HINDSIGHT',color:C.gold,
+          score:hindsightStatus==='confirmed'?(myH.score||0):0,
+          verdict:hindsightStatus==='confirmed'?(myH.verdict||'—'):hindsightStatus==='too_soon'?'Too Soon':'Pending',
+          theirScore:hindsightStatus==='confirmed'?(theirH.score||0):0,
+          theirVerdict:hindsightStatus==='confirmed'?(theirH.verdict||'—'):hindsightStatus==='too_soon'?'Too Soon':'Pending',
+        },
+      ].map((block,bi)=>{
+        const isPending=bi===1&&hindsightStatus!=='confirmed';
+        return(
+        <div key={bi} style={{flex:1,padding:mobile?'6px 8px':'8px 14px',borderRadius:6,background:`${block.color}08`,border:`1px solid ${block.color}20`}}>
+          <div style={{fontFamily:MONO,fontSize:mobile?8:9,fontWeight:800,letterSpacing:'0.12em',color:block.color,marginBottom:mobile?4:6}}>{block.label}</div>
+          <div style={{display:'flex',gap:mobile?6:12}}>
+            {[{label:myLabel,score:block.score,verdict:block.verdict},{label:theirLabel,score:block.theirScore,verdict:block.theirVerdict}].map((side,si)=>{
+              const gc=isPending?C.dim:getGradeColor(side.score);
+              const vs=getVerdictStyle(side.verdict||'No Data');
+              return(
+              <div key={si} style={{flex:1,textAlign:'center'}}>
+                <div style={{fontFamily:MONO,fontSize:mobile?8:9,fontWeight:700,color:si===0?C.primary:C.secondary,marginBottom:2}}>{side.label}</div>
+                {isPending?(
+                  <div style={{fontFamily:MONO,fontSize:mobile?11:13,fontWeight:800,color:C.dim}}>{side.verdict}</div>
+                ):(<>
+                  <div style={{fontFamily:MONO,fontSize:mobile?20:26,fontWeight:900,color:gc,lineHeight:1}}>{getLetterGrade(side.score)}</div>
+                  <div style={{fontFamily:MONO,fontSize:mobile?9:10,fontWeight:700,color:C.dim,marginTop:1}}>{side.score}</div>
+                  <div style={{fontFamily:MONO,fontSize:mobile?8:9,fontWeight:800,color:vs.color,marginTop:2}}>{side.verdict||'—'}</div>
+                </>)}
+              </div>);
+            })}
+          </div>
+        </div>);
+      })}
+    </div>
 
     {/* TABS */}
     <div style={{display:'flex',borderBottom:`1px solid ${C.border}`}}>
@@ -359,7 +392,7 @@ function FullReport({reportData,hindsightData,onClose}:{reportData:any;hindsight
               <div key={i} style={{display:'flex',alignItems:'center',gap:3,minWidth:0,marginBottom:1}}>
                 {a.type==='pick'?<span style={{fontFamily:MONO,fontSize:11,fontWeight:800,color:C.gold,flexShrink:0}}>PK</span>:
                 a.position&&<span style={{fontFamily:MONO,fontSize:11,fontWeight:800,color:posColor(a.position),flexShrink:0}}>{a.position}</span>}
-                <span style={{fontFamily:SANS,fontSize:14,fontWeight:600,color:C.primary,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1,minWidth:0}}>{cleanPickName(a.name,a.resolved_slot)}</span>
+                <span style={{fontFamily:SANS,fontSize:14,fontWeight:600,color:C.primary,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1,minWidth:0}}>{cleanPickName(a.name,a.resolved_slot,pickSlotMap)}</span>
                 <span style={{fontFamily:MONO,fontSize:12,fontWeight:700,color:C.secondary,flexShrink:0}}>{fmt(a.value_at_trade?.value)}</span>
               </div>
             ))}
@@ -374,15 +407,28 @@ function FullReport({reportData,hindsightData,onClose}:{reportData:any;hindsight
         {[
           {label:myLabel,header:`${myLabel}'S SIDE`,h:myH,bullets:myBullets,champ:myChamp},
           {label:theirLabel,header:`${theirLabel}'S SIDE`,h:theirH,bullets:theirBullets,champ:theirChamp},
-        ].map((s,idx)=>{const v=hasHindsight?(s.h.verdict||'—'):'Pending';const vs=getVerdictStyle(v);return(
+        ].map((s,idx)=>{
+          const isConfirmed=hindsightStatus==='confirmed';
+          const v=isConfirmed&&hasHindsight?(s.h.verdict||'—'):hindsightStatus==='too_soon'?'Too Soon':'Pending';
+          const vs=getVerdictStyle(v);
+          const pillLabel=hindsightStatus==='pending'?'LIVE GRADE':hindsightStatus==='too_soon'?'TOO SOON':null;
+          const pillColor=hindsightStatus==='pending'?C.gold:'#d4a017';
+          const pillBg=hindsightStatus==='pending'?`${C.gold}18`:'rgba(212,160,23,0.12)';
+          return(
           <div key={idx} style={idx===0?colL:colR}>
             <div style={{fontFamily:MONO,fontSize:mobile?11:13,fontWeight:900,letterSpacing:'0.06em',color:s.label==='YOU'?C.gold:C.primary,marginBottom:4,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{s.header}</div>
-            {hasHindsight?(<>
+            {hasHindsight||!isConfirmed?(<>
               <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
-                <GradeCircle score={s.h.score||0} size={mobile?44:64}/>
-                <div style={{fontFamily:MONO,fontSize:13,fontWeight:800,color:vs.color,lineHeight:1.3}}>{v}</div>
+                {(isConfirmed||hindsightStatus==='too_soon')&&<GradeCircle score={s.h.score||0} size={mobile?44:64}/>}
+                <div>
+                  <div style={{display:'flex',alignItems:'center',gap:6}}>
+                    <span style={{fontFamily:MONO,fontSize:13,fontWeight:800,color:vs.color,lineHeight:1.3}}>{v}</span>
+                    {pillLabel&&<span style={{fontFamily:MONO,fontSize:8,fontWeight:800,letterSpacing:'0.08em',color:pillColor,background:pillBg,padding:'2px 6px',borderRadius:3,border:`1px solid ${pillColor}30`}}>{pillLabel}</span>}
+                  </div>
+                  {!isConfirmed&&<div style={{fontFamily:SANS,fontSize:10,color:C.dim,marginTop:3,lineHeight:1.3}}>Grade updates as production accumulates and picks resolve.</div>}
+                </div>
               </div>
-              {s.bullets.length>0&&s.bullets.map((b:{text:string;color:string;isChamp?:boolean},i:number)=>(
+              {isConfirmed&&s.bullets.length>0&&s.bullets.map((b:{text:string;color:string;isChamp?:boolean},i:number)=>(
                 <div key={i} style={{display:'flex',alignItems:'flex-start',gap:4,marginBottom:1}}>
                   <span style={{fontSize:7,color:b.isChamp?C.gold:b.color,flexShrink:0,marginTop:4}}>●</span>
                   <span style={{fontFamily:SANS,fontSize:13,color:b.isChamp?C.gold:C.secondary,lineHeight:1.3,fontWeight:b.isChamp?700:400}}>{b.text}</span>
@@ -398,35 +444,25 @@ function FullReport({reportData,hindsightData,onClose}:{reportData:any;hindsight
 
     {/* ═══════ TAB 2: DETAILS — collapsible pills, always 1fr 1fr ═══════ */}
     {tab==='details'&&(<>
-      {/* TRADE DAY — collapsible */}
-      <CollapsiblePill label="TRADE DAY GRADES" defaultOpen={true}>
+      {/* TRADE DAY — grade + assets in one pill */}
+      <CollapsiblePill label="TRADE DAY" defaultOpen={false}>
         <div style={fp}>
-          {[{label:`${myLabel} RECEIVES`,td:myTD},{label:`${theirLabel} RECEIVES`,td:theirTD}].map((side,idx)=>(
+          {[{label:`${myLabel} RECEIVES`,td:myTD,assets:myAssets,total:myTotal},{label:`${theirLabel} RECEIVES`,td:theirTD,assets:theirAssets,total:theirTotal}].map((side,idx)=>(
             <div key={idx} style={idx===0?colL:colR}>
               <div style={{fontFamily:MONO,fontSize:12,fontWeight:800,letterSpacing:'0.10em',color:'#5eead4',marginBottom:6}}>{side.label}</div>
               <GradeBox score={side.td.score||50} verdict={side.td.verdict||'No Data'} mobile={mobile}/>
-            </div>
-          ))}
-        </div>
-      </CollapsiblePill>
-
-      {/* TRADE DAY VALUES — collapsible */}
-      <CollapsiblePill label="TRADE DAY VALUES" defaultOpen={false}>
-        <div style={fp}>
-          {[{assets:myAssets,total:myTotal},{assets:theirAssets,total:theirTotal}].map((side,idx)=>(
-            <div key={idx} style={{...(idx===0?colL:colR),paddingTop:mobile?8:12,paddingBottom:mobile?8:12,paddingLeft:mobile?8:12,paddingRight:mobile?8:12,borderRadius:6,background:C.card,border:`1px solid ${C.border}`}}>
-              <div style={{fontFamily:MONO,fontSize:mobile?16:24,fontWeight:900,color:C.primary,marginBottom:6}}>{fmt(side.total)}</div>
-              <div style={{display:'flex',flexDirection:'column',gap:2}}>
+              <div style={{marginTop:8,display:'flex',flexDirection:'column',gap:2}}>
                 {side.assets.map((a:any,i:number)=>(
                   <div key={i} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:mobile?'3px 6px':'5px 8px',borderRadius:4,background:C.elevated,minWidth:0}}>
                     <div style={{display:'flex',alignItems:'center',gap:3,minWidth:0,flex:1}}>
                       {a.type==='pick'&&<StatusTag label="PK" color={C.gold} bg={C.goldDim} border={C.goldBorder}/>}
                       {a.position&&a.type!=='pick'&&<span style={{fontFamily:MONO,fontSize:12,fontWeight:800,color:posColor(a.position),padding:'1px 3px',borderRadius:2,background:`${posColor(a.position)}15`,flexShrink:0}}>{a.position}</span>}
-                      <span style={{fontFamily:SANS,fontSize:13,fontWeight:600,color:C.primary,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',minWidth:0}}>{cleanPickName(a.name,a.resolved_slot)}</span>
+                      <span style={{fontFamily:SANS,fontSize:13,fontWeight:600,color:C.primary,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',minWidth:0}}>{cleanPickName(a.name,a.resolved_slot,pickSlotMap)}</span>
                     </div>
                     <span style={{fontFamily:MONO,fontSize:11,fontWeight:700,color:C.secondary,flexShrink:0,marginLeft:4}}>{fmt(a.value_at_trade?.value)}</span>
                   </div>
                 ))}
+                <div style={{fontFamily:MONO,fontSize:11,color:C.dim,textAlign:'right',marginTop:2}}>= <span style={{color:C.primary,fontWeight:700}}>{fmt(side.total)}</span></div>
               </div>
             </div>
           ))}
@@ -434,15 +470,23 @@ function FullReport({reportData,hindsightData,onClose}:{reportData:any;hindsight
       </CollapsiblePill>
 
       {/* HINDSIGHT — collapsible */}
-      <CollapsiblePill label="HINDSIGHT GRADES" defaultOpen={hasHindsight}>
-        {hasHindsight?(<>
+      <CollapsiblePill label="HINDSIGHT GRADES" defaultOpen={false}>
+        {hasHindsight||hindsightStatus!=='confirmed'?(<>
           <div style={fp}>
-            {[{label:`${myLabel}'S SIDE`,h:myH},{label:`${theirLabel}'S SIDE`,h:theirH}].map((side,idx)=>(
+            {[{label:`${myLabel}'S SIDE`,h:myH},{label:`${theirLabel}'S SIDE`,h:theirH}].map((side,idx)=>{
+              const detailVerdict=hindsightStatus==='confirmed'?(side.h.verdict||'—'):hindsightStatus==='too_soon'?'Too Soon':'Pending';
+              const detailPill=hindsightStatus==='pending'?'LIVE GRADE':hindsightStatus==='too_soon'?'TOO SOON':null;
+              const detailPillColor=hindsightStatus==='pending'?C.gold:'#d4a017';
+              return(
               <div key={idx} style={idx===0?colL:colR}>
-                <div style={{fontFamily:MONO,fontSize:12,fontWeight:800,letterSpacing:'0.10em',color:C.gold,marginBottom:6}}>{side.label}</div>
-                <GradeBox score={side.h.score||0} verdict={side.h.verdict||'—'} confidence={side.h.confidence} mobile={mobile}/>
+                <div style={{fontFamily:MONO,fontSize:12,fontWeight:800,letterSpacing:'0.10em',color:C.gold,marginBottom:6}}>
+                  {side.label}
+                  {detailPill&&<span style={{fontFamily:MONO,fontSize:8,fontWeight:800,letterSpacing:'0.08em',color:detailPillColor,background:`${detailPillColor}18`,padding:'2px 6px',borderRadius:3,border:`1px solid ${detailPillColor}30`,marginLeft:8}}>{detailPill}</span>}
+                </div>
+                <GradeBox score={hindsightStatus==='pending'?0:(side.h.score||0)} verdict={detailVerdict} confidence={hindsightStatus==='confirmed'?side.h.confidence:undefined} mobile={mobile}/>
+                {hindsightStatus!=='confirmed'&&<div style={{fontFamily:SANS,fontSize:10,color:C.dim,marginTop:4,lineHeight:1.3}}>Grade updates as production accumulates and picks resolve.</div>}
               </div>
-            ))}
+            );})}
           </div>
           {(myGradeFactors.length>0||theirGradeFactors.length>0)&&<div style={{...fp,paddingTop:4}}>
             <div style={colL}>{myGradeFactors.map((gf:any,i:number)=><GradeFactorCard key={i} factor={gf}/>)}</div>
@@ -464,13 +508,13 @@ function FullReport({reportData,hindsightData,onClose}:{reportData:any;hindsight
       </CollapsiblePill>
 
       {/* ASSETS ACQUIRED — collapsible per owner */}
-      <CollapsiblePill label={`ASSETS ACQUIRED (${myAssets.length + theirAssets.length})`} defaultOpen={true}>
+      <CollapsiblePill label={`ASSETS ACQUIRED (${myAssets.length + theirAssets.length})`} defaultOpen={false}>
         <div style={fp}>
           {[{label:`${myLabel} RECEIVED`,assets:myAssets,gf:myGradeFactors,owner:myName},{label:`${theirLabel} RECEIVED`,assets:theirAssets,gf:theirGradeFactors,owner:theirName}].map(({label,assets,gf,owner},idx)=>(
             <div key={idx} style={idx===0?colL:colR}>
               <SubHeader label={label}/>
               <div style={{display:'flex',flexDirection:'column',gap:4}}>
-                {assets.length>0?assets.map((a:any,i:number)=><AssetCard key={i} asset={a} allAssets={assets} gradeFactors={gf} allTrades={reportData.all_trades} sideOwner={owner}/>):<span style={{fontFamily:MONO,fontSize:12,color:C.dim}}>No data</span>}
+                {assets.length>0?assets.map((a:any,i:number)=><AssetCard key={i} asset={a} allAssets={assets} gradeFactors={gf} allTrades={reportData.all_trades} sideOwner={owner} pickSlotMap={pickSlotMap}/>):<span style={{fontFamily:MONO,fontSize:12,color:C.dim}}>No data</span>}
               </div>
             </div>
           ))}
@@ -489,7 +533,7 @@ function FullReport({reportData,hindsightData,onClose}:{reportData:any;hindsight
                   return(
                   <div key={i} style={{marginBottom:i<assets.length-1?12:0}}>
                     <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:4,minWidth:0}}>
-                      <span style={{fontFamily:SANS,fontSize:13,fontWeight:700,color:C.primary,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',minWidth:0}}>{cleanPickName(a.name,a.resolved_slot)}</span>
+                      <span style={{fontFamily:SANS,fontSize:13,fontWeight:700,color:C.primary,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',minWidth:0}}>{cleanPickName(a.name,a.resolved_slot,pickSlotMap)}</span>
                       <span style={{fontFamily:MONO,fontSize:12,fontWeight:800,color:ic,paddingTop:2,paddingBottom:2,paddingLeft:8,paddingRight:8,borderRadius:4,background:ri.impact>=0?'rgba(125,211,160,0.12)':'rgba(228,114,114,0.12)',flexShrink:0}}>{ri.impact>=0?'+':''}{ri.impact.toFixed(1)} PPG</span>
                     </div>
                     <div style={{fontFamily:MONO,fontSize:10,color:C.dim,display:'flex',gap:16}}>
@@ -536,6 +580,40 @@ export default function TradeReportModal({ leagueId, tradeId, onClose }: {
   const r = report as Record<string, unknown> | undefined;
   const hasReport = r && (r.side_a || r.sides);
 
+  // Fetch picks for both owners to get 2026 slot labels
+  const ownerA = (r?.side_a as any)?.owner as string | undefined;
+  const ownerB = (r?.side_b as any)?.owner as string | undefined;
+  const { data: picksA } = useQuery({
+    queryKey: ["picks", leagueId, ownerA],
+    queryFn: () => getPicks(leagueId, ownerA!),
+    enabled: !!ownerA,
+    staleTime: 60 * 60 * 1000,
+  });
+  const { data: picksB } = useQuery({
+    queryKey: ["picks", leagueId, ownerB],
+    queryFn: () => getPicks(leagueId, ownerB!),
+    enabled: !!ownerB && ownerB !== ownerA,
+    staleTime: 60 * 60 * 1000,
+  });
+
+  // Build slot lookup: "2026 round 2 (owner name)" → "2.07"
+  const pickSlotMap = React.useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const pd of [picksA, picksB]) {
+      if (!pd) continue;
+      const picks = ((pd as any).picks || []) as Array<Record<string, unknown>>;
+      for (const pk of picks) {
+        if (!pk.slot_label || String(pk.season) !== '2026') continue;
+        const owner = String(pk.original_owner || '');
+        const round = Number(pk.round);
+        // Match the format from enriched_trades: "2026 Round 2 (Owner Name)"
+        const key = `2026 round ${round} (${owner})`.toLowerCase().trim();
+        map[key] = String(pk.slot_label);
+      }
+    }
+    return map;
+  }, [picksA, picksB]);
+
   return(<>
     <style>{`@keyframes fadeIn{from{opacity:0}to{opacity:1}}@keyframes modalSlideUp{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:translateY(0)}}@keyframes modalSlideIn{from{opacity:0;transform:scale(0.97) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}@keyframes radarSweep{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
     <div onClick={onClose} style={{position:'fixed',inset:0,zIndex:9999,background:'rgba(0,0,0,0.85)',backdropFilter:'blur(8px)',display:'flex',alignItems:mobile?'flex-end':'center',justifyContent:'center',animation:'fadeIn 0.2s ease'}}>
@@ -553,7 +631,7 @@ export default function TradeReportModal({ leagueId, tradeId, onClose }: {
         </div>}
         {/* Powered by — desktop only */}
         {!mobile&&<div style={{position:'absolute',top:10,right:16,zIndex:10}}><div style={{display:'flex',alignItems:'center',gap:4,paddingTop:3,paddingBottom:3,paddingLeft:10,paddingRight:10,borderRadius:12,background:'rgba(212,165,50,0.06)',border:'1px solid rgba(212,165,50,0.22)'}}><span style={{fontFamily:SANS,fontSize:9,fontWeight:600,color:'#d4a532',fontStyle:'italic'}}>powered by</span><span style={{fontFamily:SANS,fontSize:10,fontWeight:900,color:'#eeeef2'}}>DynastyGPT<span style={{color:'#d4a532'}}>.com</span></span></div></div>}
-        {isLoading?<LoadingSequence/>:hasReport?<FullReport reportData={r} hindsightData={hindsight} onClose={onClose}/>:(
+        {isLoading?<LoadingSequence/>:hasReport?<FullReport reportData={r} hindsightData={hindsight} onClose={onClose} pickSlotMap={pickSlotMap}/>:(
           <div style={{paddingTop:40,paddingBottom:40,paddingLeft:20,paddingRight:20,textAlign:'center'}}><div style={{fontFamily:MONO,fontSize:12,color:C.red,marginBottom:8}}>Failed to load report</div><div style={{fontFamily:MONO,fontSize:10,color:C.dim}}>Trade ID: {tradeId}</div><div onClick={onClose} style={{marginTop:16,fontFamily:MONO,fontSize:11,color:C.gold,cursor:'pointer',paddingTop:6,paddingBottom:6,paddingLeft:16,paddingRight:16,borderRadius:4,border:`1px solid ${C.goldBorder}`,background:C.goldDim,display:'inline-block'}}>CLOSE</div></div>
         )}
       </div>

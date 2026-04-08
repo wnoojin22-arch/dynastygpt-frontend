@@ -152,7 +152,6 @@ const TRADE_CSS = `
 }
 .tl2-card:hover .tl2-glow { opacity: 1; }
 .tl2-card:hover .tl2-scan { display: block; }
-.tl2-card:hover .tl2-cta { max-height: 40px; opacity: 1; padding-top: 10px; margin-top: 10px; }
 .tl2-card:hover .tl2-date { color: var(--vc) !important; }
 .tl2-card:hover .tl2-partner { color: var(--vc) !important; }
 .tl2-glow {
@@ -163,10 +162,6 @@ const TRADE_CSS = `
   display: none; position: absolute; top: 0; height: 100%; width: 40%; opacity: 0.08;
   animation: tlScanLine 2s linear infinite; pointer-events: none; z-index: 1;
 }
-.tl2-cta {
-  max-height: 0; opacity: 0; padding-top: 0; margin-top: 0;
-  overflow: hidden; transition: all 0.28s cubic-bezier(0.4,0,0.2,1);
-}
 `;
 
 /* ═══════════════════════════════════════════════════════════════
@@ -174,7 +169,6 @@ const TRADE_CSS = `
    ═══════════════════════════════════════════════════════════════ */
 export default function MyTradesView({ leagueId, owner: ownerProp, ownerId }: { leagueId: string; owner: string | null; ownerId?: string | null }) {
   const mobile = useIsMobile();
-  const [mainTab, setMainTab] = useState<'log' | 'league'>('log');
   const [historyTab, setHistoryTab] = useState<'log' | 'profile'>('log');
   const [reportTradeId, setReportTradeId] = useState<string | null>(null);
   const [partnerFilter, setPartnerFilter] = useState('all');
@@ -217,52 +211,7 @@ export default function MyTradesView({ leagueId, owner: ownerProp, ownerId }: { 
     enabled: !!owner,
   });
 
-  // ── OUTER TAB BAR: MY TRADES | LEAGUE LOG ──
-  // Always render this so user can switch views
-  const outerTabs = (
-    <div style={{ display: 'flex', flexDirection: mobile ? 'column' : 'row', gap: 0, borderBottom: `1px solid ${C.borderLt}`, marginBottom: 0 }}>
-      <div style={{ display: 'flex', gap: 0 }}>
-        {([
-          { id: 'log' as const, label: 'MY TRADES' },
-          { id: 'league' as const, label: 'LEAGUE LOG' },
-        ]).map(tab => {
-          const active = mainTab === tab.id;
-          return (
-            <div key={tab.id} onClick={() => setMainTab(tab.id)} style={{
-              padding: mobile ? '8px 16px' : '10px 28px',
-              fontFamily: SANS, fontSize: mobile ? 12 : 15, fontWeight: 800,
-              letterSpacing: '0.12em', color: active ? C.gold : '#9CA3AF', cursor: 'pointer',
-              borderBottom: active ? `3px solid ${C.gold}` : '3px solid transparent',
-              boxShadow: active ? `0 3px 12px ${C.gold}40, 0 1px 4px ${C.gold}25` : 'none',
-              transition: 'all 0.2s ease',
-            }}>
-              {tab.label}
-            </div>
-          );
-        })}
-      </div>
-      {/* Owner picker — desktop only, mobile uses header dropdown */}
-      <div style={{ marginLeft: 'auto', display: mobile ? 'none' : 'flex', alignItems: 'center', padding: '0 14px 0 0' }}>
-        <select
-          value={owner || ''}
-          onChange={(e) => {
-            const name = e.target.value;
-            const match = ownersFullData?.owners?.find((o: { name: string; platform_user_id?: string }) => o.name === name);
-            setOwner(name, match?.platform_user_id ?? null);
-          }}
-          style={{
-            fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: '6px 12px',
-            borderRadius: 4, background: C.elevated, color: owner ? C.gold : C.dim,
-            border: `1px solid ${owner ? C.goldBorder : C.border}`, cursor: 'pointer',
-            width: mobile ? '100%' : 'auto',
-          }}
-        >
-          <option value="" style={{ background: C.card }}>Select Owner</option>
-          {ownerList.map(o => <option key={o} value={o} style={{ background: C.card }}>{o}</option>)}
-        </select>
-      </div>
-    </div>
-  );
+  // Owner picker removed — parent page handles navigation
 
   // ── ALL DERIVED DATA — must be computed before any conditional returns ──
   const rawTrades: GradedTrade[] = data?.trades || [];
@@ -352,26 +301,17 @@ export default function MyTradesView({ leagueId, owner: ownerProp, ownerId }: { 
 
   // ── CONDITIONAL RETURNS — after all hooks ──
 
-  if (mainTab === 'league') return (
-    <div>
-      {outerTabs}
-      <LeagueTradesView leagueId={leagueId} />
-    </div>
-  );
-
   if (!owner) return (
     <div>
-      {outerTabs}
       <div style={{ padding: 60, textAlign: 'center' }}>
         <div style={{ fontFamily: DISPLAY, fontSize: 18, color: C.gold, marginBottom: 8 }}>SELECT YOUR TEAM</div>
-        <div style={{ fontFamily: SANS, fontSize: 14, color: C.dim }}>Choose an owner from the dropdown above to view their trade intelligence.</div>
+        <div style={{ fontFamily: SANS, fontSize: 14, color: C.dim }}>Choose an owner from the header to view your trade intelligence.</div>
       </div>
     </div>
   );
 
   if (isLoading) return (
     <div>
-      {outerTabs}
       <div style={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <span style={{ fontFamily: MONO, fontSize: 11, color: C.gold, letterSpacing: '0.1em' }}>LOADING TRADE HISTORY...</span>
       </div>
@@ -411,7 +351,6 @@ export default function MyTradesView({ leagueId, owner: ownerProp, ownerId }: { 
 
   return (
     <div>
-      {outerTabs}
       <div style={{ padding: '12px 14px' }}>
       <style>{TRADE_CSS}</style>
 
@@ -556,7 +495,7 @@ export default function MyTradesView({ leagueId, owner: ownerProp, ownerId }: { 
                     className="tl2-card"
                     onClick={() => setReportTradeId(t.trade_id)}
                     style={{
-                      padding: mobile ? '10px 10px 10px 14px' : '12px 16px 12px 20px',
+                      padding: mobile ? '10px 10px 10px 14px' : '8px 14px 8px 18px',
                       borderBottom: `1px solid ${C.white08}`,
                       borderLeftColor: _verdict ? vc : 'transparent',
                       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -569,61 +508,108 @@ export default function MyTradesView({ leagueId, owner: ownerProp, ownerId }: { 
                     <div className="tl2-scan" style={{ background: `linear-gradient(90deg, transparent, ${vc}40, transparent)` }} />
                     {/* Content */}
                     <div style={{ position: 'relative', zIndex: 2 }}>
-                      {/* Row 1: Date · Partner · Grades */}
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: mobile ? 6 : 8 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: mobile ? 6 : 8 }}>
-                          <span className="tl2-date" style={{ fontFamily: MONO, fontSize: mobile ? 9 : 10, fontWeight: 700, color: C.dim }}>{dateStr}</span>
-                          <div style={{ width: mobile ? 18 : 22, height: mobile ? 18 : 22, borderRadius: '50%', background: `${vc}15`, border: `1.5px solid ${vc}35`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: MONO, fontSize: mobile ? 8 : 9, fontWeight: 900, color: vc, flexShrink: 0 }}>{(partner || '?')[0]}</div>
-                          <span className="tl2-partner" style={{ fontFamily: SANS, fontSize: mobile ? 12 : 14, fontWeight: 700, color: C.primary, cursor: 'pointer' }}
-                            onClick={(e) => { e.stopPropagation(); setPartnerFilter(partnerFilter === partner ? 'all' : partner); }}>
-                            {mobile ? partner : `w/ ${partner}`}
-                          </span>
-                        </div>
-                        {/* Grade badges — right side, stacked */}
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
-                          {/* Trade Day (top) */}
-                          {(() => {
-                            const td = mapVerdict(_myVerdict);
-                            const tdc = td ? verdictColor(td) : C.dim;
-                            return (
-                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-                                <span style={{ fontFamily: MONO, fontSize: 7, fontWeight: 700, letterSpacing: '0.06em', color: C.dim }}>TRADE DAY</span>
-                                <span style={{ fontFamily: MONO, fontSize: mobile ? 10 : 11, fontWeight: 800, color: tdc, padding: '3px 10px', borderRadius: 4, background: td ? `${tdc}15` : C.elevated, border: `1px solid ${td ? `${tdc}30` : C.border}`, lineHeight: 1 }}>{td || '—'}</span>
-                              </div>
-                            );
-                          })()}
-                          {/* Hindsight (bottom) — use API hindsight_status, not client date check */}
-                          {(() => {
-                            const isConfirmed = t.hindsight_status === 'confirmed';
-                            const hv = isConfirmed ? mapVerdict(t.hindsight_verdict) : '';
-                            const hc = hv ? verdictColor(hv) : C.dim;
-                            const label = isConfirmed && hv ? hv : 'Pending';
-                            const isPending = !isConfirmed || !hv;
-                            return (
-                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-                                <span style={{ fontFamily: MONO, fontSize: 7, fontWeight: 700, letterSpacing: '0.06em', color: isPending ? C.dim : hc }}>HINDSIGHT</span>
-                                <span style={{ fontFamily: MONO, fontSize: mobile ? 10 : 11, fontWeight: 800, color: isPending ? C.dim : hc, padding: '3px 10px', borderRadius: 4, background: isPending ? C.elevated : `${hc}15`, border: `1px solid ${isPending ? C.border : `${hc}30`}`, lineHeight: 1 }}>{label}</span>
-                              </div>
-                            );
-                          })()}
-                        </div>
-                      </div>
-                      {/* Row 2: Gave → Got */}
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: mobile ? 6 : 10, alignItems: 'start' }}>
-                        <div>
-                          <div style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, color: `${C.red}cc`, letterSpacing: '0.06em', marginBottom: 3 }}>GAVE</div>
-                          <div style={{ fontFamily: SANS, fontSize: mobile ? 11 : 12, color: C.secondary, lineHeight: 1.5 }}><AssetList players={t.players_sent} picks={t.picks_sent} /></div>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', paddingTop: 14 }}><span style={{ fontFamily: MONO, fontSize: 14, color: `${C.gold}50` }}>→</span></div>
-                        <div>
-                          <div style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, color: `${C.green}cc`, letterSpacing: '0.06em', marginBottom: 3 }}>GOT</div>
-                          <div style={{ fontFamily: SANS, fontSize: mobile ? 11 : 12, color: C.primary, fontWeight: 600, lineHeight: 1.5 }}><AssetList players={t.players_received} picks={t.picks_received} /></div>
-                        </div>
-                      </div>
-                      {/* Hover CTA (desktop only) */}
-                      {!mobile && (
-                        <div className="tl2-cta" style={{ borderTop: `1px solid ${vc}20`, textAlign: 'center' }}>
-                          <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: '0.18em', color: vc, textShadow: `0 0 20px ${vc}60` }}>VIEW TRADE REPORT</span>
+                      {mobile ? (
+                        <>
+                          {/* ── MOBILE: keep original stacked layout ── */}
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <span className="tl2-date" style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.dim }}>{dateStr}</span>
+                              <div style={{ width: 18, height: 18, borderRadius: '50%', background: `${vc}15`, border: `1.5px solid ${vc}35`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: MONO, fontSize: 8, fontWeight: 900, color: vc, flexShrink: 0 }}>{(partner || '?')[0]}</div>
+                              <span className="tl2-partner" style={{ fontFamily: SANS, fontSize: 12, fontWeight: 700, color: C.primary, cursor: 'pointer' }}
+                                onClick={(e) => { e.stopPropagation(); setPartnerFilter(partnerFilter === partner ? 'all' : partner); }}>
+                                {partner}
+                              </span>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
+                              {(() => {
+                                const td = mapVerdict(_myVerdict);
+                                const tdc = td ? verdictColor(td) : C.dim;
+                                return (
+                                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                                    <span style={{ fontFamily: MONO, fontSize: 7, fontWeight: 700, letterSpacing: '0.06em', color: C.dim }}>TRADE DAY</span>
+                                    <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: tdc, padding: '3px 10px', borderRadius: 4, background: td ? `${tdc}15` : C.elevated, border: `1px solid ${td ? `${tdc}30` : C.border}`, lineHeight: 1 }}>{td || '—'}</span>
+                                  </div>
+                                );
+                              })()}
+                              {(() => {
+                                const isConfirmed = t.hindsight_status === 'confirmed';
+                                const hv = isConfirmed ? mapVerdict(t.hindsight_verdict) : '';
+                                const hc = hv ? verdictColor(hv) : C.dim;
+                                const label = isConfirmed && hv ? hv : 'Pending';
+                                const isPending = !isConfirmed || !hv;
+                                return (
+                                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                                    <span style={{ fontFamily: MONO, fontSize: 7, fontWeight: 700, letterSpacing: '0.06em', color: isPending ? C.dim : hc }}>HINDSIGHT</span>
+                                    <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: isPending ? C.dim : hc, padding: '3px 10px', borderRadius: 4, background: isPending ? C.elevated : `${hc}15`, border: `1px solid ${isPending ? C.border : `${hc}30`}`, lineHeight: 1 }}>{label}</span>
+                                  </div>
+                                );
+                              })()}
+                            </div>
+                          </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 6, alignItems: 'start' }}>
+                            <div>
+                              <div style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, color: `${C.red}cc`, letterSpacing: '0.06em', marginBottom: 3 }}>GAVE</div>
+                              <div style={{ fontFamily: SANS, fontSize: 11, color: C.secondary, lineHeight: 1.5 }}><AssetList players={t.players_sent} picks={t.picks_sent} /></div>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', paddingTop: 14 }}><span style={{ fontFamily: MONO, fontSize: 14, color: `${C.gold}50` }}>→</span></div>
+                            <div>
+                              <div style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, color: `${C.green}cc`, letterSpacing: '0.06em', marginBottom: 3 }}>GOT</div>
+                              <div style={{ fontFamily: SANS, fontSize: 11, color: C.primary, fontWeight: 600, lineHeight: 1.5 }}><AssetList players={t.players_received} picks={t.picks_received} /></div>
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        /* ── DESKTOP: compact single-row layout ── */
+                        <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr auto', gap: 12, alignItems: 'center' }}>
+                          {/* Left: date + partner */}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+                            <span className="tl2-date" style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.dim }}>{dateStr}</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                              <div style={{ width: 18, height: 18, borderRadius: '50%', background: `${vc}15`, border: `1.5px solid ${vc}35`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: MONO, fontSize: 8, fontWeight: 900, color: vc, flexShrink: 0 }}>{(partner || '?')[0]}</div>
+                              <span className="tl2-partner" style={{ fontFamily: SANS, fontSize: 13, fontWeight: 700, color: C.primary, cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                onClick={(e) => { e.stopPropagation(); setPartnerFilter(partnerFilter === partner ? 'all' : partner); }}>
+                                {partner}
+                              </span>
+                            </div>
+                          </div>
+                          {/* Middle: gave → got */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, color: `${C.red}cc`, letterSpacing: '0.06em', marginRight: 6 }}>GAVE</span>
+                              <span style={{ fontFamily: SANS, fontSize: 12, color: C.secondary, lineHeight: 1.4 }}><AssetList players={t.players_sent} picks={t.picks_sent} /></span>
+                            </div>
+                            <span style={{ fontFamily: MONO, fontSize: 13, color: `${C.gold}50`, flexShrink: 0 }}>→</span>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, color: `${C.green}cc`, letterSpacing: '0.06em', marginRight: 6 }}>GOT</span>
+                              <span style={{ fontFamily: SANS, fontSize: 12, color: C.primary, fontWeight: 600, lineHeight: 1.4 }}><AssetList players={t.players_received} picks={t.picks_received} /></span>
+                            </div>
+                          </div>
+                          {/* Right: trade day + hindsight stacked */}
+                          <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                            {(() => {
+                              const td = mapVerdict(_myVerdict);
+                              const tdc = td ? verdictColor(td) : C.dim;
+                              return (
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, minWidth: 62 }}>
+                                  <span style={{ fontFamily: MONO, fontSize: 7, fontWeight: 700, letterSpacing: '0.06em', color: C.dim }}>TRADE DAY</span>
+                                  <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: tdc, padding: '2px 8px', borderRadius: 3, background: td ? `${tdc}15` : C.elevated, border: `1px solid ${td ? `${tdc}30` : C.border}`, lineHeight: 1 }}>{td || '—'}</span>
+                                </div>
+                              );
+                            })()}
+                            {(() => {
+                              const isConfirmed = t.hindsight_status === 'confirmed';
+                              const hv = isConfirmed ? mapVerdict(t.hindsight_verdict) : '';
+                              const hc = hv ? verdictColor(hv) : C.dim;
+                              const label = isConfirmed && hv ? hv : 'Pending';
+                              const isPending = !isConfirmed || !hv;
+                              return (
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, minWidth: 62 }}>
+                                  <span style={{ fontFamily: MONO, fontSize: 7, fontWeight: 700, letterSpacing: '0.06em', color: isPending ? C.dim : hc }}>HINDSIGHT</span>
+                                  <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: isPending ? C.dim : hc, padding: '2px 8px', borderRadius: 3, background: isPending ? C.elevated : `${hc}15`, border: `1px solid ${isPending ? C.border : `${hc}30`}`, lineHeight: 1 }}>{label}</span>
+                                </div>
+                              );
+                            })()}
+                          </div>
                         </div>
                       )}
                     </div>

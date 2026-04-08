@@ -80,14 +80,15 @@ function PackageCard({ pkg, onBuild }: { pkg: SuggestedPackage; onBuild: () => v
           </div>
           {pkg.market_comparison && <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim }}>{pkg.market_comparison}</div>}
         </div>
-        <div style={{ textAlign: "right", flexShrink: 0 }}><span style={{ fontFamily: MONO, fontSize: 18, fontWeight: 700, color: accColor }}>{pkg.acceptance_likelihood}</span>
-          <div style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>acceptance</div></div>
+        {/* Acceptance score — disabled, will revisit */}
       </div>
 
       {/* Narrative — the AI's league-first explanation */}
       {pkg.narrative && (
-        <div style={{ fontFamily: SANS, fontSize: 13, lineHeight: 1.55, color: C.secondary, padding: "10px 12px", background: C.elevated, borderRadius: 6, borderLeft: `3px solid ${C.gold}50`, marginBottom: 10 }}>
-          {pkg.narrative}
+        <div style={{ fontFamily: SANS, fontSize: 13, color: C.secondary, padding: "10px 12px", background: C.elevated, borderRadius: 6, borderLeft: `3px solid ${C.gold}50`, marginBottom: 10, display: "flex", flexDirection: "column", gap: 6 }}>
+          {pkg.narrative.split(/\n|(?= • )/).map((s: string) => s.trim()).filter(Boolean).map((line: string, i: number) => (
+            <div key={i} style={{ lineHeight: 1.55 }}>{line}</div>
+          ))}
         </div>
       )}
 
@@ -174,14 +175,35 @@ export default function TradeBuilderDesktop({
         {/* ROW 2: Command bar */}
         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 20px", borderBottom: `1px solid ${C.border}`, flexShrink: 0, background: C.panel }}>
           <div style={{ display: "flex", gap: 6 }}>
-            {POSITIONS.map((pos) => (
+            {POSITIONS.map((pos) => {
+              const pc = posColor(pos);
+              return (
               <button key={pos} onClick={() => handleFindPosition(pos)}
-                style={{ fontFamily: DISPLAY, fontSize: 13, letterSpacing: "0.05em", padding: "8px 16px", borderRadius: 6, border: `1px solid ${posColor(pos)}40`, background: `${posColor(pos)}10`, color: posColor(pos), cursor: "pointer", transition: "all 0.15s" }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = `${posColor(pos)}25`; e.currentTarget.style.borderColor = posColor(pos); }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = `${posColor(pos)}10`; e.currentTarget.style.borderColor = `${posColor(pos)}40`; }}>
+                style={{
+                  fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.10em",
+                  padding: "8px 18px", borderRadius: 8, cursor: "pointer", transition: "all 0.2s ease",
+                  background: `linear-gradient(135deg, ${pc}18, ${pc}08)`,
+                  border: `1px solid ${pc}35`,
+                  color: pc,
+                  boxShadow: `0 1px 4px ${pc}15, inset 0 1px 0 ${pc}10`,
+                  position: "relative" as const, overflow: "hidden" as const,
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = `linear-gradient(135deg, ${pc}30, ${pc}15)`;
+                  e.currentTarget.style.borderColor = `${pc}70`;
+                  e.currentTarget.style.boxShadow = `0 2px 12px ${pc}25, inset 0 1px 0 ${pc}20`;
+                  e.currentTarget.style.transform = "translateY(-1px)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = `linear-gradient(135deg, ${pc}18, ${pc}08)`;
+                  e.currentTarget.style.borderColor = `${pc}35`;
+                  e.currentTarget.style.boxShadow = `0 1px 4px ${pc}15, inset 0 1px 0 ${pc}10`;
+                  e.currentTarget.style.transform = "translateY(0)";
+                }}>
                 FIND {pos}
               </button>
-            ))}
+              );
+            })}
           </div>
           <div style={{ flex: 1 }} />
           <button onClick={handleSuggestWithPartner}

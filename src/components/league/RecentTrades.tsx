@@ -51,11 +51,15 @@ export default function RecentTrades({ trades, basePath, leagueId, limit = 7 }: 
         </div>
         <div style={{ display: "flex", flexDirection: "column" }}>
           {trades.slice(0, limit).map((t, i) => {
+            // Verdict: WON, LOST, EVEN, or ROBBERY only
             const vs = t.verdict ? getVerdictStyle(t.verdict) : null;
-            // Determine per-side verdict for the first owner listed
-            const isA = t.side_a_owner?.toLowerCase() === t.owner.toLowerCase();
-            const myVerdict = isA ? t.side_a_verdict : t.side_b_verdict;
-            const myVs = myVerdict ? getVerdictStyle(myVerdict) : null;
+
+            // Hindsight: confirmed (548+ days) or Pending
+            const tradeDate = t.date ? new Date(t.date) : null;
+            const daysAgo = tradeDate ? Math.floor((Date.now() - tradeDate.getTime()) / (1000 * 60 * 60 * 24)) : 0;
+            const hindsightConfirmed = daysAgo >= 548;
+            const hsVerdict = hindsightConfirmed ? ((t as any).hindsight_verdict || null) : null;
+            const hsStyle = hsVerdict ? getVerdictStyle(hsVerdict) : null;
 
             return (
               <div key={t.trade_id || i}
@@ -82,7 +86,10 @@ export default function RecentTrades({ trades, basePath, leagueId, limit = 7 }: 
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 2, alignItems: "flex-end", flexShrink: 0 }}>
                   {vs && <span style={{ fontSize: 8, fontWeight: 800, letterSpacing: "0.06em", color: vs.color, background: vs.bg, padding: "2px 6px", borderRadius: 3, fontFamily: SANS }}>{vs.label}</span>}
-                  {myVs && myVs.label !== vs?.label && <span style={{ fontSize: 7, fontWeight: 700, color: myVs.color, fontFamily: MONO }}>{myVs.label}</span>}
+                  {hindsightConfirmed && hsStyle
+                    ? <span style={{ fontSize: 7, fontWeight: 700, color: hsStyle.color, fontFamily: MONO }}>HINDSIGHT: {hsStyle.label}</span>
+                    : <span style={{ fontSize: 7, fontWeight: 700, color: C.dim, fontFamily: MONO, opacity: 0.5 }}>HINDSIGHT: PENDING</span>
+                  }
                 </div>
               </div>
             );

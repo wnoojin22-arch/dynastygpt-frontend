@@ -32,9 +32,17 @@ export default function FeedbackWidget() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [pulse, setPulse] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const { user } = useUser();
   const { currentLeagueId, currentOwner, currentOwnerId } = useLeagueStore();
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   // Stop pulsing after 3 visits
   useEffect(() => {
@@ -48,9 +56,11 @@ export default function FeedbackWidget() {
     setSubmitting(true);
     try {
       const isMobile = /iPhone|iPad|Android|Mobile/i.test(navigator.userAgent);
-      await fetch(`${API}/api/feedback`, {
+      const { authHeaders } = await import("@/lib/api");
+      const hdrs = await authHeaders();
+      await fetch(`${API}/api/league/feedback`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: hdrs,
         body: JSON.stringify({
           clerk_user_id: user?.id,
           email: user?.primaryEmailAddress?.emailAddress,
@@ -114,21 +124,20 @@ export default function FeedbackWidget() {
 
   return (
     <>
-      {/* Floating button */}
+      {/* Floating button — top-right on mobile, bottom-right on desktop */}
       <button
         onClick={() => { setOpen(true); setPulse(false); }}
+        className="fixed z-[9998] border-none cursor-pointer items-center gap-1.5 sm:bottom-5 sm:right-5 sm:rounded-[20px] sm:px-4 sm:py-2.5 top-[7px] right-2 sm:top-auto rounded-md px-2 py-1"
         style={{
-          position: "fixed", bottom: 20, right: 20, zIndex: 9998,
-          padding: "10px 16px", borderRadius: 20,
           background: C.gold, color: C.bg,
-          fontFamily: MONO, fontSize: 12, fontWeight: 800, letterSpacing: "0.04em",
-          border: "none", cursor: "pointer",
+          fontFamily: MONO, fontWeight: 800, letterSpacing: "0.04em",
           boxShadow: `0 4px 20px rgba(212,165,50,0.3)`,
           animation: pulse ? "feedbackPulse 2s ease infinite" : "none",
-          display: open ? "none" : "flex", alignItems: "center", gap: 6,
+          display: open ? "none" : "flex",
         }}
       >
-        💬 Feedback
+        <span className="text-[10px] sm:text-xs">💬</span>
+        <span className="hidden sm:inline text-xs">Feedback</span>
       </button>
 
       {/* Pulse animation */}
@@ -146,16 +155,16 @@ export default function FeedbackWidget() {
       <AnimatePresence>
         {open && (
           <motion.div
-            initial={{ y: "100%", opacity: 0 }}
+            initial={{ y: isMobile ? "-100%" : "100%", opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            exit={{ y: "100%", opacity: 0 }}
+            exit={{ y: isMobile ? "-100%" : "100%", opacity: 0 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
+            className="fixed z-[9999] overflow-y-auto sm:bottom-0 sm:right-0 sm:rounded-t-xl top-0 left-0 right-0 sm:left-auto rounded-b-xl sm:rounded-b-none"
             style={{
-              position: "fixed", bottom: 0, right: 0, zIndex: 9999,
-              width: typeof window !== "undefined" && window.innerWidth < 640 ? "100%" : 370,
-              maxHeight: "80vh", overflowY: "auto",
-              background: C.card, border: `1px solid ${C.border}`, borderRadius: "12px 12px 0 0",
-              boxShadow: "0 -8px 40px rgba(0,0,0,0.5)",
+              width: isMobile ? "100%" : 370,
+              maxHeight: "80vh",
+              background: C.card, border: `1px solid ${C.border}`,
+              boxShadow: isMobile ? "0 8px 40px rgba(0,0,0,0.5)" : "0 -8px 40px rgba(0,0,0,0.5)",
             }}
           >
             {/* Header */}

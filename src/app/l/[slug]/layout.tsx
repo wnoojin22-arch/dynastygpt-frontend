@@ -6,6 +6,7 @@ import { useUser, SignOutButton } from "@clerk/nextjs";
 import { useLeagueStore } from "@/lib/stores/league-store";
 import { DEV_BYPASS_ACTIVE, DEV_USER_METADATA } from "@/hooks/useDevUser";
 import PlayerCardModal from "@/components/league/PlayerCardModal";
+import FeedbackWidget from "@/components/feedback/FeedbackWidget";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getOwners, getOverview, getRankings, syncLeague, getLeagueBySlug } from "@/lib/api";
 import { Home, LayoutGrid, Search, Zap, BarChart3, RefreshCw } from "lucide-react";
@@ -469,6 +470,7 @@ export default function LeagueLayout({ children }: { children: React.ReactNode }
       <BottomTabBar basePath={basePath} pathname={pathname} />
 
       <PlayerCardModal />
+      <FeedbackWidget />
     </div>
   );
 }

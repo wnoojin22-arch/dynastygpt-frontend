@@ -303,11 +303,10 @@ function DynastyScoreCard({ lid, owner, ownerId }: { lid: string; owner: string;
       })()
     : null;
 
-  // Compute global stats from percentile
+  // Compute global stats from percentile + real total_scored from API
   const percentile = myScore?.percentile;
   const topPct = percentile != null ? Math.max(1, 100 - percentile) : null;
-  // Rough global population estimate
-  const globalManagers = percentile != null ? Math.round(myScore!.score > 0 ? 92847 : 0) : null;
+  const globalManagers = (myScore as any)?.total_scored || null;
   const globalRank = topPct != null && globalManagers ? Math.max(1, Math.round((topPct / 100) * globalManagers)) : null;
 
   const tierColor = myScore ? (TIER_COLORS[myScore.tier.label] || C.dim) : C.dim;

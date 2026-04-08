@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { DEV_BYPASS_ACTIVE, DEV_USER_METADATA } from "@/hooks/useDevUser";
+import { authHeaders } from "@/lib/api";
 
 const C = {
   bg: "#06080d", card: "#10131d", border: "#1a1e30",
@@ -68,9 +69,10 @@ export default function OnboardingPage() {
       });
 
       // 4. Enforce one Sleeper account per DynastyGPT account
+      const hdrs = await authHeaders();
       const linkRes = await fetch("/api/user/link-sleeper", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: hdrs,
         body: JSON.stringify({
           sleeper_user_id: sleeperId,
           clerk_user_id: user.id,
@@ -88,7 +90,7 @@ export default function OnboardingPage() {
       try {
         const approveRes = await fetch("/api/user/approve", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: hdrs,
           body: JSON.stringify({
             sleeper_user_id: sleeperId,
             clerk_user_id: user.id,

@@ -2,124 +2,158 @@
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { useLeagueStore } from "@/lib/stores/league-store";
+import { usePlayerCardStore } from "@/lib/stores/player-card-store";
 import { useQuery } from "@tanstack/react-query";
-import { getRankings, getRecentTrades, getTrending, getOwnerProfiles, getOverview, getLeagueIntel, getReportCard } from "@/lib/api";
-import { PowerRankings, RecentTrades } from "@/components/league";
-import { leaguePrefix } from "@/components/league/tokens";
-import PlayerName from "@/components/league/PlayerName";
-import type { LeagueReportCardResponse, TrendingPlayer, GradedTrade, RankingEntry } from "@/lib/types";
+import {
+  getRankings, getRecentTrades, getTrending, getOwnerProfiles,
+  getOverview, getLeagueIntel, getReportCard, getMarketPulse,
+} from "@/lib/api";
+import { RecentTrades, PlayerName } from "@/components/league";
+import PlayerHeadshot from "@/components/league/PlayerHeadshot";
+import { C, SANS, MONO, DISPLAY, fmt, posColor, getVerdictStyle, leaguePrefix } from "@/components/league/tokens";
+import type {
+  LeagueReportCardResponse, TrendingPlayer, GradedTrade,
+  RankingEntry, LeagueIntelOwner, OwnerProfile,
+} from "@/lib/types";
 
 /* ═══════════════════════════════════════════════════════════════
-   DESIGN TOKENS
+   HOOKS
    ═══════════════════════════════════════════════════════════════ */
-const C = {
-  bg: "#06080d", panel: "#0a0d15", card: "#10131d", elevated: "#171b28",
-  border: "#1a1e30", borderLt: "#252a3e",
-  primary: "#eeeef2", secondary: "#b0b2c8", dim: "#9596a5",
-  gold: "#d4a532", goldBright: "#f5e6a3", goldDark: "#8b6914",
-  goldDim: "rgba(212,165,50,0.10)", goldBorder: "rgba(212,165,50,0.22)",
-  goldGlow: "rgba(212,165,50,0.06)",
-  green: "#7dd3a0", red: "#e47272", blue: "#6bb8e0", orange: "#e09c6b",
-  white08: "rgba(255,255,255,0.06)",
+
+function useInView(threshold = 0.2) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [inView, setInView] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) { setInView(true); obs.disconnect(); } },
+      { threshold },
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [threshold]);
+  return { ref, inView };
+}
+
+function useCountUp(end: number, duration: number, start: boolean) {
+  const [value, setValue] = useState(0);
+  useEffect(() => {
+    if (!start) return;
+    let startTime: number | null = null;
+    let raf: number;
+    const step = (ts: number) => {
+      if (!startTime) startTime = ts;
+      const progress = Math.min((ts - startTime) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setValue(Math.floor(eased * end));
+      if (progress < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [end, duration, start]);
+  return value;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ANIMATION VARIANTS
+   ═══════════════════════════════════════════════════════════════ */
+
+const fadeUp: Variants = {
+  hidden: { opacity: 0, y: 16 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.25, 0.1, 0.25, 1] } },
 };
-const SANS = "-apple-system, 'SF Pro Display', 'Inter', 'Segoe UI', system-ui, sans-serif";
-const MONO = "'JetBrains Mono', 'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace";
-const DISPLAY = "'Archivo Black', sans-serif";
-
-function fmt(n: number | null | undefined): string {
-  if (n == null || isNaN(n)) return "—";
-  return n.toLocaleString("en-US", { maximumFractionDigits: 0 });
-}
-function posColor(pos: string) {
-  return pos === "QB" ? "#e47272" : pos === "RB" ? "#6bb8e0" : pos === "WR" ? "#7dd3a0" : pos === "TE" ? "#e09c6b" : C.dim;
-}
+const staggerContainer: Variants = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.1 } },
+};
+const staggerItem: Variants = {
+  hidden: { opacity: 0, y: 8 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.25, 0.1, 0.25, 1] } },
+};
 
 /* ═══════════════════════════════════════════════════════════════
-   SECTION HEAD
+   PLATFORM STATS — real numbers from DB
    ═══════════════════════════════════════════════════════════════ */
-function SectionHead({ title, badge }: { title: string; badge?: string }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, paddingBottom: 8, borderBottom: `1px solid ${C.border}` }}>
-      <span style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.14em", color: C.primary, fontFamily: SANS }}>{title}</span>
-      {badge && <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.08em", color: C.gold, fontFamily: SANS, padding: "2px 8px", borderRadius: 3, background: C.goldDim, border: `1px solid ${C.goldBorder}` }}>{badge}</span>}
-    </div>
-  );
-}
 
-/* ═══════════════════════════════════════════════════════════════
-   AI INSIGHT STRIP — rotating one-liner, crossfade
-   ═══════════════════════════════════════════════════════════════ */
-const INSIGHTS = [
-  "WacoRides2Glory is riding a 5-game win streak — longest active in the league",
-  "Kris Pringle won the 2024 title — back-to-back incoming?",
-  "MonkeyEpoxy has the youngest roster in the league — avg age 23.8",
-  "#1 and #2 in power rankings separated by less than 3K in value",
-  "jpinola just hit 10 wins for the first time since 2022",
-  "medianrare hasn't made a trade in 14 months — the quietest GM in the league",
-  "85 trades across 7 seasons — DLP Dynasty League is one of the most active in the platform",
-  "Silentclock has traded with every owner in the league at least once",
+const PLATFORM_STATS = [
+  { label: "TRADES ANALYZED", value: 1500000, display: "1.5M+" },
+  { label: "LEAGUES", value: 85000, display: "85K+" },
+  { label: "DRAFT PICKS TRACKED", value: 3700000, display: "3.7M+" },
+  { label: "DATA POINTS", value: 2700000, display: "2.7M+" },
 ];
 
-function InsightStrip() {
-  const [idx, setIdx] = useState(0);
-  const [visible, setVisible] = useState(true);
+/* ═══════════════════════════════════════════════════════════════
+   HELPERS
+   ═══════════════════════════════════════════════════════════════ */
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setVisible(false);
-      setTimeout(() => {
-        setIdx((prev) => (prev + 1) % INSIGHTS.length);
-        setVisible(true);
-      }, 400);
-    }, 7000);
-    return () => clearInterval(interval);
-  }, []);
+function posBadgeClasses(pos: string): string {
+  switch (pos) {
+    case "QB": return "text-accent-red bg-accent-red/10";
+    case "RB": return "text-accent-blue bg-accent-blue/10";
+    case "WR": return "text-accent-green bg-accent-green/10";
+    case "TE": return "text-accent-orange bg-accent-orange/10";
+    default: return "text-dim bg-dim/10";
+  }
+}
 
+function posTextClass(pos: string): string {
+  switch (pos) {
+    case "QB": return "text-accent-red";
+    case "RB": return "text-accent-blue";
+    case "WR": return "text-accent-green";
+    case "TE": return "text-accent-orange";
+    default: return "text-dim";
+  }
+}
+
+function AnimatedSection({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  const { ref, inView } = useInView(0.1);
   return (
-    <div className="max-sm:!px-3" style={{
-      height: 36, display: "flex", alignItems: "center", justifyContent: "center",
-      padding: "0 24px", overflow: "hidden",
-    }}>
-      <div style={{
-        display: "flex", alignItems: "center", gap: 10,
-        opacity: visible ? 1 : 0, transition: "opacity 0.4s ease",
-      }}>
-        <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: "0.14em", color: C.gold, fontFamily: MONO, flexShrink: 0 }}>AI INSIGHT</span>
-        <div style={{ width: 1, height: 12, background: C.border, flexShrink: 0 }} />
-        <span style={{ fontSize: 13, fontWeight: 500, color: C.secondary, fontFamily: SANS, fontStyle: "italic", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-          {INSIGHTS[idx]}
-        </span>
-      </div>
+    <motion.section ref={ref} initial="hidden" animate={inView ? "visible" : "hidden"} variants={fadeUp} className={className}>
+      {children}
+    </motion.section>
+  );
+}
+
+function SectionLabel({ title }: { title: string }) {
+  return (
+    <div className="mb-5">
+      <h2 className="text-[11px] font-black tracking-[0.16em] text-primary uppercase mb-2" style={{ fontFamily: SANS }}>
+        {title}
+      </h2>
+      <div className="h-px bg-gold/30" />
     </div>
   );
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   ROTATING TICKER — cycles categories, each fully styled
+   TICKER — cycles categories, each fully styled
    ═══════════════════════════════════════════════════════════════ */
+
 type TickerCat = { label: string; dotColor: string; items: React.ReactNode[] };
 
-/* shared tiny helpers for ticker items */
-const TB = ({ c, children }: { c: string; children: React.ReactNode }) => (
-  <span style={{ fontSize: 8, fontWeight: 900, letterSpacing: "0.04em", color: c, fontFamily: SANS, background: c + "18", padding: "1px 4px", borderRadius: 2 }}>{children}</span>
-);
-const TDot = () => <span style={{ color: C.border, fontSize: 10, margin: "0 2px" }}>·</span>;
-
-function MarketTicker({ risers, fallers, recentTrades, rankings, reportCard }: {
+function MarketTicker({ risers, fallers, recentTrades, rankings, reportCard, leagueIntel }: {
   risers: TrendingPlayer[];
   fallers: TrendingPlayer[];
   recentTrades?: GradedTrade[];
   rankings?: RankingEntry[];
   reportCard?: LeagueReportCardResponse | null;
+  leagueIntel?: LeagueIntelOwner[];
 }) {
   const categories = useMemo(() => {
     const cats: TickerCat[] = [];
     const item = (key: string, children: React.ReactNode) => (
-      <span key={key} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: MONO, whiteSpace: "nowrap" }}>{children}</span>
+      <span key={key} className="inline-flex items-center gap-1.5 whitespace-nowrap" style={{ fontFamily: MONO }}>{children}</span>
     );
+    const TB = ({ cls, children }: { cls: string; children: React.ReactNode }) => (
+      <span className={`text-[8px] font-black tracking-[0.04em] px-1 rounded-sm ${cls}`}>{children}</span>
+    );
+    const TDot = () => <span className="text-border text-[10px] mx-0.5">·</span>;
 
-    /* ── MARKET MOVERS ─────────────────────────────────────── */
+    /* ── MARKET MOVERS ── */
     if (risers.length || fallers.length) {
       const nodes: React.ReactNode[] = [];
       const maxLen = Math.max(risers.length, fallers.length);
@@ -127,161 +161,163 @@ function MarketTicker({ risers, fallers, recentTrades, rankings, reportCard }: {
         if (i < risers.length) {
           const r = risers[i];
           nodes.push(item(`r${i}`, <>
-            <TB c={posColor(r.position)}>{r.position}</TB>
+            <TB cls={posBadgeClasses(r.position)}>{r.position}</TB>
             <PlayerName name={r.player} style={{ fontSize: 11, fontWeight: 700, color: C.primary }} />
-            <span style={{ fontSize: 10, fontWeight: 900, color: C.green }}>▲ +{fmt(r.sha_delta)}</span>
+            <span className="text-[10px] font-black text-accent-green">▲ +{fmt(r.sha_delta)}</span>
           </>));
         }
         if (i < fallers.length && nodes.length < 14) {
           const f = fallers[i];
           nodes.push(item(`f${i}`, <>
-            <TB c={posColor(f.position)}>{f.position}</TB>
+            <TB cls={posBadgeClasses(f.position)}>{f.position}</TB>
             <PlayerName name={f.player} style={{ fontSize: 11, fontWeight: 700, color: C.primary }} />
-            <span style={{ fontSize: 10, fontWeight: 900, color: C.red }}>▼ {fmt(f.sha_delta)}</span>
+            <span className="text-[10px] font-black text-accent-red">▼ {fmt(f.sha_delta)}</span>
           </>));
         }
       }
       cats.push({ label: "MARKET MOVERS", dotColor: C.green, items: nodes });
     }
 
-    /* ── TRADE MARKET ──────────────────────────────────────── */
+    /* ── TRADE MARKET ── */
     if (reportCard) {
       const nodes: React.ReactNode[] = [];
       if (reportCard.biggest_robbery) {
         const r = reportCard.biggest_robbery;
         nodes.push(item("rob", <>
-          <span style={{ fontSize: 11, fontWeight: 800, color: C.green }}>{r.winner}</span>
-          <span style={{ fontSize: 10, color: C.dim }}>fleeced</span>
-          <span style={{ fontSize: 11, fontWeight: 700, color: C.red }}>{r.loser}</span>
+          <span className="text-[11px] font-extrabold text-accent-green">{r.winner}</span>
+          <span className="text-[10px] text-dim">fleeced</span>
+          <span className="text-[11px] font-bold text-accent-red">{r.loser}</span>
           <TDot />
-          <span style={{ fontSize: 10, color: C.secondary }}>got {r.winner_got.slice(0, 2).join(", ")}</span>
+          <span className="text-[10px] text-secondary">got {r.winner_got.slice(0, 2).join(", ")}</span>
         </>));
       }
       if (reportCard.best_winwin) {
         const w = reportCard.best_winwin;
         nodes.push(item("ww", <>
-          <TB c={C.gold}>WIN-WIN</TB>
-          <span style={{ fontSize: 11, fontWeight: 700, color: C.primary }}>{w.side_a}</span>
-          <span style={{ fontSize: 10, color: C.dim }}>&</span>
-          <span style={{ fontSize: 11, fontWeight: 700, color: C.primary }}>{w.side_b}</span>
+          <TB cls="text-gold bg-gold/10">WIN-WIN</TB>
+          <span className="text-[11px] font-bold text-primary">{w.side_a}</span>
+          <span className="text-[10px] text-dim">&amp;</span>
+          <span className="text-[11px] font-bold text-primary">{w.side_b}</span>
         </>));
       }
       reportCard.quality_leaderboard?.slice(0, 4).forEach((q, i) => {
         const pct = Math.round(q.win_pct);
-        const c = pct >= 65 ? C.green : pct >= 50 ? C.gold : C.red;
+        const cls = pct >= 65 ? "text-accent-green" : pct >= 50 ? "text-gold" : "text-accent-red";
         nodes.push(item(`ql${i}`, <>
-          <span style={{ fontSize: 11, fontWeight: 700, color: C.primary }}>{q.owner}</span>
-          <span style={{ fontSize: 10, fontWeight: 900, color: c }}>{pct}%</span>
-          <span style={{ fontSize: 10, color: C.dim }}>win rate</span>
+          <span className="text-[11px] font-bold text-primary">{q.owner}</span>
+          <span className={`text-[10px] font-black ${cls}`}>{pct}%</span>
+          <span className="text-[10px] text-dim">win rate</span>
         </>));
       });
       if (reportCard.most_active_trader) nodes.push(item("active", <>
-        <TB c={C.gold}>MOST ACTIVE</TB>
-        <span style={{ fontSize: 11, fontWeight: 700, color: C.primary }}>{reportCard.most_active_trader.owner}</span>
-        <span style={{ fontSize: 10, fontWeight: 800, color: C.gold }}>{reportCard.most_active_trader.trades} trades</span>
-      </>));
-      if (reportCard.blockbusters) nodes.push(item("block", <>
-        <span style={{ fontSize: 10, fontWeight: 900, color: C.gold }}>{reportCard.blockbusters}</span>
-        <span style={{ fontSize: 10, color: C.secondary }}>blockbuster deals</span>
-      </>));
-      if (reportCard.panic_trades) nodes.push(item("panic", <>
-        <span style={{ fontSize: 10, fontWeight: 900, color: C.red }}>{reportCard.panic_trades}</span>
-        <span style={{ fontSize: 10, color: C.secondary }}>panic trades detected</span>
+        <TB cls="text-gold bg-gold/10">MOST ACTIVE</TB>
+        <span className="text-[11px] font-bold text-primary">{reportCard.most_active_trader.owner}</span>
+        <span className="text-[10px] font-extrabold text-gold">{reportCard.most_active_trader.trades} trades</span>
       </>));
       if (nodes.length) cats.push({ label: "TRADE MARKET", dotColor: C.gold, items: nodes });
     }
 
-    /* ── MANAGER RATINGS ───────────────────────────────────── */
+    /* ── LEAGUE RANKINGS ── */
     if (rankings?.length) {
       const nodes = rankings.slice(0, 12).map((r, i) => {
-        const tier = r.rank <= 3 ? C.green : r.rank <= 6 ? C.gold : r.rank <= 9 ? C.orange : C.red;
-        return item(`rk${i}`, <>
-          <TB c={tier}>#{r.rank}</TB>
-          <span style={{ fontSize: 11, fontWeight: 700, color: C.primary }}>{r.owner}</span>
-          <span style={{ fontSize: 10, fontWeight: 800, color: tier }}>{fmt(r.total_sha)}</span>
+        const cls = r.rank <= 3 ? "text-accent-green bg-accent-green/10" : r.rank <= 6 ? "text-gold bg-gold/10" : r.rank <= 9 ? "text-accent-orange bg-accent-orange/10" : "text-accent-red bg-accent-red/10";
+        return item(`lr${i}`, <>
+          <TB cls={cls}>#{r.rank}</TB>
+          <span className="text-[11px] font-bold text-primary">{r.owner}</span>
+          <span className="text-[10px] font-extrabold text-gold">{(r.total_sha / 1000).toFixed(1)}k</span>
         </>);
       });
-      cats.push({ label: "MANAGER RATINGS", dotColor: C.blue, items: nodes });
+      cats.push({ label: "LEAGUE RANKINGS", dotColor: C.gold, items: nodes });
     }
 
-    /* ── RECENT TRADES ─────────────────────────────────────── */
+    /* ── DYNASTY RANKINGS ── */
+    if (leagueIntel?.length && rankings?.length) {
+      const shaMap = new Map(rankings.map((r) => [r.owner.toLowerCase(), r.total_sha]));
+      const numTeams = rankings.length || 12;
+      const sorted = [...leagueIntel].sort((a, b) => (a.dynasty_rank || 99) - (b.dynasty_rank || 99));
+      const nodes = sorted.slice(0, 12).map((o, i) => {
+        const rank = o.dynasty_rank || i + 1;
+        const baseSha = shaMap.get(o.owner.toLowerCase()) || o.total_sha;
+        const value = Math.round(baseSha * (1 + (numTeams - rank) * 0.05));
+        const cls = i < 3 ? "text-accent-blue bg-accent-blue/10" : i < 6 ? "text-gold bg-gold/10" : "text-dim bg-dim/10";
+        return item(`dr${i}`, <>
+          <TB cls={cls}>#{rank}</TB>
+          <span className="text-[11px] font-bold text-primary">{o.owner}</span>
+          <span className="text-[10px] font-extrabold text-accent-blue">{(value / 1000).toFixed(1)}k</span>
+        </>);
+      });
+      cats.push({ label: "DYNASTY RANKINGS", dotColor: C.blue, items: nodes });
+    }
+
+    /* ── WIN-NOW RANKINGS ── */
+    if (leagueIntel?.length && rankings?.length) {
+      const shaMap = new Map(rankings.map((r) => [r.owner.toLowerCase(), r.total_sha]));
+      const numTeams = rankings.length || 12;
+      const sorted = [...leagueIntel].sort((a, b) => (a.win_now_rank || 99) - (b.win_now_rank || 99));
+      const nodes = sorted.slice(0, 12).map((o, i) => {
+        const rank = o.win_now_rank || i + 1;
+        const baseSha = shaMap.get(o.owner.toLowerCase()) || o.total_sha;
+        const value = Math.round(baseSha * (1 + (numTeams - rank) * 0.05));
+        const cls = i < 3 ? "text-accent-green bg-accent-green/10" : i < 6 ? "text-gold bg-gold/10" : "text-dim bg-dim/10";
+        return item(`wnr${i}`, <>
+          <TB cls={cls}>#{rank}</TB>
+          <span className="text-[11px] font-bold text-primary">{o.owner}</span>
+          <span className={`text-[10px] font-extrabold ${i < 3 ? "text-accent-green" : "text-dim"}`}>{(value / 1000).toFixed(1)}k</span>
+        </>);
+      });
+      cats.push({ label: "WIN-NOW RANKINGS", dotColor: C.green, items: nodes });
+    }
+
+    /* ── RECENT TRADES ── */
     if (recentTrades?.length) {
       const nodes = recentTrades.slice(0, 8).map((t, i) => {
-        const verdict = t.verdict;
-        const vColor = verdict === "robbery" ? C.red : verdict === "win-win" ? C.green : C.gold;
+        const v = t.verdict;
+        const cls = v?.includes("robbery") ? "text-accent-red-bright bg-accent-red/10" : v?.includes("win-win") ? "text-accent-green bg-accent-green/10" : "text-gold bg-gold/10";
         return item(`tr${i}`, <>
-          <span style={{ fontSize: 11, fontWeight: 700, color: C.primary }}>{t.owner}</span>
-          <span style={{ fontSize: 10, color: C.gold }}>→</span>
-          <span style={{ fontSize: 11, fontWeight: 700, color: C.primary }}>{t.counter_party}</span>
+          <span className="text-[11px] font-bold text-primary">{t.owner}</span>
+          <span className="text-[10px] text-gold">→</span>
+          <span className="text-[11px] font-bold text-primary">{t.counter_party}</span>
           <TDot />
-          <span style={{ fontSize: 10, color: C.secondary }}>{(t.players_sent || []).slice(0, 2).join(", ") || "picks"}</span>
-          <span style={{ fontSize: 10, color: C.gold }}>↔</span>
-          <span style={{ fontSize: 10, color: C.secondary }}>{(t.players_received || []).slice(0, 2).join(", ") || "picks"}</span>
-          {verdict && <TB c={vColor}>{verdict.toUpperCase()}</TB>}
+          <span className="text-[10px] text-secondary">{(t.players_sent || []).slice(0, 2).join(", ") || "picks"}</span>
+          <span className="text-[10px] text-gold">↔</span>
+          <span className="text-[10px] text-secondary">{(t.players_received || []).slice(0, 2).join(", ") || "picks"}</span>
+          {v && <TB cls={cls}>{v.toUpperCase()}</TB>}
         </>);
       });
       cats.push({ label: "RECENT TRADES", dotColor: C.orange, items: nodes });
     }
 
-    /* ── DRAFT BOARD ───────────────────────────────────────── */
-    if (reportCard?.pick_movement && reportCard.pick_movement.total_picks_traded > 0) {
-      const pm = reportCard.pick_movement;
-      const nodes: React.ReactNode[] = [];
-      nodes.push(item("total", <>
-        <span style={{ fontSize: 10, fontWeight: 900, color: C.gold }}>{pm.total_picks_traded}</span>
-        <span style={{ fontSize: 10, color: C.secondary }}>picks changed hands this season</span>
-      </>));
-      const buyers = pm.flow_by_owner?.filter(f => f.net_picks > 0).slice(0, 4) || [];
-      const sellers = pm.flow_by_owner?.filter(f => f.net_picks < 0).slice(0, 4) || [];
-      buyers.forEach((f, i) => nodes.push(item(`buy${i}`, <>
-        <span style={{ fontSize: 11, fontWeight: 700, color: C.primary }}>{f.owner}</span>
-        <TB c={C.green}>+{f.net_picks}</TB>
-        <span style={{ fontSize: 10, color: C.dim }}>stockpiling</span>
-      </>)));
-      sellers.forEach((f, i) => nodes.push(item(`sell${i}`, <>
-        <span style={{ fontSize: 11, fontWeight: 700, color: C.primary }}>{f.owner}</span>
-        <TB c={C.red}>{f.net_picks}</TB>
-        <span style={{ fontSize: 10, color: C.dim }}>selling</span>
-      </>)));
-      if (nodes.length > 1) cats.push({ label: "DRAFT BOARD", dotColor: "#a78bfa", items: nodes });
-    }
-
-    /* ── AI INSIGHT ─────────────────────────────────────────── */
+    /* ── AI INSIGHT ── */
     if (reportCard) {
       const nodes: React.ReactNode[] = [];
       if (reportCard.league_personality) nodes.push(item("lp", <>
-        <TB c={C.gold}>{reportCard.league_personality.type.toUpperCase()}</TB>
-        <span style={{ fontSize: 11, fontWeight: 500, color: C.secondary, fontStyle: "italic" }}>{reportCard.league_personality.description}</span>
+        <TB cls="text-gold bg-gold/10">{reportCard.league_personality.type.toUpperCase()}</TB>
+        <span className="text-[11px] font-medium text-secondary italic">{reportCard.league_personality.description}</span>
       </>));
       if (reportCard.fun_stat) nodes.push(item("fun", <>
-        <TB c={C.gold}>FUN STAT</TB>
-        <span style={{ fontSize: 11, fontWeight: 500, color: C.secondary, fontStyle: "italic" }}>{reportCard.fun_stat}</span>
-      </>));
-      if (reportCard.activity_summary) nodes.push(item("recap", <>
-        <TB c={C.blue}>SEASON</TB>
-        <span style={{ fontSize: 11, fontWeight: 500, color: C.secondary, fontStyle: "italic" }}>{reportCard.activity_summary}</span>
+        <TB cls="text-gold bg-gold/10">FUN STAT</TB>
+        <span className="text-[11px] font-medium text-secondary italic">{reportCard.fun_stat}</span>
       </>));
       if (nodes.length) cats.push({ label: "AI INSIGHT", dotColor: C.gold, items: nodes });
     }
 
     return cats;
-  }, [risers, fallers, recentTrades, rankings, reportCard]);
+  }, [risers, fallers, recentTrades, rankings, reportCard, leagueIntel]);
 
   const [catIdx, setCatIdx] = useState(0);
   const [fading, setFading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Measure width → constant px/s speed → transition exactly when scroll finishes
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
     const onePassPx = el.scrollWidth / 3;
     const PX_PER_SEC = 55;
     const dur = Math.max(onePassPx / PX_PER_SEC, 12);
+    // Imperative: duration computed from measured scrollWidth
     el.style.animation = "none";
     void el.offsetHeight;
     el.style.animation = `tickerScroll ${dur}s linear 1 forwards`;
-
     if (categories.length <= 1) return;
     const handleEnd = () => {
       setFading(true);
@@ -299,628 +335,613 @@ function MarketTicker({ risers, fallers, recentTrades, rankings, reportCard }: {
 
   const renderSet = (prefix: string) => cat.items.map((node, i) => (
     <React.Fragment key={`${prefix}-${i}`}>
-      {i > 0 && <TDot />}
+      {i > 0 && <span className="text-border text-[10px] mx-0.5">·</span>}
       {node}
     </React.Fragment>
   ));
 
   return (
-    <div style={{ height: 32, background: C.card, borderBottom: `1px solid ${C.border}`, overflow: "hidden", display: "flex", alignItems: "center", position: "relative" }}>
-      <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, zIndex: 2, display: "flex", alignItems: "center", gap: 6, padding: "0 12px", background: `linear-gradient(90deg, ${C.card} 80%, transparent 100%)` }}>
-        <div style={{ width: 6, height: 6, borderRadius: "50%", background: cat.dotColor, animation: "pulse-gold 2s ease-in-out infinite" }} />
-        <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.14em", color: C.gold, fontFamily: SANS, transition: "opacity 0.6s ease-in-out", opacity: fading ? 0 : 1 }}>{cat.label}</span>
+    <div className="h-8 bg-card border-b border-border overflow-hidden flex items-center relative">
+      <div className="absolute left-0 top-0 bottom-0 z-10 flex items-center gap-1.5 px-3" style={{ background: `linear-gradient(90deg, ${C.card} 80%, transparent 100%)` }}>
+        <div className="w-1.5 h-1.5 rounded-full animate-[pulse-gold_2s_ease-in-out_infinite]" style={{ background: cat.dotColor }} />
+        <motion.span
+          animate={{ opacity: fading ? 0 : 1 }}
+          transition={{ duration: 0.6 }}
+          className="text-[9px] font-black tracking-[0.14em] text-gold"
+          style={{ fontFamily: SANS }}
+        >{cat.label}</motion.span>
       </div>
-      <div ref={scrollRef} style={{ display: "flex", alignItems: "center", gap: 24, whiteSpace: "nowrap", width: "max-content", paddingLeft: 180, opacity: fading ? 0 : 1, transition: "opacity 0.6s ease-in-out" }}>
+      <motion.div
+        ref={scrollRef}
+        animate={{ opacity: fading ? 0 : 1 }}
+        transition={{ duration: 0.6 }}
+        className="flex items-center gap-6 whitespace-nowrap w-max pl-[180px]"
+      >
         {renderSet("a")}
-        <span style={{ display: "inline-block", width: 60 }} />
+        <span className="inline-block w-[60px]" />
         {renderSet("b")}
-        <span style={{ display: "inline-block", width: 60 }} />
+        <span className="inline-block w-[60px]" />
         {renderSet("c")}
+      </motion.div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   HERO STAT CARD — count-up animation
+   ═══════════════════════════════════════════════════════════════ */
+
+function StatCard({ label, value, display, inView }: { label: string; value: number; display: string; inView: boolean }) {
+  const count = useCountUp(value, 2000, inView);
+  const formatted = value >= 1000000
+    ? `${(count / 1000000).toFixed(1)}M+`
+    : value >= 1000
+    ? `${(count / 1000).toFixed(0)}K+`
+    : count.toLocaleString();
+  return (
+    <div className="bg-elevated/80 border border-border rounded-md px-3 py-2.5 text-center">
+      <div className="text-lg sm:text-xl font-black text-gold-bright leading-none" style={{ fontFamily: MONO }}>
+        {inView ? formatted : display}
+      </div>
+      <div className="text-[8px] font-black tracking-[0.12em] text-dim mt-1" style={{ fontFamily: SANS }}>
+        {label}
       </div>
     </div>
   );
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   SVG PLACEHOLDER IMAGES — designed, content-typed, dark + gold
+   NEWS CARD — reusable for League News & My News
    ═══════════════════════════════════════════════════════════════ */
-function DraftBoardSVG() {
-  return (
-    <svg width="100%" height="100%" viewBox="0 0 400 180" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect width="400" height="180" fill={C.elevated} />
-      {/* Grid lines */}
-      {[0,1,2,3,4,5,6,7].map(i => <line key={`v${i}`} x1={50*i+50} y1="20" x2={50*i+50} y2="160" stroke={C.border} strokeWidth="1" />)}
-      {[0,1,2,3].map(i => <line key={`h${i}`} x1="30" y1={35*i+40} x2="370" y2={35*i+40} stroke={C.border} strokeWidth="1" />)}
-      {/* Round labels */}
-      {["R1","R2","R3","R4"].map((r,i) => <text key={r} x="20" y={35*i+47} fill={C.gold} fontSize="9" fontFamily="monospace" fontWeight="700" textAnchor="end" opacity="0.6">{r}</text>)}
-      {/* Pick cells — scattered filled ones */}
-      {[[60,28],[110,28],[160,28],[210,28],[260,28],[310,28],[350,28],
-        [60,63],[110,63],[210,63],[310,63],
-        [60,98],[160,98],[260,98],
-        [110,133],[210,133]
-      ].map(([x,y],i) => <rect key={i} x={x} y={y} width="38" height="24" rx="3" fill={i < 7 ? `${C.gold}18` : `${C.border}`} stroke={i < 3 ? C.gold : C.border} strokeWidth="0.5" opacity={0.4 + (i < 7 ? 0.3 : 0)} />)}
-      {/* Title hint */}
-      <text x="200" y="14" fill={C.gold} fontSize="8" fontFamily="monospace" fontWeight="800" textAnchor="middle" letterSpacing="3" opacity="0.4">MOCK DRAFT BOARD</text>
-    </svg>
-  );
-}
 
-function BarChartSVG() {
-  const bars = [95,78,72,65,58,52,48,42,38,30,25,18];
-  return (
-    <svg width="100%" height="100%" viewBox="0 0 280 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect width="280" height="100" fill={C.elevated} />
-      {bars.map((h,i) => {
-        const color = i === 0 ? C.gold : i < 4 ? C.green : i < 8 ? C.blue : C.red;
-        return <rect key={i} x={14 + i*22} y={90 - h} width="16" rx="2" height={h} fill={color} opacity={0.25 + (i === 0 ? 0.25 : 0)} />;
-      })}
-      <line x1="10" y1="90" x2="270" y2="90" stroke={C.border} strokeWidth="1" />
-    </svg>
-  );
-}
-
-function TradeArrowsSVG() {
-  return (
-    <svg width="100%" height="100%" viewBox="0 0 280 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect width="280" height="100" fill={C.elevated} />
-      {/* Two sides */}
-      <rect x="20" y="20" width="100" height="60" rx="6" fill={C.panel} stroke={C.border} strokeWidth="1" />
-      <rect x="160" y="20" width="100" height="60" rx="6" fill={C.panel} stroke={C.border} strokeWidth="1" />
-      {/* Arrows */}
-      <path d="M125 40 L155 40" stroke={C.green} strokeWidth="2" markerEnd="url(#arrowG)" />
-      <path d="M155 60 L125 60" stroke={C.red} strokeWidth="2" markerEnd="url(#arrowR)" />
-      <defs>
-        <marker id="arrowG" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill={C.green} /></marker>
-        <marker id="arrowR" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill={C.red} /></marker>
-      </defs>
-      {/* Player lines */}
-      {[0,1,2].map(i => <rect key={`a${i}`} x="30" y={28+i*16} width={60-i*10} height="8" rx="2" fill={C.border} opacity={0.5-i*0.1} />)}
-      {[0,1,2].map(i => <rect key={`b${i}`} x="170" y={28+i*16} width={60-i*10} height="8" rx="2" fill={C.border} opacity={0.5-i*0.1} />)}
-      {/* Verdict badge */}
-      <rect x="115" y="72" width="50" height="16" rx="3" fill={C.goldDim} stroke={C.goldBorder} strokeWidth="0.5" />
-      <text x="140" y="83" fill={C.gold} fontSize="7" fontFamily="monospace" fontWeight="800" textAnchor="middle">VERDICT</text>
-    </svg>
-  );
-}
-
-function RadarChartSVG() {
-  return (
-    <svg width="100%" height="100%" viewBox="0 0 280 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect width="280" height="100" fill={C.elevated} />
-      {/* Radar rings */}
-      <circle cx="140" cy="50" r="35" fill="none" stroke={C.border} strokeWidth="0.5" />
-      <circle cx="140" cy="50" r="25" fill="none" stroke={C.border} strokeWidth="0.5" />
-      <circle cx="140" cy="50" r="15" fill="none" stroke={C.border} strokeWidth="0.5" />
-      {/* Axes */}
-      {[0,72,144,216,288].map(a => {
-        const rad = a * Math.PI / 180;
-        return <line key={a} x1="140" y1="50" x2={140+Math.cos(rad)*35} y2={50-Math.sin(rad)*35} stroke={C.border} strokeWidth="0.5" />;
-      })}
-      {/* Data polygon */}
-      <polygon points="140,20 170,38 165,68 115,68 110,38" fill={C.gold} fillOpacity="0.12" stroke={C.gold} strokeWidth="1.5" opacity="0.6" />
-      {/* Labels */}
-      {[["QB",140,10],["RB",178,42],["WR",168,78],["TE",112,78],["PICK",102,42]].map(([l,x,y]) =>
-        <text key={l as string} x={x as number} y={y as number} fill={C.dim} fontSize="7" fontFamily="monospace" fontWeight="700" textAnchor="middle" opacity="0.6">{l as string}</text>
-      )}
-      {/* Owner card hint */}
-      <rect x="20" y="15" width="50" height="10" rx="2" fill={C.border} opacity="0.4" />
-      <rect x="20" y="30" width="35" height="8" rx="2" fill={C.border} opacity="0.3" />
-      <rect x="210" y="15" width="50" height="10" rx="2" fill={C.border} opacity="0.4" />
-      <rect x="210" y="30" width="35" height="8" rx="2" fill={C.border} opacity="0.3" />
-    </svg>
-  );
-}
-
-function ScoutingReportSVG() {
-  return (
-    <svg width="100%" height="100%" viewBox="0 0 280 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect width="280" height="100" fill={C.elevated} />
-      {/* Report layout */}
-      <rect x="15" y="10" width="120" height="80" rx="4" fill={C.panel} stroke={C.border} strokeWidth="0.5" />
-      {/* Text lines */}
-      {[0,1,2,3,4,5].map(i => <rect key={i} x="25" y={20+i*11} width={80-i*8} height="5" rx="1" fill={C.border} opacity={0.4-i*0.04} />)}
-      {/* Grade badge */}
-      <rect x="145" y="10" width="40" height="40" rx="6" fill={C.goldDim} stroke={C.goldBorder} strokeWidth="1" />
-      <text x="165" y="36" fill={C.gold} fontSize="18" fontFamily="monospace" fontWeight="900" textAnchor="middle">A-</text>
-      {/* Stat bars */}
-      {[["BUY",70,C.green],["SELL",50,C.red],["HOLD",35,C.secondary]].map(([l,w,c],i) => (
-        <React.Fragment key={i}>
-          <text x="148" y={66+i*13} fill={C.dim} fontSize="7" fontFamily="monospace" fontWeight="700" opacity="0.5">{l as string}</text>
-          <rect x="175" y={60+i*13} width={w as number} height="6" rx="1" fill={c as string} opacity="0.3" />
-        </React.Fragment>
-      ))}
-    </svg>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   FEATURED ARTICLE (hero card with Draft Board SVG)
-   ═══════════════════════════════════════════════════════════════ */
-function FeaturedArticle({ leagueName }: { leagueName: string }) {
-  return (
-    <div style={{
-      borderRadius: 10, cursor: "pointer",
-      background: `linear-gradient(160deg, ${C.card} 0%, #0d1020 50%, ${C.card} 100%)`,
-      border: `1px solid ${C.border}`, position: "relative", overflow: "hidden",
-      transition: "all 0.3s ease",
-    }}
-    onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.005)"; e.currentTarget.style.borderColor = C.gold + "40"; e.currentTarget.style.boxShadow = `0 8px 40px rgba(212,165,50,0.06)`; }}
-    onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.borderColor = C.border; e.currentTarget.style.boxShadow = "none"; }}>
-      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, ${C.gold}20, transparent)` }} />
-      <div className="h-[120px] sm:h-[180px]" style={{ overflow: "hidden" }}><DraftBoardSVG /></div>
-      <div style={{ padding: "16px 24px 22px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-          <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.1em", color: C.gold, fontFamily: SANS, padding: "2px 8px", borderRadius: 3, background: C.goldDim, border: `1px solid ${C.goldBorder}` }}>FEATURED</span>
-          <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.1em", color: C.dim, fontFamily: SANS }}>MOCK DRAFT</span>
-        </div>
-        <h3 style={{ fontFamily: DISPLAY, fontSize: 22, color: C.primary, margin: "0 0 8px", lineHeight: 1.2, letterSpacing: "-0.01em" }}>
-          {leagueName} — First Mock Draft
-        </h3>
-        <p style={{ fontFamily: SANS, fontSize: 13, color: C.dim, lineHeight: 1.6, margin: "0 0 14px" }}>
-          AI-generated mock draft based on team needs, draft capital, and historical tendencies. See who your league-mates are likely to target.
-        </p>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontFamily: SANS, fontSize: 11, color: C.dim, fontWeight: 500 }}>DynastyGPT</span>
-          <span style={{ color: C.dim, fontSize: 11 }}>·</span>
-          <span style={{ fontFamily: SANS, fontSize: 11, color: C.dim, fontWeight: 500 }}>5 min read</span>
-          <span style={{ fontFamily: SANS, fontSize: 13, color: C.dim, marginLeft: 4 }}>→</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   LEAGUE INTEL ARTICLE CARDS (with SVG images)
-   ═══════════════════════════════════════════════════════════════ */
-function LeagueArticle({ cat, catColor, title, desc, date, image }: { cat: string; catColor: string; title: string; desc: string; date: string; image: React.ReactNode }) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden", cursor: "pointer", transition: "all 0.2s" }}
-      onMouseEnter={(e) => { e.currentTarget.style.borderColor = C.borderLt; e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 4px 20px rgba(0,0,0,0.3)"; }}
-      onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; }}>
-      {/* SVG Image */}
-      <div style={{ height: 100, overflow: "hidden" }}>{image}</div>
-      <div style={{ padding: "8px 12px", display: "flex", alignItems: "center", gap: 6, borderBottom: `1px solid ${C.border}` }}>
-        <div style={{ width: 6, height: 6, borderRadius: "50%", background: catColor }} />
-        <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.1em", color: C.dim, fontFamily: SANS }}>{cat}</span>
-        <span style={{ marginLeft: "auto", fontSize: 9, color: `${C.dim}80`, fontFamily: MONO }}>{date}</span>
-      </div>
-      <div style={{ padding: 14, flex: 1 }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: C.primary, fontFamily: SANS, lineHeight: 1.35, marginBottom: 6 }}>{title}</div>
-        <div style={{ fontSize: 12, color: C.dim, fontFamily: SANS, lineHeight: 1.5 }}>{desc}</div>
-      </div>
-    </div>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   POWER RANKINGS WIDGET — fixed name overflow
-   ═══════════════════════════════════════════════════════════════ */
-function PowerRankingsWidget({ rankings }: { rankings: { owner: string; rank: number; total_sha: number }[] }) {
-  if (!rankings.length) return null;
-  const topScore = rankings[0]?.total_sha || 1;
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-      {rankings.map((r, i) => {
-        const pct = (r.total_sha / topScore) * 100;
-        const color = i === 0 ? C.gold : i < 4 ? C.green : i < 8 ? C.secondary : C.red;
-        return (
-          <div key={`${r.owner}-${i}`} style={{
-            display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", borderRadius: 4,
-            background: i === 0 ? C.goldDim : "transparent",
-            border: i === 0 ? `1px solid ${C.goldBorder}` : "1px solid transparent",
-            transition: "background 0.12s",
-          }}
-          onMouseEnter={(e) => { if (i > 0) e.currentTarget.style.background = C.elevated; }}
-          onMouseLeave={(e) => { if (i > 0) e.currentTarget.style.background = "transparent"; }}>
-            <span style={{ width: 18, fontSize: 11, fontWeight: 900, color, fontFamily: MONO, textAlign: "right", flexShrink: 0 }}>{i + 1}</span>
-            {i === 0 && <span style={{ fontSize: 11, flexShrink: 0 }}>👑</span>}
-            <span style={{
-              fontSize: 12, fontWeight: i < 4 ? 700 : 500,
-              color: i < 4 ? C.primary : C.secondary, fontFamily: SANS,
-              minWidth: 0, flex: 1,
-              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-            }}>{r.owner}</span>
-            <div style={{ width: 50, height: 4, background: C.border, borderRadius: 2, overflow: "hidden", flexShrink: 0 }}>
-              <div style={{ height: "100%", borderRadius: 2, width: `${pct}%`, background: i === 0 ? C.gold : i < 4 ? C.green : i < 8 ? "#2563eb" : C.red, transition: "width 0.8s ease" }} />
-            </div>
-            <span style={{ fontSize: 11, fontWeight: 700, color: C.dim, fontFamily: MONO, width: 42, textAlign: "right", flexShrink: 0 }}>{(r.total_sha / 1000).toFixed(1)}k</span>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   RECENT TRADES (compact, verdict badges)
-   ═══════════════════════════════════════════════════════════════ */
-function getVerdictStyle(v: string) {
-  if (!v) return null;
-  const o = v.toLowerCase();
-  if (o.includes("win-win")) return { label: "WIN-WIN", color: "#7dd3a0", bg: "rgba(125,211,160,0.12)" };
-  if (o.includes("robbery")) return { label: "ROBBERY", color: "#ff4444", bg: "rgba(255,68,68,0.15)" };
-  if (o.includes("push")) return { label: "PUSH", color: "#b0b2c8", bg: "rgba(176,178,200,0.10)" };
-  if (o.includes("won")) return { label: "ONE WINNER", color: C.gold, bg: C.goldDim };
-  if (o.includes("lost")) return { label: "LOST", color: C.red, bg: "rgba(255,68,68,0.10)" };
-  return null;
-}
-
-function RecentTradesWidget({ trades, basePath }: { trades: { owner: string; counter_party: string; verdict?: string | null; date?: string | null; players_sent?: string[] | null; players_received?: string[] | null; trade_id?: string | null }[]; basePath: string }) {
+function NewsCard({ tag, tagColor, headline, lede, link, linkLabel = "Read More →", isHero = false, topColor }: {
+  tag: string; tagColor: string; headline: string; lede: string;
+  link?: string; linkLabel?: string; isHero?: boolean; topColor?: string;
+}) {
   const router = useRouter();
-  if (!trades.length) return null;
+  return (
+    <div
+      className={`bg-card border border-border overflow-hidden cursor-pointer group transition-all duration-300 hover:border-gold/25 ${isHero ? "rounded-xl hover:shadow-[0_8px_40px_rgba(212,165,50,0.06)]" : "rounded-lg hover:-translate-y-0.5 hover:shadow-[0_4px_20px_rgba(0,0,0,0.3)]"}`}
+      onClick={() => link && router.push(link)}
+    >
+      {topColor && <div className={`h-[3px]`} style={{ background: topColor }} />}
+      <div className={isHero ? "px-5 pt-4 pb-5" : "px-3.5 pt-3 pb-3.5"}>
+        <div className="flex items-center gap-2 mb-2">
+          <span className={`text-[9px] font-black tracking-[0.1em] px-2 py-0.5 rounded-sm ${tagColor}`} style={{ fontFamily: SANS }}>{tag}</span>
+        </div>
+        <h3 className={`font-bold text-primary leading-snug mb-2 ${isHero ? "text-lg sm:text-xl" : "text-sm"}`} style={{ fontFamily: isHero ? DISPLAY : SANS }}>
+          {headline}
+        </h3>
+        <p className={`text-dim leading-relaxed ${isHero ? "text-sm line-clamp-3" : "text-xs line-clamp-2"}`} style={{ fontFamily: SANS }}>
+          {lede}
+        </p>
+        {link && (
+          <span className="inline-flex items-center gap-1 text-xs font-bold text-gold mt-3 group-hover:text-gold-bright transition-colors" style={{ fontFamily: SANS }}>
+            {linkLabel}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
 
-  const formatDate = (d: string | null | undefined) => {
-    if (!d) return "";
-    try { return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" }); } catch { return ""; }
-  };
+/* ═══════════════════════════════════════════════════════════════
+   SKELETONS
+   ═══════════════════════════════════════════════════════════════ */
+
+function HeroSkeleton() {
+  return (
+    <div className="relative bg-card border-b border-border">
+      <div className="max-w-[1200px] mx-auto px-6 sm:px-10 py-5 sm:py-6 grid grid-cols-1 sm:grid-cols-[3fr_2fr] gap-6">
+        <div className="flex flex-col gap-2">
+          <div className="h-7 w-3/4 bg-elevated rounded animate-pulse" />
+          <div className="h-4 w-full bg-elevated rounded animate-pulse" />
+          <div className="h-8 w-2/3 bg-elevated rounded-r-sm animate-pulse" />
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {[0, 1, 2, 3].map(i => <div key={i} className="h-14 bg-elevated rounded-md animate-pulse" />)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CardSkeleton({ isHero = false }: { isHero?: boolean }) {
+  return (
+    <div className={`bg-card border border-border overflow-hidden ${isHero ? "rounded-xl" : "rounded-lg"}`}>
+      <div className="h-[3px] bg-elevated" />
+      <div className={isHero ? "px-5 pt-4 pb-5" : "px-3.5 pt-3 pb-3.5"}>
+        <div className="h-4 w-20 bg-elevated rounded animate-pulse mb-3" />
+        <div className={`bg-elevated rounded animate-pulse mb-2 ${isHero ? "h-7 w-4/5" : "h-5 w-3/4"}`} />
+        <div className="h-4 w-full bg-elevated rounded animate-pulse mb-1" />
+        <div className="h-4 w-2/3 bg-elevated rounded animate-pulse" />
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   TRADE FAIRNESS INDEX
+   ═══════════════════════════════════════════════════════════════ */
+
+function TradeFairnessIndex({ leaderboard }: { leaderboard: { owner: string; trades: number; wins: number; losses?: number; even?: number; win_pct: number; avg_sha_net: number }[] }) {
+  if (!leaderboard.length) return null;
+  // Fairness = even trades / total trades. Even = trades that were fair (not a clear win or loss for either side)
+  // If 'even' field is missing from API, calculate as: trades - wins - (losses ?? 0)
+  const sorted = [...leaderboard]
+    .map(e => {
+      const even = e.even ?? (e.trades - e.wins - (e.losses ?? 0));
+      const fairness = e.trades > 0 ? Math.round((Math.max(even, 0) / e.trades) * 100) : 0;
+      return { ...e, even, fairness };
+    })
+    .sort((a, b) => b.fairness - a.fairness);
 
   return (
-    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden" }}>
-      <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 8 }}>
-        <span style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.14em", color: C.primary, fontFamily: SANS }}>RECENT TRADES</span>
-        <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.08em", color: C.gold, fontFamily: SANS, padding: "2px 8px", borderRadius: 3, background: C.goldDim, border: `1px solid ${C.goldBorder}` }}>{trades.length}</span>
-      </div>
-      <div style={{ display: "flex", flexDirection: "column" }}>
-        {trades.slice(0, 7).map((t, i) => {
-          const vs = t.verdict ? getVerdictStyle(t.verdict) : null;
-          const sent = Array.isArray(t.players_sent) ? t.players_sent.slice(0, 2).join(", ") : "";
-          const got = Array.isArray(t.players_received) ? t.players_received.slice(0, 2).join(", ") : "";
+    <div className="mt-6">
+      <div className="text-[11px] font-black tracking-[0.12em] text-dim mb-1" style={{ fontFamily: SANS }}>TRADE FAIRNESS INDEX</div>
+      <div className="text-xs text-secondary/60 mb-3 leading-snug" style={{ fontFamily: SANS }}>Owners ranked by % of EVEN graded trades. Fair dealers.</div>
+      <div className="flex flex-col gap-0.5">
+        {sorted.map((entry, i) => {
+          const isFirst = i === 0;
+          const isLast = i === sorted.length - 1;
+          const color = isFirst ? C.gold : i < 3 ? C.green : C.secondary;
           return (
-            <div key={t.trade_id || i}
-              style={{ padding: "8px 14px", cursor: "pointer", transition: "background 0.12s", borderBottom: i < 6 ? `1px solid ${C.border}` : "none", display: "flex", alignItems: "center", gap: 10 }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = C.elevated; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
-              <span style={{ fontSize: 10, color: C.dim, fontFamily: MONO, width: 38, flexShrink: 0 }}>{formatDate(t.date)}</span>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 12, fontFamily: SANS, marginBottom: 1 }}>
-                  <span style={{ fontWeight: 700, color: C.primary }}>{t.owner}</span>
-                  <span style={{ color: C.dim, fontWeight: 500, margin: "0 5px" }}>↔</span>
-                  <span style={{ fontWeight: 700, color: C.primary }}>{t.counter_party}</span>
-                </div>
-                {(sent || got) && (
-                  <div style={{ fontSize: 10, color: C.dim, fontFamily: SANS, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {sent} ← → {got}
-                  </div>
-                )}
+            <div
+              key={entry.owner}
+              className={`flex items-center gap-2 px-2.5 py-1.5 rounded transition-colors hover:bg-elevated ${isFirst ? "bg-gold-dim border border-gold-border" : ""}`}
+            >
+              <span className="w-4 text-xs font-black text-right shrink-0" style={{ fontFamily: MONO, color }}>{i + 1}</span>
+              {isFirst && <span className="text-xs shrink-0">⚖️</span>}
+              {isLast && <span className="text-xs shrink-0">🔥</span>}
+              <span className={`text-sm truncate flex-1 min-w-0 ${i < 3 ? "font-bold text-primary" : "font-medium text-secondary"}`} style={{ fontFamily: SANS }}>
+                {entry.owner}
+              </span>
+              <div className="w-14 h-1.5 bg-border rounded-full overflow-hidden shrink-0">
+                {/* Imperative: percentage width from data */}
+                <div className="h-full rounded-full" style={{ width: `${entry.fairness}%`, background: color }} />
               </div>
-              {vs && <span style={{ fontSize: 8, fontWeight: 800, letterSpacing: "0.06em", color: vs.color, background: vs.bg, padding: "2px 7px", borderRadius: 3, fontFamily: SANS, flexShrink: 0 }}>{vs.label}</span>}
+              <span className="text-xs font-bold w-9 text-right shrink-0" style={{ fontFamily: MONO, color }}>{entry.fairness}%</span>
+              <span className="text-[11px] font-semibold w-8 text-right shrink-0" style={{ fontFamily: MONO }}>{entry.trades}t</span>
             </div>
           );
         })}
       </div>
-      <div onClick={() => router.push(`${basePath}/trades`)}
-        style={{ padding: "8px 14px", borderTop: `1px solid ${C.border}`, cursor: "pointer", textAlign: "center", transition: "background 0.12s" }}
-        onMouseEnter={(e) => { e.currentTarget.style.background = C.elevated; }}
-        onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
-        <span style={{ fontSize: 11, fontWeight: 700, color: C.gold, fontFamily: SANS }}>View All Trades →</span>
-      </div>
     </div>
   );
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   LEAGUE REPORT CARD
+   LEAGUE LEGENDS
    ═══════════════════════════════════════════════════════════════ */
-function ReportCardSkeleton() {
+
+function LeagueLegends({ reportCard }: { reportCard: LeagueReportCardResponse }) {
+  const legends: { title: string; name: string; detail: string; accentBorder: string; accentBg: string; accentText: string; dotColor: string }[] = [];
+
+  if (reportCard.most_active_trader) {
+    legends.push({
+      title: "MOST ACTIVE", name: reportCard.most_active_trader.owner,
+      detail: `${reportCard.most_active_trader.trades} trades this season`,
+      accentBorder: "border-gold/30", accentBg: "bg-gold/[0.04]", accentText: "text-gold", dotColor: "bg-gold",
+    });
+  }
+  if (reportCard.biggest_robbery) {
+    legends.push({
+      title: "BIGGEST HEIST", name: reportCard.biggest_robbery.winner,
+      detail: `Took ${reportCard.biggest_robbery.winner_got.slice(0, 2).join(", ")} from ${reportCard.biggest_robbery.loser} — +${fmt(reportCard.biggest_robbery.sha_gap)} gap`,
+      accentBorder: "border-accent-red/30", accentBg: "bg-accent-red/[0.04]", accentText: "text-accent-red", dotColor: "bg-accent-red",
+    });
+  }
+  if (reportCard.quality_leaderboard?.[0]) {
+    const best = reportCard.quality_leaderboard[0];
+    legends.push({
+      title: "SHARPEST DEALER", name: best.owner,
+      detail: `${best.win_pct}% win rate across ${best.trades} trades`,
+      accentBorder: "border-accent-green/30", accentBg: "bg-accent-green/[0.04]", accentText: "text-accent-green", dotColor: "bg-accent-green",
+    });
+  }
+  if (reportCard.best_winwin) {
+    legends.push({
+      title: "BEST WIN-WIN", name: `${reportCard.best_winwin.side_a} & ${reportCard.best_winwin.side_b}`,
+      detail: `Both sides gained — closest fair deal in the league`,
+      accentBorder: "border-accent-blue/30", accentBg: "bg-accent-blue/[0.04]", accentText: "text-accent-blue", dotColor: "bg-accent-blue",
+    });
+  }
+
   return (
-    <div>
-      <SectionHead title="LEAGUE REPORT CARD" />
-      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        {/* Personality skeleton */}
-        <div style={{ height: 80, borderRadius: 8, background: C.elevated, border: `1px solid ${C.border}`, animation: "pulse-gold 2s ease-in-out infinite" }} />
-        {/* Activity line skeleton */}
-        <div style={{ height: 20, borderRadius: 4, background: C.elevated, width: "75%" }} />
-        {/* Three cards skeleton */}
-        <div className="mobile-stack" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
-          {[0, 1, 2].map((i) => (
-            <div key={i} style={{ height: 100, borderRadius: 8, background: C.elevated, border: `1px solid ${C.border}` }} />
-          ))}
-        </div>
-        {/* Leaderboard skeleton */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          {[0, 1, 2, 3, 4].map((i) => (
-            <div key={i} style={{ height: 28, borderRadius: 4, background: C.elevated, opacity: 1 - i * 0.15 }} />
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function LeagueReportCard({ data }: { data: LeagueReportCardResponse }) {
-  const rc = data;
-
-  return (
-    <div>
-      <SectionHead title="LEAGUE REPORT CARD" badge={`${rc.season}`} />
-
-      {/* ── League Personality Badge ────────────────────────── */}
-      <div style={{
-        borderRadius: 8, padding: "18px 20px", marginBottom: 14,
-        background: `linear-gradient(135deg, ${C.goldDim} 0%, ${C.card} 40%, ${C.elevated} 100%)`,
-        border: `1px solid ${C.goldBorder}`,
-        position: "relative", overflow: "hidden",
-      }}>
-        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, ${C.gold}30, transparent)` }} />
-        <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.14em", color: C.gold, fontFamily: SANS, marginBottom: 6 }}>LEAGUE PERSONALITY</div>
-        <div style={{ fontFamily: DISPLAY, fontSize: 20, color: C.goldBright, lineHeight: 1.2, letterSpacing: "-0.01em", marginBottom: 6 }}>
-          {rc.league_personality.type.toUpperCase()}
-        </div>
-        <div style={{ fontSize: 12, color: C.dim, fontFamily: SANS, lineHeight: 1.5 }}>
-          {rc.league_personality.description}
-        </div>
-      </div>
-
-      {/* ── Activity Summary ────────────────────────────────── */}
-      <div style={{ fontSize: 13, color: C.secondary, fontFamily: SANS, lineHeight: 1.6, marginBottom: 14, padding: "0 2px" }}>
-        {rc.activity_summary.split(/(\d+[\d,%.]*)/).map((part, i) =>
-          /\d/.test(part)
-            ? <span key={i} style={{ fontWeight: 800, color: C.goldBright }}>{part}</span>
-            : <span key={i}>{part}</span>
-        )}
-      </div>
-
-      {/* ── Fun Stat Callout ────────────────────────────────── */}
-      <div style={{
-        borderLeft: `3px solid ${C.gold}`, padding: "10px 14px", marginBottom: 14,
-        background: C.goldGlow, borderRadius: "0 6px 6px 0",
-      }}>
-        <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.12em", color: C.gold, fontFamily: SANS, marginBottom: 4 }}>* FUN STAT</div>
-        <div style={{ fontSize: 12, color: C.secondary, fontFamily: SANS, fontStyle: "italic", lineHeight: 1.5 }}>
-          {rc.fun_stat}
-        </div>
-      </div>
-
-      {/* ── Three Spotlight Cards ───────────────────────────── */}
-      <div className="mobile-stack" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 14 }}>
-        {/* Biggest Robbery */}
-        <div style={{
-          background: C.card, borderRadius: 8, overflow: "hidden",
-          border: `1px solid ${C.border}`,
-        }}>
-          <div style={{ height: 3, background: C.red }} />
-          <div style={{ padding: "10px 12px" }}>
-            <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.12em", color: C.red, fontFamily: SANS, marginBottom: 6 }}>BIGGEST ROBBERY</div>
-            {rc.biggest_robbery ? (
-              <>
-                <div style={{ fontSize: 12, fontWeight: 700, color: C.primary, fontFamily: SANS, marginBottom: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {rc.biggest_robbery.winner}
-                </div>
-                <div style={{ fontSize: 10, color: C.dim, fontFamily: SANS, marginBottom: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  got {rc.biggest_robbery.winner_got.slice(0, 2).join(", ")}
-                </div>
-                <div style={{ fontSize: 10, color: C.dim, fontFamily: SANS, marginBottom: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  robbed <span style={{ fontWeight: 600, color: C.secondary }}>{rc.biggest_robbery.loser}</span>
-                </div>
-                <div style={{ fontSize: 10, fontWeight: 800, color: C.red, fontFamily: MONO }}>
-                  {rc.biggest_robbery.sha_gap > 0 ? "+" : ""}{fmt(rc.biggest_robbery.sha_gap)} value gap
-                </div>
-              </>
-            ) : (
-              <div style={{ fontSize: 11, color: C.dim, fontFamily: SANS }}>No robberies detected</div>
-            )}
+    <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="flex flex-col gap-2">
+      {legends.map((l, i) => (
+        <motion.div key={i} variants={staggerItem} className={`flex items-start gap-3 px-3.5 py-2.5 rounded-lg border transition-colors hover:bg-elevated/50 ${l.accentBorder} ${l.accentBg}`}>
+          <div className={`w-2 h-2 rounded-full shrink-0 mt-1.5 ${l.dotColor}`} />
+          <div className="flex-1 min-w-0">
+            <div className={`text-[8px] font-black tracking-[0.12em] mb-0.5 ${l.accentText}`} style={{ fontFamily: SANS }}>{l.title}</div>
+            <div className="text-[13px] font-bold text-primary truncate" style={{ fontFamily: SANS }}>{l.name}</div>
+            <div className="text-[11px] text-secondary leading-snug" style={{ fontFamily: SANS }}>{l.detail}</div>
           </div>
-        </div>
-
-        {/* Best Win-Win */}
-        <div style={{
-          background: C.card, borderRadius: 8, overflow: "hidden",
-          border: `1px solid ${C.border}`,
-        }}>
-          <div style={{ height: 3, background: C.green }} />
-          <div style={{ padding: "10px 12px" }}>
-            <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.12em", color: C.green, fontFamily: SANS, marginBottom: 6 }}>BEST WIN-WIN</div>
-            {rc.best_winwin ? (
-              <>
-                <div style={{ fontSize: 12, fontWeight: 700, color: C.primary, fontFamily: SANS, marginBottom: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {rc.best_winwin.side_a}
-                </div>
-                <div style={{ fontSize: 10, color: C.dim, fontFamily: SANS, marginBottom: 3 }}>
-                  <span style={{ color: C.secondary }}>+</span> {rc.best_winwin.side_a_got.slice(0, 2).join(", ")}
-                </div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: C.primary, fontFamily: SANS, marginBottom: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {rc.best_winwin.side_b}
-                </div>
-                <div style={{ fontSize: 10, color: C.dim, fontFamily: SANS }}>
-                  <span style={{ color: C.secondary }}>+</span> {rc.best_winwin.side_b_got.slice(0, 2).join(", ")}
-                </div>
-              </>
-            ) : (
-              <div style={{ fontSize: 11, color: C.dim, fontFamily: SANS }}>No win-win trades found</div>
-            )}
-          </div>
-        </div>
-
-        {/* Most Active Trader */}
-        <div style={{
-          background: C.card, borderRadius: 8, overflow: "hidden",
-          border: `1px solid ${C.border}`,
-        }}>
-          <div style={{ height: 3, background: C.gold }} />
-          <div style={{ padding: "10px 12px" }}>
-            <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.12em", color: C.gold, fontFamily: SANS, marginBottom: 6 }}>MOST ACTIVE</div>
-            {rc.most_active_trader ? (
-              <>
-                <div style={{ fontSize: 14, fontWeight: 700, color: C.primary, fontFamily: SANS, marginBottom: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {rc.most_active_trader.owner}
-                </div>
-                <div style={{ fontSize: 22, fontWeight: 900, color: C.goldBright, fontFamily: MONO, marginBottom: 2 }}>
-                  {rc.most_active_trader.trades}
-                </div>
-                <div style={{ fontSize: 10, color: C.dim, fontFamily: SANS }}>trades this season</div>
-              </>
-            ) : (
-              <div style={{ fontSize: 11, color: C.dim, fontFamily: SANS }}>No trade data</div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* ── Trade Quality Leaderboard ──────────────────────── */}
-      {rc.quality_leaderboard.length > 0 && (
-        <div style={{ marginBottom: 14 }}>
-          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.dim, fontFamily: SANS, marginBottom: 8 }}>TRADE QUALITY LEADERBOARD</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            {rc.quality_leaderboard.map((entry, i) => {
-              const color = i === 0 ? C.gold : i < 3 ? C.green : C.secondary;
-              const barWidth = Math.max(entry.win_pct, 5);
-              return (
-                <div key={`${entry.owner}-${i}`} style={{
-                  display: "flex", alignItems: "center", gap: 6, padding: "5px 10px", borderRadius: 4,
-                  background: i === 0 ? C.goldDim : "transparent",
-                  border: i === 0 ? `1px solid ${C.goldBorder}` : "1px solid transparent",
-                  transition: "background 0.12s",
-                }}
-                onMouseEnter={(e) => { if (i > 0) e.currentTarget.style.background = C.elevated; }}
-                onMouseLeave={(e) => { if (i > 0) e.currentTarget.style.background = "transparent"; }}>
-                  <span style={{ width: 16, fontSize: 10, fontWeight: 900, color, fontFamily: MONO, textAlign: "right", flexShrink: 0 }}>{i + 1}</span>
-                  <span style={{
-                    fontSize: 12, fontWeight: i < 3 ? 700 : 500,
-                    color: i < 3 ? C.primary : C.secondary, fontFamily: SANS,
-                    minWidth: 0, flex: 1,
-                    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                  }}>{entry.owner}</span>
-                  <div style={{ width: 50, height: 4, background: C.border, borderRadius: 2, overflow: "hidden", flexShrink: 0 }}>
-                    <div style={{ height: "100%", borderRadius: 2, width: `${barWidth}%`, background: i === 0 ? C.gold : i < 3 ? C.green : C.secondary, transition: "width 0.8s ease" }} />
-                  </div>
-                  <span style={{ fontSize: 10, fontWeight: 700, color, fontFamily: MONO, width: 34, textAlign: "right", flexShrink: 0 }}>{entry.win_pct}%</span>
-                  <span style={{ fontSize: 9, fontWeight: 600, color: entry.avg_sha_net >= 0 ? C.green : C.red, fontFamily: MONO, width: 44, textAlign: "right", flexShrink: 0 }}>
-                    {entry.avg_sha_net >= 0 ? "+" : ""}{fmt(entry.avg_sha_net)}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* ── Position Market ─────────────────────────────────── */}
-      {rc.position_market.hot_position && (
-        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0" }}>
-          <span style={{ fontSize: 10, fontWeight: 700, color: C.dim, fontFamily: SANS }}>Hot market:</span>
-          <span style={{
-            fontSize: 9, fontWeight: 900, letterSpacing: "0.04em",
-            color: posColor(rc.position_market.hot_position),
-            fontFamily: SANS, padding: "2px 6px", borderRadius: 3,
-            background: posColor(rc.position_market.hot_position) + "18",
-          }}>{rc.position_market.hot_position}</span>
-          <span style={{ fontSize: 11, color: C.secondary, fontFamily: SANS }}>
-            ({rc.position_market.hot_count} of {rc.total_trades} trades)
-          </span>
-        </div>
-      )}
-    </div>
+        </motion.div>
+      ))}
+    </motion.div>
   );
 }
 
 /* ═══════════════════════════════════════════════════════════════
    LEAGUE HOME PAGE
    ═══════════════════════════════════════════════════════════════ */
+
 export default function LeagueHome() {
+  const router = useRouter();
   const pathname = usePathname();
-  const { currentLeagueId: lid } = useLeagueStore();
+  const { currentLeagueId: lid, currentOwner, currentOwnerId } = useLeagueStore();
   const slug = pathname.split("/")[2] || "";
   const basePath = `/l/${slug}`;
 
-  const { data: overview } = useQuery({ queryKey: ["overview", lid], queryFn: () => getOverview(lid!), enabled: !!lid, staleTime: 60 * 60 * 1000 });
-  const { data: rankings } = useQuery({ queryKey: ["rankings", lid], queryFn: () => getRankings(lid!), enabled: !!lid, staleTime: 10 * 60 * 1000 });
-  const { data: recentTrades } = useQuery({ queryKey: ["recent-trades", lid], queryFn: () => getRecentTrades(lid!, 10), enabled: !!lid });
-  const { data: trending } = useQuery({ queryKey: ["trending", lid], queryFn: () => getTrending(lid!), enabled: !!lid, staleTime: 10 * 60 * 1000 });
-  const { data: profiles } = useQuery({ queryKey: ["profiles", lid], queryFn: () => getOwnerProfiles(lid!), enabled: !!lid, staleTime: 10 * 60 * 1000 });
-  const { data: leagueIntel } = useQuery({ queryKey: ["league-intel", lid], queryFn: () => getLeagueIntel(lid!), enabled: !!lid, staleTime: 10 * 60 * 1000 });
-  const { data: reportCard, isLoading: reportCardLoading } = useQuery({ queryKey: ["report-card", lid], queryFn: () => getReportCard(lid!), enabled: !!lid, staleTime: 30 * 60 * 1000 });
+  /* ── Data queries (unchanged) ── */
+  /* Data queries — aggressive caching. Most data changes infrequently. */
+  const HOUR = 60 * 60 * 1000;
+  const { data: overview } = useQuery({ queryKey: ["overview", lid], queryFn: () => getOverview(lid!), enabled: !!lid, staleTime: 4 * HOUR });
+  const { data: rankings } = useQuery({ queryKey: ["rankings", lid], queryFn: () => getRankings(lid!), enabled: !!lid, staleTime: 2 * HOUR });
+  const { data: recentTrades } = useQuery({ queryKey: ["recent-trades", lid], queryFn: () => getRecentTrades(lid!, 10), enabled: !!lid, staleTime: 30 * 60 * 1000 });
+  const { data: trending } = useQuery({ queryKey: ["trending", lid], queryFn: () => getTrending(lid!), enabled: !!lid, staleTime: HOUR });
+  const { data: profiles } = useQuery({ queryKey: ["profiles", lid], queryFn: () => getOwnerProfiles(lid!), enabled: !!lid, staleTime: 2 * HOUR });
+  const { data: leagueIntel } = useQuery({ queryKey: ["league-intel", lid], queryFn: () => getLeagueIntel(lid!), enabled: !!lid, staleTime: 2 * HOUR });
+  const { data: reportCard, isLoading: rcLoading } = useQuery({ queryKey: ["report-card", lid], queryFn: () => getReportCard(lid!), enabled: !!lid, staleTime: 4 * HOUR });
+  const { data: marketPulse } = useQuery({ queryKey: ["market-pulse", lid], queryFn: () => getMarketPulse(lid!), enabled: !!lid, staleTime: HOUR });
+
+  const heroRef = useRef<HTMLDivElement>(null);
+  const { ref: heroInViewRef, inView: heroInView } = useInView(0.2);
 
   if (!lid) return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
-      <p style={{ fontFamily: MONO, fontSize: 13, color: C.dim }}>No league loaded</p>
+    <div className="flex items-center justify-center h-full">
+      <p className="text-sm text-dim" style={{ fontFamily: MONO }}>No league loaded</p>
     </div>
   );
 
   const leagueName = overview?.name || "DynastyGPT";
-  const numTeams = overview?.format?.num_teams || 0;
   const tradeCount = overview?.trade_volume?.total || 0;
 
-  const leagueArticles = [
-    { cat: "POWER RANKINGS", catColor: C.gold, title: `${leagueName} Power Rankings Update`, desc: `Fresh power rankings across all ${numTeams} teams. See who's rising, who's falling, and where the value gaps are.`, date: "Today", image: <BarChartSVG /> },
-    { cat: "TRADE REPORT", catColor: C.green, title: `${tradeCount} Trades Analyzed — Who's Winning?`, desc: "AI-graded trade verdicts for every deal in league history. Win rates, robbery alerts, and owner tendencies.", date: "Today", image: <TradeArrowsSVG /> },
-    { cat: "OWNER SPOTLIGHT", catColor: C.blue, title: "Owner Behavioral Profiles Now Available", desc: "Full trade tendency analysis, position biases, seasonal timing patterns, and rival matchup histories.", date: "Mar 24", image: <RadarChartSVG /> },
-    { cat: "FRANCHISE INTEL", catColor: "#a78bfa", title: "AI Scouting Reports Are Live", desc: "Personalized buy-low targets, sell-high candidates, trade partner fits, and positional gap analysis.", date: "Mar 23", image: <ScoutingReportSVG /> },
-  ];
+  /* ── Derive owner-specific data ── */
+  const myProfile = profiles?.profiles?.find((p: OwnerProfile) => p.owner === currentOwner);
+  const myIntel = leagueIntel?.owners?.find((o: LeagueIntelOwner) => o.owner === currentOwner);
+  const myQuality = reportCard?.quality_leaderboard?.find((q: { owner: string }) => q.owner === currentOwner);
+
+  /* ── Dynamic headlines — written like news, not feature labels ── */
+  const personality = reportCard?.league_personality;
+  const leagueHeadline = (() => {
+    if (!reportCard) return `Inside ${leagueName} — A Season in Review`;
+    const rc = reportCard;
+    if (rc.biggest_robbery) return `${rc.biggest_robbery.winner} Pulls Off the Heist of the Season in ${leagueName}`;
+    if (rc.most_active_trader && rc.most_active_trader.trades >= 8) return `${rc.most_active_trader.owner} Won't Stop Dealing — ${rc.most_active_trader.trades} Trades and Counting`;
+    if (personality) return `Inside ${leagueName}: How a ${personality.type} Market Shaped the Season`;
+    return `${leagueName} — The Full Season Breakdown`;
+  })();
+  const leagueLede = (() => {
+    if (!reportCard) return `${tradeCount} trades analyzed across all seasons.`;
+    const rc = reportCard;
+    const parts: string[] = [];
+    if (rc.biggest_robbery) parts.push(`${rc.biggest_robbery.winner} walked away with ${rc.biggest_robbery.winner_got.slice(0, 2).join(" and ")}`);
+    if (rc.most_active_trader) parts.push(`${rc.most_active_trader.owner} led the league with ${rc.most_active_trader.trades} trades`);
+    if (rc.quality_leaderboard?.[0]) parts.push(`${rc.quality_leaderboard[0].owner} posted a ${rc.quality_leaderboard[0].win_pct}% win rate`);
+    return parts.length ? parts.slice(0, 2).join(". ") + "." : rc.activity_summary || "";
+  })();
+
+  const tradeHeadline = (() => {
+    if (!reportCard) return "Trade Verdicts Loading...";
+    const best = reportCard.quality_leaderboard?.[0];
+    const worst = reportCard.quality_leaderboard?.slice(-1)?.[0];
+    if (best && worst && best.owner !== worst.owner) return `${best.owner} Is Winning Every Deal — ${worst.owner} Can't Stop Losing`;
+    if (best) return `${best.owner} Leads the League in Trade Win Rate at ${best.win_pct}%`;
+    return `${reportCard.total_trades} Trades Graded This Season`;
+  })();
+
+  const marketHeadline = (() => {
+    if (!trending?.risers?.[0]) return "Market Movement — Tracking Value Shifts";
+    const top = trending.risers[0];
+    const faller = trending.fallers?.[0];
+    if (faller) return `${top.player} Surging While ${faller.player} Falls — This Week's Biggest Movers`;
+    return `${top.player} Is the Hottest Name in the League Right Now`;
+  })();
+
+  const myHeadline = myProfile
+    ? myProfile.window === "WIN_NOW"
+      ? `${currentOwner} Is All-In — The Window Won't Stay Open Forever`
+      : myProfile.window === "CONTENDER"
+      ? `${currentOwner}'s Championship Window Is Wide Open`
+      : myProfile.window === "REBUILDER"
+      ? `${currentOwner} Is Tearing It Down — Here's the Blueprint`
+      : `${currentOwner} Is Quietly Building Something Dangerous`
+    : "Your Franchise Report";
+  const myLede = myIntel
+    ? (() => {
+        const rank = myIntel.sha_rank;
+        const needs = myIntel.positional_needs?.slice(0, 3);
+        const mismatch = myIntel.mismatch;
+        let parts: string[] = [];
+        if (rank) parts.push(rank <= 3 ? `A top-${rank} franchise in the league` : `Currently ranked #${rank} overall`);
+        if (needs?.length) parts.push(`with ${needs.length === 1 ? `a glaring hole at ${needs[0]}` : `gaps at ${needs.join(" and ")}`}`);
+        else parts.push("with no major roster holes");
+        if (mismatch) parts.push(`— but a ${mismatch.replace(/_/g, " ")} could be a problem`);
+        return parts.join(" ") + ". Get the full scouting report.";
+      })()
+    : "Sign in and sync your Sleeper account to see your personalized franchise report.";
 
   return (
     <>
-      {/* AI Insight Strip */}
-      <InsightStrip />
-
-      {/* Rotating Ticker */}
+      {/* ═══════════════ ① TICKER ═══════════════ */}
       <MarketTicker
         risers={trending?.risers || []}
         fallers={trending?.fallers || []}
         recentTrades={recentTrades?.trades}
         rankings={rankings?.rankings}
         reportCard={reportCard}
+        leagueIntel={leagueIntel?.owners}
       />
 
-      {/* MAIN GRID — Content Left, Widgets Right */}
-      <div className="mobile-stack" style={{ maxWidth: 1200, margin: "0 auto", padding: "20px 32px 48px", display: "grid", gridTemplateColumns: "1fr 320px", gap: 24, alignItems: "start" }}>
-        {/* LEFT COLUMN — continuous content feed, no section breaks between hero + articles */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 16, animation: "fadeUp 0.5s ease 0.1s both" }}>
-          {/* Hero Article */}
-          <FeaturedArticle leagueName={leagueName} />
+      {/* ═══════════════ ② HERO ═══════════════ */}
+      {rcLoading && !reportCard ? <HeroSkeleton /> : (
+        <div ref={heroInViewRef} className="relative overflow-hidden border-b border-border" style={{ background: `linear-gradient(160deg, ${C.card} 0%, #0d1020 50%, ${C.card} 100%)` }}>
+          <div className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ background: `linear-gradient(180deg, ${C.goldDark}, ${C.gold}, ${C.goldBright})` }} />
 
-          {/* Sub-articles — flows directly under hero, no section header */}
-          <div className="mobile-stack" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
-            {leagueArticles.map((a, i) => <LeagueArticle key={i} {...a} />)}
-          </div>
+          <div className="max-w-[1200px] mx-auto px-6 sm:px-10 py-5 sm:py-6 grid grid-cols-1 sm:grid-cols-[3fr_2fr] gap-6 items-center">
+            {/* Left — League identity */}
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+              <div className="flex items-center gap-3 mb-1.5">
+                <h1 className="text-xl sm:text-2xl text-primary tracking-tight leading-tight" style={{ fontFamily: DISPLAY }}>
+                  {leagueName}
+                </h1>
+              </div>
 
-          {/* League Report Card */}
-          {reportCardLoading ? <ReportCardSkeleton /> : reportCard ? <LeagueReportCard data={reportCard} /> : null}
+              {/* League Identity with real narrative */}
+              {personality && reportCard && (
+                <div className="flex items-start gap-2 mb-2">
+                  <span className="text-[9px] font-black tracking-[0.08em] text-gold-bright px-2 py-0.5 rounded-sm bg-gold-dim border border-gold-border shrink-0 mt-0.5" style={{ fontFamily: SANS }}>
+                    {personality.type.toUpperCase()}
+                  </span>
+                  <p className="text-[12px] text-secondary leading-relaxed" style={{ fontFamily: SANS }}>
+                    {(() => {
+                      const rc = reportCard;
+                      const activityRatio = rc.db_avg_trades > 0 ? Math.round(((rc.total_trades - rc.db_avg_trades) / rc.db_avg_trades) * 100) : 0;
+                      const robberyCount = rc.overpay_trades || (rc.biggest_robbery ? 1 : 0);
+                      let narrative = `${rc.total_trades} trades across all seasons.`;
+                      if (activityRatio > 50) narrative += " One of the most active leagues on the platform.";
+                      else if (activityRatio > 20) narrative += " More active than most leagues.";
+                      else if (activityRatio > 0) narrative += " Above-average trade volume.";
+                      else if (activityRatio > -20) narrative += " Moderate trade activity.";
+                      else narrative += " A quieter league on the trade front.";
+                      if (robberyCount > 0) narrative += ` ${robberyCount} confirmed ${robberyCount > 1 ? "robberies" : "robbery"} detected.`;
+                      if (rc.panic_trades > 0) narrative += ` ${rc.panic_trades} panic ${rc.panic_trades > 1 ? "trades" : "trade"} flagged.`;
+                      if (rc.blockbusters > 0) narrative += ` ${rc.blockbusters} blockbuster ${rc.blockbusters > 1 ? "deals" : "deal"}.`;
+                      if (!robberyCount && !rc.panic_trades && rc.best_winwin) narrative += " A league where deals tend to be fair.";
+                      return narrative;
+                    })()}
+                  </p>
+                </div>
+              )}
 
-          {/* League Snapshot */}
-          <div>
-            <SectionHead title="LEAGUE SNAPSHOT" badge={`${profiles?.profiles?.length || 0} TEAMS`} />
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 8 }}>
-              {profiles?.profiles?.map((p, i) => {
-                const tier = p.sha_rank <= 3 ? C.green : p.sha_rank <= 6 ? C.gold : p.sha_rank <= 9 ? C.orange : C.red;
-                return (
-                  <div key={`${p.owner}-${i}`} style={{ padding: "8px 12px", borderRadius: 6, background: C.elevated, border: `1px solid ${C.border}`, cursor: "pointer", transition: "all 0.15s" }}
-                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = C.borderLt; e.currentTarget.style.transform = "translateY(-1px)"; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.transform = "translateY(0)"; }}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: C.primary }}>{p.owner}</span>
-                      <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: tier }}>#{p.sha_rank}</span>
-                    </div>
-                    <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim }}>{p.window} · {p.record ? `${p.record.wins}W-${p.record.losses}L` : "—"}</div>
-                    <div style={{ fontFamily: MONO, fontSize: 11, color: C.gold, marginTop: 2 }}>{fmt(p.total_sha)} {leaguePrefix(leagueName)}</div>
-                  </div>
-                );
-              })}
-            </div>
+              {/* Fun stat — picks the most specific, interesting data available */}
+              {reportCard && (
+                <div className="border-l-2 border-gold pl-3 py-1.5 bg-gold-glow rounded-r-sm">
+                  <span className="text-[11px] text-secondary leading-snug" style={{ fontFamily: SANS }}>
+                    {(() => {
+                      const rc = reportCard;
+                      // Priority 1: biggest robbery with real names and assets
+                      if (rc.biggest_robbery && rc.biggest_robbery.sha_gap > 500) {
+                        const got = rc.biggest_robbery.winner_got.slice(0, 2).join(" & ");
+                        const gave = rc.biggest_robbery.loser_got.slice(0, 2).join(" & ");
+                        return `Biggest heist: ${rc.biggest_robbery.winner} sent ${gave} and got back ${got}. Value gap: +${fmt(rc.biggest_robbery.sha_gap)}.`;
+                      }
+                      // Priority 2: most lopsided win rate with context
+                      const best = rc.quality_leaderboard?.[0];
+                      const worst = rc.quality_leaderboard?.slice(-1)[0];
+                      if (best && worst && best.win_pct >= 60 && best.trades >= 3 && worst.win_pct <= 30) {
+                        return `${best.owner} wins ${best.win_pct}% of their trades. ${worst.owner} wins just ${worst.win_pct}%. The gap between the league's best and worst dealer is ${best.win_pct - worst.win_pct} points.`;
+                      }
+                      if (best && best.win_pct >= 60 && best.trades >= 3) {
+                        return `${best.owner} has won ${best.win_pct}% of their ${best.trades} trades — averaging +${fmt(best.avg_sha_net)} value per deal.`;
+                      }
+                      // Priority 3: panic trades or blockbusters
+                      if (rc.panic_trades >= 2) {
+                        return `${rc.panic_trades} panic trades detected this season — someone is making moves they'll regret.`;
+                      }
+                      if (rc.blockbusters >= 2) {
+                        return `${rc.blockbusters} blockbuster deals this season. This league doesn't do small ball.`;
+                      }
+                      // Fallback: API fun_stat
+                      return rc.fun_stat || "";
+                    })()}
+                  </span>
+                </div>
+              )}
+            </motion.div>
+
+            {/* Right — Platform stats */}
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.15 }}>
+              <div className="grid grid-cols-2 gap-2">
+                {PLATFORM_STATS.map((s) => (
+                  <StatCard key={s.label} label={s.label} value={s.value} display={s.display} inView={heroInView} />
+                ))}
+              </div>
+              <div className="flex items-center justify-center mt-2">
+                <span className="text-[8px] font-bold tracking-[0.08em] text-gold/40" style={{ fontFamily: SANS }}>
+                  Powered by DynastyGPT.com
+                </span>
+              </div>
+            </motion.div>
           </div>
         </div>
+      )}
 
-        {/* RIGHT COLUMN */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 20, animation: "fadeUp 0.5s ease 0.2s both" }}>
-          <div>
-            <SectionHead title="POWER RANKINGS" />
-            <PowerRankings
-              rankings={rankings?.rankings || []}
-              leagueIntel={leagueIntel?.owners}
-              leagueName={leagueName}
-            />
+      {/* ═══════════════ ③ MAIN CONTENT — 3 COLUMNS ═══════════════ */}
+      <div className="max-w-[1200px] mx-auto px-4 sm:px-8 py-8 grid grid-cols-1 lg:grid-cols-[38fr_38fr_24fr] gap-6 items-start">
+
+        {/* ── MY NEWS (first on mobile) ── */}
+        <AnimatedSection className="order-1 lg:order-2">
+          <SectionLabel title="MY NEWS" />
+          <div className="flex flex-col gap-3">
+            {currentOwner ? (
+              <>
+                <NewsCard
+                  tag="GM REPORT" tagColor="text-accent-orange bg-accent-orange/10"
+                  headline={myHeadline} lede={myLede}
+                  link={currentOwner ? `${basePath}/intel/${encodeURIComponent(currentOwner)}` : undefined}
+                  linkLabel="Get Full Breakdown →"
+                  isHero topColor={C.orange}
+                />
+                <NewsCard
+                  tag="PRIORITIES" tagColor="text-gold bg-gold/10"
+                  headline={myIntel?.positional_needs?.length
+                    ? myIntel.positional_needs.length >= 3
+                      ? "Multiple Roster Holes Could Derail Your Season"
+                      : myIntel.positional_needs.length === 2
+                      ? `${myIntel.positional_needs[0]} and ${myIntel.positional_needs[1]} — Two Spots That Need Fixing Now`
+                      : `Your ${myIntel.positional_needs[0]} Room Needs an Upgrade`
+                    : "No Weak Spots — This Roster Is Built to Compete"}
+                  lede={myIntel?.positional_needs?.length
+                    ? `${myIntel.positional_needs.map(pos => `${pos} graded ${myIntel.positional_grades?.[pos] || "—"}`).join(", ")}. See where to target upgrades.`
+                    : "Every position group is holding strong. See the full positional breakdown."}
+                  link={currentOwner ? `${basePath}/intel/${encodeURIComponent(currentOwner)}` : undefined}
+                  linkLabel="See Full Analysis →"
+                  topColor={C.gold}
+                />
+                <NewsCard
+                  tag="TRADE RECORD" tagColor={myQuality && myQuality.win_pct >= 50 ? "text-accent-green bg-accent-green/10" : "text-accent-red bg-accent-red/10"}
+                  headline={myQuality
+                    ? myQuality.win_pct >= 65
+                      ? `${currentOwner} Is Dominating the Trade Market at ${myQuality.win_pct}%`
+                      : myQuality.win_pct >= 50
+                      ? `${currentOwner} Is Winning More Than Losing — ${myQuality.wins}W-${(myQuality as any).losses ?? 0}L`
+                      : `${currentOwner}'s Trade Record Needs Work — ${myQuality.win_pct}% Win Rate`
+                    : "No Trade History on File Yet"}
+                  lede={myQuality
+                    ? `${myQuality.trades} trades graded across all seasons${myQuality.avg_sha_net >= 0 ? `, netting +${fmt(myQuality.avg_sha_net)} in value per deal` : ` with an average loss of ${fmt(myQuality.avg_sha_net)} per deal`}. See every verdict.`
+                    : "Start making moves to build your trade record."}
+                  link={`${basePath}/trades`}
+                  linkLabel="See Every Verdict →"
+                  topColor={myQuality && myQuality.win_pct >= 50 ? C.green : C.red}
+                />
+              </>
+            ) : (
+              <div className="bg-card border border-border rounded-xl p-6 text-center">
+                <div className="text-sm text-dim mb-2" style={{ fontFamily: SANS }}>Sign in to see your personalized franchise report</div>
+                <div className="text-xs text-dim/60" style={{ fontFamily: SANS }}>Link your Sleeper account to unlock GM reports, trade records, and priorities</div>
+              </div>
+            )}
           </div>
+        </AnimatedSection>
+
+        {/* ── LEAGUE NEWS ── */}
+        <AnimatedSection className="order-2 lg:order-1">
+          <SectionLabel title="LEAGUE NEWS" />
+          <div className="flex flex-col gap-3">
+            {rcLoading ? (
+              <><CardSkeleton isHero /><CardSkeleton /><CardSkeleton /></>
+            ) : (
+              <>
+                <NewsCard
+                  tag="LEAGUE REPORT" tagColor="text-gold bg-gold/10"
+                  headline={leagueHeadline} lede={leagueLede}
+                  link={`${basePath}/trades`} linkLabel="Read More →"
+                  isHero topColor={C.gold}
+                />
+                <NewsCard
+                  tag="TRADES" tagColor="text-accent-green bg-accent-green/10"
+                  headline={tradeHeadline}
+                  lede={reportCard?.biggest_robbery ? `The biggest imbalance this season: ${reportCard.biggest_robbery.winner} acquired ${reportCard.biggest_robbery.winner_got.slice(0, 2).join(" and ")} while ${reportCard.biggest_robbery.loser} got the short end.` : `${reportCard?.total_trades || tradeCount} trades analyzed with full AI verdicts.`}
+                  link={`${basePath}/trades`}
+                  topColor={C.green}
+                />
+                <NewsCard
+                  tag="MARKET" tagColor="text-accent-blue bg-accent-blue/10"
+                  headline={marketHeadline}
+                  lede={(() => {
+                    const r = trending?.risers?.[0];
+                    const f = trending?.fallers?.[0];
+                    if (r && f) return `${r.player} is up +${fmt(r.sha_delta)} this week while ${f.player} dropped ${fmt(f.sha_delta)}. Full trending data inside.`;
+                    if (r) return `${r.player} gained +${fmt(r.sha_delta)} in value — leading all movers this week.`;
+                    return "Value shifts tracked across every roster in your league.";
+                  })()}
+                  topColor={C.blue}
+                />
+              </>
+            )}
+          </div>
+        </AnimatedSection>
+
+        {/* ── MARKET PULSE ── */}
+        <AnimatedSection className="order-3">
+          <SectionLabel title="MARKET PULSE" />
+
+          {/* Most Traded Assets */}
+          <div className="text-[10px] font-black tracking-[0.12em] text-dim mb-0.5" style={{ fontFamily: SANS }}>MOST TRADED ASSETS — LAST 120 DAYS</div>
+          <div className="text-[10px] text-secondary/60 mb-3" style={{ fontFamily: SANS }}>DynastyGPT wide — 1.5M+ trades</div>
+          <div className="flex flex-col mb-5">
+            {(marketPulse?.most_traded || []).slice(0, 6).map((p: any, i: number) => (
+              <div key={i} className="flex items-center gap-2 py-2 border-b border-border last:border-0 cursor-pointer hover:bg-elevated/50 transition-colors rounded-sm" onClick={() => usePlayerCardStore.getState().openPlayerCard(p.player)}>
+                <span className="text-[10px] font-black text-dim w-4 text-right shrink-0" style={{ fontFamily: MONO }}>{i + 1}</span>
+                <PlayerHeadshot name={p.player} position={p.position || ""} size={22} />
+                <PlayerName name={p.player} style={{ fontSize: 12, fontWeight: 600, color: C.primary, fontFamily: SANS }} />
+                <span className="text-[10px] font-bold text-gold ml-auto shrink-0" style={{ fontFamily: MONO }}>{p.trade_count}</span>
+              </div>
+            ))}
+            {!marketPulse?.most_traded?.length && (
+              <div className="text-xs text-dim/50 py-4 text-center" style={{ fontFamily: SANS }}>Loading market data...</div>
+            )}
+          </div>
+
+          {/* Above/Below Consensus */}
+          <div className="text-[10px] font-black tracking-[0.12em] text-dim mb-3" style={{ fontFamily: SANS }}>TRADE MARKET — ABOVE/BELOW CONSENSUS</div>
+          <div className="flex flex-col gap-1">
+            {(marketPulse?.above_market || []).slice(0, 3).map((p: any, i: number) => (
+              <div key={`a${i}`} className="flex items-center gap-2 py-1.5 cursor-pointer hover:bg-elevated/50 transition-colors rounded-sm" onClick={() => usePlayerCardStore.getState().openPlayerCard(p.player)}>
+                <PlayerHeadshot name={p.player} position={p.position || ""} size={20} />
+                <PlayerName name={p.player} style={{ fontSize: 11, fontWeight: 600, color: C.primary, fontFamily: SANS }} className="truncate flex-1" />
+                <span className="text-[10px] font-black text-accent-green shrink-0" style={{ fontFamily: MONO }}>+{Math.round(p.pct_diff)}%</span>
+              </div>
+            ))}
+            {(marketPulse?.above_market?.length ?? 0) > 0 && (marketPulse?.below_market?.length ?? 0) > 0 && (
+              <div className="h-px bg-border my-1" />
+            )}
+            {(marketPulse?.below_market || []).slice(0, 3).map((p: any, i: number) => (
+              <div key={`b${i}`} className="flex items-center gap-2 py-1.5 cursor-pointer hover:bg-elevated/50 transition-colors rounded-sm" onClick={() => usePlayerCardStore.getState().openPlayerCard(p.player)}>
+                <PlayerHeadshot name={p.player} position={p.position || ""} size={20} />
+                <PlayerName name={p.player} style={{ fontSize: 11, fontWeight: 600, color: C.primary, fontFamily: SANS }} className="truncate flex-1" />
+                <span className="text-[10px] font-black text-accent-red shrink-0" style={{ fontFamily: MONO }}>{Math.round(p.pct_diff)}%</span>
+              </div>
+            ))}
+            {!marketPulse?.above_market?.length && !marketPulse?.below_market?.length && (
+              <div className="text-xs text-dim/50 py-4 text-center" style={{ fontFamily: SANS }}>Loading consensus data...</div>
+            )}
+          </div>
+        </AnimatedSection>
+      </div>
+
+      {/* ═══════════════ ④ BOTTOM SECTION ═══════════════ */}
+      <div className="max-w-[1200px] mx-auto px-4 sm:px-8 pb-12 grid grid-cols-1 lg:grid-cols-[65fr_35fr] gap-6 items-start">
+
+        {/* ── LEAGUE ACTIVITY ── */}
+        <AnimatedSection>
+          <SectionLabel title="LEAGUE ACTIVITY" />
           <RecentTrades
             trades={recentTrades?.trades || []}
             basePath={basePath}
             leagueId={lid}
+            limit={5}
           />
-        </div>
+          {reportCard?.quality_leaderboard && (
+            <TradeFairnessIndex leaderboard={reportCard.quality_leaderboard} />
+          )}
+        </AnimatedSection>
+
+        {/* ── LEAGUE LEGENDS ── */}
+        <AnimatedSection>
+          <SectionLabel title="LEAGUE LEGENDS" />
+          {reportCard ? <LeagueLegends reportCard={reportCard} /> : (
+            <div className="flex flex-col gap-3">
+              {[0, 1, 2, 3].map(i => <div key={i} className="h-16 bg-elevated rounded-lg animate-pulse" />)}
+            </div>
+          )}
+        </AnimatedSection>
       </div>
 
       <style>{`
-        @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes tickerScroll { 0% { transform: translateX(0); } 100% { transform: translateX(-33.333%); } }
         @keyframes pulse-gold { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
       `}</style>

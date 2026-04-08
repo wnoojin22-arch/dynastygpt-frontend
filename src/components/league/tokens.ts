@@ -32,11 +32,10 @@ export function posColor(pos: string): string {
 export function getVerdictStyle(v: string | null | undefined): { label: string; color: string; bg: string } | null {
   if (!v) return null;
   const o = v.toLowerCase();
-  if (o.includes("win-win")) return { label: "WIN-WIN", color: "#7dd3a0", bg: "rgba(125,211,160,0.12)" };
   if (o.includes("robbery")) return { label: "ROBBERY", color: "#ff4444", bg: "rgba(255,68,68,0.15)" };
-  if (o.includes("push")) return { label: "PUSH", color: "#b0b2c8", bg: "rgba(176,178,200,0.10)" };
-  if (o.includes("won") || o.includes("slight edge")) return { label: "WON", color: C.gold, bg: C.goldDim };
+  if (o.includes("won") || o.includes("slight edge") || o.includes("win-win")) return { label: "WON", color: C.gold, bg: C.goldDim };
   if (o.includes("lost") || o.includes("slight loss")) return { label: "LOST", color: C.red, bg: "rgba(255,68,68,0.10)" };
+  if (o.includes("push") || o.includes("even")) return { label: "EVEN", color: "#b0b2c8", bg: "rgba(176,178,200,0.10)" };
   return null;
 }
 

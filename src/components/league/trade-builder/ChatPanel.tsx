@@ -112,9 +112,11 @@ export default function ChatPanel({ leagueId, owner, activeTrade, suggestedPacka
     setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
 
     try {
+      const { authHeaders } = await import("@/lib/api");
+      const hdrs = await authHeaders();
       const res = await fetch(`${API}/api/league/${leagueId}/trade-builder/chat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: hdrs,
         body: JSON.stringify({
           owner, message: text.trim(),
           conversation_history: messages.map(m => ({ role: m.role, content: m.content })),
