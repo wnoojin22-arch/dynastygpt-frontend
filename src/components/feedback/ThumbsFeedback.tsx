@@ -33,7 +33,7 @@ export default function ThumbsFeedback({ prompt, tradeId, suggestionId, context 
     try {
       const { authHeaders } = await import("@/lib/api");
       const hdrs = await authHeaders();
-      await fetch(`${API}/api/feedback`, {
+      await fetch(`${API}/api/league/feedback`, {
         method: "POST",
         headers: hdrs,
         body: JSON.stringify({

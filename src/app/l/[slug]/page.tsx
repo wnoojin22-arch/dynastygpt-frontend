@@ -230,28 +230,38 @@ function MarketTicker({ risers, fallers, recentTrades, rankings, reportCard, lea
     }
 
     /* ── DYNASTY RANKINGS ── */
-    if (leagueIntel?.length) {
+    if (leagueIntel?.length && rankings?.length) {
+      const shaMap = new Map(rankings.map((r) => [r.owner.toLowerCase(), r.total_sha]));
+      const numTeams = rankings.length || 12;
       const sorted = [...leagueIntel].sort((a, b) => (a.dynasty_rank || 99) - (b.dynasty_rank || 99));
       const nodes = sorted.slice(0, 12).map((o, i) => {
+        const rank = o.dynasty_rank || i + 1;
+        const baseSha = shaMap.get(o.owner.toLowerCase()) || o.total_sha;
+        const value = Math.round(baseSha * (1 + (numTeams - rank) * 0.05));
         const cls = i < 3 ? "text-accent-blue bg-accent-blue/10" : i < 6 ? "text-gold bg-gold/10" : "text-dim bg-dim/10";
         return item(`dr${i}`, <>
-          <TB cls={cls}>#{i + 1}</TB>
+          <TB cls={cls}>#{rank}</TB>
           <span className="text-[11px] font-bold text-primary">{o.owner}</span>
-          <span className="text-[10px] font-bold text-accent-blue">{o.window}</span>
+          <span className="text-[10px] font-extrabold text-accent-blue">{(value / 1000).toFixed(1)}k</span>
         </>);
       });
       cats.push({ label: "DYNASTY RANKINGS", dotColor: C.blue, items: nodes });
     }
 
     /* ── WIN-NOW RANKINGS ── */
-    if (leagueIntel?.length) {
+    if (leagueIntel?.length && rankings?.length) {
+      const shaMap = new Map(rankings.map((r) => [r.owner.toLowerCase(), r.total_sha]));
+      const numTeams = rankings.length || 12;
       const sorted = [...leagueIntel].sort((a, b) => (a.win_now_rank || 99) - (b.win_now_rank || 99));
       const nodes = sorted.slice(0, 12).map((o, i) => {
+        const rank = o.win_now_rank || i + 1;
+        const baseSha = shaMap.get(o.owner.toLowerCase()) || o.total_sha;
+        const value = Math.round(baseSha * (1 + (numTeams - rank) * 0.05));
         const cls = i < 3 ? "text-accent-green bg-accent-green/10" : i < 6 ? "text-gold bg-gold/10" : "text-dim bg-dim/10";
         return item(`wnr${i}`, <>
-          <TB cls={cls}>#{i + 1}</TB>
+          <TB cls={cls}>#{rank}</TB>
           <span className="text-[11px] font-bold text-primary">{o.owner}</span>
-          <span className={`text-[10px] font-bold ${i < 3 ? "text-accent-green" : "text-dim"}`}>{(o.total_sha / 1000).toFixed(1)}k</span>
+          <span className={`text-[10px] font-extrabold ${i < 3 ? "text-accent-green" : "text-dim"}`}>{(value / 1000).toFixed(1)}k</span>
         </>);
       });
       cats.push({ label: "WIN-NOW RANKINGS", dotColor: C.green, items: nodes });
@@ -467,8 +477,8 @@ function TradeFairnessIndex({ leaderboard }: { leaderboard: { owner: string; tra
 
   return (
     <div className="mt-6">
-      <div className="text-[9px] font-black tracking-[0.12em] text-dim mb-1" style={{ fontFamily: SANS }}>TRADE FAIRNESS INDEX</div>
-      <div className="text-[10px] text-secondary/60 mb-3 leading-snug" style={{ fontFamily: SANS }}>Owners ranked by % of trades graded EVEN — no clear winner or loser on either side.</div>
+      <div className="text-[11px] font-black tracking-[0.12em] text-dim mb-1" style={{ fontFamily: SANS }}>TRADE FAIRNESS INDEX</div>
+      <div className="text-xs text-secondary/60 mb-3 leading-snug" style={{ fontFamily: SANS }}>Owners ranked by % of EVEN graded trades. Fair dealers.</div>
       <div className="flex flex-col gap-0.5">
         {sorted.map((entry, i) => {
           const isFirst = i === 0;
@@ -479,18 +489,18 @@ function TradeFairnessIndex({ leaderboard }: { leaderboard: { owner: string; tra
               key={entry.owner}
               className={`flex items-center gap-2 px-2.5 py-1.5 rounded transition-colors hover:bg-elevated ${isFirst ? "bg-gold-dim border border-gold-border" : ""}`}
             >
-              <span className="w-4 text-[10px] font-black text-right shrink-0" style={{ fontFamily: MONO, color }}>{i + 1}</span>
-              {isFirst && <span className="text-[10px] shrink-0">⚖️</span>}
-              {isLast && <span className="text-[10px] shrink-0">🔥</span>}
-              <span className={`text-xs truncate flex-1 min-w-0 ${i < 3 ? "font-bold text-primary" : "font-medium text-secondary"}`} style={{ fontFamily: SANS }}>
+              <span className="w-4 text-xs font-black text-right shrink-0" style={{ fontFamily: MONO, color }}>{i + 1}</span>
+              {isFirst && <span className="text-xs shrink-0">⚖️</span>}
+              {isLast && <span className="text-xs shrink-0">🔥</span>}
+              <span className={`text-sm truncate flex-1 min-w-0 ${i < 3 ? "font-bold text-primary" : "font-medium text-secondary"}`} style={{ fontFamily: SANS }}>
                 {entry.owner}
               </span>
-              <div className="w-12 h-1 bg-border rounded-full overflow-hidden shrink-0">
+              <div className="w-14 h-1.5 bg-border rounded-full overflow-hidden shrink-0">
                 {/* Imperative: percentage width from data */}
                 <div className="h-full rounded-full" style={{ width: `${entry.fairness}%`, background: color }} />
               </div>
-              <span className="text-[10px] font-bold w-8 text-right shrink-0" style={{ fontFamily: MONO, color }}>{entry.fairness}%</span>
-              <span className="text-[9px] font-semibold w-8 text-right shrink-0" style={{ fontFamily: MONO }}>{entry.trades}t</span>
+              <span className="text-xs font-bold w-9 text-right shrink-0" style={{ fontFamily: MONO, color }}>{entry.fairness}%</span>
+              <span className="text-[11px] font-semibold w-8 text-right shrink-0" style={{ fontFamily: MONO }}>{entry.trades}t</span>
             </div>
           );
         })}
@@ -630,10 +640,26 @@ export default function LeagueHome() {
   })();
 
   const myHeadline = myProfile
-    ? `${currentOwner}: ${myProfile.window === "CONTENDER" || myProfile.window === "WIN_NOW" ? "Championship Window Is Open" : myProfile.window === "REBUILDER" ? "The Rebuild Is Underway" : "Building Something Here"}`
+    ? myProfile.window === "WIN_NOW"
+      ? `${currentOwner} Is All-In — The Window Won't Stay Open Forever`
+      : myProfile.window === "CONTENDER"
+      ? `${currentOwner}'s Championship Window Is Wide Open`
+      : myProfile.window === "REBUILDER"
+      ? `${currentOwner} Is Tearing It Down — Here's the Blueprint`
+      : `${currentOwner} Is Quietly Building Something Dangerous`
     : "Your Franchise Report";
   const myLede = myIntel
-    ? `Ranked #${myIntel.sha_rank} overall. ${myIntel.positional_needs?.length ? `Key needs: ${myIntel.positional_needs.slice(0, 3).join(", ")}.` : "Balanced roster."} ${myIntel.mismatch ? `Warning: ${myIntel.mismatch.replace(/_/g, " ")}` : ""}`
+    ? (() => {
+        const rank = myIntel.sha_rank;
+        const needs = myIntel.positional_needs?.slice(0, 3);
+        const mismatch = myIntel.mismatch;
+        let parts: string[] = [];
+        if (rank) parts.push(rank <= 3 ? `A top-${rank} franchise in the league` : `Currently ranked #${rank} overall`);
+        if (needs?.length) parts.push(`with ${needs.length === 1 ? `a glaring hole at ${needs[0]}` : `gaps at ${needs.join(" and ")}`}`);
+        else parts.push("with no major roster holes");
+        if (mismatch) parts.push(`— but a ${mismatch.replace(/_/g, " ")} could be a problem`);
+        return parts.join(" ") + ". Get the full scouting report.";
+      })()
     : "Sign in and sync your Sleeper account to see your personalized franchise report.";
 
   return (
@@ -672,10 +698,13 @@ export default function LeagueHome() {
                     {(() => {
                       const rc = reportCard;
                       const activityRatio = rc.db_avg_trades > 0 ? Math.round(((rc.total_trades - rc.db_avg_trades) / rc.db_avg_trades) * 100) : 0;
-                      const activityDesc = activityRatio > 20 ? "hyperactive" : activityRatio > 0 ? "above-average" : activityRatio > -20 ? "moderate" : "quiet";
                       const robberyCount = rc.overpay_trades || (rc.biggest_robbery ? 1 : 0);
                       let narrative = `${rc.total_trades} trades across all seasons.`;
-                      if (activityRatio > 10) narrative += ` That's ${activityRatio}% more active than the average league.`;
+                      if (activityRatio > 50) narrative += " One of the most active leagues on the platform.";
+                      else if (activityRatio > 20) narrative += " More active than most leagues.";
+                      else if (activityRatio > 0) narrative += " Above-average trade volume.";
+                      else if (activityRatio > -20) narrative += " Moderate trade activity.";
+                      else narrative += " A quieter league on the trade front.";
                       if (robberyCount > 0) narrative += ` ${robberyCount} confirmed ${robberyCount > 1 ? "robberies" : "robbery"} detected.`;
                       if (rc.panic_trades > 0) narrative += ` ${rc.panic_trades} panic ${rc.panic_trades > 1 ? "trades" : "trade"} flagged.`;
                       if (rc.blockbusters > 0) narrative += ` ${rc.blockbusters} blockbuster ${rc.blockbusters > 1 ? "deals" : "deal"}.`;
@@ -751,20 +780,40 @@ export default function LeagueHome() {
                 <NewsCard
                   tag="GM REPORT" tagColor="text-accent-orange bg-accent-orange/10"
                   headline={myHeadline} lede={myLede}
+                  link={currentOwner ? `${basePath}/intel/${encodeURIComponent(currentOwner)}` : undefined}
+                  linkLabel="Get Full Breakdown →"
                   isHero topColor={C.orange}
                 />
                 <NewsCard
                   tag="PRIORITIES" tagColor="text-gold bg-gold/10"
-                  headline="Your Offseason Priorities"
+                  headline={myIntel?.positional_needs?.length
+                    ? myIntel.positional_needs.length >= 3
+                      ? "Multiple Roster Holes Could Derail Your Season"
+                      : myIntel.positional_needs.length === 2
+                      ? `${myIntel.positional_needs[0]} and ${myIntel.positional_needs[1]} — Two Spots That Need Fixing Now`
+                      : `Your ${myIntel.positional_needs[0]} Room Needs an Upgrade`
+                    : "No Weak Spots — This Roster Is Built to Compete"}
                   lede={myIntel?.positional_needs?.length
-                    ? `Focus areas: ${myIntel.positional_needs.map(pos => `${pos} (${myIntel.positional_grades?.[pos] || "—"})`).join(", ")}`
-                    : "No critical needs detected — balanced roster."}
+                    ? `${myIntel.positional_needs.map(pos => `${pos} graded ${myIntel.positional_grades?.[pos] || "—"}`).join(", ")}. See where to target upgrades.`
+                    : "Every position group is holding strong. See the full positional breakdown."}
+                  link={currentOwner ? `${basePath}/intel/${encodeURIComponent(currentOwner)}` : undefined}
+                  linkLabel="See Full Analysis →"
                   topColor={C.gold}
                 />
                 <NewsCard
                   tag="TRADE RECORD" tagColor={myQuality && myQuality.win_pct >= 50 ? "text-accent-green bg-accent-green/10" : "text-accent-red bg-accent-red/10"}
-                  headline={myQuality ? `${myQuality.wins}W-${(myQuality as any).losses ?? 0}L-${(myQuality as any).even ?? 0}E · ${myQuality.win_pct}% Win Rate` : "No Trade Record Yet"}
-                  lede={myQuality ? `${myQuality.trades} total trades · Avg net: ${myQuality.avg_sha_net >= 0 ? "+" : ""}${fmt(myQuality.avg_sha_net)} per trade` : "Make some trades to see your record."}
+                  headline={myQuality
+                    ? myQuality.win_pct >= 65
+                      ? `${currentOwner} Is Dominating the Trade Market at ${myQuality.win_pct}%`
+                      : myQuality.win_pct >= 50
+                      ? `${currentOwner} Is Winning More Than Losing — ${myQuality.wins}W-${(myQuality as any).losses ?? 0}L`
+                      : `${currentOwner}'s Trade Record Needs Work — ${myQuality.win_pct}% Win Rate`
+                    : "No Trade History on File Yet"}
+                  lede={myQuality
+                    ? `${myQuality.trades} trades graded across all seasons${myQuality.avg_sha_net >= 0 ? `, netting +${fmt(myQuality.avg_sha_net)} in value per deal` : ` with an average loss of ${fmt(myQuality.avg_sha_net)} per deal`}. See every verdict.`
+                    : "Start making moves to build your trade record."}
+                  link={`${basePath}/trades`}
+                  linkLabel="See Every Verdict →"
                   topColor={myQuality && myQuality.win_pct >= 50 ? C.green : C.red}
                 />
               </>

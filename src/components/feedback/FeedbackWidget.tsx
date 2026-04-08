@@ -50,7 +50,7 @@ export default function FeedbackWidget() {
       const isMobile = /iPhone|iPad|Android|Mobile/i.test(navigator.userAgent);
       const { authHeaders } = await import("@/lib/api");
       const hdrs = await authHeaders();
-      await fetch(`${API}/api/feedback`, {
+      await fetch(`${API}/api/league/feedback`, {
         method: "POST",
         headers: hdrs,
         body: JSON.stringify({
