@@ -10,6 +10,7 @@ import {
   getOverview, getLeagueIntel, getReportCard, getMarketPulse,
 } from "@/lib/api";
 import { RecentTrades, PlayerName } from "@/components/league";
+import PlayerHeadshot from "@/components/league/PlayerHeadshot";
 import { C, SANS, MONO, DISPLAY, fmt, posColor, getVerdictStyle, leaguePrefix } from "@/components/league/tokens";
 import type {
   LeagueReportCardResponse, TrendingPlayer, GradedTrade,
@@ -454,13 +455,20 @@ function CardSkeleton({ isHero = false }: { isHero?: boolean }) {
 
 function TradeFairnessIndex({ leaderboard }: { leaderboard: { owner: string; trades: number; wins: number; losses?: number; even?: number; win_pct: number; avg_sha_net: number }[] }) {
   if (!leaderboard.length) return null;
+  // Fairness = even trades / total trades. Even = trades that were fair (not a clear win or loss for either side)
+  // If 'even' field is missing from API, calculate as: trades - wins - (losses ?? 0)
   const sorted = [...leaderboard]
-    .map(e => ({ ...e, fairness: e.trades > 0 ? Math.round(((e.even ?? 0) / e.trades) * 100) : 0 }))
+    .map(e => {
+      const even = e.even ?? (e.trades - e.wins - (e.losses ?? 0));
+      const fairness = e.trades > 0 ? Math.round((Math.max(even, 0) / e.trades) * 100) : 0;
+      return { ...e, even, fairness };
+    })
     .sort((a, b) => b.fairness - a.fairness);
 
   return (
     <div className="mt-6">
-      <div className="text-[9px] font-black tracking-[0.12em] text-dim mb-3" style={{ fontFamily: SANS }}>TRADE FAIRNESS INDEX</div>
+      <div className="text-[9px] font-black tracking-[0.12em] text-dim mb-1" style={{ fontFamily: SANS }}>TRADE FAIRNESS INDEX</div>
+      <div className="text-[10px] text-secondary/60 mb-3 leading-snug" style={{ fontFamily: SANS }}>Owners ranked by % of trades graded EVEN — no clear winner or loser on either side.</div>
       <div className="flex flex-col gap-0.5">
         {sorted.map((entry, i) => {
           const isFirst = i === 0;
@@ -556,14 +564,16 @@ export default function LeagueHome() {
   const basePath = `/l/${slug}`;
 
   /* ── Data queries (unchanged) ── */
-  const { data: overview } = useQuery({ queryKey: ["overview", lid], queryFn: () => getOverview(lid!), enabled: !!lid, staleTime: 60 * 60 * 1000 });
-  const { data: rankings } = useQuery({ queryKey: ["rankings", lid], queryFn: () => getRankings(lid!), enabled: !!lid, staleTime: 10 * 60 * 1000 });
-  const { data: recentTrades } = useQuery({ queryKey: ["recent-trades", lid], queryFn: () => getRecentTrades(lid!, 10), enabled: !!lid });
-  const { data: trending } = useQuery({ queryKey: ["trending", lid], queryFn: () => getTrending(lid!), enabled: !!lid, staleTime: 10 * 60 * 1000 });
-  const { data: profiles } = useQuery({ queryKey: ["profiles", lid], queryFn: () => getOwnerProfiles(lid!), enabled: !!lid, staleTime: 10 * 60 * 1000 });
-  const { data: leagueIntel } = useQuery({ queryKey: ["league-intel", lid], queryFn: () => getLeagueIntel(lid!), enabled: !!lid, staleTime: 10 * 60 * 1000 });
-  const { data: reportCard, isLoading: rcLoading } = useQuery({ queryKey: ["report-card", lid], queryFn: () => getReportCard(lid!), enabled: !!lid, staleTime: 30 * 60 * 1000 });
-  const { data: marketPulse } = useQuery({ queryKey: ["market-pulse", lid], queryFn: () => getMarketPulse(lid!), enabled: !!lid, staleTime: 10 * 60 * 1000 });
+  /* Data queries — aggressive caching. Most data changes infrequently. */
+  const HOUR = 60 * 60 * 1000;
+  const { data: overview } = useQuery({ queryKey: ["overview", lid], queryFn: () => getOverview(lid!), enabled: !!lid, staleTime: 4 * HOUR });
+  const { data: rankings } = useQuery({ queryKey: ["rankings", lid], queryFn: () => getRankings(lid!), enabled: !!lid, staleTime: 2 * HOUR });
+  const { data: recentTrades } = useQuery({ queryKey: ["recent-trades", lid], queryFn: () => getRecentTrades(lid!, 10), enabled: !!lid, staleTime: 30 * 60 * 1000 });
+  const { data: trending } = useQuery({ queryKey: ["trending", lid], queryFn: () => getTrending(lid!), enabled: !!lid, staleTime: HOUR });
+  const { data: profiles } = useQuery({ queryKey: ["profiles", lid], queryFn: () => getOwnerProfiles(lid!), enabled: !!lid, staleTime: 2 * HOUR });
+  const { data: leagueIntel } = useQuery({ queryKey: ["league-intel", lid], queryFn: () => getLeagueIntel(lid!), enabled: !!lid, staleTime: 2 * HOUR });
+  const { data: reportCard, isLoading: rcLoading } = useQuery({ queryKey: ["report-card", lid], queryFn: () => getReportCard(lid!), enabled: !!lid, staleTime: 4 * HOUR });
+  const { data: marketPulse } = useQuery({ queryKey: ["market-pulse", lid], queryFn: () => getMarketPulse(lid!), enabled: !!lid, staleTime: HOUR });
 
   const heroRef = useRef<HTMLDivElement>(null);
   const { ref: heroInViewRef, inView: heroInView } = useInView(0.2);
@@ -741,8 +751,7 @@ export default function LeagueHome() {
                 <NewsCard
                   tag="GM REPORT" tagColor="text-accent-orange bg-accent-orange/10"
                   headline={myHeadline} lede={myLede}
-                  link={`${basePath}/intel/${encodeURIComponent(currentOwner)}`}
-                  linkLabel="View Full Report →" isHero topColor={C.orange}
+                  isHero topColor={C.orange}
                 />
                 <NewsCard
                   tag="PRIORITIES" tagColor="text-gold bg-gold/10"
@@ -814,11 +823,12 @@ export default function LeagueHome() {
           {/* Most Traded Assets */}
           <div className="text-[9px] font-black tracking-[0.12em] text-dim mb-3" style={{ fontFamily: SANS }}>MOST TRADED ASSETS</div>
           <div className="flex flex-col mb-5">
-            {(marketPulse?.most_traded || []).slice(0, 6).map((p, i) => (
+            {(marketPulse?.most_traded || []).slice(0, 6).map((p: any, i: number) => (
               <div key={i} className="flex items-center gap-2 py-2 border-b border-border last:border-0">
                 <span className="text-[10px] font-black text-dim w-4 text-right shrink-0" style={{ fontFamily: MONO }}>{i + 1}</span>
+                <PlayerHeadshot name={p.player} position={p.position || ""} size={22} sleeperId={p.sleeper_id} />
                 <PlayerName name={p.player} style={{ fontSize: 12, fontWeight: 600, color: C.primary, fontFamily: SANS }} />
-                <span className="text-[10px] font-bold text-gold ml-auto shrink-0" style={{ fontFamily: MONO }}>{p.trade_count} trades</span>
+                <span className="text-[10px] font-bold text-gold ml-auto shrink-0" style={{ fontFamily: MONO }}>{p.trade_count}</span>
               </div>
             ))}
             {!marketPulse?.most_traded?.length && (
@@ -829,21 +839,21 @@ export default function LeagueHome() {
           {/* Above/Below Consensus */}
           <div className="text-[9px] font-black tracking-[0.12em] text-dim mb-3" style={{ fontFamily: SANS }}>ABOVE / BELOW CONSENSUS</div>
           <div className="flex flex-col gap-1">
-            {(marketPulse?.above_market || []).slice(0, 3).map((p, i) => (
+            {(marketPulse?.above_market || []).slice(0, 3).map((p: any, i: number) => (
               <div key={`a${i}`} className="flex items-center gap-2 py-1.5">
-                <span className={`text-[8px] font-black px-1 rounded-sm ${posBadgeClasses(p.position)}`}>{p.position}</span>
+                <PlayerHeadshot name={p.player} position={p.position || ""} size={20} sleeperId={p.sleeper_id} />
                 <span className="text-[11px] font-semibold text-primary truncate flex-1" style={{ fontFamily: SANS }}>{p.player}</span>
-                <span className="text-[10px] font-black text-accent-green shrink-0" style={{ fontFamily: MONO }}>▲ +{Math.round(p.pct_diff)}%</span>
+                <span className="text-[10px] font-black text-accent-green shrink-0" style={{ fontFamily: MONO }}>+{Math.round(p.pct_diff)}%</span>
               </div>
             ))}
             {(marketPulse?.above_market?.length ?? 0) > 0 && (marketPulse?.below_market?.length ?? 0) > 0 && (
               <div className="h-px bg-border my-1" />
             )}
-            {(marketPulse?.below_market || []).slice(0, 3).map((p, i) => (
+            {(marketPulse?.below_market || []).slice(0, 3).map((p: any, i: number) => (
               <div key={`b${i}`} className="flex items-center gap-2 py-1.5">
-                <span className={`text-[8px] font-black px-1 rounded-sm ${posBadgeClasses(p.position)}`}>{p.position}</span>
+                <PlayerHeadshot name={p.player} position={p.position || ""} size={20} sleeperId={p.sleeper_id} />
                 <span className="text-[11px] font-semibold text-primary truncate flex-1" style={{ fontFamily: SANS }}>{p.player}</span>
-                <span className="text-[10px] font-black text-accent-red shrink-0" style={{ fontFamily: MONO }}>▼ {Math.round(p.pct_diff)}%</span>
+                <span className="text-[10px] font-black text-accent-red shrink-0" style={{ fontFamily: MONO }}>{Math.round(p.pct_diff)}%</span>
               </div>
             ))}
             {!marketPulse?.above_market?.length && !marketPulse?.below_market?.length && (

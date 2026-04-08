@@ -4,6 +4,7 @@ import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useLeagueStore } from "@/lib/stores/league-store";
 import TradeBuilderView from "@/components/league/trade-builder/TradeBuilderView";
 import MyTradesView from "@/components/league/MyTradesView";
+import LeagueTradesView from "@/components/league/LeagueTradesView";
 
 const TABS = [
   { id: "builder", label: "Builder" },
@@ -79,7 +80,7 @@ export default function TradesPage() {
           )
         )}
         {activeTab === "league" && (
-          <MyTradesView leagueId={lid} owner={null} ownerId={null} />
+          <LeagueTradesView leagueId={lid} />
         )}
       </div>
     </div>

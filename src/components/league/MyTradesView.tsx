@@ -174,7 +174,6 @@ const TRADE_CSS = `
    ═══════════════════════════════════════════════════════════════ */
 export default function MyTradesView({ leagueId, owner: ownerProp, ownerId }: { leagueId: string; owner: string | null; ownerId?: string | null }) {
   const mobile = useIsMobile();
-  const [mainTab, setMainTab] = useState<'log' | 'league'>('log');
   const [historyTab, setHistoryTab] = useState<'log' | 'profile'>('log');
   const [reportTradeId, setReportTradeId] = useState<string | null>(null);
   const [partnerFilter, setPartnerFilter] = useState('all');
@@ -217,52 +216,7 @@ export default function MyTradesView({ leagueId, owner: ownerProp, ownerId }: { 
     enabled: !!owner,
   });
 
-  // ── OUTER TAB BAR: MY TRADES | LEAGUE LOG ──
-  // Always render this so user can switch views
-  const outerTabs = (
-    <div style={{ display: 'flex', flexDirection: mobile ? 'column' : 'row', gap: 0, borderBottom: `1px solid ${C.borderLt}`, marginBottom: 0 }}>
-      <div style={{ display: 'flex', gap: 0 }}>
-        {([
-          { id: 'log' as const, label: 'MY TRADES' },
-          { id: 'league' as const, label: 'LEAGUE LOG' },
-        ]).map(tab => {
-          const active = mainTab === tab.id;
-          return (
-            <div key={tab.id} onClick={() => setMainTab(tab.id)} style={{
-              padding: mobile ? '8px 16px' : '10px 28px',
-              fontFamily: SANS, fontSize: mobile ? 12 : 15, fontWeight: 800,
-              letterSpacing: '0.12em', color: active ? C.gold : '#9CA3AF', cursor: 'pointer',
-              borderBottom: active ? `3px solid ${C.gold}` : '3px solid transparent',
-              boxShadow: active ? `0 3px 12px ${C.gold}40, 0 1px 4px ${C.gold}25` : 'none',
-              transition: 'all 0.2s ease',
-            }}>
-              {tab.label}
-            </div>
-          );
-        })}
-      </div>
-      {/* Owner picker — desktop only, mobile uses header dropdown */}
-      <div style={{ marginLeft: 'auto', display: mobile ? 'none' : 'flex', alignItems: 'center', padding: '0 14px 0 0' }}>
-        <select
-          value={owner || ''}
-          onChange={(e) => {
-            const name = e.target.value;
-            const match = ownersFullData?.owners?.find((o: { name: string; platform_user_id?: string }) => o.name === name);
-            setOwner(name, match?.platform_user_id ?? null);
-          }}
-          style={{
-            fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: '6px 12px',
-            borderRadius: 4, background: C.elevated, color: owner ? C.gold : C.dim,
-            border: `1px solid ${owner ? C.goldBorder : C.border}`, cursor: 'pointer',
-            width: mobile ? '100%' : 'auto',
-          }}
-        >
-          <option value="" style={{ background: C.card }}>Select Owner</option>
-          {ownerList.map(o => <option key={o} value={o} style={{ background: C.card }}>{o}</option>)}
-        </select>
-      </div>
-    </div>
-  );
+  // Owner picker removed — parent page handles navigation
 
   // ── ALL DERIVED DATA — must be computed before any conditional returns ──
   const rawTrades: GradedTrade[] = data?.trades || [];
@@ -352,26 +306,17 @@ export default function MyTradesView({ leagueId, owner: ownerProp, ownerId }: { 
 
   // ── CONDITIONAL RETURNS — after all hooks ──
 
-  if (mainTab === 'league') return (
-    <div>
-      {outerTabs}
-      <LeagueTradesView leagueId={leagueId} />
-    </div>
-  );
-
   if (!owner) return (
     <div>
-      {outerTabs}
       <div style={{ padding: 60, textAlign: 'center' }}>
         <div style={{ fontFamily: DISPLAY, fontSize: 18, color: C.gold, marginBottom: 8 }}>SELECT YOUR TEAM</div>
-        <div style={{ fontFamily: SANS, fontSize: 14, color: C.dim }}>Choose an owner from the dropdown above to view their trade intelligence.</div>
+        <div style={{ fontFamily: SANS, fontSize: 14, color: C.dim }}>Choose an owner from the header to view your trade intelligence.</div>
       </div>
     </div>
   );
 
   if (isLoading) return (
     <div>
-      {outerTabs}
       <div style={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <span style={{ fontFamily: MONO, fontSize: 11, color: C.gold, letterSpacing: '0.1em' }}>LOADING TRADE HISTORY...</span>
       </div>
@@ -411,7 +356,6 @@ export default function MyTradesView({ leagueId, owner: ownerProp, ownerId }: { 
 
   return (
     <div>
-      {outerTabs}
       <div style={{ padding: '12px 14px' }}>
       <style>{TRADE_CSS}</style>
 
