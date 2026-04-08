@@ -118,6 +118,7 @@ export interface RosterPlayer {
   redraft_value?: number;
   ktc_value?: number;
   trend_label?: string;
+  mkt_vs_pct?: number;
 }
 
 export interface LiveBalance {

@@ -96,6 +96,7 @@ function buildRoster(data: unknown, picksData?: unknown): RosterPlayer[] {
             age: p.age ? Number(p.age) : null,
             ktc_value: p.ktc_value ? Number(p.ktc_value) : undefined,
             trend_label: trend?.label ? String(trend.label) : undefined,
+            mkt_vs_pct: p.mkt_vs_pct != null ? Number(p.mkt_vs_pct) : undefined,
           });
         }
       }

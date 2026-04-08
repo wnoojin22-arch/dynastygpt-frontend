@@ -96,45 +96,30 @@ export default function RosterColumn({ title, roster, selectedNames, onToggle, s
                       {selected && <span style={{ color: "#fff", fontSize: 11, fontWeight: 900, lineHeight: 1 }}>✓</span>}
                     </div>
 
-                    {/* Name + age subtext */}
+                    {/* Name + age inline */}
                     <div
-                      style={{ flex: 1, minWidth: 0, cursor: !isPick ? "pointer" : "default" }}
+                      style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "baseline", gap: 5, cursor: !isPick ? "pointer" : "default" }}
                       onClick={() => !isPick && openPlayerCard(p.name)}
                     >
-                      <div style={{
+                      <span style={{
                         fontFamily: SANS, fontSize: 13, fontWeight: 500, color: C.primary,
                         whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
                       }}>
                         {p.name}
                         {isUntouchable && <span style={{ fontSize: 11, opacity: 0.5, marginLeft: 4 }}>🔒</span>}
-                      </div>
+                      </span>
                       {!isPick && p.age && (
-                        <div style={{ fontFamily: MONO, fontSize: 10, color: C.dim, marginTop: 1 }}>
-                          Age {p.age}
-                          {p.trend_label && p.trend_label !== "—" && (
-                            <span style={{
-                              marginLeft: 6,
-                              color: p.trend_label.startsWith("-") ? C.red : p.trend_label.startsWith("+") || Number(p.trend_label) > 0 ? C.green : C.dim,
-                            }}>
-                              {p.trend_label.startsWith("-") || p.trend_label.startsWith("+") ? p.trend_label : `+${p.trend_label}`} rank
-                            </span>
-                          )}
-                        </div>
+                        <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim, flexShrink: 0 }}>{p.age}</span>
                       )}
                     </div>
 
-                    {/* Position rank badge */}
-                    {p.sha_pos_rank && (
+                    {/* Market vs consensus % */}
+                    {!isPick && p.mkt_vs_pct != null && Math.abs(p.mkt_vs_pct) >= 1 && (
                       <span style={{
-                        fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "1px 5px",
-                        borderRadius: 3, background: C.elevated, color: posColor(pos),
-                      }}>{p.sha_pos_rank}</span>
-                    )}
-
-                    {/* Market value (KTC) */}
-                    {!isPick && p.ktc_value && p.ktc_value > 0 && (
-                      <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim, minWidth: 40, textAlign: "right" }}>
-                        {fmt(p.ktc_value)}
+                        fontFamily: MONO, fontSize: 10, fontWeight: 700, minWidth: 40, textAlign: "right",
+                        color: p.mkt_vs_pct > 5 ? C.green : p.mkt_vs_pct < -5 ? C.red : C.dim,
+                      }}>
+                        {p.mkt_vs_pct > 0 ? "+" : ""}{Math.round(p.mkt_vs_pct)}%
                       </span>
                     )}
 
