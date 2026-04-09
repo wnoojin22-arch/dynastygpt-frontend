@@ -345,9 +345,10 @@ export default function LeagueLayout({ children }: { children: React.ReactNode }
     if (currentLeagueId) return; // already loaded
     if (hydrating.current) return;
 
-    // Try URL params first
+    // Try URL params first — accept either ?lid= or ?league_id=
+    // The league_id URL param is the source of truth; slug is vanity only.
     const params = new URLSearchParams(window.location.search);
-    const lid = params.get("lid");
+    const lid = params.get("lid") || params.get("league_id");
     if (lid) {
       setLeague(lid, slug, "");
       const ownerP = params.get("owner");
