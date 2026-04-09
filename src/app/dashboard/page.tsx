@@ -42,9 +42,13 @@ function DashboardContent() {
   const sleeperUsername = metadata.sleeper_username as string | undefined;
   const sleeperId = metadata.sleeper_user_id as string | undefined;
   const urlLeagueId = searchParams.get("league_id");
+  // Per-user fields ONLY — never read approved_league_id from localStorage.
+  // localStorage is per-browser, not per-Clerk-user, so it leaked state across
+  // sign-outs / user deletions / different Sleeper accounts on the same browser.
+  // Clerk unsafeMetadata is already per-user; the recheck useEffect below
+  // re-fetches from /api/user/approve whenever metadata is missing.
   const initialApprovedLeagueId = urlLeagueId
     || (metadata.approved_league_id as string | undefined)
-    || (typeof window !== "undefined" ? localStorage.getItem("approved_league_id") : null)
     || undefined;
 
   // Re-checked approval state (in case Clerk metadata write failed previously)
@@ -52,10 +56,6 @@ function DashboardContent() {
   const [recheckDone, setRecheckDone] = useState(false);
 
   const approvedLeagueId = initialApprovedLeagueId || recheckedLeagueId;
-
-  if (approvedLeagueId && typeof window !== "undefined") {
-    localStorage.setItem("approved_league_id", approvedLeagueId);
-  }
 
   // Re-check approval if we have a sleeperId but no approvedLeagueId.
   // This handles the case where Clerk metadata write failed during onboarding
