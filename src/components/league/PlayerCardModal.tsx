@@ -702,6 +702,7 @@ function ValueTab({ history, priceHistory }: { history: ValueHistoryPoint[]; pri
   const delta = latestVal - earliestVal;
   const pctChange = earliestVal ? ((delta / earliestVal) * 100) : 0;
 
+  // Market price data
   const ph = priceHistory;
   const cvObj = (ph?.current_value || {}) as Record<string, unknown>;
   const marketValue = typeof cvObj.market_price === "number" ? cvObj.market_price : null;
@@ -711,118 +712,176 @@ function ValueTab({ history, priceHistory }: { history: ValueHistoryPoint[]; pri
   const vol90d = typeof volObj.last_90d === "number" ? volObj.last_90d : 0;
   const trendObj = (ph?.trend || {}) as Record<string, unknown>;
   const signal = typeof trendObj.signal === "string" ? trendObj.signal.toUpperCase() : null;
-  const currentSha = latestVal;
+  const formatLabel = typeof (ph as Record<string, unknown>)?.format === "string" ? (ph as Record<string, unknown>).format as string : null;
 
+  // Valuation comparison: market > consensus = OVERVALUED, market < consensus = UNDERVALUED
+  const currentSha = latestVal;
   let valuationPct = 0;
   let valuationLabel = "";
   let valuationColor: string = C.dim;
   if (marketValue && currentSha > 0) {
     valuationPct = Math.round(((marketValue - currentSha) / currentSha) * 100);
-    if (valuationPct > 10) { valuationLabel = `+${valuationPct}%`; valuationColor = "#e47272"; }
-    else if (valuationPct < -10) { valuationLabel = `${valuationPct}%`; valuationColor = "#7dd3a0"; }
-    else { valuationLabel = "FAIR"; valuationColor = C.gold; }
+    if (valuationPct > 10) {
+      valuationLabel = `${valuationPct}% OVERVALUED`;
+      valuationColor = "#e47272";
+    } else if (valuationPct < -10) {
+      valuationLabel = `${Math.abs(valuationPct)}% UNDERVALUED`;
+      valuationColor = "#7dd3a0";
+    } else {
+      valuationLabel = "FAIR VALUE";
+      valuationColor = C.gold;
+    }
   }
 
+  // Bar widths — longer bar = 100%, shorter bar is proportional
   const barMax = Math.max(currentSha, marketValue || 0, 1);
-  const pts = history.map(h => ({ ...h, value: h.value ?? h.sha_value ?? 0 }));
-  const comps = Array.isArray((ph as any)?.comparable_players) ? (ph as any).comparable_players as Array<Record<string, unknown>> : [];
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-
-      {/* ── VALUE HEADER — big number + delta ── */}
-      <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
-        <span style={{ fontFamily: MONO, fontSize: 28, fontWeight: 900, color: C.gold, lineHeight: 1 }}>{fmt(currentSha)}</span>
-        <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: delta >= 0 ? "#7dd3a0" : "#e47272" }}>
-          {delta >= 0 ? "+" : ""}{fmt(delta)} ({pctChange >= 0 ? "+" : ""}{pctChange.toFixed(1)}%)
-        </span>
-        {latest.sha_pos_rank && <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.dim }}>{latest.sha_pos_rank}</span>}
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      {/* Summary cards */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+        <ValueCard label="CONSENSUS" value={fmt(currentSha)} sub={latest.sha_pos_rank || ""} color={C.gold} />
+        {marketValue ? (
+          <ValueCard label="MARKET PRICE" value={fmt(marketValue)} sub={vol90d > 0 ? `${vol90d} · 120d · ${totalVolume.toLocaleString()} all` : `${totalVolume.toLocaleString()} trades`} color="#6bb8e0" />
+        ) : (
+          <ValueCard label="6 MO AGO" value={fmt(earliestVal)} sub="" color={C.dim} />
+        )}
+        {valuationLabel ? (
+          <ValueCard label="VS MARKET" value={valuationLabel} sub={lowVolume ? "Low volume" : ""} color={valuationColor} />
+        ) : (
+          <ValueCard label="CHANGE" value={`${delta >= 0 ? "+" : ""}${fmt(delta)}`} sub={`${pctChange >= 0 ? "+" : ""}${pctChange.toFixed(1)}%`}
+            color={delta >= 0 ? "#7dd3a0" : "#e47272"} />
+        )}
       </div>
 
-      {/* ── CHART — compact, tight ── */}
-      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 6px 4px" }}>
-        <ResponsiveContainer width="100%" height={110}>
-          <AreaChart data={pts} margin={{ top: 4, right: 40, bottom: 0, left: 0 }}>
-            <defs>
-              <linearGradient id="valGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={C.gold} stopOpacity={0.20} />
-                <stop offset="100%" stopColor={C.gold} stopOpacity={0.02} />
-              </linearGradient>
-            </defs>
-            <XAxis dataKey="date" hide />
-            <YAxis hide domain={["dataMin - 200", "dataMax + 200"]} />
-            <RTooltip
-              contentStyle={{ background: C.elevated, border: `1px solid ${C.border}`, borderRadius: 6, fontFamily: MONO, fontSize: 11, padding: "4px 8px" }}
-              labelStyle={{ color: C.dim, fontSize: 10 }}
-              formatter={((v: number) => [fmt(v), "Value"]) as any}
-              labelFormatter={((label: string) => label) as any}
-              cursor={{ stroke: `${C.gold}40`, strokeWidth: 1 }}
-            />
-            <Area type="monotone" dataKey="value" stroke={C.gold} strokeWidth={1.5} fill="url(#valGrad)" dot={false}
-              activeDot={{ r: 3, fill: C.gold, stroke: C.panel, strokeWidth: 1.5 }} />
-            <ReferenceDot x={latest.date} y={latest.value || 0} r={3.5} fill={C.gold} stroke={C.panel} strokeWidth={1.5} />
-          </AreaChart>
-        </ResponsiveContainer>
-        <div style={{ display: "flex", justifyContent: "space-between", padding: "2px 8px 0", fontFamily: MONO, fontSize: 9, color: C.dim }}>
-          <span>{earliest.date}</span>
-          <span>{latest.date}</span>
-        </div>
-      </div>
-
-      {/* ── CONSENSUS vs TRADE MARKET — compact bars ── */}
-      {marketValue && (
-        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 12px" }}>
-          {[
-            { label: "CONSENSUS", value: currentSha, color: C.gold, gradFrom: C.goldDark, gradTo: C.gold },
-            { label: "TRADE MARKET", value: marketValue, color: "#6bb8e0", gradFrom: "#3a6d8a", gradTo: "#6bb8e0" },
-          ].map((bar, i) => (
-            <div key={i} style={{ marginBottom: i === 0 ? 8 : 0 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
-                <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.06em", color: bar.color }}>{bar.label}</span>
-                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: bar.color }}>{fmt(bar.value)}</span>
+      {/* Horizontal bar comparison */}
+      {marketValue ? (
+        <div>
+          <SectionLabel text="CONSENSUS vs TRADE MARKET" />
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px 10px" }}>
+            {/* Consensus bar */}
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4 }}>
+                <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.gold, letterSpacing: "0.08em" }}>CONSENSUS</span>
+                <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.gold }}>{fmt(currentSha)}</span>
               </div>
-              <div style={{ height: 18, background: C.elevated, borderRadius: 4, overflow: "hidden" }}>
+              <div style={{ height: 20, background: C.elevated, borderRadius: 5, overflow: "hidden" }}>
                 <div style={{
-                  width: `${(bar.value / barMax) * 100}%`, height: "100%",
-                  background: `linear-gradient(90deg, ${bar.gradFrom}, ${bar.gradTo})`,
-                  borderRadius: 4, opacity: i === 1 && lowVolume ? 0.6 : 1,
+                  width: `${(currentSha / barMax) * 100}%`, height: "100%",
+                  background: `linear-gradient(90deg, ${C.goldDark}, ${C.gold})`,
+                  borderRadius: 5, boxShadow: `0 0 8px ${C.gold}25`,
                 }} />
               </div>
             </div>
-          ))}
-          {/* Verdict + volume row */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 8, paddingTop: 6, borderTop: `1px solid ${C.border}` }}>
-            {valuationLabel && <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: valuationColor, background: `${valuationColor}12`, padding: "2px 8px", borderRadius: 4, border: `1px solid ${valuationColor}25` }}>{valuationLabel}</span>}
-            <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>
-              {vol90d > 0 ? `${vol90d} trades · 120d` : ""}{vol90d > 0 && totalVolume > 0 ? " · " : ""}{totalVolume > 0 ? `${totalVolume.toLocaleString()} all time` : ""}
-              {signal && signal !== "HOLD" && <>{" · "}<span style={{ fontWeight: 700, color: signal === "BUY" ? "#7dd3a0" : "#e47272" }}>{signal}</span></>}
-            </span>
+            {/* Trade Market bar */}
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4 }}>
+                <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: "#6bb8e0", letterSpacing: "0.08em" }}>TRADE MARKET</span>
+                <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: "#6bb8e0" }}>{fmt(marketValue)}</span>
+              </div>
+              <div style={{ height: 20, background: C.elevated, borderRadius: 5, overflow: "hidden" }}>
+                <div style={{
+                  width: `${(marketValue / barMax) * 100}%`, height: "100%",
+                  background: "linear-gradient(90deg, #3a6d8a, #6bb8e0)",
+                  borderRadius: 5, boxShadow: "0 0 8px rgba(107,184,224,0.2)",
+                  opacity: lowVolume ? 0.6 : 1,
+                }} />
+              </div>
+            </div>
+
+            {/* Valuation badge */}
+            {valuationLabel && (
+              <div style={{ display: "flex", justifyContent: "center" }}>
+                <span style={{
+                  fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.06em",
+                  color: valuationColor, background: `${valuationColor}12`,
+                  padding: "3px 12px", borderRadius: 4, border: `1px solid ${valuationColor}25`,
+                }}>
+                  {valuationLabel}
+                </span>
+              </div>
+            )}
+
+            {/* Stats row */}
+            <div style={{
+              display: "flex", justifyContent: "center", gap: 8, flexWrap: "wrap",
+              fontFamily: MONO, fontSize: 11, color: C.dim,
+              borderTop: `1px solid ${C.border}`, paddingTop: 10,
+            }}>
+              <span>{vol90d > 0 && `${vol90d} trades · 120d`}{vol90d > 0 && totalVolume > 0 && " · "}{totalVolume > 0 && `${totalVolume.toLocaleString()} all time`}</span>
+              {signal && (
+                <>
+                  <span style={{ color: C.border }}>·</span>
+                  <span>30-day trend: <span style={{
+                    fontWeight: 700,
+                    color: signal === "BUY" ? "#7dd3a0" : signal === "SELL" ? "#e47272" : C.dim,
+                  }}>{signal}</span></span>
+                </>
+              )}
+              {formatLabel && (
+                <>
+                  <span style={{ color: C.border }}>·</span>
+                  <span>{formatLabel}</span>
+                </>
+              )}
+              {lowVolume && (
+                <>
+                  <span style={{ color: C.border }}>·</span>
+                  <span style={{ color: "#e4727280" }}>Low volume</span>
+                </>
+              )}
+            </div>
+
+            {/* Watermark */}
+            <div style={{ textAlign: "right", marginTop: 6 }}>
+              <span style={{ fontFamily: SANS, fontSize: 9, color: `${C.gold}40`, fontWeight: 600 }}>dynastygpt.com</span>
+            </div>
           </div>
         </div>
-      )}
-
-      {/* ── SIMILAR VALUE — horizontal scroll ── */}
-      {comps.length > 0 && (
+      ) : (
+        /* No market data — show value change instead */
         <div>
-          <div style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, letterSpacing: "0.10em", color: C.dim, marginBottom: 4 }}>SIMILAR VALUE</div>
-          <div style={{ display: "flex", gap: 4, overflowX: "auto", paddingBottom: 2, WebkitOverflowScrolling: "touch" as const }}>
-            {comps.slice(0, 8).map((comp, i) => {
-              const pc2 = posColor(String(comp.position || ""));
-              return (
-                <div key={i} style={{ flexShrink: 0, borderRadius: 4, padding: "3px 6px", display: "flex", alignItems: "center", gap: 3, background: C.elevated, border: `1px solid ${C.border}` }}>
-                  <span style={{ fontFamily: MONO, fontSize: 7, fontWeight: 800, color: pc2 }}>{String(comp.position || "")}</span>
-                  <span style={{ fontFamily: SANS, fontSize: 9, fontWeight: 600, color: C.secondary, whiteSpace: "nowrap" }}>{String(comp.name || "")}</span>
-                  <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, color: C.gold }}>{fmt(typeof comp.sha_value === "number" ? comp.sha_value : 0)}</span>
-                </div>
-              );
-            })}
+          <SectionLabel text="VALUE CHANGE" />
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "16px 16px 10px", textAlign: "center" }}>
+            <div style={{ fontFamily: MONO, fontSize: 24, fontWeight: 700, color: delta >= 0 ? "#7dd3a0" : "#e47272" }}>
+              {delta >= 0 ? "+" : ""}{fmt(delta)}
+            </div>
+            <div style={{ fontFamily: MONO, fontSize: 12, color: C.dim, marginTop: 4 }}>
+              {pctChange >= 0 ? "+" : ""}{pctChange.toFixed(1)}% over {history.length} days
+            </div>
+            <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim, marginTop: 8, borderTop: `1px solid ${C.border}`, paddingTop: 8 }}>
+              No trade market data available — insufficient trade volume
+            </div>
           </div>
         </div>
       )}
 
-      {/* ── Explainer ── */}
-      <div style={{ fontFamily: SANS, fontSize: 9, color: `${C.dim}90`, lineHeight: 1.4 }}>
-        <span style={{ color: C.gold }}>Consensus</span> = blended expert rankings. <span style={{ color: "#6bb8e0" }}>Trade Market</span> = real transaction prices across 1.5M+ dynasty trades.
+      {/* Similar Value players — ported from Market tab */}
+      {(() => {
+        const comps = Array.isArray((ph as any)?.comparable_players) ? (ph as any).comparable_players as Array<Record<string, unknown>> : [];
+        if (!comps.length) return null;
+        return (
+          <div>
+            <SectionLabel text="SIMILAR VALUE" />
+            <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2, WebkitOverflowScrolling: "touch" as const }}>
+              {comps.slice(0, 8).map((comp, i) => {
+                const pc2 = posColor(String(comp.position || ""));
+                return (
+                  <div key={i} style={{ flexShrink: 0, borderRadius: 4, padding: "4px 8px", display: "flex", alignItems: "center", gap: 4, background: C.card, border: `1px solid ${C.border}` }}>
+                    <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, color: pc2 }}>{String(comp.position || "")}</span>
+                    <span style={{ fontFamily: SANS, fontSize: 10, fontWeight: 600, color: C.secondary, whiteSpace: "nowrap" }}>{String(comp.name || "")}</span>
+                    <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.gold }}>{fmt(typeof comp.sha_value === "number" ? comp.sha_value : 0)}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Consensus explainer */}
+      <div style={{ fontFamily: SANS, fontSize: 10, color: C.dim, lineHeight: 1.5, padding: "8px 0 4px", borderTop: `1px solid ${C.border}` }}>
+        <span style={{ fontWeight: 700, color: C.gold }}>Consensus</span> is the blended expert valuation from dynasty rankings sources. <span style={{ fontWeight: 700, color: "#6bb8e0" }}>Trade Market</span> is the actual price players are moving for in real trades across 1.5M+ dynasty transactions.
       </div>
     </div>
   );
