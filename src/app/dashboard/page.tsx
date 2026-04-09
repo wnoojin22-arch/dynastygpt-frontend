@@ -188,47 +188,6 @@ function DashboardContent() {
           }}>
             SLEEPER ACCOUNT: {sleeperUsername}
           </div>
-
-          {/* DEBUG: surface clerk identity so we can compare to DB */}
-          <div style={{
-            marginTop: 16, padding: 12, borderRadius: 8,
-            background: "rgba(212,165,50,0.04)",
-            border: "1px solid rgba(212,165,50,0.15)",
-            fontFamily: MONO, fontSize: 10, color: C.dim,
-            wordBreak: "break-all",
-          }}>
-            <div style={{ marginBottom: 4 }}>clerk_user_id: <span style={{ color: C.gold }}>{user?.id || "(none)"}</span></div>
-            <div style={{ marginBottom: 4 }}>sleeper_user_id: <span style={{ color: C.gold }}>{sleeperId || "(none)"}</span></div>
-            <div style={{ marginBottom: 8 }}>approved_league_id (metadata): <span style={{ color: C.gold }}>{(metadata.approved_league_id as string) || "(none)"}</span></div>
-            <button
-              onClick={async () => {
-                try {
-                  const { authHeaders } = await import("@/lib/api");
-                  const hdrs = await authHeaders();
-                  const res = await fetch("/api/user/approve", {
-                    method: "POST",
-                    headers: hdrs,
-                    body: JSON.stringify({
-                      sleeper_user_id: sleeperId,
-                      clerk_user_id: user?.id,
-                    }),
-                  });
-                  const txt = await res.text();
-                  alert(`HTTP ${res.status}\n\n${txt}`);
-                } catch (e) {
-                  alert(`fetch error: ${e}`);
-                }
-              }}
-              style={{
-                width: "100%", padding: "8px 0", borderRadius: 6,
-                border: "1px solid rgba(212,165,50,0.4)",
-                background: "transparent", color: C.gold,
-                fontFamily: MONO, fontSize: 10, cursor: "pointer",
-              }}
-            >
-              TEST APPROVE ENDPOINT
-            </button>
-          </div>
         </div>
       </div>
     </div>
