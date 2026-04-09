@@ -377,7 +377,7 @@ function MarketTicker({ risers, fallers, recentTrades, rankings, reportCard, lea
 function StatCard({ label, value, display, inView }: { label: string; value: number; display: string; inView: boolean }) {
   const count = useCountUp(value, 2000, inView);
   const formatted = value >= 1000000
-    ? `${(count / 1000000).toFixed(1)}M+`
+    ? `${count >= 100000000 ? Math.round(count / 1000000) : (count / 1000000).toFixed(1)}M+`
     : value >= 1000
     ? `${(count / 1000).toFixed(0)}K+`
     : count.toLocaleString();
