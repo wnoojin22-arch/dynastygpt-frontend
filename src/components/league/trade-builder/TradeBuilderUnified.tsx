@@ -15,6 +15,7 @@ import { useTradeBuilderStore } from "@/lib/stores/trade-builder-store";
 import { getAllRosters } from "@/lib/api";
 import AnalyzeModal from "./AnalyzeModal";
 import { C, SANS, MONO, DISPLAY, fmt, posColor } from "../tokens";
+import { HowItWorksButton } from "./HowItWorksModal";
 import SwipeStack from "./SwipeStack";
 
 // ── Position badge ───────────────────────────────────────────────────────
@@ -776,8 +777,11 @@ export default function TradeBuilderUnified() {
               <div style={{ width: 16, height: 1, background: `linear-gradient(90deg, ${C.gold}, transparent)` }} />
               TRADE BUILDER
             </div>
-            <div style={{ fontFamily: DISPLAY, fontSize: 22, color: C.primary, letterSpacing: "-0.01em" }}>
-              Build Your Next Move
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ fontFamily: DISPLAY, fontSize: 22, color: C.primary, letterSpacing: "-0.01em" }}>
+                Build Your Next Move
+              </div>
+              <HowItWorksButton />
             </div>
           </div>
 
