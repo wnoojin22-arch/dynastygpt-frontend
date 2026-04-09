@@ -127,10 +127,16 @@ function IconSidebar({ basePath, pathname, owner, shaRank }: {
       {/* Spacer */}
       <div className="flex-1" />
 
-      {/* Sign Out */}
+      {/* Sign Out — also wipes any stale approved_league_id from older builds
+          and the persisted react-query cache so the next user starts clean. */}
       <SignOutButton redirectUrl="/sign-in">
         <button
-          onClick={() => localStorage.removeItem("approved_league_id")}
+          onClick={() => {
+            try {
+              localStorage.removeItem("approved_league_id");
+              localStorage.removeItem("dgpt-cache");
+            } catch {}
+          }}
           className="w-full px-2 py-2 text-center cursor-pointer hover:bg-elevated transition-colors"
         >
           <span className="font-sans text-[8px] font-bold tracking-wide text-dim hover:text-primary">SIGN OUT</span>
@@ -328,13 +334,13 @@ export default function LeagueLayout({ children }: { children: React.ReactNode }
     : (user?.unsafeMetadata ?? {});
   const gateSleeperUserId = gateMetadata.sleeper_user_id as string | undefined;
   const urlLeagueId = searchParams.get("league_id");
+  // Per-user fields ONLY — never read approved_league_id from localStorage.
+  // localStorage is per-browser, not per-Clerk-user, so it leaked state across
+  // sign-outs / user deletions. If the gate fails, we redirect to /dashboard
+  // which re-fetches from /api/user/approve.
   const gateApprovedLeagueId = urlLeagueId
     || (gateMetadata.approved_league_id as string | undefined)
-    || (typeof window !== "undefined" ? localStorage.getItem("approved_league_id") : null)
     || undefined;
-  if (gateApprovedLeagueId && typeof window !== "undefined") {
-    localStorage.setItem("approved_league_id", gateApprovedLeagueId);
-  }
   const [gateChecked, setGateChecked] = useState(false);
 
   // ── Hydrate store from URL params or slug API ──
