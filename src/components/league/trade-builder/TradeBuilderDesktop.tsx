@@ -283,9 +283,9 @@ export default function TradeBuilderDesktop({
             <ResultsPanel packages={suggestedPkgs} loading={suggestLoading} query={suggestQuery} onBuild={buildPackage} onBack={() => handleClear()} />
           ) : (
             <div style={{ flex: "1 1 0", display: "flex", alignItems: "center", justifyContent: "center", background: C.panel, borderRadius: 8, border: `1px solid ${C.border}` }}>
-              <div style={{ textAlign: "center", maxWidth: 280 }}>
-                <div style={{ fontFamily: SERIF, fontSize: 20, fontStyle: "italic", color: C.goldBright, marginBottom: 8 }}>Explore Trades</div>
-                <div style={{ fontFamily: SANS, fontSize: 14, color: C.dim, lineHeight: 1.5 }}>Click a player on your roster to explore trade options, use the FIND buttons above, or select a trade partner.</div>
+              <div style={{ textAlign: "center", maxWidth: 320 }}>
+                <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.14em", color: C.gold, marginBottom: 8 }}>GET STARTED</div>
+                <div style={{ fontFamily: SANS, fontSize: 13, color: C.dim, lineHeight: 1.6 }}>Click a player on your roster, use the FIND buttons above, or select a trade partner to begin.</div>
               </div>
             </div>
           )}

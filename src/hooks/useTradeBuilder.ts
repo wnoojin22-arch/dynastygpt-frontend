@@ -443,10 +443,16 @@ export function useTradeBuilder({
         });
         setSuggestedPkgs(packages);
 
-        // If validator killed everything, show why (rare — most modes are user-driven now)
+        // If empty packages, surface why
         if (packages.length === 0) {
+          const apiError = (data as Record<string, unknown>).error as string | undefined;
           const killed = ((data as Record<string, unknown>)._debug_killed as Array<Record<string, unknown>>) || [];
-          if (killed.length > 0) {
+
+          if (apiError) {
+            // AI returned no proposals — backend told us
+            setError(apiError);
+          } else if (killed.length > 0) {
+            // Validator killed everything — pick most common reason
             const reasons = killed
               .map((k) => {
                 const violations = (k.violations as string[]) || [];
@@ -456,10 +462,10 @@ export function useTradeBuilder({
             const counts: Record<string, number> = {};
             for (const r of reasons) {
               const key = r.includes("franchise cornerstone")
-                ? "Partners won't trade their cornerstone players for what you're offering"
+                ? "This partner won't trade their cornerstone for what you're offering. Add more value or try another partner."
                 : r.includes("not on")
                   ? "Roster mismatch — try a different player"
-                  : r.slice(0, 100);
+                  : r.slice(0, 120);
               counts[key] = (counts[key] || 0) + 1;
             }
             const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
