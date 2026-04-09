@@ -843,14 +843,8 @@ export default function LeagueHome() {
                     </linearGradient>
                   </defs>
                   <path d="M26,2 L48,14 L48,34 Q48,50 26,56 Q4,50 4,34 L4,14 Z" fill="none" stroke="url(#hero2-gs1)" strokeWidth="2.5" />
-                  <path d="M26,8 L42,17 L42,33 Q42,46 26,51 Q10,46 10,33 L10,17 Z" fill="url(#hero2-gs1)" opacity="0.12" />
+                  <path d="M26,8 L42,17 L42,33 Q42,46 26,51 Q10,46 10,33 L10,17 Z" fill="url(#hero2-gs1)" opacity="0.1" />
                   <text x="26" y="40" textAnchor="middle" fontFamily="'Playfair Display', Georgia, serif" fontWeight="900" fontStyle="italic" fontSize="32" fill="url(#hero2-gs2)">D</text>
-                  <g transform="translate(14, 3)">
-                    <path d="M0,10 L4,2 L8,7 L12,0 L16,7 L20,2 L24,10" fill="none" stroke="#f5e6a3" strokeWidth="1.2" strokeLinejoin="round" />
-                    <circle cx="4" cy="2" r="1.5" fill="#f5e6a3" />
-                    <circle cx="12" cy="0" r="1.8" fill="#f5e6a3" />
-                    <circle cx="20" cy="2" r="1.5" fill="#f5e6a3" />
-                  </g>
                 </svg>
 
                 {/* Wordmark */}
