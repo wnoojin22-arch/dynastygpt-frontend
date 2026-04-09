@@ -48,6 +48,7 @@ export interface UseTradeBuilderReturn {
   analyzing: boolean;
   suggestedPkgs: SuggestedPackage[];
   suggestLoading: boolean;
+  suggestElapsedSec: number;
   suggestQuery: string;
   activeSellAsset: string | null;
   error: string | null;
@@ -145,6 +146,7 @@ export function useTradeBuilder({
   const [analyzing, setAnalyzing] = useState(false);
   const [suggestedPkgs, setSuggestedPkgs] = useState<SuggestedPackage[]>([]);
   const [suggestLoading, setSuggestLoading] = useState(false);
+  const [suggestElapsedSec, setSuggestElapsedSec] = useState(0);
   const [suggestQuery, setSuggestQuery] = useState("");
   const [activeSellAsset, setActiveSellAsset] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -326,6 +328,7 @@ export function useTradeBuilder({
   const fireSuggest = useCallback(
     async (body: Record<string, unknown>, query: string) => {
       setSuggestLoading(true);
+      setSuggestElapsedSec(0);
       setSuggestedPkgs([]);
       setSuggestQuery(query);
       setError(null);
@@ -381,6 +384,10 @@ export function useTradeBuilder({
             return;
           }
           const poll = await pollRes.json();
+          // Update progress: backend returns elapsed_ms while job is running
+          if (typeof poll.elapsed_ms === "number") {
+            setSuggestElapsedSec(Math.floor(poll.elapsed_ms / 1000));
+          }
           if (poll.status === "complete" || poll.packages) {
             data = poll.packages ? poll : poll;
             break;
@@ -622,6 +629,7 @@ export function useTradeBuilder({
     analyzing,
     suggestedPkgs,
     suggestLoading,
+    suggestElapsedSec,
     suggestQuery,
     activeSellAsset,
     error,
