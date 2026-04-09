@@ -243,7 +243,10 @@ function PlayerSearchBar({ leagueId, owner, onSelectMyPlayer, onSelectTheirPlaye
   );
 }
 
-function ResultsPanel({ packages, loading, query, onBuild, onBack }: { packages: SuggestedPackage[]; loading: boolean; query: string; onBuild: (pkg: SuggestedPackage) => void; onBack: () => void }) {
+function ResultsPanel({ packages, loading, elapsedSec, query, onBuild, onBack }: { packages: SuggestedPackage[]; loading: boolean; elapsedSec: number; query: string; onBuild: (pkg: SuggestedPackage) => void; onBack: () => void }) {
+  // Backend typically takes ~45s with single-pass validation. Cap progress bar at 80s.
+  const ETA_SEC = 80;
+  const pct = Math.min(100, Math.round((elapsedSec / ETA_SEC) * 100));
   return (
     <div style={{ flex: "1 1 0", minWidth: 0, display: "flex", flexDirection: "column", background: C.panel, borderRadius: 8, border: `1px solid ${C.border}`, overflow: "hidden" }}>
       <div style={{ padding: "12px 16px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -253,9 +256,36 @@ function ResultsPanel({ packages, loading, query, onBuild, onBack }: { packages:
           onMouseEnter={(e) => { e.currentTarget.style.background = C.white08; }} onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>BACK</button>
       </div>
       <div style={{ flex: 1, overflowY: "auto", padding: 12 }}>
-        {loading ? <div style={{ textAlign: "center", padding: 40 }}><div style={{ fontFamily: MONO, fontSize: 13, color: C.gold, animation: "pulse-gold 1.5s ease infinite" }}>Generating packages...</div></div>
-          : packages.length === 0 ? <div style={{ textAlign: "center", padding: 40 }}><div style={{ fontFamily: SANS, fontSize: 14, color: C.dim }}>No viable trades found at this aggression level.</div><div style={{ fontFamily: MONO, fontSize: 12, color: C.gold, marginTop: 8 }}>Try AGGRESSIVE mode for more options.</div></div>
-          : packages.map((p, i) => <PackageCard key={i} pkg={p} onBuild={() => onBuild(p)} />)}
+        {loading ? (
+          <div style={{ textAlign: "center", padding: "48px 24px" }}>
+            <div style={{ fontFamily: DISPLAY, fontSize: 14, color: C.gold, letterSpacing: "0.04em", marginBottom: 14 }}>
+              FINDING THE BEST TRADES…
+            </div>
+            <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim, marginBottom: 16 }}>
+              {elapsedSec}s elapsed
+            </div>
+            <div style={{ width: "100%", maxWidth: 240, margin: "0 auto", height: 4, background: C.elevated, borderRadius: 2, overflow: "hidden" }}>
+              <div
+                style={{
+                  width: `${pct}%`,
+                  height: "100%",
+                  background: `linear-gradient(90deg, ${C.goldDark}, ${C.gold}, ${C.goldBright})`,
+                  transition: "width 0.5s ease-out",
+                }}
+              />
+            </div>
+            <div style={{ fontFamily: SANS, fontSize: 11, color: C.dim, marginTop: 14, lineHeight: 1.5 }}>
+              Scanning your roster, your league&apos;s tendencies, and millions of comparable trades.
+            </div>
+          </div>
+        ) : packages.length === 0 ? (
+          <div style={{ textAlign: "center", padding: 40 }}>
+            <div style={{ fontFamily: SANS, fontSize: 14, color: C.dim }}>No viable trades found at this aggression level.</div>
+            <div style={{ fontFamily: MONO, fontSize: 12, color: C.gold, marginTop: 8 }}>Try AGGRESSIVE mode for more options.</div>
+          </div>
+        ) : (
+          packages.map((p, i) => <PackageCard key={i} pkg={p} onBuild={() => onBuild(p)} />)
+        )}
       </div>
     </div>
   );
@@ -274,7 +304,7 @@ export default function TradeBuilderDesktop({
     partner, setPartner, myWindow, setMyWindow, theirWindow, setTheirWindow,
     mode, setMode, myRoster, theirRoster, otherOwners, myGrades, theirGrades,
     computedOW, computedPW, giveNames, receiveNames, evaluation, analyzing,
-    suggestedPkgs, suggestLoading, suggestQuery, activeSellAsset, error, setError,
+    suggestedPkgs, suggestLoading, suggestElapsedSec, suggestQuery, activeSellAsset, error, setError,
     showModal, setShowModal, chatCollapsed, setChatCollapsed, chatInjection,
     hasTray, showResults,
     toggleGive, toggleReceive, handleAnalyze, handleSellAsset, handleFindPosition,
@@ -404,7 +434,7 @@ export default function TradeBuilderDesktop({
               onToggle={toggleReceive} side="receive" posGrades={theirGrades}
               windowToggle={<WindowToggle label="THEIR LENS" value={theirWindow} computed={computedPW} onChange={setTheirWindow} />} />
           ) : showResults ? (
-            <ResultsPanel packages={suggestedPkgs} loading={suggestLoading} query={suggestQuery} onBuild={buildPackage} onBack={() => handleClear()} />
+            <ResultsPanel packages={suggestedPkgs} loading={suggestLoading} elapsedSec={suggestElapsedSec} query={suggestQuery} onBuild={buildPackage} onBack={() => handleClear()} />
           ) : (
             <div style={{ flex: "1 1 0", display: "flex", alignItems: "center", justifyContent: "center", background: C.panel, borderRadius: 8, border: `1px solid ${C.border}` }}>
               <div style={{ textAlign: "center", maxWidth: 320 }}>
@@ -421,7 +451,7 @@ export default function TradeBuilderDesktop({
               <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.5)", backdropFilter: "blur(3px)" }}
                 onClick={() => { handleClear(); }} />
               <div style={{ position: "relative", width: "100%", maxWidth: 600, maxHeight: "80vh", overflowY: "auto", background: C.panel, border: `1px solid ${C.gold}30`, borderRadius: 12, animation: "fadeUp 0.3s ease", margin: "0 20px" }}>
-                <ResultsPanel packages={suggestedPkgs} loading={suggestLoading} query={suggestQuery} onBuild={buildPackage} onBack={() => handleClear()} />
+                <ResultsPanel packages={suggestedPkgs} loading={suggestLoading} elapsedSec={suggestElapsedSec} query={suggestQuery} onBuild={buildPackage} onBack={() => handleClear()} />
               </div>
             </div>
           )}

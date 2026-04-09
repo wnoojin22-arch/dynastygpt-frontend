@@ -582,7 +582,9 @@ function BuilderLayer({ tb, ctx, owners, giveAssets, getAssets, sendTotal, getTo
         {(() => {
           // Detect "What Would It Take?" state: partner + GET filled + SEND empty → ACQUIRE mode
           const isWWIT = !!tb.partner && tb.receiveNames.length > 0 && tb.giveNames.length === 0;
-          const label = tb.suggestLoading ? "SCANNING..." : isWWIT ? "WHAT WOULD IT TAKE?" : "SUGGEST";
+          const label = tb.suggestLoading
+            ? `FINDING TRADES… ${tb.suggestElapsedSec}s`
+            : isWWIT ? "WHAT WOULD IT TAKE?" : "SUGGEST";
           return (
             <button
               onClick={async () => {
@@ -875,7 +877,7 @@ export default function TradeBuilderUnified() {
               boxShadow: `0 0 20px rgba(212,165,50,0.15)`,
             }}
           >
-            {tb.suggestLoading ? "SCANNING..." : "SUGGEST TRADES"}
+            {tb.suggestLoading ? `FINDING TRADES… ${tb.suggestElapsedSec}s` : "SUGGEST TRADES"}
           </button>
 
           {/* Error display */}
