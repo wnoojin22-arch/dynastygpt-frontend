@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
+import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { useLeagueStore } from "@/lib/stores/league-store";
@@ -12,6 +13,7 @@ import {
 } from "@/lib/api";
 import { RecentTrades, PlayerName } from "@/components/league";
 import PlayerHeadshot from "@/components/league/PlayerHeadshot";
+import WelcomeArticleCard from "@/components/league/WelcomeArticleCard";
 import { C, SANS, MONO, DISPLAY, fmt, posColor, getVerdictStyle, leaguePrefix } from "@/components/league/tokens";
 import type {
   LeagueReportCardResponse, TrendingPlayer, GradedTrade,
@@ -676,11 +678,11 @@ export default function LeagueHome() {
         <div ref={heroInViewRef} className="relative overflow-hidden border-b border-border" style={{ background: `linear-gradient(160deg, ${C.card} 0%, #0d1020 50%, ${C.card} 100%)` }}>
           <div className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ background: `linear-gradient(180deg, ${C.goldDark}, ${C.gold}, ${C.goldBright})` }} />
 
-          <div className="max-w-[1200px] mx-auto px-6 sm:px-10 py-5 sm:py-6 grid grid-cols-1 sm:grid-cols-[3fr_2fr] gap-6 items-center">
+          <div className="max-w-[1200px] mx-auto px-4 sm:px-10 py-3 sm:py-4 grid grid-cols-1 sm:grid-cols-[3fr_2fr] gap-3 sm:gap-6 items-center">
             {/* Left — League identity */}
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
               <div className="flex items-center gap-3 mb-1.5">
-                <h1 className="text-xl sm:text-2xl text-primary tracking-tight leading-tight" style={{ fontFamily: DISPLAY }}>
+                <h1 className="text-lg sm:text-2xl text-primary tracking-tight leading-tight" style={{ fontFamily: DISPLAY }}>
                   {leagueName}
                 </h1>
               </div>
@@ -691,7 +693,7 @@ export default function LeagueHome() {
                   <span className="text-[9px] font-black tracking-[0.08em] text-gold-bright px-2 py-0.5 rounded-sm bg-gold-dim border border-gold-border shrink-0 mt-0.5" style={{ fontFamily: SANS }}>
                     {personality.type.toUpperCase()}
                   </span>
-                  <p className="text-[12px] text-secondary leading-relaxed" style={{ fontFamily: SANS }}>
+                  <p className="text-[12px] text-secondary leading-relaxed line-clamp-3 sm:line-clamp-none" style={{ fontFamily: SANS }}>
                     {(() => {
                       const rc = reportCard;
                       const activityRatio = rc.db_avg_trades > 0 ? Math.round(((rc.total_trades - rc.db_avg_trades) / rc.db_avg_trades) * 100) : 0;
@@ -715,7 +717,7 @@ export default function LeagueHome() {
               {/* Fun stat — picks the most specific, interesting data available */}
               {reportCard && (
                 <div className="border-l-2 border-gold pl-3 py-1.5 bg-gold-glow rounded-r-sm">
-                  <span className="text-[11px] text-secondary leading-snug" style={{ fontFamily: SANS }}>
+                  <span className="text-[11px] text-secondary leading-snug line-clamp-2 sm:line-clamp-none" style={{ fontFamily: SANS }}>
                     {(() => {
                       const rc = reportCard;
                       // Priority 1: biggest robbery with real names and assets
@@ -748,8 +750,13 @@ export default function LeagueHome() {
               )}
             </motion.div>
 
-            {/* Right — Platform stats */}
-            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.15 }}>
+            {/* Right — Platform stats (desktop only — vanity metrics, not league-specific) */}
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.15 }}
+              className="hidden sm:block"
+            >
               <div className="grid grid-cols-2 gap-2">
                 {PLATFORM_STATS.map((s) => (
                   <StatCard key={s.label} label={s.label} value={s.value} display={s.display} inView={heroInView} />
@@ -765,83 +772,175 @@ export default function LeagueHome() {
         </div>
       )}
 
-      {/* ═══════════════ ③ MAIN CONTENT — 3 COLUMNS ═══════════════ */}
-      <div className="max-w-[1200px] mx-auto px-4 sm:px-8 py-8 grid grid-cols-1 lg:grid-cols-[38fr_38fr_24fr] gap-6 items-start">
+      {/* ═══════════════ ③ MAIN CONTENT — left rail (Beta Guide + News) | Market Pulse ═══════════════ */}
+      <div className="max-w-[1200px] mx-auto px-4 sm:px-8 pt-4 pb-8 grid grid-cols-1 lg:grid-cols-[76fr_24fr] gap-x-6 gap-y-3 items-start">
 
-        {/* ── MY NEWS (first on mobile) ── */}
-        <AnimatedSection className="order-1 lg:order-2">
-          <SectionLabel title="MY NEWS" badge="COMING SOON" />
-          <div className="flex flex-col gap-3">
-            {currentOwner ? (
-              <>
-                <NewsCard
-                  tag="GM REPORT" tagColor="text-accent-orange bg-accent-orange/10"
-                  headline={myHeadline} lede={myLede}
-                  isHero topColor={C.orange}
-                />
-                <NewsCard
-                  tag="PRIORITIES" tagColor="text-gold bg-gold/10"
-                  headline={myIntel?.positional_needs?.length
-                    ? myIntel.positional_needs.length >= 3
-                      ? "Multiple Roster Holes Could Derail Your Season"
-                      : myIntel.positional_needs.length === 2
-                      ? `${myIntel.positional_needs[0]} and ${myIntel.positional_needs[1]} — Two Spots That Need Fixing Now`
-                      : `Your ${myIntel.positional_needs[0]} Room Needs an Upgrade`
-                    : "No Weak Spots — This Roster Is Built to Compete"}
-                  lede={myIntel?.positional_needs?.length
-                    ? `Positional gaps identified. Full breakdown and upgrade targets available soon.`
-                    : "Every position group is holding strong. Full positional breakdown available soon."}
-                  topColor={C.gold}
-                />
-                <NewsCard
-                  tag="TRADE INTEL" tagColor="text-accent-green bg-accent-green/10"
-                  headline={`${currentOwner}'s Trade History — Full Breakdown Coming Soon`}
-                  lede="Every trade graded with AI-powered verdicts. Detailed win/loss records, trade tendencies, and partner history dropping soon."
-                  topColor={C.green}
-                />
-              </>
-            ) : (
-              <div className="bg-card border border-border rounded-xl p-6 text-center">
-                <div className="text-sm text-dim mb-2" style={{ fontFamily: SANS }}>Sign in to see your personalized franchise report</div>
-                <div className="text-xs text-dim/60" style={{ fontFamily: SANS }}>Link your Sleeper account to unlock GM reports, trade records, and priorities</div>
+        {/* ── BETA GUIDE HERO — top of left rail, natural height ── */}
+        <AnimatedSection className="order-0 lg:col-start-1">
+          <Link
+            href={`${basePath}/beta-guide`}
+            className="block group rounded-xl overflow-hidden transition-all duration-300 hover:-translate-y-0.5"
+            style={{
+              background: `linear-gradient(135deg, ${C.card} 0%, rgba(212,165,50,0.05) 100%)`,
+              border: `1.5px solid ${C.goldBorder}`,
+              boxShadow: `0 0 0 1px ${C.goldBorder}, 0 4px 32px rgba(212,165,50,0.08)`,
+            }}
+          >
+            <div className="h-[3px]" style={{ background: `linear-gradient(90deg, ${C.goldDark}, ${C.gold}, ${C.goldBright}, ${C.gold}, ${C.goldDark})` }} />
+
+            {/* ── Branded image area (top, fixed height) ── */}
+            <div
+              className="relative w-full overflow-hidden lg:max-h-[170px]"
+              style={{
+                minHeight: 125,
+                background: `radial-gradient(ellipse 70% 60% at 50% 45%, rgba(212,165,50,0.16) 0%, rgba(212,165,50,0.03) 45%, transparent 75%), linear-gradient(180deg, #06080d 0%, #0a0d15 100%)`,
+                borderBottom: `1px solid ${C.goldBorder}`,
+              }}
+            >
+              {/* Hex grid pattern overlay */}
+              <svg className="absolute inset-0 w-full h-full opacity-[0.07]" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <pattern id="hexgrid-hero" x="0" y="0" width="36" height="31.18" patternUnits="userSpaceOnUse">
+                    <polygon points="18,2 34,11 34,25 18,34 2,25 2,11" fill="none" stroke={C.gold} strokeWidth="0.6" />
+                  </pattern>
+                </defs>
+                <rect width="100%" height="100%" fill="url(#hexgrid-hero)" />
+              </svg>
+
+              {/* Diagonal gold streak */}
+              <div
+                className="absolute inset-0 pointer-events-none"
+                style={{
+                  background: `linear-gradient(115deg, transparent 42%, rgba(212,165,50,0.05) 50%, transparent 58%)`,
+                }}
+              />
+
+              {/* Centered brand mark */}
+              <div className="relative h-full flex items-center justify-center gap-3 sm:gap-5 px-4 py-5 sm:px-6 sm:py-6">
+                {/* Shield */}
+                <svg
+                  width="68"
+                  height="76"
+                  viewBox="0 0 52 58"
+                  xmlns="http://www.w3.org/2000/svg"
+                  style={{ filter: "drop-shadow(0 0 18px rgba(212,165,50,0.45))" }}
+                  className="shrink-0"
+                >
+                  <defs>
+                    <linearGradient id="hero2-gs1" x1="0" y1="0" x2="1" y2="1">
+                      <stop offset="0%" stopColor="#8b6914" />
+                      <stop offset="30%" stopColor="#d4a532" />
+                      <stop offset="50%" stopColor="#f5e6a3" />
+                      <stop offset="70%" stopColor="#d4a532" />
+                      <stop offset="100%" stopColor="#8b6914" />
+                    </linearGradient>
+                    <linearGradient id="hero2-gs2" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#f5e6a3" />
+                      <stop offset="100%" stopColor="#b8860b" />
+                    </linearGradient>
+                  </defs>
+                  <path d="M26,2 L48,14 L48,34 Q48,50 26,56 Q4,50 4,34 L4,14 Z" fill="none" stroke="url(#hero2-gs1)" strokeWidth="2.5" />
+                  <path d="M26,8 L42,17 L42,33 Q42,46 26,51 Q10,46 10,33 L10,17 Z" fill="url(#hero2-gs1)" opacity="0.12" />
+                  <text x="26" y="40" textAnchor="middle" fontFamily="'Playfair Display', Georgia, serif" fontWeight="900" fontStyle="italic" fontSize="32" fill="url(#hero2-gs2)">D</text>
+                  <g transform="translate(14, 3)">
+                    <path d="M0,10 L4,2 L8,7 L12,0 L16,7 L20,2 L24,10" fill="none" stroke="#f5e6a3" strokeWidth="1.2" strokeLinejoin="round" />
+                    <circle cx="4" cy="2" r="1.5" fill="#f5e6a3" />
+                    <circle cx="12" cy="0" r="1.8" fill="#f5e6a3" />
+                    <circle cx="20" cy="2" r="1.5" fill="#f5e6a3" />
+                  </g>
+                </svg>
+
+                {/* Wordmark */}
+                <div className="flex flex-col items-start min-w-0">
+                  <div className="flex items-baseline leading-none">
+                    <span className="text-2xl sm:text-3xl" style={{ fontFamily: DISPLAY, color: C.primary, letterSpacing: "-0.5px" }}>
+                      DYNASTY
+                    </span>
+                    <span
+                      className="text-2xl sm:text-3xl"
+                      style={{
+                        fontFamily: DISPLAY,
+                        letterSpacing: "-0.5px",
+                        background: `linear-gradient(180deg, ${C.goldBright}, ${C.gold}, ${C.goldDark})`,
+                        WebkitBackgroundClip: "text",
+                        WebkitTextFillColor: "transparent",
+                      }}
+                    >
+                      GPT
+                    </span>
+                  </div>
+                  <div className="mt-2 text-[8px] sm:text-[9px] font-black tracking-[0.18em] uppercase" style={{ fontFamily: SANS, color: C.gold }}>
+                    The Platform That Knows Your League
+                  </div>
+                </div>
               </div>
-            )}
-          </div>
+            </div>
+
+            {/* ── Text content (bottom) ── */}
+            <div className="px-4 pt-2.5 pb-2.5 sm:px-6 sm:pt-2.5 sm:pb-3">
+              <div className="flex items-center gap-2 mb-2">
+                <span
+                  className="text-[8px] font-black tracking-[0.14em] uppercase px-2 py-0.5 rounded-sm"
+                  style={{
+                    fontFamily: SANS,
+                    color: C.gold,
+                    background: C.goldDim,
+                    border: `1px solid ${C.goldBorder}`,
+                  }}
+                >
+                  BETA GUIDE
+                </span>
+              </div>
+              <h3
+                className="text-[15px] sm:text-base font-bold leading-snug mb-1.5"
+                style={{ fontFamily: DISPLAY, color: C.primary, letterSpacing: "-0.2px" }}
+              >
+                Welcome to DynastyGPT Beta — Start Here
+              </h3>
+              <p
+                className="text-[12px] sm:text-[12px] leading-relaxed mb-2"
+                style={{ fontFamily: SANS, color: C.secondary }}
+              >
+                Everything you need to know about the platform and how to help shape what it becomes.
+              </p>
+              <span
+                className="inline-flex items-center gap-1 text-[11px] font-bold tracking-[0.04em] transition-colors group-hover:text-gold-bright"
+                style={{ fontFamily: SANS, color: C.gold }}
+              >
+                Read Guide <span className="text-sm leading-none">→</span>
+              </span>
+            </div>
+          </Link>
         </AnimatedSection>
 
-        {/* ── LEAGUE NEWS ── */}
-        <AnimatedSection className="order-2 lg:order-1">
-          <SectionLabel title="LEAGUE NEWS" badge="COMING SOON" />
-          <div className="flex flex-col gap-3">
-            {rcLoading ? (
-              <><CardSkeleton isHero /><CardSkeleton /><CardSkeleton /></>
-            ) : (
-              <>
-                <NewsCard
-                  tag="LEAGUE REPORT" tagColor="text-gold bg-gold/10"
-                  headline={leagueHeadline}
-                  lede={personality ? `A ${personality.type.toLowerCase()} league with its own trading identity. Full season report and league-wide analytics dropping soon.` : "Full season report and league-wide analytics dropping soon."}
-                  isHero topColor={C.gold}
-                />
-                <NewsCard
-                  tag="TRADES" tagColor="text-accent-green bg-accent-green/10"
-                  headline="Trade Verdicts — Who's Winning and Who's Getting Fleeced"
-                  lede="AI-graded trade verdicts for every deal in your league. Robbery alerts, win streaks, and the full leaderboard coming soon."
-                  topColor={C.green}
-                />
-                <NewsCard
-                  tag="MARKET" tagColor="text-accent-blue bg-accent-blue/10"
-                  headline={marketHeadline}
-                  lede="Weekly value movers, buy/sell windows, and market trends across your league. Full market intelligence dropping soon."
-                  topColor={C.blue}
-                />
-              </>
-            )}
-          </div>
-        </AnimatedSection>
+        {/* ── NEWS RAIL — 2-col sub-grid below Beta Guide, same width as Beta Guide ── */}
+        <div className="order-1 lg:col-start-1 grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* LEAGUE NEWS (left) */}
+          <AnimatedSection className="order-2 lg:order-1">
+            <SectionLabel title="LEAGUE NEWS" />
+            <WelcomeArticleCard variant="league" leagueId={lid || ""} />
+            <div className="text-[11px] font-bold tracking-wider text-gold text-center mt-3" style={{ fontFamily: SANS }}>
+              More league-specific articles coming soon
+            </div>
+          </AnimatedSection>
 
-        {/* ── MARKET PULSE ── */}
-        <AnimatedSection className="order-3">
+          {/* MY NEWS (right) — first on mobile via order-1 */}
+          <AnimatedSection className="order-1 lg:order-2">
+            <SectionLabel title="MY NEWS" />
+            <WelcomeArticleCard
+              variant="my"
+              leagueId={lid || ""}
+              ownerName={currentOwner}
+              ownerUserId={currentOwnerId}
+            />
+            <div className="text-[11px] font-bold tracking-wider text-gold text-center mt-3" style={{ fontFamily: SANS }}>
+              More personalized content coming soon
+            </div>
+          </AnimatedSection>
+        </div>
+
+        {/* ── MARKET PULSE — right column, spans both rows of left rail ── */}
+        <AnimatedSection className="order-2 lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:h-full">
           <SectionLabel title="MARKET PULSE" />
 
           {/* Most Traded Assets */}

@@ -148,6 +148,25 @@ export const getActions = (id: string, owner: string, userId?: string | null) =>
 // ── League Intel ─────────────────────────────────────────────────────────
 export const getLeagueIntel = (id: string) => get<{ owners: LeagueIntelOwner[] }>(`${L(id)}/league-intel`);
 
+// ── Welcome articles (read-only from ai_insights cache) ─────────────────
+export interface WelcomeArticle {
+  headline: string;
+  subheadline: string;
+  body: string;
+}
+export interface WelcomeArticleResponse {
+  available: boolean;
+  league_id: string;
+  owner?: string;
+  generated_at?: string | null;
+  expired?: boolean;
+  article?: WelcomeArticle;
+}
+export const getLeagueNewsWelcome = (id: string) =>
+  get<WelcomeArticleResponse>(`${L(id)}/welcome/league-news`);
+export const getMyNewsFirstReport = (id: string, owner: string, userId?: string | null) =>
+  get<WelcomeArticleResponse>(`${L(id)}/welcome/my-news/${O(owner, userId)}`);
+
 // ── League Report Card ──────────────────────────────────────────────────
 export const getReportCard = (id: string) => get<LeagueReportCardResponse>(`${L(id)}/report-card`);
 export const getMarketPulse = (id: string) => get<{ league_id: string; most_traded: { player: string; trade_count: number }[]; above_market: { player: string; position: string; pct_diff: number; sha_value: number; market_price: number }[]; below_market: { player: string; position: string; pct_diff: number; sha_value: number; market_price: number }[] }>(`${L(id)}/market-pulse`);
