@@ -9,13 +9,15 @@
  *
  * Now uses the shared useTradeBuilder hook for all state/API logic.
  */
-import React, { useEffect } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { C, SANS, MONO, DISPLAY, SERIF, fmt, posColor } from "../tokens";
 import RosterColumn from "./RosterColumn";
 import TradeTray from "./TradeTray";
 import AnalysisModal from "./AnalysisModal";
 import ChatPanel from "./ChatPanel";
 import PlayerName from "../PlayerName";
+import { getAllRosters } from "@/lib/api";
 import type { SuggestedPackage, NegotiationInsight } from "./types";
 import type { UseTradeBuilderReturn } from "@/hooks/useTradeBuilder";
 import { HowItWorksButton } from "./HowItWorksModal";
@@ -128,6 +130,119 @@ function PackageCard({ pkg, onBuild }: { pkg: SuggestedPackage; onBuild: () => v
   );
 }
 
+// ── PLAYER SEARCH BAR ─────────────────────────────────────────────────────
+type SearchHit = { name: string; position: string; ownerName: string; sha_value: number };
+
+function PlayerSearchBar({ leagueId, owner, onSelectMyPlayer, onSelectTheirPlayer }: {
+  leagueId: string;
+  owner: string;
+  onSelectMyPlayer: (name: string) => void;
+  onSelectTheirPlayer: (ownerName: string, name: string) => void;
+}) {
+  const [q, setQ] = useState("");
+  const [focused, setFocused] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const { data } = useQuery({
+    queryKey: ["all-rosters-search", leagueId],
+    queryFn: () => getAllRosters(leagueId),
+    enabled: !!leagueId,
+    staleTime: 600000,
+  });
+
+  const index = useMemo<SearchHit[]>(() => {
+    const out: SearchHit[] = [];
+    for (const r of data?.rosters || []) {
+      for (const p of r.players) {
+        out.push({ name: p.name, position: p.position, ownerName: r.owner, sha_value: p.sha_value });
+      }
+    }
+    return out;
+  }, [data]);
+
+  const results = useMemo(() => {
+    if (!q || q.length < 2) return [];
+    const ql = q.toLowerCase();
+    const matches = index.filter((h) => h.name.toLowerCase().includes(ql));
+    matches.sort((a, b) => {
+      const ap = a.name.toLowerCase().startsWith(ql) ? 0 : 1;
+      const bp = b.name.toLowerCase().startsWith(ql) ? 0 : 1;
+      if (ap !== bp) return ap - bp;
+      return (b.sha_value || 0) - (a.sha_value || 0);
+    });
+    return matches.slice(0, 10);
+  }, [q, index]);
+
+  const handleSelect = (hit: SearchHit) => {
+    setQ("");
+    setFocused(false);
+    if (hit.ownerName.toLowerCase() === owner.toLowerCase()) {
+      onSelectMyPlayer(hit.name);
+    } else {
+      onSelectTheirPlayer(hit.ownerName, hit.name);
+    }
+  };
+
+  return (
+    <div style={{ flex: "0 0 320px", position: "relative" }}>
+      <input
+        ref={inputRef}
+        type="text"
+        placeholder="Search any player..."
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setTimeout(() => setFocused(false), 200)}
+        style={{
+          width: "100%", padding: "9px 14px", borderRadius: 6,
+          background: C.card, border: `1px solid ${focused ? C.gold : C.border}`,
+          color: C.primary, fontFamily: SANS, fontSize: 14, outline: "none",
+          transition: "border-color 0.15s",
+        }}
+      />
+      {q && (
+        <button onClick={() => setQ("")} style={{
+          position: "absolute", right: 10, top: 8, background: "none", border: "none",
+          color: C.dim, cursor: "pointer", fontSize: 16, lineHeight: 1,
+        }}>×</button>
+      )}
+      {focused && results.length > 0 && (
+        <div style={{
+          position: "absolute", top: "100%", left: 0, right: 0, marginTop: 4, zIndex: 100,
+          background: C.card, border: `1px solid ${C.border}`, borderRadius: 8,
+          maxHeight: 320, overflowY: "auto",
+          boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+        }}>
+          {results.map((hit, i) => {
+            const isMine = hit.ownerName.toLowerCase() === owner.toLowerCase();
+            const pc = posColor(hit.position);
+            return (
+              <div key={`${hit.ownerName}-${hit.name}-${i}`}
+                onClick={() => handleSelect(hit)}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = C.elevated; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+                style={{
+                  display: "flex", alignItems: "center", gap: 10, padding: "9px 12px",
+                  cursor: "pointer", borderBottom: `1px solid ${C.white08}`,
+                  transition: "background 0.1s",
+                }}>
+                <span style={{
+                  fontFamily: MONO, fontSize: 9, fontWeight: 800, color: pc,
+                  background: `${pc}18`, padding: "2px 6px", borderRadius: 3,
+                  minWidth: 26, textAlign: "center",
+                }}>{hit.position}</span>
+                <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 600, color: C.primary, flex: 1 }}>{hit.name}</span>
+                <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>{hit.ownerName}</span>
+                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: isMine ? C.gold : C.green }}>{fmt(hit.sha_value)}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ResultsPanel({ packages, loading, query, onBuild, onBack }: { packages: SuggestedPackage[]; loading: boolean; query: string; onBuild: (pkg: SuggestedPackage) => void; onBack: () => void }) {
   return (
     <div style={{ flex: "1 1 0", minWidth: 0, display: "flex", flexDirection: "column", background: C.panel, borderRadius: 8, border: `1px solid ${C.border}`, overflow: "hidden" }}>
@@ -197,6 +312,15 @@ export default function TradeBuilderDesktop({
             </select>
             {partner && <button onClick={() => { setPartner(""); handleClear(); }} style={{ position: "absolute", right: 10, top: 8, background: "none", border: "none", color: C.dim, cursor: "pointer", fontSize: 18, lineHeight: 1 }}>×</button>}
           </div>
+          <PlayerSearchBar
+            leagueId={leagueId}
+            owner={owner}
+            onSelectMyPlayer={(name) => toggleGive(name)}
+            onSelectTheirPlayer={(ownerName, name) => {
+              if (partner !== ownerName) setPartner(ownerName);
+              setTimeout(() => toggleReceive(name), 50);
+            }}
+          />
           {activeSellAsset && <span style={{ fontFamily: MONO, fontSize: 12, color: C.orange, padding: "2px 8px", borderRadius: 3, background: `${C.orange}15`, border: `1px solid ${C.orange}30` }}>Selling: {activeSellAsset}</span>}
         </div>
 
@@ -234,7 +358,7 @@ export default function TradeBuilderDesktop({
             })}
           </div>
           <div style={{ flex: 1 }} />
-          <HowItWorksButton />
+          <HowItWorksButton variant="pill" />
           <button onClick={handleSuggestWithPartner}
             style={{ fontFamily: DISPLAY, fontSize: 13, letterSpacing: "0.08em", padding: "8px 18px", borderRadius: 6, border: "none", cursor: "pointer", background: `linear-gradient(135deg,${C.goldDark},${C.gold})`, color: "#000", transition: "opacity 0.15s", flexShrink: 0 }}
             onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.85"; }} onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}>
