@@ -7,7 +7,7 @@
  * Tab 3: OWNERS (per-owner profiles with hit rate rings)
  * Tab 4: DRAFT BOARD (full history by season)
  */
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useLeagueStore } from "@/lib/stores/league-store";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -17,6 +17,7 @@ import {
 import { usePlayerCardStore } from "@/lib/stores/player-card-store";
 import { C, SANS, MONO, SERIF, fmt, posColor } from "@/components/league/tokens";
 import { ChevronDown } from "lucide-react";
+import { useTrack } from "@/hooks/useTrack";
 
 // ── Tab definitions ─────────────────────────────────────────────────────
 
@@ -778,6 +779,8 @@ function DraftBoardTab({ seasons, owner, ownerId }: { seasons: any[]; owner: str
 export default function DraftPage() {
   const { currentLeagueId: lid, currentOwner: owner, currentOwnerId: ownerId } = useLeagueStore();
   const [tab, setTab] = useState<TabId>("room");
+  const track = useTrack();
+  useEffect(() => { if (lid) track("draft_room_viewed", { league_id: lid }); }, [lid]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const { data: history, isLoading } = useQuery({
     queryKey: ["draft-history-full", lid],

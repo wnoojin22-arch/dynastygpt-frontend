@@ -1,12 +1,16 @@
 "use client";
 
+import { useEffect } from "react";
 import { useLeagueStore } from "@/lib/stores/league-store";
 import { useQuery } from "@tanstack/react-query";
 import { getOverview } from "@/lib/api";
 import DashboardView from "@/components/league/DashboardView";
+import { useTrack } from "@/hooks/useTrack";
 
 export default function DashboardPage() {
   const { currentLeagueId: lid, currentOwner: owner, currentOwnerId: ownerId } = useLeagueStore();
+  const track = useTrack();
+  useEffect(() => { if (lid) track("dashboard_viewed", { league_id: lid, owner_name: owner || undefined }); }, [lid, owner]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!lid) return (
     <div className="flex items-center justify-center h-full">

@@ -1,10 +1,12 @@
 "use client";
 
+import { useEffect } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useLeagueStore } from "@/lib/stores/league-store";
 import TradeBuilderView from "@/components/league/trade-builder/TradeBuilderView";
 import MyTradesView from "@/components/league/MyTradesView";
 import LeagueTradesView from "@/components/league/LeagueTradesView";
+import { useTrack } from "@/hooks/useTrack";
 
 const TABS = [
   { id: "builder", label: "Builder" },
@@ -18,6 +20,14 @@ export default function TradesPage() {
   const pathname = usePathname();
   const { currentLeagueId: lid, currentOwner: owner, currentOwnerId } = useLeagueStore();
   const activeTab = searchParams.get("tab") || "builder";
+  const track = useTrack();
+  useEffect(() => {
+    if (!lid) return;
+    const evt = activeTab === "builder" ? "trade_builder_viewed"
+      : activeTab === "my-trades" ? "my_trades_viewed"
+      : "league_trades_viewed";
+    track(evt, { league_id: lid });
+  }, [lid, activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const setTab = (tab: string) => {
     const params = new URLSearchParams(searchParams.toString());

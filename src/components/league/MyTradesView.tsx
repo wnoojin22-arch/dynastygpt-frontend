@@ -9,6 +9,7 @@ import TradeReportModal from "./TradeReportModal";
 import type { GradedTrade, TradeChain } from "@/lib/types";
 import PlayerName from "./PlayerName";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useTrack } from "@/hooks/useTrack";
 
 /* ═══════════════════════════════════════════════════════════════
    TOKENS — matched to Shadynasty
@@ -169,8 +170,13 @@ const TRADE_CSS = `
    ═══════════════════════════════════════════════════════════════ */
 export default function MyTradesView({ leagueId, owner: ownerProp, ownerId }: { leagueId: string; owner: string | null; ownerId?: string | null }) {
   const mobile = useIsMobile();
+  const track = useTrack();
   const [historyTab, setHistoryTab] = useState<'log' | 'profile'>('log');
   const [reportTradeId, setReportTradeId] = useState<string | null>(null);
+  const openTradeReport = (tradeId: string) => {
+    track("trade_modal_opened", { league_id: leagueId, trade_id: tradeId });
+    setReportTradeId(tradeId);
+  };
   const [partnerFilter, setPartnerFilter] = useState('all');
   const [yearFilter, setYearFilter] = useState('all');
   const { setOwner } = useLeagueStore();
@@ -493,7 +499,7 @@ export default function MyTradesView({ leagueId, owner: ownerProp, ownerId }: { 
                 return (
                   <div key={t.trade_id || i}
                     className="tl2-card"
-                    onClick={() => setReportTradeId(t.trade_id)}
+                    onClick={() => openTradeReport(t.trade_id)}
                     style={{
                       padding: mobile ? '10px 10px 10px 14px' : '8px 14px 8px 18px',
                       borderBottom: `1px solid ${C.white08}`,

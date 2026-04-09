@@ -8,6 +8,7 @@ import { getRankings, getLeagueIntel, getOverview, getPositionalPower, getGlobal
 import { C, SANS, MONO, SERIF, fmt, posColor, leaguePrefix } from "@/components/league/tokens";
 import type { GlobalPlayerRanking, PositionalPowerEntry } from "@/lib/types";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useTrack } from "@/hooks/useTrack";
 import { Search, X, ChevronDown } from "lucide-react";
 
 /* ═══════════════════════════════════════════════════════════════
@@ -807,6 +808,8 @@ export default function RankingsPage() {
   const { currentLeagueId: lid } = useLeagueStore();
   const [subTab, setSubTab] = useState("team");
   const mobile = useIsMobile();
+  const track = useTrack();
+  useEffect(() => { if (lid) track("rankings_viewed", { league_id: lid, sub_tab: subTab }); }, [lid, subTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const { data: overview } = useQuery({ queryKey: ["overview", lid], queryFn: () => getOverview(lid!), enabled: !!lid, staleTime: 3600000 });
 
