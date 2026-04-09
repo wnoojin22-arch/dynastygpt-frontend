@@ -17,6 +17,7 @@ import AnalyzeModal from "./AnalyzeModal";
 import { C, SANS, MONO, DISPLAY, fmt, posColor } from "../tokens";
 import { HowItWorksButton } from "./HowItWorksModal";
 import SwipeStack from "./SwipeStack";
+import { useTrack } from "@/hooks/useTrack";
 
 // ── Position badge ───────────────────────────────────────────────────────
 
@@ -337,6 +338,9 @@ function BuilderLayer({ tb, ctx, owners, giveAssets, getAssets, sendTotal, getTo
   const acceptance = estimateAcceptance(sendTotal, getTotal, giveAssets.length, getAssets.length);
   const accClr = acceptColor(acceptance);
 
+  const track = useTrack();
+  const trackedLeagueId = useLeagueStore.getState().currentLeagueId || "";
+
   return (
     <>
       {/* Error */}
@@ -589,6 +593,11 @@ function BuilderLayer({ tb, ctx, owners, giveAssets, getAssets, sendTotal, getTo
             <button
               onClick={async () => {
                 try {
+                  track("trade_suggest_clicked", {
+                    league_id: trackedLeagueId,
+                    partner: tb.partner || null,
+                    mode: isWWIT ? "wwit" : "suggest",
+                  });
                   const body: Record<string, unknown> = {};
                   if (tb.partner) body.partner = tb.partner;
                   if (tb.giveNames.length) body.sell_asset = tb.giveNames[0];
@@ -621,7 +630,16 @@ function BuilderLayer({ tb, ctx, owners, giveAssets, getAssets, sendTotal, getTo
           </span>
         )}
         <button
-          onClick={async () => { await tb.handleAnalyze(); ctx.openAnalyze(); }}
+          onClick={async () => {
+            track("trade_evaluated", {
+              league_id: trackedLeagueId,
+              partner: tb.partner || null,
+              give: tb.giveNames,
+              receive: tb.receiveNames,
+            });
+            await tb.handleAnalyze();
+            ctx.openAnalyze();
+          }}
           disabled={!canAnalyze}
           style={{
             flex: 1, padding: "12px 0", borderRadius: 10,
@@ -645,6 +663,7 @@ export default function TradeBuilderUnified() {
   const { tb, ui, dispatch, sendTotal, getTotal, balance, balancePct, canAnalyze, suggestContext } = ctx;
   const [activeTab, setActiveTab] = useState<"yours" | "theirs">("yours");
   const [posFilter, setPosFilter] = useState<string>("ALL");
+  const track = useTrack();
 
   // ── Search state ──
   const [searchQuery, setSearchQuery] = useState("");
@@ -862,6 +881,7 @@ export default function TradeBuilderUnified() {
           <button
             onClick={async () => {
               try {
+                track("trade_suggest_clicked", { league_id: leagueId, mode: "coach" });
                 await tb.fireSuggest({}, "Coach mode");
               } catch (e) {
                 tb.setError(e instanceof Error ? e.message : "Suggest failed");
