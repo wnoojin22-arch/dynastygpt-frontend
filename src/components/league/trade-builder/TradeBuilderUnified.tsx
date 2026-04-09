@@ -579,29 +579,39 @@ function BuilderLayer({ tb, ctx, owners, giveAssets, getAssets, sendTotal, getTo
         background: "rgba(6,8,13,0.95)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
         borderTop: `1px solid rgba(212,165,50,0.15)`,
       }}>
-        <button
-          onClick={async () => {
-            try {
-              const body: Record<string, unknown> = {};
-              if (tb.partner) body.partner = tb.partner;
-              if (tb.giveNames.length) body.sell_asset = tb.giveNames[0];
-              if (tb.receiveNames.length) body.i_receive = tb.receiveNames;
-              await tb.fireSuggest(body, suggestContext);
-            } catch (e) {
-              tb.setError(e instanceof Error ? e.message : "Suggest failed");
-            }
-          }}
-          disabled={tb.suggestLoading}
-          style={{
-            flex: 1, padding: "12px 0", borderRadius: 10, border: "none",
-            background: `linear-gradient(135deg, ${C.goldDark}, ${C.gold})`,
-            fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.06em",
-            color: C.bg, cursor: "pointer", minHeight: 44,
-            boxShadow: "0 0 16px rgba(212,165,50,0.12)",
-          }}
-        >
-          {tb.suggestLoading ? "SCANNING..." : "SUGGEST"}
-        </button>
+        {(() => {
+          // Detect "What Would It Take?" state: partner + GET filled + SEND empty → ACQUIRE mode
+          const isWWIT = !!tb.partner && tb.receiveNames.length > 0 && tb.giveNames.length === 0;
+          const label = tb.suggestLoading ? "SCANNING..." : isWWIT ? "WHAT WOULD IT TAKE?" : "SUGGEST";
+          return (
+            <button
+              onClick={async () => {
+                try {
+                  const body: Record<string, unknown> = {};
+                  if (tb.partner) body.partner = tb.partner;
+                  if (tb.giveNames.length) body.sell_asset = tb.giveNames[0];
+                  if (tb.receiveNames.length) body.i_receive = tb.receiveNames;
+                  // ACQUIRE mode: target_asset triggers backend's "what would it take" flow
+                  if (isWWIT) body.target_asset = tb.receiveNames[0];
+                  const queryLabel = isWWIT ? `What would it take for ${tb.receiveNames[0]}` : suggestContext;
+                  await tb.fireSuggest(body, queryLabel);
+                } catch (e) {
+                  tb.setError(e instanceof Error ? e.message : "Suggest failed");
+                }
+              }}
+              disabled={tb.suggestLoading}
+              style={{
+                flex: 1, padding: "12px 0", borderRadius: 10, border: "none",
+                background: `linear-gradient(135deg, ${C.goldDark}, ${C.gold})`,
+                fontFamily: MONO, fontSize: isWWIT ? 10 : 11, fontWeight: 800, letterSpacing: "0.06em",
+                color: C.bg, cursor: "pointer", minHeight: 44,
+                boxShadow: "0 0 16px rgba(212,165,50,0.12)",
+              }}
+            >
+              {label}
+            </button>
+          );
+        })()}
         {/* Gap label between buttons */}
         {(sendTotal > 0 || getTotal > 0) && (
           <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 900, color: barColor, flexShrink: 0 }}>
@@ -772,16 +782,15 @@ export default function TradeBuilderUnified() {
           <div style={{ marginBottom: 20 }}>
             <div style={{
               fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.14em",
-              color: C.gold, marginBottom: 6, display: "flex", alignItems: "center", gap: 8,
+              color: C.gold, marginBottom: 6, display: "flex", alignItems: "center", gap: 10,
             }}>
               <div style={{ width: 16, height: 1, background: `linear-gradient(90deg, ${C.gold}, transparent)` }} />
-              TRADE BUILDER
+              <span>TRADE BUILDER</span>
+              <span style={{ color: `${C.gold}40` }}>·</span>
+              <HowItWorksButton variant="link" />
             </div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <div style={{ fontFamily: DISPLAY, fontSize: 22, color: C.primary, letterSpacing: "-0.01em" }}>
-                Build Your Next Move
-              </div>
-              <HowItWorksButton />
+            <div style={{ fontFamily: DISPLAY, fontSize: 22, color: C.primary, letterSpacing: "-0.01em" }}>
+              Build Your Next Move
             </div>
           </div>
 
