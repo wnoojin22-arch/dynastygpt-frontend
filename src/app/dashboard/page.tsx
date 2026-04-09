@@ -1,9 +1,9 @@
 "use client";
 
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useRouter, useSearchParams } from "next/navigation";
-import { getOverview, syncLeague } from "@/lib/api";
+import { getOverview, syncLeague, authHeaders } from "@/lib/api";
 import { useLeagueStore } from "@/lib/stores/league-store";
 import { DEV_BYPASS_ACTIVE, DEV_USER_METADATA } from "@/hooks/useDevUser";
 
@@ -42,13 +42,53 @@ function DashboardContent() {
   const sleeperUsername = metadata.sleeper_username as string | undefined;
   const sleeperId = metadata.sleeper_user_id as string | undefined;
   const urlLeagueId = searchParams.get("league_id");
-  const approvedLeagueId = urlLeagueId
+  const initialApprovedLeagueId = urlLeagueId
     || (metadata.approved_league_id as string | undefined)
     || (typeof window !== "undefined" ? localStorage.getItem("approved_league_id") : null)
     || undefined;
+
+  // Re-checked approval state (in case Clerk metadata write failed previously)
+  const [recheckedLeagueId, setRecheckedLeagueId] = useState<string | undefined>(undefined);
+  const [recheckDone, setRecheckDone] = useState(false);
+
+  const approvedLeagueId = initialApprovedLeagueId || recheckedLeagueId;
+
   if (approvedLeagueId && typeof window !== "undefined") {
     localStorage.setItem("approved_league_id", approvedLeagueId);
   }
+
+  // Re-check approval if we have a sleeperId but no approvedLeagueId.
+  // This handles the case where Clerk metadata write failed during onboarding
+  // (e.g. missing CLERK_SECRET_KEY) or the user was approved AFTER signup.
+  useEffect(() => {
+    if (!isLoaded && !DEV_BYPASS_ACTIVE) return;
+    if (DEV_BYPASS_ACTIVE) return;
+    if (!sleeperId) return;
+    if (initialApprovedLeagueId) return; // already have one
+    if (recheckDone) return;
+
+    (async () => {
+      try {
+        const hdrs = await authHeaders();
+        const res = await fetch("/api/user/approve", {
+          method: "POST",
+          headers: hdrs,
+          body: JSON.stringify({
+            sleeper_user_id: sleeperId,
+            clerk_user_id: user?.id,
+          }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.approved && data.league_id) {
+            setRecheckedLeagueId(data.league_id);
+            return;
+          }
+        }
+      } catch { /* fall through to waitlist */ }
+      setRecheckDone(true);
+    })();
+  }, [isLoaded, sleeperId, initialApprovedLeagueId, recheckDone, user?.id]);
 
   // Route: no sleeper → onboarding, has approved league → fetch overview & redirect to /l/{slug}
   useEffect(() => {
@@ -97,6 +137,15 @@ function DashboardContent() {
     );
   }
 
+  // Still re-checking approval — show loading instead of waitlist
+  if (sleeperId && !recheckDone) {
+    return (
+      <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <span style={{ fontFamily: MONO, fontSize: 11, color: C.gold, letterSpacing: "0.1em" }}>CHECKING ACCESS...</span>
+      </div>
+    );
+  }
+
   // Pending state: Sleeper linked but no approved league yet
   const email = user?.primaryEmailAddress?.emailAddress;
   return (
@@ -138,6 +187,47 @@ function DashboardContent() {
             letterSpacing: "0.12em", color: C.dim,
           }}>
             SLEEPER ACCOUNT: {sleeperUsername}
+          </div>
+
+          {/* DEBUG: surface clerk identity so we can compare to DB */}
+          <div style={{
+            marginTop: 16, padding: 12, borderRadius: 8,
+            background: "rgba(212,165,50,0.04)",
+            border: "1px solid rgba(212,165,50,0.15)",
+            fontFamily: MONO, fontSize: 10, color: C.dim,
+            wordBreak: "break-all",
+          }}>
+            <div style={{ marginBottom: 4 }}>clerk_user_id: <span style={{ color: C.gold }}>{user?.id || "(none)"}</span></div>
+            <div style={{ marginBottom: 4 }}>sleeper_user_id: <span style={{ color: C.gold }}>{sleeperId || "(none)"}</span></div>
+            <div style={{ marginBottom: 8 }}>approved_league_id (metadata): <span style={{ color: C.gold }}>{(metadata.approved_league_id as string) || "(none)"}</span></div>
+            <button
+              onClick={async () => {
+                try {
+                  const { authHeaders } = await import("@/lib/api");
+                  const hdrs = await authHeaders();
+                  const res = await fetch("/api/user/approve", {
+                    method: "POST",
+                    headers: hdrs,
+                    body: JSON.stringify({
+                      sleeper_user_id: sleeperId,
+                      clerk_user_id: user?.id,
+                    }),
+                  });
+                  const txt = await res.text();
+                  alert(`HTTP ${res.status}\n\n${txt}`);
+                } catch (e) {
+                  alert(`fetch error: ${e}`);
+                }
+              }}
+              style={{
+                width: "100%", padding: "8px 0", borderRadius: 6,
+                border: "1px solid rgba(212,165,50,0.4)",
+                background: "transparent", color: C.gold,
+                fontFamily: MONO, fontSize: 10, cursor: "pointer",
+              }}
+            >
+              TEST APPROVE ENDPOINT
+            </button>
           </div>
         </div>
       </div>
