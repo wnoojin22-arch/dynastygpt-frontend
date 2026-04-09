@@ -789,7 +789,7 @@ export default function TradeBuilderUnified() {
               <div style={{ width: 16, height: 1, background: `linear-gradient(90deg, ${C.gold}, transparent)` }} />
               <span>TRADE BUILDER</span>
               <span style={{ color: `${C.gold}40` }}>·</span>
-              <HowItWorksButton variant="link" />
+              <HowItWorksButton />
             </div>
             <div style={{ fontFamily: DISPLAY, fontSize: 22, color: C.primary, letterSpacing: "-0.01em" }}>
               Build Your Next Move

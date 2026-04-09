@@ -388,7 +388,7 @@ export default function TradeBuilderDesktop({
             })}
           </div>
           <div style={{ flex: 1 }} />
-          <HowItWorksButton variant="pill" />
+          <HowItWorksButton />
           <button onClick={handleSuggestWithPartner}
             style={{ fontFamily: DISPLAY, fontSize: 13, letterSpacing: "0.08em", padding: "8px 18px", borderRadius: 6, border: "none", cursor: "pointer", background: `linear-gradient(135deg,${C.goldDark},${C.gold})`, color: "#000", transition: "opacity 0.15s", flexShrink: 0 }}
             onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.85"; }} onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}>
