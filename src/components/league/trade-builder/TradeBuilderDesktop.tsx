@@ -21,6 +21,7 @@ import { getAllRosters } from "@/lib/api";
 import type { SuggestedPackage, NegotiationInsight } from "./types";
 import type { UseTradeBuilderReturn } from "@/hooks/useTradeBuilder";
 import { HowItWorksButton } from "./HowItWorksModal";
+import { useTrack } from "@/hooks/useTrack";
 
 const POSITIONS = ["QB", "RB", "WR", "TE"] as const;
 const WINDOWS = ["REBUILDER", "BALANCED", "WIN-NOW"] as const;
@@ -312,6 +313,16 @@ export default function TradeBuilderDesktop({
     setGiveNames, setReceiveNames, setEvaluation,
   } = tb;
 
+  const track = useTrack();
+  const trackedSuggest = () => {
+    track("trade_suggest_clicked", { league_id: leagueId, partner: partner || null, mode });
+    handleSuggestWithPartner();
+  };
+  const trackedAnalyze = () => {
+    track("trade_evaluated", { league_id: leagueId, partner: partner || null, give: giveNames, receive: receiveNames });
+    handleAnalyze();
+  };
+
   // Auto-collapse chat panel when window is too narrow for it
   useEffect(() => {
     const check = () => {
@@ -389,7 +400,7 @@ export default function TradeBuilderDesktop({
           </div>
           <div style={{ flex: 1 }} />
           <HowItWorksButton />
-          <button onClick={handleSuggestWithPartner}
+          <button onClick={trackedSuggest}
             style={{ fontFamily: DISPLAY, fontSize: 13, letterSpacing: "0.08em", padding: "8px 18px", borderRadius: 6, border: "none", cursor: "pointer", background: `linear-gradient(135deg,${C.goldDark},${C.gold})`, color: "#000", transition: "opacity 0.15s", flexShrink: 0 }}
             onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.85"; }} onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}>
             {partner ? `SUGGEST WITH ${partner.toUpperCase()}` : "SUGGEST TRADES"}
@@ -425,7 +436,7 @@ export default function TradeBuilderDesktop({
               evaluation={evaluation} analyzing={analyzing}
               onRemoveGive={(n) => { setGiveNames((p) => p.filter((x) => x !== n)); setEvaluation(null); }}
               onRemoveReceive={(n) => { setReceiveNames((p) => p.filter((x) => x !== n)); setEvaluation(null); }}
-              onAnalyze={handleAnalyze} onClear={() => { setGiveNames([]); setReceiveNames([]); setEvaluation(null); }} />
+              onAnalyze={trackedAnalyze} onClear={() => { setGiveNames([]); setReceiveNames([]); setEvaluation(null); }} />
           )}
 
           {/* RIGHT: Partner roster or Results or Explore */}

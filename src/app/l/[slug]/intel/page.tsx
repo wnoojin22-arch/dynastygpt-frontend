@@ -1,10 +1,12 @@
 "use client";
 
+import { useEffect } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useLeagueStore } from "@/lib/stores/league-store";
 import { FranchiseIntel } from "@/components/league";
 import OpponentsGrid from "@/components/league/OpponentsGrid";
 import DraftPage from "../draft/page";
+import { useTrack } from "@/hooks/useTrack";
 const TABS = [
   { id: "my-franchise", label: "My franchise" },
   { id: "opponents", label: "Opponents" },
@@ -17,6 +19,8 @@ export default function IntelPage() {
   const pathname = usePathname();
   const { currentLeagueId: lid, currentOwner: owner, currentOwnerId } = useLeagueStore();
   const activeTab = searchParams.get("tab") || "my-franchise";
+  const track = useTrack();
+  useEffect(() => { if (lid) track("owner_intel_viewed", { league_id: lid, tab: activeTab }); }, [lid, activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const setTab = (tab: string) => {
     const params = new URLSearchParams(searchParams.toString());

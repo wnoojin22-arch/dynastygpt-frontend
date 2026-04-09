@@ -14,6 +14,7 @@ import {
 import { RecentTrades, PlayerName } from "@/components/league";
 import PlayerHeadshot from "@/components/league/PlayerHeadshot";
 import WelcomeArticleCard from "@/components/league/WelcomeArticleCard";
+import { useTrack } from "@/hooks/useTrack";
 import { C, SANS, MONO, DISPLAY, fmt, posColor, getVerdictStyle, leaguePrefix } from "@/components/league/tokens";
 import type {
   LeagueReportCardResponse, TrendingPlayer, GradedTrade,
@@ -571,6 +572,8 @@ export default function LeagueHome() {
   const { currentLeagueId: lid, currentOwner, currentOwnerId } = useLeagueStore();
   const slug = pathname.split("/")[2] || "";
   const basePath = `/l/${slug}`;
+  const track = useTrack();
+  useEffect(() => { track("league_home_viewed", { league_id: lid }); }, [lid]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ── Data queries (unchanged) ── */
   /* Data queries — aggressive caching. Most data changes infrequently. */
