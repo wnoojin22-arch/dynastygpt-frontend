@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
-import { useUser } from "@clerk/nextjs";
+import { useUser, SignOutButton } from "@clerk/nextjs";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getOverview, syncLeague, authHeaders } from "@/lib/api";
 import { useLeagueStore } from "@/lib/stores/league-store";
@@ -187,6 +187,60 @@ function DashboardContent() {
             letterSpacing: "0.12em", color: C.dim,
           }}>
             SLEEPER ACCOUNT: {sleeperUsername}
+          </div>
+
+          {/* Recovery actions for users who linked the wrong account */}
+          <div style={{ marginTop: 24, display: "flex", flexDirection: "column", gap: 10 }}>
+            <button
+              onClick={async () => {
+                if (!user?.id) return;
+                try {
+                  const hdrs = await authHeaders();
+                  await fetch("/api/user/unlink-sleeper", {
+                    method: "POST",
+                    headers: hdrs,
+                    body: JSON.stringify({ clerk_user_id: user.id }),
+                  });
+                  // Clear Clerk metadata so dashboard sends user back to onboarding
+                  await user.update({
+                    unsafeMetadata: {
+                      sleeper_username: undefined,
+                      sleeper_user_id: undefined,
+                      approved_league_id: undefined,
+                    },
+                  });
+                  if (typeof window !== "undefined") {
+                    localStorage.removeItem("approved_league_id");
+                  }
+                  router.replace("/onboarding");
+                } catch {
+                  // Even on error, route back to onboarding so they can retry
+                  router.replace("/onboarding");
+                }
+              }}
+              style={{
+                width: "100%", padding: "11px 0", borderRadius: 8,
+                border: `1px solid ${C.goldBorder}`,
+                background: C.goldDim, color: C.gold,
+                fontFamily: SANS, fontSize: 13, fontWeight: 600,
+                cursor: "pointer", transition: "background 0.15s",
+              }}
+            >
+              Use a different Sleeper account
+            </button>
+            <SignOutButton redirectUrl="/sign-in">
+              <button
+                style={{
+                  width: "100%", padding: "11px 0", borderRadius: 8,
+                  border: `1px solid ${C.border}`,
+                  background: "transparent", color: C.dim,
+                  fontFamily: SANS, fontSize: 13, fontWeight: 500,
+                  cursor: "pointer", transition: "color 0.15s, border-color 0.15s",
+                }}
+              >
+                Sign out
+              </button>
+            </SignOutButton>
           </div>
         </div>
       </div>
