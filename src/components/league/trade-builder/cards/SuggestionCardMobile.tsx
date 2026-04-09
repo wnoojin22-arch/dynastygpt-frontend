@@ -199,10 +199,20 @@ export default function SuggestionCardMobile({ pkg }: { pkg: SuggestedPackage })
         {/* Balance bar */}
         <BalanceMini give={give} receive={receive} />
 
-        {/* Roster warning — advisory */}
+        {/* Roster warnings — advisories */}
         {pkg.roster_warnings && pkg.roster_warnings.length > 0 && (
-          <div className="mt-3 px-3 py-2 rounded-lg border-l-2 border-l-[#d4a017] bg-[#d4a01712]">
-            <span className="font-mono text-[10px] font-bold text-[#d4a017]">⚠ {pkg.roster_warnings[0]}</span>
+          <div className="mt-3 flex flex-col gap-2">
+            {pkg.roster_warnings.map((w, i) => {
+              const isCornerstone = w.includes("cornerstone");
+              const color = isCornerstone ? "#e09c6b" : "#d4a017";
+              const label = isCornerstone ? "CORNERSTONE TARGET" : "ROSTER WARNING";
+              return (
+                <div key={i} className="px-3 py-2 rounded-lg border-l-2" style={{ borderLeftColor: color, background: `${color}12` }}>
+                  <div className="font-mono text-[9px] font-black tracking-widest" style={{ color }}>⚠ {label}</div>
+                  <div className="font-sans text-[11px] text-[#b0b2c8] mt-1 leading-snug">{w}</div>
+                </div>
+              );
+            })}
           </div>
         )}
 

@@ -105,10 +105,20 @@ function PackageCard({ pkg, onBuild }: { pkg: SuggestedPackage; onBuild: () => v
       {/* Fallback: negotiation insight if no narrative */}
       {!pkg.narrative && (pkg.negotiation_insights as NegotiationInsight[])?.[0] && <div style={{ fontFamily: SANS, fontSize: 12, color: C.secondary, padding: "6px 8px", background: C.elevated, borderRadius: 4, borderLeft: `2px solid ${C.gold}40`, marginBottom: 10 }}>{(pkg.negotiation_insights as NegotiationInsight[])[0].insight}</div>}
 
-      {/* Roster warning — advisory, not a kill */}
+      {/* Roster warnings — advisories, not kills */}
       {pkg.roster_warnings && pkg.roster_warnings.length > 0 && (
-        <div style={{ fontFamily: MONO, fontSize: 10, color: "#d4a017", padding: "6px 8px", background: "rgba(212,160,23,0.08)", borderRadius: 4, borderLeft: "2px solid #d4a017", marginBottom: 10, lineHeight: 1.4 }}>
-          ⚠ {pkg.roster_warnings[0]}
+        <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 10 }}>
+          {pkg.roster_warnings.map((w, i) => {
+            const isCornerstone = w.includes("cornerstone");
+            const color = isCornerstone ? "#e09c6b" : "#d4a017";
+            const label = isCornerstone ? "CORNERSTONE TARGET" : "ROSTER WARNING";
+            return (
+              <div key={i} style={{ fontFamily: MONO, fontSize: 10, color, padding: "6px 8px", background: `${color}12`, borderRadius: 4, borderLeft: `2px solid ${color}`, lineHeight: 1.4 }}>
+                <div style={{ fontWeight: 800, letterSpacing: "0.06em", marginBottom: 2 }}>⚠ {label}</div>
+                <div style={{ fontFamily: SANS, fontSize: 11, color: C.secondary, fontWeight: 400 }}>{w}</div>
+              </div>
+            );
+          })}
         </div>
       )}
 
