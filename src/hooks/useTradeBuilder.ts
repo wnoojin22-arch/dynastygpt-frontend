@@ -441,6 +441,35 @@ export function useTradeBuilder({
           } as unknown as SuggestedPackage;
         });
         setSuggestedPkgs(packages);
+
+        // If validator killed everything, show why
+        if (packages.length === 0) {
+          const killed = ((data as Record<string, unknown>)._debug_killed as Array<Record<string, unknown>>) || [];
+          if (killed.length > 0) {
+            const reasons = killed
+              .map((k) => {
+                const violations = (k.violations as string[]) || [];
+                return violations[0] || "";
+              })
+              .filter(Boolean);
+            // Pick the most common reason
+            const counts: Record<string, number> = {};
+            for (const r of reasons) {
+              const key = r.includes("franchise cornerstone")
+                ? "Partners won't trade their cornerstone players for what you're offering"
+                : r.includes("QB floor")
+                  ? "Trading this player would leave you below the startable QB minimum for your league"
+                  : r.includes("not on")
+                    ? "Roster mismatch — try a different player"
+                    : r.slice(0, 100);
+              counts[key] = (counts[key] || 0) + 1;
+            }
+            const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+            setError(top ? top[0] : "No viable trades found. Try AGGRESSIVE mode.");
+          } else {
+            setError("No viable trades found at this aggression level. Try AGGRESSIVE mode.");
+          }
+        }
       } catch (e: unknown) {
         setError(e instanceof Error ? e.message : "Failed");
       } finally {
