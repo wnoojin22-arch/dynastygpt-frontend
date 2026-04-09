@@ -82,7 +82,7 @@ const PLATFORM_STATS = [
   { label: "TRADES ANALYZED", value: 1500000, display: "1.5M+" },
   { label: "LEAGUES", value: 85000, display: "85K+" },
   { label: "DRAFT PICKS TRACKED", value: 3700000, display: "3.7M+" },
-  { label: "DATA POINTS", value: 2700000, display: "2.7M+" },
+  { label: "OWNERS PROFILED", value: 950000, display: "950K+" },
 ];
 
 /* ═══════════════════════════════════════════════════════════════
