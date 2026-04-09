@@ -199,6 +199,13 @@ export default function SuggestionCardMobile({ pkg }: { pkg: SuggestedPackage })
         {/* Balance bar */}
         <BalanceMini give={give} receive={receive} />
 
+        {/* Roster warning — advisory */}
+        {pkg.roster_warnings && pkg.roster_warnings.length > 0 && (
+          <div className="mt-3 px-3 py-2 rounded-lg border-l-2 border-l-[#d4a017] bg-[#d4a01712]">
+            <span className="font-mono text-[10px] font-bold text-[#d4a017]">⚠ {pkg.roster_warnings[0]}</span>
+          </div>
+        )}
+
         {/* DynastyGPT Rationale */}
         {(pkg.narrative || pkg.pitch) && (
           <div className="mt-3">

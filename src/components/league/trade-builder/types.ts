@@ -105,6 +105,7 @@ export interface SuggestedPackage {
   narrative?: string;
   tier?: string;
   market_comparison?: string;
+  roster_warnings?: string[];
 }
 
 export interface RosterPlayer {

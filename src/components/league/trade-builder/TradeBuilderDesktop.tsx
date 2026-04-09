@@ -105,6 +105,13 @@ function PackageCard({ pkg, onBuild }: { pkg: SuggestedPackage; onBuild: () => v
       {/* Fallback: negotiation insight if no narrative */}
       {!pkg.narrative && (pkg.negotiation_insights as NegotiationInsight[])?.[0] && <div style={{ fontFamily: SANS, fontSize: 12, color: C.secondary, padding: "6px 8px", background: C.elevated, borderRadius: 4, borderLeft: `2px solid ${C.gold}40`, marginBottom: 10 }}>{(pkg.negotiation_insights as NegotiationInsight[])[0].insight}</div>}
 
+      {/* Roster warning — advisory, not a kill */}
+      {pkg.roster_warnings && pkg.roster_warnings.length > 0 && (
+        <div style={{ fontFamily: MONO, fontSize: 10, color: "#d4a017", padding: "6px 8px", background: "rgba(212,160,23,0.08)", borderRadius: 4, borderLeft: "2px solid #d4a017", marginBottom: 10, lineHeight: 1.4 }}>
+          ⚠ {pkg.roster_warnings[0]}
+        </div>
+      )}
+
       <button onClick={onBuild} style={{ width: "100%", padding: "8px 0", borderRadius: 6, border: "none", cursor: "pointer", fontFamily: DISPLAY, fontSize: 13, letterSpacing: "0.08em", background: `linear-gradient(135deg,${C.goldDark},${C.gold})`, color: "#000", transition: "opacity 0.15s" }}
         onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.85"; }} onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}>BUILD THIS TRADE</button>
     </div>
