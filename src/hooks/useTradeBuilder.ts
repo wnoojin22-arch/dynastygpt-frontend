@@ -468,6 +468,11 @@ export function useTradeBuilder({
           const apiError = (data as Record<string, unknown>).error as string | undefined;
           const killed = ((data as Record<string, unknown>)._debug_killed as Array<Record<string, unknown>>) || [];
 
+          if (process.env.NODE_ENV === "development" && killed.length > 0) {
+            // eslint-disable-next-line no-console
+            console.log("[TradeValidator] All packages killed:", JSON.stringify(killed, null, 2));
+          }
+
           if (apiError) {
             // AI returned no proposals — backend told us
             setError(apiError);
