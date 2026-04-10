@@ -250,6 +250,16 @@ export function useTradeBuilder({
     setError(null);
   }, [partner]);
 
+  // Clear stale results + errors on mode change. Without this, switching
+  // from e.g. SELL mode (which may have set an error like "cornerstone
+  // violation") to COACH mode would leave the old error visible even
+  // though no request has been made in the new mode yet.
+  useEffect(() => {
+    setSuggestedPkgs([]);
+    setSuggestQuery("");
+    setError(null);
+  }, [mode]);
+
   // Toggle
   const toggleGive = useCallback((n: string) => {
     setGiveNames((p) => (p.includes(n) ? p.filter((x) => x !== n) : [...p, n]));
@@ -462,24 +472,10 @@ export function useTradeBuilder({
             // AI returned no proposals — backend told us
             setError(apiError);
           } else if (killed.length > 0) {
-            // Validator killed everything — pick most common reason
-            const reasons = killed
-              .map((k) => {
-                const violations = (k.violations as string[]) || [];
-                return violations[0] || "";
-              })
-              .filter(Boolean);
-            const counts: Record<string, number> = {};
-            for (const r of reasons) {
-              const key = r.includes("franchise cornerstone")
-                ? "This partner won't trade their cornerstone for what you're offering. Add more value or try another partner."
-                : r.includes("not on")
-                  ? "Roster mismatch — try a different player"
-                  : r.slice(0, 120);
-              counts[key] = (counts[key] || 0) + 1;
-            }
-            const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
-            setError(top ? top[0] : "No viable trades found. Try AGGRESSIVE mode.");
+            // Validator killed everything — show a generic actionable message.
+            // Don't surface cornerstone or roster-mismatch details when the
+            // results panel is completely empty — it's confusing.
+            setError("No valid trade packages found. Try adjusting your trade style or selecting a different partner.");
           } else {
             setError("No viable trades found at this aggression level. Try AGGRESSIVE mode.");
           }
