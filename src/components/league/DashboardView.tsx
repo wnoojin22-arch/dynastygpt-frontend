@@ -818,7 +818,7 @@ function DashboardView({ lid, owner, ownerId }: { lid: string; owner: string; ow
           </div>
           {/* FRANCHISE HEALTH */}
           <div
-            onClick={() => router.push(`/l/${currentLeagueSlug}/intel/${encodeURIComponent(owner)}`)}
+            onClick={() => router.push(`/l/${currentLeagueSlug}/intel`)}
             className="cursor-pointer transition-all duration-200 hover:scale-[1.03]"
             style={{
               background: `linear-gradient(135deg, ${C.card} 0%, rgba(107,184,224,0.06) 100%)`,
@@ -835,7 +835,7 @@ function DashboardView({ lid, owner, ownerId }: { lid: string; owner: string; ow
           </div>
           {/* SCOUTING REPORTS */}
           <div
-            onClick={() => router.push(`/l/${currentLeagueSlug}/intel`)}
+            onClick={() => router.push(`/l/${currentLeagueSlug}/intel/${encodeURIComponent(owner)}`)}
             className="cursor-pointer transition-all duration-200 hover:scale-[1.03]"
             style={{
               background: `linear-gradient(135deg, ${C.card} 0%, rgba(125,211,160,0.06) 100%)`,
