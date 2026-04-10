@@ -36,14 +36,18 @@ function TierBadge({ tier, compact }: { tier: { label: string; color: string }; 
   );
 }
 
-function Crown({ size = 16 }: { size?: number }) {
+function RankIcon({ rank, size = 16 }: { rank: number; size?: number }) {
+  if (rank > 3) return null;
+  const c = rank === 1 ? C.gold : rank === 2 ? "#C0C0C0" : "#CD7F32";
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
-      style={{ display: "inline-block", verticalAlign: "middle", marginRight: 2, marginBottom: 1 }}>
-      <path d="M2 18L4 8L8 12L12 4L16 12L20 8L22 18H2Z" fill={C.gold} opacity="0.9"/>
-      <path d="M2 18L4 8L8 12L12 4L16 12L20 8L22 18H2Z" stroke={C.goldBright} strokeWidth="1" fill="none"/>
-      <circle cx="4" cy="8" r="1.5" fill={C.goldBright}/><circle cx="12" cy="4" r="1.5" fill={C.goldBright}/><circle cx="20" cy="8" r="1.5" fill={C.goldBright}/>
-    </svg>
+    <div style={{
+      width: size, height: size, borderRadius: "50%",
+      background: `${c}20`, border: `1.5px solid ${c}60`,
+      display: "inline-flex", alignItems: "center", justifyContent: "center",
+      flexShrink: 0,
+    }}>
+      <span style={{ fontFamily: MONO, fontSize: size * 0.55, fontWeight: 900, color: c, lineHeight: 1 }}>{rank}</span>
+    </div>
   );
 }
 
@@ -189,7 +193,7 @@ function TeamPower({ lid, overview, mobile }: { lid: string; overview: any; mobi
                   color: tier.color, minWidth: 24, textAlign: "center",
                   display: "flex", alignItems: "center", gap: 1, position: "relative", zIndex: 1,
                 }}>
-                  {isChamp && <Crown size={13} />}
+                  {isChamp && <RankIcon rank={1} size={13} />}
                   {ordinal(t.rank)}
                 </span>
                 {/* Name */}
@@ -225,37 +229,34 @@ function TeamPower({ lid, overview, mobile }: { lid: string; overview: any; mobi
         <GlowTabs size="sm" tabs={tabs} active={mode} onChange={setMode} />
       </div>
 
-      {/* PODIUM: Top 3 */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 3, marginBottom: 4 }}>
+      {/* TOP 3 — same row style as rest, just gold tint on #1 */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 2, marginBottom: 2 }}>
         {top3.map((t, i) => {
           const isChamp = i === 0;
           const tier = getTier(t.rank);
           const pct = Math.round((t.value / maxVal) * 100);
           return (
             <div key={t.rank} className="rk-row" style={{
-              display: "flex", alignItems: "center", gap: 12,
-              padding: isChamp ? "10px 14px" : "8px 14px",
-              borderRadius: 6, position: "relative", overflow: "hidden",
+              display: "flex", alignItems: "center", gap: 10,
+              padding: "7px 12px",
+              borderRadius: 5, position: "relative", overflow: "hidden",
               background: isChamp ? C.goldDim : C.card,
               border: `1px solid ${isChamp ? C.goldBorder : "transparent"}`,
-              animation: isChamp ? "rk-pulseGold 4s ease-in-out infinite" : undefined,
             }}>
               <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${pct}%`, background: `${tier.color}06`, pointerEvents: "none" }} />
               <span style={{
-                fontFamily: MONO, fontWeight: 900, fontSize: isChamp ? 18 : 15,
-                color: tier.color, minWidth: 28, textAlign: "center",
+                fontFamily: MONO, fontWeight: 900, fontSize: 13,
+                color: tier.color, width: 22, textAlign: "center",
                 display: "flex", alignItems: "center", gap: 2, position: "relative", zIndex: 1,
               }}>
-                {isChamp && <Crown size={16} />}
                 {ordinal(t.rank)}
               </span>
-              <div style={{ flex: 1, minWidth: 0, position: "relative", zIndex: 1 }}>
-                <div style={{ fontFamily: SANS, fontSize: isChamp ? 15 : 14, fontWeight: 700, color: C.primary, lineHeight: 1.2 }}>{t.owner}</div>
-                <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 600, color: C.secondary, marginTop: 1 }}>{Math.round(t.value).toLocaleString()}</div>
-              </div>
+              <div style={{ width: 1, height: 14, background: `${tier.color}30`, position: "relative", zIndex: 1 }} />
+              <span style={{ fontFamily: SANS, flex: 1, fontSize: 13, fontWeight: 600, color: C.primary, position: "relative", zIndex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.owner}</span>
               <div style={{ width: 80, height: 3, borderRadius: 2, background: C.border, overflow: "hidden", position: "relative", zIndex: 1 }}>
                 <div className="rk-bar" style={{ height: "100%", borderRadius: 2, background: tier.color, width: `${pct}%`, animationDelay: `${i * 0.12}s` }} />
               </div>
+              <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.secondary, minWidth: 54, textAlign: "right", position: "relative", zIndex: 1 }}>{Math.round(t.value).toLocaleString()}</span>
               <div style={{ position: "relative", zIndex: 1 }}><TierBadge tier={tier} /></div>
             </div>
           );
@@ -411,7 +412,7 @@ function PositionalPower({ lid, mobile }: { lid: string; mobile: boolean }) {
                       color: isChamp ? C.gold : tier.color, minWidth: 20, textAlign: "center",
                       display: "flex", alignItems: "center", gap: 1, position: "relative", zIndex: 1,
                     }}>
-                      {isChamp && <Crown size={12} />}{t.rank}
+                      {isChamp && <RankIcon rank={1} size={12} />}{t.rank}
                     </span>
                     <div style={{ flex: 1, minWidth: 0, position: "relative", zIndex: 1 }}>
                       <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 700, color: C.primary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.owner}</div>
@@ -481,7 +482,7 @@ function PositionalPower({ lid, mobile }: { lid: string; mobile: boolean }) {
                     color: isChamp ? C.gold : tier.color, textAlign: "center",
                     display: "flex", alignItems: "center", gap: 2,
                   }}>
-                    {isChamp && <Crown size={14} />}{t.rank}
+                    {isChamp && <RankIcon rank={1} size={14} />}{t.rank}
                   </span>
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 700, color: C.primary, lineHeight: 1.2 }}>{t.owner}</div>
@@ -745,7 +746,7 @@ function PlayerRankings({ overview }: { overview: any }) {
                   style={{
                     display: "grid", gridTemplateColumns: "0.8fr 4fr 1.2fr 1.5fr",
                     alignItems: "center", gap: 8, padding: "10px 20px", cursor: "pointer",
-                    background: isEven ? C.card : `${C.elevated}90`,
+                    background: isEven ? C.card : "transparent",
                     borderBottom: `1px solid ${C.white08}`,
                   }}>
                   {/* Rank */}
@@ -821,16 +822,17 @@ export default function RankingsPage() {
         @keyframes rk-barFill { from { width: 0%; } }
         @keyframes rk-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
         @keyframes rk-pulseGold { 0%, 100% { box-shadow: 0 0 0 0 rgba(212,165,50,0.15); } 50% { box-shadow: 0 0 20px 2px rgba(212,165,50,0.08); } }
-        .rk-row:hover { background: ${C.elevated} !important; transform: translateX(2px); }
-        .rk-row { transition: all 0.15s ease; cursor: pointer; }
-        .rk-dense:hover { border-left: 2px solid ${C.gold}; }
-        .rk-dense { transition: all 0.12s ease; border-left: 2px solid transparent; }
+        .rk-row:hover { background: ${C.elevated} !important; }
+        .rk-row { transition: background 0.15s ease; cursor: pointer; }
+        .rk-dense:hover { background: ${C.elevated} !important; }
+        .rk-dense { transition: background 0.12s ease; }
         .rk-bar { animation: rk-barFill 0.8s ease-out both; }
       `}</style>
 
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: mobile ? 10 : 16 }}>
-        <span style={{ fontFamily: SERIF, fontSize: mobile ? 20 : 24, fontWeight: 900, fontStyle: "italic", color: C.goldBright }}>Power Rankings</span>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: mobile ? 10 : 16 }}>
+        <div style={{ width: 3, height: mobile ? 20 : 24, borderRadius: 2, background: C.gold, flexShrink: 0 }} />
+        <span style={{ fontFamily: MONO, fontSize: mobile ? 13 : 15, fontWeight: 900, letterSpacing: "0.14em", color: C.goldBright }}>POWER RANKINGS</span>
       </div>
 
       {/* Sub-tabs */}

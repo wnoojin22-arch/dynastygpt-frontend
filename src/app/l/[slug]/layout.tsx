@@ -9,7 +9,7 @@ import PlayerCardModal from "@/components/league/PlayerCardModal";
 import FeedbackWidget from "@/components/feedback/FeedbackWidget";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getOwners, getOverview, getRankings, syncLeague, getLeagueBySlug } from "@/lib/api";
-import { Home, LayoutGrid, Search, Zap, BarChart3, RefreshCw } from "lucide-react";
+import { Home, LayoutGrid, Search, Zap, BarChart3 } from "lucide-react";
 
 /* ═══════════════════════════════════════════════════════════════
    DESIGN TOKENS
@@ -217,10 +217,8 @@ function BottomTabBar({ basePath, pathname }: { basePath: string; pathname: stri
 /* ═══════════════════════════════════════════════════════════════
    HEADER BAR — with Resync button
    ═══════════════════════════════════════════════════════════════ */
-function HeaderBar({ owner, owners, onOwnerChange, leagueName, syncing, onResync }: {
-  owner: string | null; owners: Record<string, unknown>[];
-  onOwnerChange: (name: string, userId?: string | null) => void; leagueName: string;
-  syncing: boolean; onResync: () => void;
+function HeaderBar({ owner, leagueName }: {
+  owner: string | null; leagueName: string;
 }) {
   return (
     <div style={{
@@ -261,42 +259,8 @@ function HeaderBar({ owner, owners, onOwnerChange, leagueName, syncing, onResync
       </div>
 
       {owner && (
-        <>
-          <div className="hidden sm:block" style={{ width: 1, height: 24, background: C.border }} />
-          <div style={{
-            padding: "5px 10px", borderRadius: 4,
-            border: `1px solid ${C.goldBorder}`,
-            background: C.goldDim,
-            color: C.primary, fontSize: 12, fontFamily: SANS,
-            fontWeight: 600,
-          }}>
-            {owner}
-          </div>
-        </>
+        <span className="text-xs sm:text-sm" style={{ fontFamily: DISPLAY, color: C.secondary, letterSpacing: "-0.3px" }}>{owner}</span>
       )}
-
-      {/* Resync Button */}
-      <button
-        onClick={onResync}
-        disabled={syncing}
-        title={syncing ? "Syncing..." : "Resync league data"}
-        className="shrink-0"
-        style={{
-          display: "flex", alignItems: "center", gap: 5,
-          padding: "5px 10px", borderRadius: 4,
-          border: `1px solid ${syncing ? C.gold : C.border}`,
-          background: syncing ? `${C.gold}12` : "transparent",
-          color: syncing ? C.gold : C.dim,
-          fontSize: 11, fontFamily: MONO, fontWeight: 700,
-          letterSpacing: "0.05em", cursor: syncing ? "wait" : "pointer",
-          transition: "all 0.15s",
-        }}
-        onMouseEnter={(e) => { if (!syncing) { e.currentTarget.style.borderColor = C.gold; e.currentTarget.style.color = C.gold; } }}
-        onMouseLeave={(e) => { if (!syncing) { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.dim; } }}
-      >
-        <RefreshCw size={12} style={{ animation: syncing ? "spin 1s linear infinite" : "none" }} />
-        <span className="hidden sm:inline">{syncing ? "SYNCING" : "RESYNC"}</span>
-      </button>
 
       <div style={{ flex: 1 }} />
 
@@ -458,14 +422,7 @@ export default function LeagueLayout({ children }: { children: React.ReactNode }
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
         <HeaderBar
           owner={currentOwner}
-          owners={owners as unknown as Record<string, unknown>[]}
-          onOwnerChange={(name) => {
-            const match = (owners as any[])?.find((o: any) => o.name === name);
-            setOwner(name, match?.user_id || match?.platform_user_id || null);
-          }}
           leagueName={overview?.name || ""}
-          syncing={syncing}
-          onResync={doSync}
         />
 
         <main className="pb-16 sm:pb-0" style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>

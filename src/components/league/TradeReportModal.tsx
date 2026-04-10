@@ -64,9 +64,12 @@ function GradeFactorCard({factor}:{factor:any}){
     negative:{color:C.red,bg:'rgba(228,114,114,0.12)',border:'rgba(228,114,114,0.25)',icon:'▼'},
   };
   const s=sm[factor.sentiment]||sm.neutral;
+  // Simplify production pill: "Production from X, Y" → "Asset Production"
+  const title=factor.category==='production'?'Asset Production':noSHA(factor.title);
+  const detail=factor.category==='production'?noSHA(factor.detail):factor.detail?noSHA(factor.detail):null;
   return(<div style={{display:'flex',alignItems:'center',gap:6,paddingTop:4,paddingBottom:4,paddingLeft:8,paddingRight:8,borderRadius:5,background:s.bg,border:`1px solid ${s.border}`,marginBottom:3}}>
     <span style={{fontSize:10,flexShrink:0,color:s.color,fontWeight:900,width:16,textAlign:'center'}}>{s.icon}</span>
-    <div style={{flex:1,minWidth:0}}><div style={{fontFamily:SANS,fontSize:11,fontWeight:700,color:s.color,lineHeight:1.2}}>{noSHA(factor.title)}</div>{factor.detail&&<div style={{fontFamily:SANS,fontSize:10,color:C.dim,marginTop:1,lineHeight:1.2}}>{noSHA(factor.detail)}</div>}</div>
+    <div style={{flex:1,minWidth:0}}><div style={{fontFamily:SANS,fontSize:11,fontWeight:700,color:s.color,lineHeight:1.2}}>{title}</div>{detail&&<div style={{fontFamily:SANS,fontSize:10,color:C.dim,marginTop:1,lineHeight:1.2}}>{detail}</div>}</div>
     {factor.value&&<span style={{fontFamily:MONO,fontSize:11,fontWeight:900,color:s.color,flexShrink:0}}>{factor.value}</span>}
   </div>);
 }
@@ -123,71 +126,98 @@ function AssetCard({asset,allAssets,gradeFactors,allTrades,sideOwner,pickSlotMap
     return{cost,sale,profit:sale-cost};
   })():null;
 
-  return(<div style={{paddingTop:6,paddingBottom:6,paddingLeft:8,paddingRight:8,borderRadius:5,background:C.elevated,border:`1px solid ${C.border}`,display:'flex',flexDirection:'column',gap:4}}>
-    {/* Name + Age + Status Tags */}
-    <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
+  // Compute production data once
+  const showProd=isPick?(asset.became_production||prod):prod;
+  const hasProd=showProd&&showProd.total_points>0;
+  const _ppgA=hasProd&&showProd.games_started>0?(showProd.total_points/showProd.games_started):null;
+  const _ppgR=hasProd&&showProd.games_on_roster>0?(showProd.total_points/showProd.games_on_roster):null;
+
+  // Flip destination — compact description
+  const flipDest=visibleFlips.length>0?(()=>{
+    const fp=visibleFlips[0];
+    const got=fp.fullGot||[];
+    if(got.length===0)return null;
+    if(got.length===1)return`Packaged for ${got[0]}`;
+    const hasPlayer=got.some((g:string)=>!g.match(/^\d{4}\s/));
+    return hasPlayer?`Packaged for ${got[0]} + ${got.length-1} more`:'Packaged for picks';
+  })():null;
+
+  return(<div style={{paddingTop:5,paddingBottom:5,paddingLeft:8,paddingRight:8,borderRadius:5,background:C.elevated,border:`1px solid ${C.border}`,display:'flex',flexDirection:'column',gap:2}}>
+    {/* Line 1: [Pos badge] [Name] [Age] + tags */}
+    <div style={{display:'flex',alignItems:'center',gap:5,flexWrap:'wrap'}}>
       {isPick&&<StatusTag label="PICK" color={C.gold} bg={C.goldDim} border={C.goldBorder}/>}
       {position&&!isPick&&<span style={{fontFamily:MONO,fontSize:8,fontWeight:800,color:posColor(position),padding:'1px 4px',borderRadius:3,background:`${posColor(position)}15`,border:`1px solid ${posColor(position)}25`}}>{position}</span>}
-      {isPick?<span style={{fontFamily:SANS,fontSize:14,fontWeight:700,color:C.primary}}>{cleanPickName(asset.name,asset.resolved_slot,pickSlotMap)}</span>:<PlayerName name={asset.name} style={{fontFamily:SANS,fontSize:14,fontWeight:700,color:isCut?C.red:C.primary,cursor:'pointer'}} />}
+      {isPick?<span style={{fontFamily:SANS,fontSize:13,fontWeight:700,color:C.primary}}>{cleanPickName(asset.name,asset.resolved_slot,pickSlotMap)}</span>:<PlayerName name={asset.name} style={{fontFamily:SANS,fontSize:13,fontWeight:700,color:isCut?C.red:C.primary,cursor:'pointer'}} />}
       {age&&<span style={{fontFamily:MONO,fontSize:10,color:C.dim}}>({Math.round(age)})</span>}
       {hasChain&&<StatusTag label="FLIPPED" color={C.orange} bg="rgba(224,156,107,0.12)" border="rgba(224,156,107,0.25)"/>}
-      {hasChain&&vDelta!=null&&vDelta>0&&<StatusTag label="PROFIT" color={C.green} bg="rgba(125,211,160,0.12)" border="rgba(125,211,160,0.25)"/>}
       {isCut&&!hasChain&&<StatusTag label="CUT" color={C.red} bg="rgba(228,114,114,0.12)" border="rgba(228,114,114,0.25)"/>}
       {isTraded&&!hasChain&&<StatusTag label="TRADED" color={C.blue} bg="rgba(107,184,224,0.12)" border="rgba(107,184,224,0.25)"/>}
       {isPick&&(()=>{const yrM=asset.name.match(/(\d{4})/);const yr=yrM?parseInt(yrM[1]):0;const now=new Date().getFullYear();if(yr>now) return <StatusTag label="PENDING" color="#d4a017" bg="rgba(212,160,23,0.12)" border="rgba(212,160,23,0.25)"/>;if(yr<=now&&(!asset.resolved_player||asset.resolved_player==='Not yet drafted')) return <StatusTag label="UNRESOLVED" color="#d4a017" bg="rgba(212,160,23,0.12)" border="rgba(212,160,23,0.25)"/>;return null;})()}
     </div>
 
-    {/* Value at trade → now */}
-    {(vAt>0||vNow>0)&&<div style={{display:'flex',alignItems:'center',gap:8,fontFamily:MONO,fontSize:10}}><span style={{color:C.dim}}>{fmt(vAt)}</span><span style={{color:C.dim}}>→</span><span style={{color:C.secondary,fontWeight:700}}>{fmt(vNow)}</span>{vDelta!=null&&<span style={{color:vDelta>=0?C.green:C.red,fontWeight:800}}>{vDelta>=0?'+':''}{fmt(vDelta)}</span>}</div>}
-
-    {/* Flip chains with profit */}
-    {visibleFlips.map((fp:any,fi:number)=>{
-      const isPackaged=(fp.fullGave||[]).length>1;
-      return(<div key={fi} style={{padding:'8px 10px',borderRadius:5,background:C.card,border:`1px solid ${C.gold}15`}}>
-        <div style={{display:'flex',alignItems:'center',gap:4,marginBottom:4}}>
-          <span style={{fontFamily:MONO,fontSize:9,color:C.gold,fontWeight:800}}>↗</span>
-          <span style={{fontFamily:MONO,fontSize:9,color:C.orange,fontWeight:700}}>FLIPPED TO {(fp.partner||fp.flipped_to||'').toUpperCase()}</span>
-        </div>
-        <div style={{fontFamily:SANS,fontSize:11,color:C.secondary,lineHeight:1.6}}>
-          <span style={{color:C.red,fontWeight:600}}>{isPackaged?'Packaged':'Traded'}</span>{' '}
-          <span style={{color:C.primary,fontWeight:600}}>{(fp.fullGave||[]).join(' + ')}</span>
-          <span style={{color:C.dim}}> → </span>
-          <span style={{color:C.green,fontWeight:600}}>Received {(fp.fullGot||[]).join(', ')}</span>
-        </div>
-        {parsedFlipProfit&&fi===0&&<div style={{fontFamily:MONO,fontSize:10,color:C.dim,marginTop:4,lineHeight:1.5}}>
-          Acquired for ~{fmt(parsedFlipProfit.cost)} · Sold for ~{fmt(parsedFlipProfit.sale)} · <span style={{fontWeight:800,color:parsedFlipProfit.profit>=0?C.green:C.red}}>{parsedFlipProfit.profit>=0?'+':''}{fmt(parsedFlipProfit.profit)} {parsedFlipProfit.profit>=0?'profit':'loss'}</span>
-        </div>}
-      </div>);
-    })}
-
     {/* Pick resolution */}
-    {isPick&&asset.resolved_player&&<div style={{fontFamily:MONO,fontSize:9,color:C.dim}}>{asset.resolved_slot&&<span style={{color:C.secondary}}>{asset.resolved_slot} → </span>}{asset.resolved_player==="Not yet drafted"?"Not yet drafted":<span style={{color:C.primary,fontWeight:600}}>{asset.resolved_player}</span>}</div>}
+    {isPick&&asset.resolved_player&&<div style={{fontFamily:MONO,fontSize:9,color:C.dim,paddingLeft:2}}>{asset.resolved_slot&&<span style={{color:C.secondary}}>{asset.resolved_slot} → </span>}{asset.resolved_player==="Not yet drafted"?"Not yet drafted":<span style={{color:C.primary,fontWeight:600}}>{asset.resolved_player}</span>}</div>}
 
-    {/* PPG Stats — show for players AND resolved picks with production */}
-    {(()=>{const showProd=isPick?(asset.became_production||prod):prod;const hasProd=showProd&&showProd.total_points>0;if((!isPick||asset.resolved_player)&&hasProd){const _ppgA=showProd.games_started>0?(showProd.total_points/showProd.games_started):null;const _ppgR=showProd.games_on_roster>0?(showProd.total_points/showProd.games_on_roster):null;return(<div style={{marginTop:2}}>
-      <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:4}}><span style={{fontFamily:MONO,fontSize:11,fontWeight:800,color:C.primary}}>{showProd.total_points?.toFixed(1)} pts</span><span style={{fontFamily:MONO,fontSize:9,color:C.dim}}>across {showProd.games_on_roster} games</span>{isPick&&<span style={{fontFamily:MONO,fontSize:8,color:C.gold,fontWeight:700}}>as {(asset.resolved_player||'').split(' (')[0]}</span>}</div>
-      <div style={{display:'flex',gap:0,borderRadius:5,overflow:'hidden',border:`1px solid ${C.border}`,background:C.card}}>
-        {_ppgA!=null&&<div style={{flex:1,padding:'8px 12px',borderRight:`1px solid ${C.border}`}}>
-          <div style={{fontFamily:MONO,fontSize:7,fontWeight:800,letterSpacing:'0.08em',color:C.dim,marginBottom:3}}>PPG ACTIVE</div>
-          <div style={{display:'flex',alignItems:'baseline',gap:4}}><span style={{fontFamily:MONO,fontSize:22,fontWeight:900,color:_ppgA>=15?C.green:_ppgA>=10?C.primary:C.orange}}>{_ppgA.toFixed(1)}</span><span style={{fontFamily:MONO,fontSize:9,color:C.dim}}>({showProd.games_started}G)</span></div>
-          <div style={{fontFamily:MONO,fontSize:8,color:C.dim,marginTop:2}}>pts per start</div>
-        </div>}
-        {_ppgR!=null&&<div style={{flex:1,padding:'8px 12px'}}>
-          <div style={{fontFamily:MONO,fontSize:7,fontWeight:800,letterSpacing:'0.08em',color:C.dim,marginBottom:3}}>PPG ROSTERED</div>
-          <div style={{display:'flex',alignItems:'baseline',gap:4}}><span style={{fontFamily:MONO,fontSize:22,fontWeight:900,color:_ppgR>=12?C.green:_ppgR>=7?C.primary:C.red}}>{_ppgR.toFixed(1)}</span><span style={{fontFamily:MONO,fontSize:9,color:C.dim}}>({showProd.games_on_roster}G)</span></div>
-          <div style={{fontFamily:MONO,fontSize:8,color:C.dim,marginTop:2}}>pts per week owned</div>
-        </div>}
+    {/* Flip pill */}
+    {flipDest&&(
+      <div style={{display:'inline-flex',alignItems:'center',gap:4,padding:'2px 8px',borderRadius:4,background:'rgba(224,156,107,0.10)',border:'1px solid rgba(224,156,107,0.25)',marginTop:2}}>
+        <span style={{fontFamily:MONO,fontSize:9,color:C.orange,fontWeight:800}}>↗</span>
+        <span style={{fontFamily:MONO,fontSize:10,fontWeight:700,color:C.orange}}>{flipDest}</span>
       </div>
-      {showProd.seasons&&Object.entries(showProd.seasons).map(([yr,s]:any)=>(<div key={yr} style={{fontFamily:MONO,fontSize:9,color:C.dim,marginTop:1,paddingLeft:4}}>{yr}: {s.points?.toFixed(1)} pts ({s.games}G, {s.ppg?.toFixed(1)} PPG)</div>))}
-    </div>);}return null;})()}
+    )}
 
-    {/* Positional impact */}
-    {posImpact&&posImpact.impact!=null&&Math.abs(posImpact.impact)>=0.1&&<div style={{marginTop:2,padding:'5px 10px',borderRadius:5,background:posImpact.impact>=0?'rgba(125,211,160,0.12)':'rgba(228,114,114,0.12)',border:`1px solid ${posImpact.impact>=0?'rgba(125,211,160,0.25)':'rgba(228,114,114,0.25)'}`,fontFamily:MONO,fontSize:10,display:'flex',alignItems:'center',gap:6}}>
-      <span style={{fontWeight:800,color:C.secondary,letterSpacing:'0.04em'}}>{(position||posImpact?.position||'Position')} Position Impact</span>
-      <span style={{color:C.dim,marginLeft:2}}>{posImpact.avg_without?.toFixed(1)}</span><span style={{color:C.dim}}>→</span>
-      <span style={{color:C.secondary,fontWeight:700}}>{posImpact.avg_with?.toFixed(1)}</span>
-      <span style={{color:posImpact.impact>=0?C.green:C.red,fontWeight:900,fontSize:11}}>({posImpact.impact>=0?'+':''}{posImpact.impact.toFixed(1)})</span>
-    </div>}
+    {/* Production pills — three distinct PPG metrics + position impact */}
+    {hasProd&&(!isPick||asset.resolved_player)&&(()=>{
+      const careerPpg=showProd.career_ppg||0;
+      const ppgSinceTrade=_ppgA;
+      const ppgRostered=_ppgR;
+      // Color for PPG Since Trade: compare against career
+      const stC=ppgSinceTrade!=null?(ppgSinceTrade>=careerPpg*1.05?C.green:ppgSinceTrade>=careerPpg*0.85?C.primary:C.orange):C.dim;
+      // Color for PPG Rostered: red if significantly lower than PPG Since Trade (injuries/byes hurt)
+      const rC=ppgRostered!=null&&ppgSinceTrade!=null?(ppgRostered>=ppgSinceTrade*0.7?C.primary:C.red):C.dim;
+      return(
+      <div style={{display:'flex',flexDirection:'column',gap:3,marginTop:3}}>
+        {/* Total points */}
+        <div style={{display:'inline-flex',alignItems:'center',gap:4,padding:'3px 8px',borderRadius:4,background:'rgba(176,178,200,0.08)',border:'1px solid rgba(176,178,200,0.15)'}}>
+          <span style={{fontFamily:MONO,fontSize:9,fontWeight:700,color:C.secondary}}>Total Pts Since Trade</span>
+          <span style={{fontFamily:MONO,fontSize:10,fontWeight:900,color:C.primary}}>{showProd.total_points?.toFixed(0)}</span>
+          <span style={{fontFamily:MONO,fontSize:8,color:C.dim}}>({showProd.games_on_roster} weeks on roster)</span>
+        </div>
+        {/* Career PPG */}
+        {careerPpg>0&&(
+          <div style={{display:'inline-flex',alignItems:'center',gap:4,padding:'3px 8px',borderRadius:4,background:'rgba(176,178,200,0.06)',border:'1px solid rgba(176,178,200,0.12)'}}>
+            <span style={{fontFamily:MONO,fontSize:9,fontWeight:700,color:C.dim}}>Career PPG</span>
+            <span style={{fontFamily:MONO,fontSize:10,fontWeight:900,color:C.secondary}}>{careerPpg.toFixed(1)}</span>
+            <span style={{fontFamily:MONO,fontSize:8,color:C.dim}}>all-time avg when they play</span>
+          </div>
+        )}
+        {/* PPG Since Trade */}
+        {ppgSinceTrade!=null&&ppgSinceTrade>0&&(
+          <div style={{display:'inline-flex',alignItems:'center',gap:4,padding:'3px 8px',borderRadius:4,background:`${stC}10`,border:`1px solid ${stC}25`}}>
+            <span style={{fontFamily:MONO,fontSize:9,fontWeight:700,color:C.secondary}}>PPG Since Trade</span>
+            <span style={{fontFamily:MONO,fontSize:10,fontWeight:900,color:stC}}>{ppgSinceTrade.toFixed(1)}</span>
+            <span style={{fontFamily:MONO,fontSize:8,color:C.dim}}>avg when they play on your roster</span>
+          </div>
+        )}
+        {/* PPG Rostered */}
+        {ppgRostered!=null&&(
+          <div style={{display:'inline-flex',alignItems:'center',gap:4,padding:'3px 8px',borderRadius:4,background:`${rC}10`,border:`1px solid ${rC}25`}}>
+            <span style={{fontFamily:MONO,fontSize:9,fontWeight:700,color:C.secondary}}>PPG Rostered</span>
+            <span style={{fontFamily:MONO,fontSize:10,fontWeight:900,color:rC}}>{ppgRostered.toFixed(1)}</span>
+            <span style={{fontFamily:MONO,fontSize:8,color:C.dim}}>every week including injuries &amp; byes</span>
+          </div>
+        )}
+        {/* Position Impact pill */}
+        {posImpact&&posImpact.impact!=null&&Math.abs(posImpact.impact)>=0.1&&(
+          <div style={{display:'inline-flex',alignItems:'center',gap:4,padding:'3px 8px',borderRadius:4,background:posImpact.impact>=0?'rgba(125,211,160,0.10)':'rgba(228,114,114,0.10)',border:`1px solid ${posImpact.impact>=0?'rgba(125,211,160,0.25)':'rgba(228,114,114,0.25)'}`}}>
+            <span style={{fontFamily:MONO,fontSize:9,fontWeight:700,color:C.secondary}}>{(position||posImpact?.position||'POS')} Impact</span>
+            <span style={{fontFamily:MONO,fontSize:10,color:C.dim}}>{posImpact.avg_without?.toFixed(1)}</span>
+            <span style={{fontFamily:MONO,fontSize:9,color:C.dim}}>→</span>
+            <span style={{fontFamily:MONO,fontSize:10,fontWeight:800,color:C.secondary}}>{posImpact.avg_with?.toFixed(1)}</span>
+            <span style={{fontFamily:MONO,fontSize:10,fontWeight:900,color:posImpact.impact>=0?C.green:C.red}}>({posImpact.impact>=0?'+':''}{posImpact.impact.toFixed(1)})</span>
+          </div>
+        )}
+      </div>);})()}
   </div>);
 }
 
@@ -232,8 +262,17 @@ function FullReport({reportData,hindsightData,onClose,pickSlotMap}:{reportData:a
   // Trade day grades — match perspective
   const myTD=td.side_a?.owner?.toLowerCase()===myName.toLowerCase()?td.side_a:(td.side_b?.owner?.toLowerCase()===myName.toLowerCase()?td.side_b:td.side_a)||{};
   const theirTD=td.side_a?.owner?.toLowerCase()===theirName.toLowerCase()?td.side_a:(td.side_b?.owner?.toLowerCase()===theirName.toLowerCase()?td.side_b:td.side_b)||{};
-  // Hindsight grades — match perspective
+  // Hindsight grades — match perspective.
+  // Use the separate /hindsight endpoint (richer data: key_factors, letter,
+  // grade_factors, breakdown) as the base, then overlay the unresolved-picks
+  // gate (status/pending_reason) from reportData.hindsight per side.
   const h=hindsightData&&(hindsightData.side_a||hindsightData.side_b)?hindsightData:(reportData.hindsight||{});
+  // Overlay pending-picks status from /report endpoint onto each side.
+  // The /hindsight endpoint doesn't have this gate; /report does.
+  const _rh=reportData.hindsight as any;
+  if(_rh?.side_a?.status&&h.side_a){h.side_a.status=_rh.side_a.status;h.side_a.pending_reason=_rh.side_a.pending_reason;}
+  if(_rh?.side_b?.status&&h.side_b){h.side_b.status=_rh.side_b.status;h.side_b.pending_reason=_rh.side_b.pending_reason;}
+  if(_rh?.overall_status){h.overall=_rh.overall;h.overall_status=_rh.overall_status;}
   const myH=h.side_a?.owner?.toLowerCase()===myName.toLowerCase()?h.side_a:(h.side_b?.owner?.toLowerCase()===myName.toLowerCase()?h.side_b:h.side_a)||{};
   const theirH=h.side_a?.owner?.toLowerCase()===theirName.toLowerCase()?h.side_a:(h.side_b?.owner?.toLowerCase()===theirName.toLowerCase()?h.side_b:h.side_b)||{};
   const hasHindsight=(myH.score>0||theirH.score>0);
@@ -269,12 +308,25 @@ function FullReport({reportData,hindsightData,onClose,pickSlotMap}:{reportData:a
   const theirChamp=theirSide.season_context?.season_info?.champion;
 
   // Build compact key bullets for hindsight (top 2 per side)
+  // For picks that resolved to players, replace the raw pick label in grade
+  // factor text with the actual player name so the bullet reads
+  // "Michael Penix gained value — +856" not "2024 Round 2 (...) gained value".
+  const _resolvePickNames=(text:string,assets:any[])=>{
+    let out=text;
+    for(const a of assets){
+      if(a.type==='pick'&&a.resolved_player&&a.resolved_player!=='Not yet drafted'){
+        const playerName=a.resolved_player.split(' (')[0];
+        if(out.includes(a.name)){out=out.replace(a.name,playerName);}
+      }
+    }
+    return out;
+  };
   const buildBullets=(assets:any[],gradeFactors:any[],keyFactors:string[],isChamp:boolean)=>{
     const bullets:{text:string;color:string;isChamp?:boolean}[]=[];
     // Grade factors first (most specific)
     for(const gf of gradeFactors.slice(0,2)){
       const col=gf.sentiment==='elite'?C.goldBright:gf.sentiment==='positive'?C.green:gf.sentiment==='negative'?C.red:C.secondary;
-      bullets.push({text:noSHA(`${gf.title}${gf.value?' — '+gf.value:''}`),color:col});
+      bullets.push({text:_resolvePickNames(noSHA(`${gf.title}${gf.value?' — '+gf.value:''}`),assets),color:col});
     }
     // Fall back to key factors if no grade factors
     if(!bullets.length){for(const kf of keyFactors.slice(0,2)){bullets.push({text:kf,color:C.secondary});}}
@@ -295,56 +347,56 @@ function FullReport({reportData,hindsightData,onClose,pickSlotMap}:{reportData:a
   const theirBullets=buildBullets(theirAssets,theirGradeFactors,theirKeyFactors,!!theirChamp);
 
   return(<>
-    {/* HEADER */}
-    <div style={{paddingTop:mobile?6:14,paddingBottom:mobile?6:14,paddingLeft:mobile?10:24,paddingRight:mobile?10:24,display:'flex',alignItems:'center',justifyContent:'space-between',background:`linear-gradient(135deg, ${C.gold}06, transparent 60%)`,gap:8,borderBottom:`1px solid ${C.border}`}}>
-      <div style={{display:'flex',alignItems:'center',gap:mobile?8:12,flex:1,minWidth:0}}>
-        <div style={{width:3,height:mobile?28:36,borderRadius:2,background:C.gold,flexShrink:0}}/>
-        <div style={{minWidth:0,flex:1}}>
-          <div style={{fontFamily:MONO,fontSize:mobile?8:9,color:C.dim,letterSpacing:'0.18em'}}>TRADE REPORT</div>
-          <div style={{display:'flex',alignItems:'center',gap:mobile?4:8,marginTop:2}}>
-            <span style={{fontFamily:SANS,fontSize:mobile?13:18,fontWeight:800,color:C.primary,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{myName}</span>
-            <span style={{fontFamily:SANS,fontSize:mobile?12:14,color:C.dim,flexShrink:0}}>⇄</span>
-            <span style={{fontFamily:SANS,fontSize:mobile?13:18,fontWeight:700,color:C.secondary,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{theirName}</span>
-          </div>
-          <div style={{display:'flex',alignItems:'center',gap:6,marginTop:2}}>
-            <span style={{fontFamily:MONO,fontSize:mobile?10:11,color:C.dim}}>{dateStr}</span>
-            {overall&&<span style={{fontFamily:MONO,fontSize:mobile?10:11,fontWeight:800,color:os.color,paddingTop:1,paddingBottom:1,paddingLeft:8,paddingRight:8,borderRadius:3,background:os.bg,border:`1px solid ${os.border}`}}>{overall}</span>}
-          </div>
+    {/* HEADER — compact, close button top-left */}
+    <div style={{paddingTop:mobile?5:10,paddingBottom:mobile?5:10,paddingLeft:mobile?10:20,paddingRight:mobile?10:20,display:'flex',alignItems:'center',background:`linear-gradient(135deg, ${C.gold}06, transparent 60%)`,gap:mobile?8:10,borderBottom:`1px solid ${C.border}`}}>
+      <div onClick={onClose} style={{width:mobile?32:36,height:mobile?32:36,borderRadius:mobile?16:18,background:C.elevated,border:`1px solid ${C.border}`,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',fontSize:mobile?16:18,color:C.primary,fontFamily:MONO,flexShrink:0,fontWeight:700}}>×</div>
+      <div style={{width:3,height:mobile?24:30,borderRadius:2,background:C.gold,flexShrink:0}}/>
+      <div style={{minWidth:0,flex:1}}>
+        <div style={{display:'flex',alignItems:'center',gap:mobile?4:8,flexWrap:'wrap'}}>
+          <span style={{fontFamily:SANS,fontSize:mobile?13:16,fontWeight:800,color:C.primary,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{myName}</span>
+          <span style={{fontFamily:SANS,fontSize:mobile?11:13,color:C.dim,flexShrink:0}}>⇄</span>
+          <span style={{fontFamily:SANS,fontSize:mobile?13:16,fontWeight:700,color:C.secondary,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{theirName}</span>
+          <span style={{fontFamily:MONO,fontSize:mobile?9:10,color:C.dim,flexShrink:0}}>·</span>
+          <span style={{fontFamily:MONO,fontSize:mobile?9:10,color:C.dim,flexShrink:0}}>{dateStr}</span>
+          {overall&&<span style={{fontFamily:MONO,fontSize:mobile?9:10,fontWeight:800,color:os.color,padding:'1px 6px',borderRadius:3,background:os.bg,border:`1px solid ${os.border}`,flexShrink:0}}>{overall}</span>}
         </div>
       </div>
-      <div onClick={onClose} style={{width:32,height:32,borderRadius:16,background:C.elevated,border:`1px solid ${C.border}`,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',fontSize:16,color:C.dim,fontFamily:MONO,flexShrink:0}}>×</div>
     </div>
 
-    {/* SUMMARY BAR — from YOUR perspective */}
-    <div style={{paddingTop:mobile?4:8,paddingBottom:mobile?4:8,paddingLeft:mobile?8:24,paddingRight:mobile?8:24,borderBottom:`1px solid ${C.border}`,background:C.card,display:'flex',flexDirection:'row',alignItems:'center',gap:mobile?6:16}}>
-      <div style={{flex:1,minWidth:0}}><div style={{fontFamily:MONO,fontSize:mobile?10:12,color:C.red,fontWeight:800,letterSpacing:'0.06em',marginBottom:2}}>{amInTrade?'YOU GAVE':`${myLabel} GAVE`}</div><div style={{fontFamily:SANS,fontSize:mobile?12:13,color:C.secondary,lineHeight:1.3}}>{myGave}</div></div>
-      <div style={{fontFamily:MONO,fontSize:16,color:`${C.gold}60`,flexShrink:0}}>⇄</div>
-      <div style={{flex:1,minWidth:0}}><div style={{fontFamily:MONO,fontSize:mobile?10:12,color:C.green,fontWeight:800,letterSpacing:'0.06em',marginBottom:2}}>{amInTrade?'YOU GOT':`${myLabel} GOT`}</div><div style={{fontFamily:SANS,fontSize:mobile?12:13,color:C.primary,fontWeight:600,lineHeight:1.3}}>{myGot}</div></div>
+    {/* SUMMARY BAR — single line each, truncated with ellipsis */}
+    <div style={{paddingTop:mobile?3:6,paddingBottom:mobile?3:6,paddingLeft:mobile?8:20,paddingRight:mobile?8:20,borderBottom:`1px solid ${C.border}`,background:C.card,display:'flex',flexDirection:'row',alignItems:'center',gap:mobile?6:12}}>
+      <div style={{flex:1,minWidth:0}}><div style={{fontFamily:MONO,fontSize:mobile?9:10,color:C.red,fontWeight:800,letterSpacing:'0.06em',marginBottom:1}}>{amInTrade?'YOU GAVE':`${myLabel} GAVE`}</div><div style={{fontFamily:SANS,fontSize:mobile?11:12,color:C.secondary,lineHeight:1.2,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{myGave}</div></div>
+      <div style={{fontFamily:MONO,fontSize:14,color:`${C.gold}40`,flexShrink:0}}>⇄</div>
+      <div style={{flex:1,minWidth:0}}><div style={{fontFamily:MONO,fontSize:mobile?9:10,color:C.green,fontWeight:800,letterSpacing:'0.06em',marginBottom:1}}>{amInTrade?'YOU GOT':`${myLabel} GOT`}</div><div style={{fontFamily:SANS,fontSize:mobile?11:12,color:C.primary,fontWeight:600,lineHeight:1.2,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{myGot}</div></div>
     </div>
 
     {/* GRADE SUMMARY — readable blocks */}
+    {(()=>{
+      // Per-side pending-picks check: even if the trade is old enough for
+      // hindsight (548+ days), a side with unresolved picks should show PENDING.
+      const myPP=myH?.status==='pending';
+      const theirPP=theirH?.status==='pending';
+      const myHScore=(!myPP&&hindsightStatus==='confirmed')?(myH.score||0):0;
+      const myHVerdict=myPP?'Pending':hindsightStatus==='confirmed'?(myH.verdict||'—'):hindsightStatus==='too_soon'?'Too Soon':'Pending';
+      const theirHScore=(!theirPP&&hindsightStatus==='confirmed')?(theirH.score||0):0;
+      const theirHVerdict=theirPP?'Pending':hindsightStatus==='confirmed'?(theirH.verdict||'—'):hindsightStatus==='too_soon'?'Too Soon':'Pending';
+      return(
     <div style={{display:'flex',flexDirection:'row',paddingTop:mobile?6:10,paddingBottom:mobile?6:10,paddingLeft:mobile?8:24,paddingRight:mobile?8:24,borderBottom:`1px solid ${C.border}`,background:C.card,gap:mobile?6:12}}>
       {[
-        {label:'TRADE DAY',color:'#5eead4',score:myTD.score||50,verdict:myTD.verdict,theirScore:theirTD.score||50,theirVerdict:theirTD.verdict},
-        {label:'HINDSIGHT',color:C.gold,
-          score:hindsightStatus==='confirmed'?(myH.score||0):0,
-          verdict:hindsightStatus==='confirmed'?(myH.verdict||'—'):hindsightStatus==='too_soon'?'Too Soon':'Pending',
-          theirScore:hindsightStatus==='confirmed'?(theirH.score||0):0,
-          theirVerdict:hindsightStatus==='confirmed'?(theirH.verdict||'—'):hindsightStatus==='too_soon'?'Too Soon':'Pending',
-        },
-      ].map((block,bi)=>{
-        const isPending=bi===1&&hindsightStatus!=='confirmed';
-        return(
+        {label:'TRADE DAY',color:'#5eead4',items:[{label:myLabel,score:myTD.score||50,verdict:myTD.verdict,pp:false},{label:theirLabel,score:theirTD.score||50,verdict:theirTD.verdict,pp:false}]},
+        {label:'HINDSIGHT',color:C.gold,items:[{label:myLabel,score:myHScore,verdict:myHVerdict,pp:myPP},{label:theirLabel,score:theirHScore,verdict:theirHVerdict,pp:theirPP}]},
+      ].map((block,bi)=>(
         <div key={bi} style={{flex:1,padding:mobile?'6px 8px':'8px 14px',borderRadius:6,background:`${block.color}08`,border:`1px solid ${block.color}20`}}>
           <div style={{fontFamily:MONO,fontSize:mobile?8:9,fontWeight:800,letterSpacing:'0.12em',color:block.color,marginBottom:mobile?4:6}}>{block.label}</div>
           <div style={{display:'flex',gap:mobile?6:12}}>
-            {[{label:myLabel,score:block.score,verdict:block.verdict},{label:theirLabel,score:block.theirScore,verdict:block.theirVerdict}].map((side,si)=>{
-              const gc=isPending?C.dim:getGradeColor(side.score);
+            {block.items.map((side,si)=>{
+              const isPendingSide=side.pp||(bi===1&&hindsightStatus!=='confirmed');
+              const gc=isPendingSide?C.dim:getGradeColor(side.score);
               const vs=getVerdictStyle(side.verdict||'No Data');
               return(
               <div key={si} style={{flex:1,textAlign:'center'}}>
                 <div style={{fontFamily:MONO,fontSize:mobile?8:9,fontWeight:700,color:si===0?C.primary:C.secondary,marginBottom:2}}>{side.label}</div>
-                {isPending?(
+                {isPendingSide?(
                   <div style={{fontFamily:MONO,fontSize:mobile?11:13,fontWeight:800,color:C.dim}}>{side.verdict}</div>
                 ):(<>
                   <div style={{fontFamily:MONO,fontSize:mobile?20:26,fontWeight:900,color:gc,lineHeight:1}}>{getLetterGrade(side.score)}</div>
@@ -354,9 +406,9 @@ function FullReport({reportData,hindsightData,onClose,pickSlotMap}:{reportData:a
               </div>);
             })}
           </div>
-        </div>);
-      })}
-    </div>
+        </div>
+      ))}
+    </div>);})()}
 
     {/* TABS */}
     <div style={{display:'flex',borderBottom:`1px solid ${C.border}`}}>
@@ -372,73 +424,135 @@ function FullReport({reportData,hindsightData,onClose,pickSlotMap}:{reportData:a
 
     {/* ═══════ TAB 1: GRADE — flexbox 50/50, no grid ═══════ */}
     {tab==='grade'&&(<>
-      {/* ── TRADE DAY section ── */}
-      <SectionDivider label="TRADE DAY" accent="#5eead4"/>
-      <div style={{display:'flex',flexDirection:'row'}}>
-        {[
-          {label:myLabel,header:`${myLabel} RECEIVES`,side:myTD,assets:myAssets,total:myTotal},
-          {label:theirLabel,header:`${theirLabel} RECEIVES`,side:theirTD,assets:theirAssets,total:theirTotal},
-        ].map((s,idx)=>{const v=s.side.verdict||'No Data';const vs=getVerdictStyle(v);return(
-          <div key={idx} style={idx===0?colL:colR}>
-            {/* Owner RECEIVES header */}
-            <div style={{fontFamily:MONO,fontSize:mobile?11:13,fontWeight:900,letterSpacing:'0.06em',color:s.label==='YOU'?C.gold:C.primary,marginBottom:4,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{s.header}</div>
-            {/* Grade circle + verdict */}
-            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
-              <GradeCircle score={s.side.score||50} size={mobile?44:64}/>
-              <div style={{fontFamily:MONO,fontSize:13,fontWeight:800,color:vs.color,lineHeight:1.3}}>{v}</div>
-            </div>
-            {/* Assets */}
-            {s.assets.map((a:any,i:number)=>(
-              <div key={i} style={{display:'flex',alignItems:'center',gap:3,minWidth:0,marginBottom:1}}>
-                {a.type==='pick'?<span style={{fontFamily:MONO,fontSize:11,fontWeight:800,color:C.gold,flexShrink:0}}>PK</span>:
-                a.position&&<span style={{fontFamily:MONO,fontSize:11,fontWeight:800,color:posColor(a.position),flexShrink:0}}>{a.position}</span>}
-                <span style={{fontFamily:SANS,fontSize:14,fontWeight:600,color:C.primary,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1,minWidth:0}}>{cleanPickName(a.name,a.resolved_slot,pickSlotMap)}</span>
-                <span style={{fontFamily:MONO,fontSize:12,fontWeight:700,color:C.secondary,flexShrink:0}}>{fmt(a.value_at_trade?.value)}</span>
+      {/* ── TRADE DAY section — full bordered box ── */}
+      <div style={{margin:mobile?'6px 6px 0':'10px 16px 0',borderRadius:8,border:'1px solid #5eead430',overflow:'hidden'}}>
+        <SectionDivider label="TRADE DAY" accent="#5eead4"/>
+        <div style={{display:'flex',flexDirection:'row'}}>
+          {[
+            {label:myLabel,header:`${myLabel} RECEIVES`,side:myTD,assets:myAssets,total:myTotal},
+            {label:theirLabel,header:`${theirLabel} RECEIVES`,side:theirTD,assets:theirAssets,total:theirTotal},
+          ].map((s,idx)=>{const v=s.side.verdict||'No Data';const vs=getVerdictStyle(v);return(
+            <div key={idx} style={idx===0?colL:colR}>
+              {/* Owner RECEIVES header */}
+              <div style={{fontFamily:MONO,fontSize:mobile?11:13,fontWeight:900,letterSpacing:'0.06em',color:s.label==='YOU'?C.gold:C.primary,marginBottom:4,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{s.header}</div>
+              {/* Grade circle + verdict */}
+              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
+                <GradeCircle score={s.side.score||50} size={mobile?44:64}/>
+                <div style={{fontFamily:MONO,fontSize:13,fontWeight:800,color:vs.color,lineHeight:1.3}}>{v}</div>
               </div>
-            ))}
-            <div style={{fontFamily:MONO,fontSize:12,color:C.dim,textAlign:'right',marginTop:2}}>= <span style={{color:C.primary,fontWeight:700}}>{fmt(s.total)}</span></div>
-          </div>
-        );})}
-      </div>
-
-      {/* ── HINDSIGHT section ── */}
-      <SectionDivider label="HINDSIGHT" accent={C.gold}/>
-      <div style={{display:'flex',flexDirection:'row'}}>
-        {[
-          {label:myLabel,header:`${myLabel}'S SIDE`,h:myH,bullets:myBullets,champ:myChamp},
-          {label:theirLabel,header:`${theirLabel}'S SIDE`,h:theirH,bullets:theirBullets,champ:theirChamp},
-        ].map((s,idx)=>{
-          const isConfirmed=hindsightStatus==='confirmed';
-          const v=isConfirmed&&hasHindsight?(s.h.verdict||'—'):hindsightStatus==='too_soon'?'Too Soon':'Pending';
-          const vs=getVerdictStyle(v);
-          const pillLabel=hindsightStatus==='pending'?'LIVE GRADE':hindsightStatus==='too_soon'?'TOO SOON':null;
-          const pillColor=hindsightStatus==='pending'?C.gold:'#d4a017';
-          const pillBg=hindsightStatus==='pending'?`${C.gold}18`:'rgba(212,160,23,0.12)';
-          return(
-          <div key={idx} style={idx===0?colL:colR}>
-            <div style={{fontFamily:MONO,fontSize:mobile?11:13,fontWeight:900,letterSpacing:'0.06em',color:s.label==='YOU'?C.gold:C.primary,marginBottom:4,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{s.header}</div>
-            {hasHindsight||!isConfirmed?(<>
-              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
-                {(isConfirmed||hindsightStatus==='too_soon')&&<GradeCircle score={s.h.score||0} size={mobile?44:64}/>}
-                <div>
-                  <div style={{display:'flex',alignItems:'center',gap:6}}>
-                    <span style={{fontFamily:MONO,fontSize:13,fontWeight:800,color:vs.color,lineHeight:1.3}}>{v}</span>
-                    {pillLabel&&<span style={{fontFamily:MONO,fontSize:8,fontWeight:800,letterSpacing:'0.08em',color:pillColor,background:pillBg,padding:'2px 6px',borderRadius:3,border:`1px solid ${pillColor}30`}}>{pillLabel}</span>}
-                  </div>
-                  {!isConfirmed&&<div style={{fontFamily:SANS,fontSize:10,color:C.dim,marginTop:3,lineHeight:1.3}}>Grade updates as production accumulates and picks resolve.</div>}
-                </div>
-              </div>
-              {isConfirmed&&s.bullets.length>0&&s.bullets.map((b:{text:string;color:string;isChamp?:boolean},i:number)=>(
-                <div key={i} style={{display:'flex',alignItems:'flex-start',gap:4,marginBottom:1}}>
-                  <span style={{fontSize:7,color:b.isChamp?C.gold:b.color,flexShrink:0,marginTop:4}}>●</span>
-                  <span style={{fontFamily:SANS,fontSize:13,color:b.isChamp?C.gold:C.secondary,lineHeight:1.3,fontWeight:b.isChamp?700:400}}>{b.text}</span>
+              {/* Assets */}
+              {s.assets.map((a:any,i:number)=>(
+                <div key={i} style={{display:'flex',alignItems:'center',gap:3,minWidth:0,marginBottom:1}}>
+                  {a.type==='pick'?<span style={{fontFamily:MONO,fontSize:11,fontWeight:800,color:C.gold,flexShrink:0}}>PK</span>:
+                  a.position&&<span style={{fontFamily:MONO,fontSize:11,fontWeight:800,color:posColor(a.position),flexShrink:0}}>{a.position}</span>}
+                  <span style={{fontFamily:SANS,fontSize:14,fontWeight:600,color:C.primary,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1,minWidth:0}}>{cleanPickName(a.name,a.resolved_slot,pickSlotMap)}</span>
+                  <span style={{fontFamily:MONO,fontSize:12,fontWeight:700,color:C.secondary,flexShrink:0}}>{fmt(a.value_at_trade?.value)}</span>
                 </div>
               ))}
-            </>):(<div style={{paddingTop:4,paddingBottom:4}}>
-              <div style={{fontFamily:SERIF,fontSize:14,fontStyle:'italic',color:C.goldBright}}>Pending</div>
-            </div>)}
-          </div>
-        );})}
+              <div style={{fontFamily:MONO,fontSize:12,color:C.dim,textAlign:'right',marginTop:2}}>= <span style={{color:C.primary,fontWeight:700}}>{fmt(s.total)}</span></div>
+            </div>
+          );})}
+        </div>
+      </div>
+
+      {/* ── HINDSIGHT section — full bordered box ── */}
+      <div style={{margin:mobile?'6px 6px 0':'10px 16px 0',borderRadius:8,border:`1px solid ${C.gold}30`,overflow:'hidden'}}>
+        <SectionDivider label={hindsightStatus==='confirmed'?'HINDSIGHT':'TRENDING'} accent={C.gold}/>
+        <div style={{display:'flex',flexDirection:'row'}}>
+          {[
+            {label:myLabel,header:`${myLabel}'S SIDE`,h:myH,bullets:myBullets,champ:myChamp,assets:myAssets,sideData:mySide},
+            {label:theirLabel,header:`${theirLabel}'S SIDE`,h:theirH,bullets:theirBullets,champ:theirChamp,assets:theirAssets,sideData:theirSide},
+          ].map((s,idx)=>{
+            const isConf=hindsightStatus==='confirmed';
+            const isPP=s.h?.status==='pending';
+            const showGrade=isConf&&!isPP;
+            const sideTrending=s.sideData?.side_trending||null;
+            const sideNetDelta=s.sideData?.side_net_delta||null;
+            const tColor=sideTrending==='up'?C.green:sideTrending==='down'?C.red:C.gold;
+            const tArrow=sideTrending==='up'?'↑':sideTrending==='down'?'↓':'→';
+            return(
+            <div key={idx} style={idx===0?colL:colR}>
+              <div style={{fontFamily:MONO,fontSize:mobile?11:13,fontWeight:900,letterSpacing:'0.06em',color:s.label==='YOU'?C.gold:C.primary,marginBottom:4,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{s.header}</div>
+              {/* Circle: grade letter if confirmed, pending icon if unresolved picks, trending arrow otherwise */}
+              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
+                {showGrade?(
+                  <GradeCircle score={s.h.score||0} size={mobile?44:64}/>
+                ):isPP?(
+                  /* Pending picks circle — dashed border, clock-style */
+                  <div style={{position:'relative',width:mobile?44:64,height:mobile?44:64,flexShrink:0}}>
+                    <svg width={mobile?44:64} height={mobile?44:64} viewBox={`0 0 ${mobile?44:64} ${mobile?44:64}`}>
+                      <circle cx={(mobile?44:64)/2} cy={(mobile?44:64)/2} r={((mobile?44:64)-8)/2} fill="none" stroke={C.dim} strokeWidth="2" strokeDasharray="6 4"/>
+                    </svg>
+                    <div style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                      <span style={{fontFamily:MONO,fontSize:(mobile?44:64)*0.28,fontWeight:900,color:C.dim,lineHeight:1}}>···</span>
+                    </div>
+                  </div>
+                ):(
+                  /* Trending circle — same size/style as GradeCircle but shows arrow */
+                  <div style={{position:'relative',width:mobile?44:64,height:mobile?44:64,flexShrink:0}}>
+                    <svg width={mobile?44:64} height={mobile?44:64} viewBox={`0 0 ${mobile?44:64} ${mobile?44:64}`}>
+                      <circle cx={(mobile?44:64)/2} cy={(mobile?44:64)/2} r={((mobile?44:64)-8)/2} fill="none" stroke={C.border} strokeWidth="3"/>
+                      <circle cx={(mobile?44:64)/2} cy={(mobile?44:64)/2} r={((mobile?44:64)-8)/2} fill="none" stroke={tColor} strokeWidth="3" strokeLinecap="round" strokeDasharray={`${2*Math.PI*((mobile?44:64)-8)/2} 0`}/>
+                    </svg>
+                    <div style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                      <span style={{fontFamily:MONO,fontSize:(mobile?44:64)*0.38,fontWeight:900,color:tColor,lineHeight:1}}>{tArrow}</span>
+                    </div>
+                  </div>
+                )}
+                <div>
+                  {showGrade?(
+                    <span style={{fontFamily:MONO,fontSize:13,fontWeight:800,color:getVerdictStyle(s.h.verdict||'—').color,lineHeight:1.3}}>{s.h.verdict||'—'}</span>
+                  ):isPP?(
+                    <span style={{fontFamily:MONO,fontSize:13,fontWeight:800,color:C.dim,lineHeight:1.3}}>PENDING</span>
+                  ):(
+                    <span style={{fontFamily:MONO,fontSize:13,fontWeight:800,color:tColor,lineHeight:1.3}}>TRENDING {tArrow}</span>
+                  )}
+                  {/* Net delta below verdict/trending label — hide for pending picks (no values to delta) */}
+                  {!isPP&&sideNetDelta!=null&&<div style={{fontFamily:MONO,fontSize:mobile?10:11,fontWeight:700,color:sideNetDelta>=0?C.green:C.red,marginTop:2}}>
+                    {sideNetDelta>=0?'+':''}{fmt(sideNetDelta)} since trade
+                  </div>}
+                  {isPP&&<div style={{fontFamily:SANS,fontSize:mobile?10:11,color:C.dim,marginTop:2,lineHeight:1.3}}>{s.h?.pending_reason||'Grade pending — picks haven\'t resolved yet'}</div>}
+                </div>
+              </div>
+              {/* Bullets removed — asset value rows below show the same info cleaner */}
+              {/* Asset value change rows — mirrors Trade Day asset format.
+                  For picks: if resolved to a player, show the player name
+                  instead of the raw pick label so the user sees what the
+                  pick actually became. */}
+              {s.assets.filter((a:any)=>a.value_delta_pct!=null).map((a:any,ai:number)=>{
+                const ac=a.trending_direction==='up'?C.green:a.trending_direction==='down'?C.red:C.dim;
+                const aArrow=a.trending_direction==='up'?'↑':a.trending_direction==='down'?'↓':'→';
+                const isResolvedPick=a.type==='pick'&&a.resolved_player&&a.resolved_player!=='Not yet drafted';
+                const resolvedName=isResolvedPick?a.resolved_player.split(' (')[0]:'';
+                const resolvedPos=isResolvedPick&&a.resolved_player.includes('(')?a.resolved_player.split('(')[1]?.replace(')',''):'';
+                return(
+                <div key={ai} style={{display:'flex',flexDirection:'column',gap:0,minWidth:0,marginBottom:2}}>
+                  <div style={{display:'flex',alignItems:'center',gap:3}}>
+                    {isResolvedPick?(
+                      <span style={{fontFamily:MONO,fontSize:11,fontWeight:800,color:resolvedPos?posColor(resolvedPos):C.gold,flexShrink:0}}>{resolvedPos||'PK'}</span>
+                    ):a.type==='pick'?(
+                      <span style={{fontFamily:MONO,fontSize:11,fontWeight:800,color:C.gold,flexShrink:0}}>PK</span>
+                    ):a.position?(
+                      <span style={{fontFamily:MONO,fontSize:11,fontWeight:800,color:posColor(a.position),flexShrink:0}}>{a.position}</span>
+                    ):null}
+                    <span style={{fontFamily:SANS,fontSize:14,fontWeight:600,color:C.primary,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1,minWidth:0}}>
+                      {isResolvedPick?resolvedName:cleanPickName(a.name,a.resolved_slot,pickSlotMap)}
+                    </span>
+                    <span style={{fontFamily:MONO,fontSize:12,fontWeight:700,color:C.dim,flexShrink:0}}>{fmt(a.trade_day_value)}</span>
+                    <span style={{fontFamily:MONO,fontSize:11,color:C.dim,flexShrink:0}}>→</span>
+                    <span style={{fontFamily:MONO,fontSize:12,fontWeight:700,color:C.secondary,flexShrink:0}}>{fmt(a.current_value)}</span>
+                    <span style={{fontFamily:MONO,fontSize:11,fontWeight:800,color:ac,flexShrink:0}}>{aArrow}{Math.abs(a.value_delta_pct).toFixed(0)}%</span>
+                  </div>
+                  {isResolvedPick&&<div style={{fontFamily:MONO,fontSize:9,color:C.dim,paddingLeft:28}}>via {cleanPickName(a.name,a.resolved_slot,pickSlotMap)}</div>}
+                </div>);
+              })}
+              {/* Net total — mirrors Trade Day = total */}
+              {(()=>{const netCurrent=s.assets.reduce((sum:number,a:any)=>sum+(a.current_value||0),0);return netCurrent>0?(
+                <div style={{fontFamily:MONO,fontSize:12,color:C.dim,textAlign:'right',marginTop:2}}>= <span style={{color:C.primary,fontWeight:700}}>{fmt(netCurrent)}</span></div>
+              ):null;})()}
+            </div>
+          );})}
+        </div>
       </div>
     </>)}
 
@@ -618,7 +732,7 @@ export default function TradeReportModal({ leagueId, tradeId, onClose }: {
     <style>{`@keyframes fadeIn{from{opacity:0}to{opacity:1}}@keyframes modalSlideUp{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:translateY(0)}}@keyframes modalSlideIn{from{opacity:0;transform:scale(0.97) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}@keyframes radarSweep{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
     <div onClick={onClose} style={{position:'fixed',inset:0,zIndex:9999,background:'rgba(0,0,0,0.85)',backdropFilter:'blur(8px)',display:'flex',alignItems:mobile?'flex-end':'center',justifyContent:'center',animation:'fadeIn 0.2s ease'}}>
       <div onClick={(e)=>e.stopPropagation()} style={{
-        width:mobile?'100vw':'96vw',maxWidth:mobile?'100vw':1100,
+        width:mobile?'100vw':'92vw',maxWidth:mobile?'100vw':880,
         height:mobile?'calc(100vh - 56px)':undefined,maxHeight:mobile?undefined:'92vh',
         borderRadius:mobile?'12px 12px 0 0':12,overflowY:'auto',background:C.bg,
         border:mobile?'none':`1px solid ${C.border}`,
