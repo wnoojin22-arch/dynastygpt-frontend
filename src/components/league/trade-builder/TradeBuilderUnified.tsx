@@ -124,6 +124,128 @@ interface SearchResult {
   value?: number;
 }
 
+// ── Floating Cart Button (visible outside swipe modal) ──────────────────
+
+function FloatingCart({ tb, ctx, leagueId }: { tb: ReturnType<typeof useTradeBuilderContext>["tb"]; ctx: ReturnType<typeof useTradeBuilderContext>; leagueId: string }) {
+  const [open, setOpen] = useState(false);
+  const queuedTrades = useTradeBuilderStore((s) => s.queuedTrades);
+  const removeFromQueue = useTradeBuilderStore((s) => s.removeFromQueue);
+
+  // Don't show if swipe modal is already open (it has its own cart)
+  const swipeModalOpen = tb.suggestedPkgs.length > 0;
+  if (queuedTrades.length === 0 || swipeModalOpen) return null;
+
+  return (
+    <>
+      {/* Cart icon — fixed in header top-right */}
+      {!open && (
+        <button
+          onClick={() => setOpen(true)}
+          style={{
+            position: "fixed", top: 10, right: 12, zIndex: 9990,
+            width: 32, height: 32,
+            background: "transparent", border: "none", cursor: "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            padding: 0,
+          }}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={C.dim} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
+            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
+          </svg>
+          <span style={{
+            position: "absolute", top: 0, right: 0,
+            background: C.gold, color: "#06080d", fontFamily: MONO, fontSize: 8, fontWeight: 900,
+            width: 14, height: 14, borderRadius: "50%",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            {queuedTrades.length}
+          </span>
+        </button>
+      )}
+
+      {/* Queue panel */}
+      {open && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 9997,
+          background: "rgba(6,8,13,0.97)", backdropFilter: "blur(8px)",
+          display: "flex", flexDirection: "column",
+        }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px 8px", flexShrink: 0 }}>
+            <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.10em", color: C.gold }}>
+              {queuedTrades.length} SAVED TRADE{queuedTrades.length !== 1 ? "S" : ""}
+            </span>
+            <button onClick={() => setOpen(false)} style={{
+              background: C.elevated, border: `1px solid ${C.border}`, borderRadius: 8,
+              padding: "6px 10px", cursor: "pointer", fontSize: 14, lineHeight: 1, color: C.dim,
+            }}>✕</button>
+          </div>
+          <div style={{ flex: 1, overflowY: "auto", padding: "8px 16px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {queuedTrades.map((pkg, i) => (
+                <div key={`${pkg.partner}-${i}`} style={{
+                  background: C.elevated, border: `1px solid ${C.border}`, borderRadius: 12,
+                  padding: 14, display: "flex", flexDirection: "column", gap: 10,
+                }}>
+                  <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.gold, letterSpacing: "0.08em" }}>
+                    TRADE WITH {pkg.partner?.toUpperCase()}
+                  </div>
+                  <div style={{ display: "flex", gap: 10 }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.red, marginBottom: 4, letterSpacing: "0.06em" }}>YOU SEND</div>
+                      {(pkg.i_give || []).map((a) => (
+                        <div key={a.name} style={{ fontFamily: SANS, fontSize: 12, color: C.primary, padding: "2px 0", display: "flex", alignItems: "center", gap: 4 }}>
+                          <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: posColor(a.position), background: `${posColor(a.position)}18`, padding: "1px 4px", borderRadius: 3 }}>{a.position}</span>
+                          {a.name}
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.green, marginBottom: 4, letterSpacing: "0.06em" }}>YOU GET</div>
+                      {(pkg.i_receive || []).map((a) => (
+                        <div key={a.name} style={{ fontFamily: SANS, fontSize: 12, color: C.primary, padding: "2px 0", display: "flex", alignItems: "center", gap: 4 }}>
+                          <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: posColor(a.position), background: `${posColor(a.position)}18`, padding: "1px 4px", borderRadius: 3 }}>{a.position}</span>
+                          {a.name}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button
+                      onClick={() => {
+                        ctx.loadPackage(pkg);
+                        setOpen(false);
+                      }}
+                      style={{
+                        flex: 1, padding: "12px 0", borderRadius: 8, border: "none",
+                        background: `linear-gradient(135deg, ${C.goldDark}, ${C.gold})`,
+                        fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.06em",
+                        color: C.bg, cursor: "pointer",
+                      }}
+                    >
+                      BUILD THIS TRADE
+                    </button>
+                    <button
+                      onClick={() => removeFromQueue(i)}
+                      style={{
+                        padding: "12px 16px", borderRadius: 8, border: `1px solid ${C.border}`,
+                        background: C.elevated, fontFamily: MONO, fontSize: 11, fontWeight: 700,
+                        color: C.dim, cursor: "pointer",
+                      }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 // ── Swipe Modal (cards + shopping cart) ──────────────────────────────────
 
 function SwipeModal({ tb, ctx, leagueId }: { tb: ReturnType<typeof useTradeBuilderContext>["tb"]; ctx: ReturnType<typeof useTradeBuilderContext>; leagueId: string }) {
@@ -143,19 +265,14 @@ function SwipeModal({ tb, ctx, leagueId }: { tb: ReturnType<typeof useTradeBuild
   if (!showModal) return null;
 
   const handleClose = () => {
-    clearQueue();
     tb.handleClear();
     setShowQueue(false);
   };
 
-  const handleBuildTrade = (pkg: typeof queuedTrades[number], index: number) => {
-    removeFromQueue(index);
+  const handleBuildTrade = (pkg: typeof queuedTrades[number]) => {
     ctx.loadPackage(pkg);
-    // If that was the last one, close modal
-    if (queuedTrades.length <= 1) {
-      tb.handleClear();
-      setShowQueue(false);
-    }
+    tb.handleClear();
+    setShowQueue(false);
   };
 
   return (
@@ -166,11 +283,25 @@ function SwipeModal({ tb, ctx, leagueId }: { tb: ReturnType<typeof useTradeBuild
     }}>
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px 8px", flexShrink: 0 }}>
-        <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.10em", color: C.gold }}>
-          {showQueue
-            ? `${queuedTrades.length} SAVED TRADE${queuedTrades.length !== 1 ? "S" : ""}`
-            : `${tb.suggestedPkgs.length} TRADE${tb.suggestedPkgs.length !== 1 ? "S" : ""} FOUND`}
-        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.10em", color: C.gold }}>
+            {showQueue
+              ? `${queuedTrades.length} SAVED TRADE${queuedTrades.length !== 1 ? "S" : ""}`
+              : `${tb.suggestedPkgs.length} TRADE${tb.suggestedPkgs.length !== 1 ? "S" : ""} FOUND`}
+          </span>
+          <button
+            onClick={() => window.dispatchEvent(new Event("open-feedback"))}
+            style={{
+              background: C.gold, border: "none", cursor: "pointer",
+              padding: "2px 6px", borderRadius: 4,
+              display: "flex", alignItems: "center", gap: 3,
+              fontFamily: MONO, fontSize: 10, fontWeight: 800,
+              color: "#06080d", letterSpacing: "0.04em",
+            }}
+          >
+            💬
+          </button>
+        </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 8px", borderRadius: 10, border: `1px solid rgba(212,165,50,0.15)`, background: "rgba(212,165,50,0.04)" }}>
             <span style={{ fontSize: 7, fontWeight: 600, color: C.gold, fontFamily: SANS, fontStyle: "italic" }}>powered by</span>
@@ -242,7 +373,7 @@ function SwipeModal({ tb, ctx, leagueId }: { tb: ReturnType<typeof useTradeBuild
                   {/* Actions */}
                   <div style={{ display: "flex", gap: 8 }}>
                     <button
-                      onClick={() => handleBuildTrade(pkg, i)}
+                      onClick={() => handleBuildTrade(pkg)}
                       style={{
                         flex: 1, padding: "12px 0", borderRadius: 8, border: "none",
                         background: `linear-gradient(135deg, ${C.goldDark}, ${C.gold})`,
@@ -949,6 +1080,11 @@ export default function TradeBuilderUnified() {
           partnerWindow={ownerWindows[tb.partner] || "BALANCED"}
         />
       )}
+
+      {/* ══════════════════════════════════════════════════════════
+          FLOATING CART — always visible when trades are queued
+          ══════════════════════════════════════════════════════════ */}
+      <FloatingCart tb={tb} ctx={ctx} leagueId={leagueId} />
 
       {/* ══════════════════════════════════════════════════════════
           SWIPE MODAL — suggestion cards + shopping cart

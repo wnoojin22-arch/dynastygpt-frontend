@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useUser } from "@clerk/nextjs";
+import { usePathname } from "next/navigation";
 import { useLeagueStore } from "@/lib/stores/league-store";
 import { AnimatePresence, motion } from "framer-motion";
 
@@ -36,12 +37,21 @@ export default function FeedbackWidget() {
   const fileRef = useRef<HTMLInputElement>(null);
   const { user } = useUser();
   const { currentLeagueId, currentOwner, currentOwnerId } = useLeagueStore();
+  const pathname = usePathname();
+  const isTradeBuilder = pathname.includes("/trades") || pathname.includes("/trade-analyzer") || pathname.includes("/war-room");
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 640);
     check();
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
+  }, []);
+
+  // Open from external components via custom event
+  useEffect(() => {
+    const handler = () => { setOpen(true); setPulse(false); };
+    window.addEventListener("open-feedback", handler);
+    return () => window.removeEventListener("open-feedback", handler);
   }, []);
 
   // Stop pulsing after 3 visits
@@ -109,7 +119,32 @@ export default function FeedbackWidget() {
           reader.onerror = reject;
           reader.readAsDataURL(file);
         });
-        setImages((prev) => [...prev, { url: dataUrl.slice(0, 500) + "...(truncated)", name: file.name }]);
+        // Compress large images to keep the POST payload reasonable.
+        // Target ~200KB base64 (150KB image). Skip compression for small files.
+        let finalUrl = dataUrl;
+        if (dataUrl.length > 300_000 && typeof document !== "undefined") {
+          try {
+            const img = new Image();
+            const loaded = new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = rej; });
+            img.src = dataUrl;
+            await loaded;
+            const canvas = document.createElement("canvas");
+            const maxDim = 1200;
+            let w = img.width, h = img.height;
+            if (w > maxDim || h > maxDim) {
+              const scale = maxDim / Math.max(w, h);
+              w = Math.round(w * scale);
+              h = Math.round(h * scale);
+            }
+            canvas.width = w;
+            canvas.height = h;
+            canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+            finalUrl = canvas.toDataURL("image/jpeg", 0.7);
+          } catch {
+            // compression failed — use original
+          }
+        }
+        setImages((prev) => [...prev, { url: finalUrl, name: file.name }]);
       } catch {
         // skip failed uploads
       }
@@ -133,7 +168,7 @@ export default function FeedbackWidget() {
           fontFamily: MONO, fontWeight: 800, letterSpacing: "0.04em",
           boxShadow: `0 4px 20px rgba(212,165,50,0.3)`,
           animation: pulse ? "feedbackPulse 2s ease infinite" : "none",
-          display: open ? "none" : "flex",
+          display: (open || (isMobile && isTradeBuilder)) ? "none" : "flex",
         }}
       >
         <span className="text-[10px] sm:text-xs">💬</span>

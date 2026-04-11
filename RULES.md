@@ -171,3 +171,4 @@ If ANY step is missing, the league is INCOMPLETE. Log it. Fix it. Do not ship in
 - Never revert commits without understanding what they contain — the revert may undo critical fixes
 - Never build auto-sync, auto-refresh, or any feature that fires expensive endpoints on page load
 - Never assume a fix deployed — verify the running code matches the fix
+- Before editing any component, search the entire codebase for the component that is ACTUALLY rendering the UI being discussed. Never assume the component name matches the feature name. Search for the visible text string (e.g. 'BUILD THIS TRADE') to find the real render location before touching any code.
