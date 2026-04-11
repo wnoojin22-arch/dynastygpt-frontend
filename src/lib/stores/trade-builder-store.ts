@@ -1,16 +1,16 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import type { SuggestedPackage } from "@/components/league/trade-builder/types";
 
 /**
- * Ephemeral intent store for cross-page navigation into the Trade Builder.
- * Written by DashboardView "Your Move" cards, consumed once by TradeBuilderView.
+ * Trade Builder store.
  *
- * Also holds the trade queue (shopping cart) — persists across swipe sessions
- * until the user clears it or refreshes the page.
+ * intent: ephemeral cross-page navigation (DashboardView → TradeBuilder).
+ * queuedTrades: shopping cart — persisted to localStorage so saved trades
+ *   survive page reloads and return visits.
  */
 interface TradeBuilderIntent {
   type: "sell" | "buy" | "position";
-  /** Player name (sell/buy) or position code like "QB" (position) */
   value: string;
 }
 
@@ -19,26 +19,32 @@ interface TradeBuilderStore {
   setIntent: (intent: TradeBuilderIntent) => void;
   consumeIntent: () => TradeBuilderIntent | null;
 
-  // Trade queue (shopping cart)
   queuedTrades: SuggestedPackage[];
   addToQueue: (pkg: SuggestedPackage) => void;
   removeFromQueue: (index: number) => void;
   clearQueue: () => void;
 }
 
-export const useTradeBuilderStore = create<TradeBuilderStore>()((set, get) => ({
-  intent: null,
-  setIntent: (intent) => set({ intent }),
-  consumeIntent: () => {
-    const current = get().intent;
-    set({ intent: null });
-    return current;
-  },
+export const useTradeBuilderStore = create<TradeBuilderStore>()(
+  persist(
+    (set, get) => ({
+      intent: null,
+      setIntent: (intent) => set({ intent }),
+      consumeIntent: () => {
+        const current = get().intent;
+        set({ intent: null });
+        return current;
+      },
 
-  // Trade queue
-  queuedTrades: [],
-  addToQueue: (pkg) => set((s) => ({ queuedTrades: [...s.queuedTrades, pkg] })),
-  removeFromQueue: (index) =>
-    set((s) => ({ queuedTrades: s.queuedTrades.filter((_, i) => i !== index) })),
-  clearQueue: () => set({ queuedTrades: [] }),
-}));
+      queuedTrades: [],
+      addToQueue: (pkg) => set((s) => ({ queuedTrades: [...s.queuedTrades, pkg] })),
+      removeFromQueue: (index) =>
+        set((s) => ({ queuedTrades: s.queuedTrades.filter((_, i) => i !== index) })),
+      clearQueue: () => set({ queuedTrades: [] }),
+    }),
+    {
+      name: "dg-trade-queue",
+      partialize: (state) => ({ queuedTrades: state.queuedTrades }),
+    },
+  ),
+);
