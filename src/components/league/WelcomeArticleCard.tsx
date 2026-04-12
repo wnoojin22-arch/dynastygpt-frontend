@@ -36,6 +36,7 @@ import {
   type WelcomeArticle,
 } from "@/lib/api";
 import { C, SANS, MONO, DISPLAY, SERIF } from "./tokens";
+import { useTrack } from "@/hooks/useTrack";
 
 const HOUR = 1000 * 60 * 60;
 
@@ -105,6 +106,7 @@ function ArticleCard({
 }) {
   const article = response.article!;
   const [open, setOpen] = useState(false);
+  const track = useTrack();
   const generatedAt = response.generated_at ? new Date(response.generated_at) : null;
   const dateStr = generatedAt
     ? generatedAt.toLocaleDateString("en-US", { month: "short", day: "numeric" })
@@ -116,7 +118,7 @@ function ArticleCard({
     <>
       <motion.button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => { track(variant === "league" ? "league_news_opened" : "my_news_opened", { article_title: article.headline }); setOpen(true); }}
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35 }}

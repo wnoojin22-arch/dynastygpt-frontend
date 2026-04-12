@@ -32,11 +32,24 @@ async function authHeaders(): Promise<Record<string, string>> {
   return headers;
 }
 
+// Fire-and-forget error log — never throws, never blocks
+function _logApiError(path: string, status: number, msg: string) {
+  try {
+    const page = typeof window !== "undefined" ? window.location.pathname : "";
+    fetch(`${API}/api/error-log`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ page, endpoint: path, error_message: msg.slice(0, 500), status_code: status }),
+    }).catch(() => {});
+  } catch { /* silent */ }
+}
+
 async function get<T>(path: string): Promise<T> {
   const headers = await authHeaders();
   const res = await fetch(`${API}${path}`, { headers });
   if (!res.ok) {
     const text = await res.text();
+    _logApiError(path, res.status, text.slice(0, 500));
     throw new Error(`API ${res.status}: ${text}`);
   }
   return res.json();
@@ -51,6 +64,7 @@ async function post<T>(path: string, body?: unknown): Promise<T> {
   });
   if (!res.ok) {
     const text = await res.text();
+    _logApiError(path, res.status, text.slice(0, 500));
     throw new Error(`API ${res.status}: ${text}`);
   }
   return res.json();

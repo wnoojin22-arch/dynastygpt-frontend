@@ -346,7 +346,7 @@ export default function TradeBuilderDesktop({
         <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "10px 20px", borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
           <span style={{ fontFamily: DISPLAY, fontSize: 18, color: C.primary, letterSpacing: "0.05em", flexShrink: 0 }}>TRADE BUILDER</span>
           <div style={{ flex: "0 0 300px", position: "relative" }}>
-            <select value={partner} onChange={(e) => { setPartner(e.target.value); }}
+            <select value={partner} onChange={(e) => { track("trade_partner_selected", { league_id: leagueId, partner: e.target.value }); setPartner(e.target.value); }}
               style={{ width: "100%", padding: "9px 14px", borderRadius: 6, background: C.card, border: `1px solid ${partner ? C.gold : C.border}`, color: partner ? C.primary : C.dim, fontFamily: SANS, fontSize: 15, cursor: "pointer", outline: "none" }}>
               <option value="">Select trade partner...</option>
               {otherOwners.map((o: { name: string }) => <option key={o.name} value={o.name}>{o.name}</option>)}
@@ -371,7 +371,7 @@ export default function TradeBuilderDesktop({
             {POSITIONS.map((pos) => {
               const pc = posColor(pos);
               return (
-              <button key={pos} onClick={() => handleFindPosition(pos)}
+              <button key={pos} onClick={() => { track("find_position_clicked", { league_id: leagueId, position: pos }); handleFindPosition(pos); }}
                 style={{
                   fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.10em",
                   padding: "8px 18px", borderRadius: 8, cursor: "pointer", transition: "all 0.2s ease",
@@ -412,7 +412,7 @@ export default function TradeBuilderDesktop({
               CLEAR
             </button>
           )}
-          <ModeToggle value={mode} onChange={setMode} />
+          <ModeToggle value={mode} onChange={(v) => { track("trade_style_changed", { league_id: leagueId, from: mode, to: v }); setMode(v); }} />
         </div>
 
         {/* Error banner */}
@@ -445,7 +445,7 @@ export default function TradeBuilderDesktop({
               onToggle={toggleReceive} side="receive" posGrades={theirGrades}
               windowToggle={<WindowToggle label="THEIR LENS" value={theirWindow} computed={computedPW} onChange={setTheirWindow} />} />
           ) : showResults ? (
-            <ResultsPanel packages={suggestedPkgs} loading={suggestLoading} elapsedSec={suggestElapsedSec} query={suggestQuery} onBuild={buildPackage} onBack={() => handleClear()} />
+            <ResultsPanel packages={suggestedPkgs} loading={suggestLoading} elapsedSec={suggestElapsedSec} query={suggestQuery} onBuild={(pkg) => { track("build_trade_clicked", { league_id: leagueId, partner: pkg.partner }); buildPackage(pkg); }} onBack={() => handleClear()} />
           ) : (
             <div style={{ flex: "1 1 0", display: "flex", alignItems: "center", justifyContent: "center", background: C.panel, borderRadius: 8, border: `1px solid ${C.border}` }}>
               <div style={{ textAlign: "center", maxWidth: 320 }}>
@@ -462,7 +462,7 @@ export default function TradeBuilderDesktop({
               <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.5)", backdropFilter: "blur(3px)" }}
                 onClick={() => { handleClear(); }} />
               <div style={{ position: "relative", width: "100%", maxWidth: 600, maxHeight: "80vh", overflowY: "auto", background: C.panel, border: `1px solid ${C.gold}30`, borderRadius: 12, animation: "fadeUp 0.3s ease", margin: "0 20px" }}>
-                <ResultsPanel packages={suggestedPkgs} loading={suggestLoading} elapsedSec={suggestElapsedSec} query={suggestQuery} onBuild={buildPackage} onBack={() => handleClear()} />
+                <ResultsPanel packages={suggestedPkgs} loading={suggestLoading} elapsedSec={suggestElapsedSec} query={suggestQuery} onBuild={(pkg) => { track("build_trade_clicked", { league_id: leagueId, partner: pkg.partner }); buildPackage(pkg); }} onBack={() => handleClear()} />
               </div>
             </div>
           )}

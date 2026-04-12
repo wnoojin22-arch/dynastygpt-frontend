@@ -98,6 +98,7 @@ function Pill({ title, defaultOpen, color, children }: { title: string; defaultO
 
 function MyDraftRoomTab({ lid, seasons, owner, ownerId }: { lid: string; seasons: any[]; owner: string; ownerId?: string | null }) {
   const openPlayerCard = usePlayerCardStore((s) => s.openPlayerCard);
+  const track = useTrack();
 
   // ── Personal profile (computed from draft history) ──
   const profile = useMemo(() => {
@@ -191,7 +192,7 @@ function MyDraftRoomTab({ lid, seasons, owner, ownerId }: { lid: string; seasons
           {profile.roundStats.map((r) => {
             const isOpen = expandedRound === r.round;
             return (
-              <div key={r.round} onClick={() => { setExpandedRound(isOpen ? null : r.round); setExpandedPos(null); }} style={{
+              <div key={r.round} onClick={() => { if(!isOpen) track("draft_pick_expanded", { league_id: lid, round: r.round }); setExpandedRound(isOpen ? null : r.round); setExpandedPos(null); }} style={{
                 textAlign: "center", padding: "8px 4px", borderRadius: 6, cursor: "pointer",
                 background: isOpen ? `${hrColor(r.rate)}18` : `${hrColor(r.rate)}08`,
                 border: `1px solid ${isOpen ? hrColor(r.rate) : `${hrColor(r.rate)}20`}`,
@@ -822,7 +823,7 @@ export default function DraftPage() {
         {TABS.map((t) => {
           const act = tab === t.id;
           return (
-            <button key={t.id} onClick={() => setTab(t.id)} style={{
+            <button key={t.id} onClick={() => { track("draft_tab_changed", { league_id: lid, tab: t.id }); setTab(t.id); }} style={{
               padding: "8px 0", borderRadius: 6, border: "none", cursor: "pointer",
               fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.06em",
               textAlign: "center", whiteSpace: "nowrap", transition: "all 0.15s",

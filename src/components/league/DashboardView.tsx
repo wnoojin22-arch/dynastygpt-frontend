@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useTrack } from "@/hooks/useTrack";
 import { useLeagueStore } from "@/lib/stores/league-store";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -261,6 +262,7 @@ const COMPONENT_LABELS: Record<string, string> = {
 
 function DynastyScoreCard({ lid, owner, ownerId }: { lid: string; owner: string; ownerId?: string | null }) {
   const [expanded, setExpanded] = useState(false);
+  const track = useTrack();
 
   const { data: myScore, isLoading: loadingScore, isError: errorScore } = useQuery({
     queryKey: ["dynasty-score", lid, owner],
@@ -386,7 +388,7 @@ function DynastyScoreCard({ lid, owner, ownerId }: { lid: string; owner: string;
 
         {/* CTA to expand full scouting card */}
         <div
-          onClick={() => setExpanded(!expanded)}
+          onClick={() => { if(!expanded) track("dynasty_score_expanded", { league_id: lid }); setExpanded(!expanded); }}
           style={{
             display: "flex", alignItems: "center", justifyContent: "center",
             cursor: "pointer", userSelect: "none",
@@ -550,6 +552,8 @@ function DashboardView({ lid, owner, ownerId }: { lid: string; owner: string; ow
   const router = useRouter();
   const openPlayerCard = usePlayerCardStore((s) => s.openPlayerCard);
   const { currentLeagueSlug } = useLeagueStore();
+  const track = useTrack();
+  useEffect(() => { if (lid) track("dashboard_viewed", { league_id: lid }); }, [lid]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const { data: roster, isLoading: loadingRoster } = useQuery({ queryKey: ["roster", lid, owner], queryFn: () => getRoster(lid, owner, ownerId), enabled: !!lid && !!owner });
   const { data: picks } = useQuery({ queryKey: ["picks", lid, owner], queryFn: () => getPicks(lid, owner, ownerId), enabled: !!lid && !!owner });

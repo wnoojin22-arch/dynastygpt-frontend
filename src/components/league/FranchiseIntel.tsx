@@ -8,6 +8,7 @@ import { C, SANS, MONO, DISPLAY, fmt, posColor } from "./tokens";
 import PlayerName from "./PlayerName";
 import { ChevronDown } from "lucide-react";
 import CoachesCorner from "./CoachesCorner";
+import { useTrack } from "@/hooks/useTrack";
 
 /* ═══════════════════════════════════════════════════════════════
    HELPERS
@@ -346,6 +347,7 @@ export default function FranchiseIntel({ leagueId, owner, ownerId }: {
   leagueId: string; owner: string; ownerId?: string | null; leagueName?: string;
 }) {
   const [tab, setTab] = useState<"report" | "coaches">("report");
+  const track = useTrack();
 
   const { data: intel, isLoading } = useQuery({
     queryKey: ["franchise-intel", leagueId, owner],
@@ -404,7 +406,7 @@ export default function FranchiseIntel({ leagueId, owner, ownerId }: {
       {/* TAB BAR */}
       <div style={{ display: "flex", gap: 0, borderBottom: `1px solid ${C.border}`, marginBottom: 14 }}>
         {(["report", "coaches"] as const).map((t) => (
-          <div key={t} onClick={() => setTab(t)} style={{
+          <div key={t} onClick={() => { track("franchise_tab_changed", { league_id: leagueId, tab_name: t }); setTab(t); }} style={{
             padding: "10px 20px", fontFamily: SANS, fontSize: 14, fontWeight: tab === t ? 600 : 400,
             color: tab === t ? C.gold : C.dim, cursor: "pointer",
             borderBottom: tab === t ? `2px solid ${C.gold}` : "2px solid transparent",
