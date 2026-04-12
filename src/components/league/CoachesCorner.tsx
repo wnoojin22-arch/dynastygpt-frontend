@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getCoachesCorner } from "@/lib/api";
 import { posColor } from "./tokens";
 import PlayerName from "./PlayerName";
 import { useRouter } from "next/navigation";
 import { useLeagueStore } from "@/lib/stores/league-store";
+import { useTrack } from "@/hooks/useTrack";
 import {
   ArrowUpRight, Shield, Target,
   TrendingUp, TrendingDown,
@@ -420,6 +421,8 @@ function BuildTradeCTA() {
    ═══════════════════════════════════════════════════════════════ */
 
 export default function CoachesCorner({ leagueId, owner, ownerId }: { leagueId: string; owner: string; ownerId?: string | null }) {
+  const track = useTrack();
+  useEffect(() => { if (leagueId && owner) track("coaches_corner_opened", { league_id: leagueId, owner }); }, [leagueId, owner]); // eslint-disable-line react-hooks/exhaustive-deps
   const { data: cc, isLoading } = useQuery({
     queryKey: ["coaches-corner-v2", leagueId, owner],
     queryFn: () => getCoachesCorner(leagueId, owner, ownerId),

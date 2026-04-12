@@ -9,6 +9,7 @@ import PlayerName from "./PlayerName";
 import { usePlayerCardStore } from "@/lib/stores/player-card-store";
 import { useLeagueStore } from "@/lib/stores/league-store";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useTrack } from "@/hooks/useTrack";
 
 /* ═══════════════════════════════════════════════════════════════
    HELPERS — ported from Shadynasty
@@ -242,7 +243,10 @@ function CollapsiblePill({label,defaultOpen,children}:{label:string;defaultOpen:
 function FullReport({reportData,hindsightData,onClose,pickSlotMap}:{reportData:any;hindsightData:any;onClose:()=>void;pickSlotMap:Record<string,string>}){
   const mobile=useIsMobile();
   const [tab,setTab]=useState<'grade'|'details'>('grade');
+  const track=useTrack();
   const currentOwner=useLeagueStore((s)=>s.currentOwner);
+  // Track trade opened on mount
+  React.useEffect(()=>{track("trade_opened",{trade_id:reportData.trade_id});},[]);// eslint-disable-line react-hooks/exhaustive-deps
 
   // ── PERSPECTIVE: resolve mySide / theirSide from logged-in owner ──
   const sA=reportData.side_a||{};const sB=reportData.side_b||{};
@@ -413,7 +417,7 @@ function FullReport({reportData,hindsightData,onClose,pickSlotMap}:{reportData:a
     {/* TABS */}
     <div style={{display:'flex',borderBottom:`1px solid ${C.border}`}}>
       {(['grade','details'] as const).map(t=>(
-        <div key={t} onClick={()=>setTab(t)} style={{
+        <div key={t} onClick={()=>{track(t==='grade'?'trade_grade_tab_viewed':'trade_details_tab_viewed',{trade_id:reportData.trade_id});setTab(t);}} style={{
           flex:1,padding:'10px 0',textAlign:'center',cursor:'pointer',transition:'all 0.15s',
           fontFamily:MONO,fontSize:12,fontWeight:700,letterSpacing:'0.08em',
           color:tab===t?C.gold:C.dim,

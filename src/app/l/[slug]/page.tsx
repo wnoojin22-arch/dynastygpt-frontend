@@ -782,6 +782,7 @@ export default function LeagueHome() {
         <AnimatedSection className="order-0 lg:col-start-1">
           <Link
             href={`${basePath}/beta-guide`}
+            onClick={() => track("beta_guide_opened", { league_id: lid })}
             className="block group rounded-xl overflow-hidden transition-all duration-300 hover:-translate-y-0.5"
             style={{
               background: `linear-gradient(135deg, ${C.card} 0%, rgba(212,165,50,0.05) 100%)`,
@@ -945,7 +946,7 @@ export default function LeagueHome() {
           <div className="text-[10px] text-secondary/60 mb-3" style={{ fontFamily: SANS }}>DynastyGPT wide — 1.5M+ trades</div>
           <div className="flex flex-col mb-5">
             {(marketPulse?.most_traded || []).slice(0, 6).map((p: any, i: number) => (
-              <div key={i} className="flex items-center gap-2 py-2 border-b border-border last:border-0 cursor-pointer hover:bg-elevated/50 transition-colors rounded-sm" onClick={() => usePlayerCardStore.getState().openPlayerCard(p.player)}>
+              <div key={i} className="flex items-center gap-2 py-2 border-b border-border last:border-0 cursor-pointer hover:bg-elevated/50 transition-colors rounded-sm" onClick={() => { track("market_pulse_player_clicked", { league_id: lid, player: p.player, section: "most_traded" }); usePlayerCardStore.getState().openPlayerCard(p.player); }}>
                 <span className="text-[10px] font-black text-dim w-4 text-right shrink-0" style={{ fontFamily: MONO }}>{i + 1}</span>
                 <PlayerHeadshot name={p.player} position={p.position || ""} size={22} />
                 <PlayerName name={p.player} style={{ fontSize: 12, fontWeight: 600, color: C.primary, fontFamily: SANS }} />

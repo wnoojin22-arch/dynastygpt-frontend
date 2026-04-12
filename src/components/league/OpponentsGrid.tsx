@@ -4,6 +4,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { useLeagueStore } from "@/lib/stores/league-store";
 import { useQuery } from "@tanstack/react-query";
 import { getLeagueIntel } from "@/lib/api";
+import { useTrack } from "@/hooks/useTrack";
 
 const C = {
   bg: "#06080d", panel: "#0a0d15", card: "#10131d", elevated: "#171b28",
@@ -33,6 +34,7 @@ export default function OpponentsGrid() {
   const { currentLeagueId: lid } = useLeagueStore();
   const router = useRouter();
   const pathname = usePathname();
+  const track = useTrack();
   const slug = pathname.split("/")[2] || "";
 
   const { data: intel } = useQuery({ queryKey: ["league-intel", lid], queryFn: () => getLeagueIntel(lid!), enabled: !!lid });
@@ -58,7 +60,7 @@ export default function OpponentsGrid() {
 
           return (
             <div key={o.owner}
-              onClick={() => router.push(`/l/${slug}/intel/${encodeURIComponent(o.owner)}`)}
+              onClick={() => { track("owner_card_clicked", { league_id: lid, owner_name: o.owner }); router.push(`/l/${slug}/intel/${encodeURIComponent(o.owner)}`); }}
               style={{
                 borderRadius: 6, overflow: "hidden", background: C.card, border: `1px solid ${C.border}`,
                 cursor: "pointer", transition: "all 0.15s",

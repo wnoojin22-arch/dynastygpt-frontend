@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getGradedTrades, getOwners } from "@/lib/api";
 import TradeReportModal from "./TradeReportModal";
 import { C, SANS, MONO, SERIF, DISPLAY, fmt, gradeColor, getVerdictStyle } from "./tokens";
 import PlayerName from "./PlayerName";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useTrack } from "@/hooks/useTrack";
 
 /* ═══════════════════════════════════════════════════════════════
    LEAGUE TRADES VIEW — Shadynasty "League Trade History" pattern
@@ -109,6 +110,8 @@ function InlineAssets({ players, picks }: { players?: string[] | null; picks?: s
 
 export default function LeagueTradesView({ leagueId }: { leagueId: string }) {
   const mobile = useIsMobile();
+  const track = useTrack();
+  useEffect(() => { if (leagueId) track("league_trades_viewed", { league_id: leagueId }); }, [leagueId]); // eslint-disable-line react-hooks/exhaustive-deps
   const [reportTradeId, setReportTradeId] = useState<string | null>(null);
   const [ownerFilter, setOwnerFilter] = useState("all");
   const [yearFilter, setYearFilter] = useState("all");
@@ -244,7 +247,7 @@ export default function LeagueTradesView({ leagueId }: { leagueId: string }) {
 
             return (
               <div key={t.trade_id}
-                onClick={() => setReportTradeId(t.trade_id)}
+                onClick={() => { track("trade_modal_opened", { league_id: leagueId, trade_id: t.trade_id }); setReportTradeId(t.trade_id); }}
                 style={{
                   padding: mobile ? "10px 10px" : "12px 16px", borderBottom: `1px solid ${C.white08}`,
                   borderLeft: `3px solid ${vs?.color || "transparent"}`,
