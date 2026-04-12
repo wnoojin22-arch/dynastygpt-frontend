@@ -1,10 +1,19 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { DEV_BYPASS_ACTIVE, DEV_USER_METADATA } from "@/hooks/useDevUser";
 import { authHeaders } from "@/lib/api";
+
+const SYNC_STEPS = [
+  "Syncing trades and rosters",
+  "Grading trades",
+  "Building trade fingerprints",
+  "Building coaches corner",
+  "Generating league articles",
+  "Verifying data",
+];
 
 const C = {
   bg: "#06080d", card: "#10131d", border: "#1a1e30",
@@ -22,6 +31,10 @@ export default function OnboardingPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [leagues, setLeagues] = useState<Array<{ league_id: string; name: string; season: string }> | null>(null);
+  const [syncingLeagueId, setSyncingLeagueId] = useState<string | null>(null);
+  const [syncStep, setSyncStep] = useState<string | null>(null);
+  const [syncFailed, setSyncFailed] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // If user already has sleeper_username, skip to dashboard
   const metadata = DEV_BYPASS_ACTIVE
@@ -30,10 +43,34 @@ export default function OnboardingPage() {
   const existingUsername = metadata.sleeper_username as string | undefined;
 
   useEffect(() => {
-    if ((isLoaded || DEV_BYPASS_ACTIVE) && existingUsername) {
+    if ((isLoaded || DEV_BYPASS_ACTIVE) && existingUsername && !syncingLeagueId) {
       router.push("/dashboard");
     }
-  }, [isLoaded, existingUsername, router]);
+  }, [isLoaded, existingUsername, router, syncingLeagueId]);
+
+  // Poll sync status when syncing
+  useEffect(() => {
+    if (!syncingLeagueId) return;
+    const poll = async () => {
+      try {
+        const hdrs = await authHeaders();
+        const res = await fetch(`/api/user/sync-status/${syncingLeagueId}`, { headers: hdrs });
+        if (!res.ok) return;
+        const data = await res.json();
+        setSyncStep(data.step || null);
+        if (data.status === "complete") {
+          if (pollRef.current) clearInterval(pollRef.current);
+          router.push(`/dashboard?league_id=${syncingLeagueId}`);
+        } else if (data.status === "failed") {
+          if (pollRef.current) clearInterval(pollRef.current);
+          setSyncFailed(true);
+        }
+      } catch { /* silent */ }
+    };
+    poll(); // immediate first check
+    pollRef.current = setInterval(poll, 5000);
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [syncingLeagueId, router]);
 
   const handleLink = async () => {
     if (!username.trim() || !user) return;
@@ -98,7 +135,7 @@ export default function OnboardingPage() {
         });
         const approveData = await approveRes.json();
         if (approveRes.ok && approveData.approved) {
-          router.push(`/dashboard?league_id=${approveData.league_id}`);
+          setSyncingLeagueId(approveData.league_id);
           return;
         }
       } catch { /* non-critical — fall through to league list */ }
@@ -122,6 +159,69 @@ export default function OnboardingPage() {
   };
 
   if (!isLoaded && !DEV_BYPASS_ACTIVE) return null;
+
+  // ── Full-screen sync loading state ──
+  if (syncingLeagueId && !syncFailed) {
+    const stepIdx = SYNC_STEPS.findIndex(s => syncStep?.includes(s.split(" ").slice(0, 2).join(" ")));
+    const progress = syncStep === "done" ? 100 : stepIdx >= 0 ? Math.round(((stepIdx + 1) / SYNC_STEPS.length) * 90) + 5 : 5;
+    return (
+      <div style={{
+        minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
+        background: C.bg, padding: 20,
+      }}>
+        <div style={{ maxWidth: 420, width: "100%", textAlign: "center" }}>
+          <div style={{ fontSize: 48, marginBottom: 20 }}>&#9749;</div>
+          <div style={{
+            fontFamily: SANS, fontSize: 22, fontWeight: 800, color: C.primary,
+            letterSpacing: "-0.3px", marginBottom: 8,
+          }}>
+            Setting up your league
+          </div>
+          <p style={{ fontFamily: SANS, fontSize: 14, color: C.dim, lineHeight: 1.6, marginBottom: 28 }}>
+            This takes about 2 minutes. Grab a coffee.
+          </p>
+          {/* Progress bar */}
+          <div style={{
+            height: 4, borderRadius: 2, background: C.border, overflow: "hidden", marginBottom: 12,
+          }}>
+            <div style={{
+              height: "100%", borderRadius: 2, background: C.gold, width: `${progress}%`,
+              transition: "width 1s ease",
+            }} />
+          </div>
+          <div style={{ fontFamily: MONO, fontSize: 10, color: C.dim, letterSpacing: "0.06em" }}>
+            {syncStep || "Queued"}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Sync failed state ──
+  if (syncFailed) {
+    return (
+      <div style={{
+        minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
+        background: C.bg, padding: 20,
+      }}>
+        <div style={{ maxWidth: 420, width: "100%", textAlign: "center" }}>
+          <div style={{
+            fontFamily: SANS, fontSize: 22, fontWeight: 800, color: C.primary,
+            marginBottom: 12,
+          }}>
+            Something went wrong setting up your league.
+          </div>
+          <p style={{ fontFamily: SANS, fontSize: 14, color: C.dim, lineHeight: 1.6 }}>
+            Email{" "}
+            <a href="mailto:hello@dynastygpt.com" style={{ color: C.gold, textDecoration: "underline" }}>
+              hello@dynastygpt.com
+            </a>{" "}
+            and we&apos;ll get you sorted.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{
