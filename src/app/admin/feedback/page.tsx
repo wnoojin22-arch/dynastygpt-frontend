@@ -204,17 +204,21 @@ function PipelineView({
   cellStyle: React.CSSProperties;
   headerStyle: React.CSSProperties;
 }) {
-  const subStyle = (s: PipelineSub) => ({
-    fontFamily: MONO, fontSize: 10, fontWeight: 700, letterSpacing: "0.06em",
-    padding: "5px 14px", cursor: "pointer" as const, border: "none", borderRadius: 4,
-    background: sub === s ? "#d4a53220" : "transparent",
-    color: sub === s ? "#d4a532" : "#6b6d7e",
-  });
+  const subStyle = (s: PipelineSub) => {
+    const colors: Record<PipelineSub, string> = { active: "#7dd3a0", ready: "#d4a532", needs_work: "#6b6d7e" };
+    const c = colors[s];
+    return {
+      fontFamily: MONO, fontSize: 10, fontWeight: 700, letterSpacing: "0.06em",
+      padding: "5px 14px", cursor: "pointer" as const, border: "none", borderRadius: 4,
+      background: sub === s ? `${c}20` : "transparent",
+      color: sub === s ? c : "#6b6d7e",
+    };
+  };
 
   return (
     <div>
       <div style={{ display: "flex", gap: 4, marginBottom: 12 }}>
-        <button style={subStyle("active")} onClick={() => setSub("active")}>INVITED ({data.active.length})</button>
+        <button style={subStyle("active")} onClick={() => setSub("active")}>IN BETA ({data.active.length})</button>
         <button style={subStyle("ready")} onClick={() => setSub("ready")}>READY TO INVITE ({data.ready.length})</button>
         <button style={subStyle("needs_work")} onClick={() => setSub("needs_work")}>NEEDS WORK ({data.needs_work.length})</button>
       </div>
@@ -226,10 +230,8 @@ function PipelineView({
               <thead>
                 <tr>
                   <th style={headerStyle}>LEAGUE</th>
-                  <th style={headerStyle}>LEAGUE ID</th>
-                  <th style={headerStyle}>WAVE</th>
-                  <th style={headerStyle}>SYNC</th>
-                  <th style={headerStyle}>ARTICLES</th>
+                  <th style={headerStyle}>EMAIL</th>
+                  <th style={headerStyle}>SIGNED UP</th>
                   <th style={headerStyle}>TRADES</th>
                   <th style={headerStyle}>LAST ACTIVITY</th>
                 </tr>
@@ -238,15 +240,8 @@ function PipelineView({
                 {data.active.map((r: any, i: number) => (
                   <tr key={i}>
                     <td style={{ ...cellStyle, color: "#eeeef2", fontWeight: 600 }}>{r.league_name || "—"}</td>
-                    <td style={{ ...cellStyle, fontFamily: MONO, fontSize: 10 }}>{r.league_id}</td>
-                    <td style={cellStyle}><Badge text={`W${r.wave || "?"}`} color="#d4a532" /></td>
-                    <td style={cellStyle}>
-                      {r.sync_status === "complete" ? <Badge text="SYNCED" color="#7dd3a0" />
-                        : r.sync_status === "syncing" ? <Badge text="SYNCING" color="#e09c6b" />
-                        : r.sync_status === "failed" ? <Badge text="FAILED" color="#e47272" />
-                        : <Badge text="—" color="#6b6d7e" />}
-                    </td>
-                    <td style={cellStyle}>{r.has_articles ? <Badge text="YES" color="#7dd3a0" /> : <Badge text="NO" color="#e47272" />}</td>
+                    <td style={{ ...cellStyle, fontSize: 11 }}>{r.email || "—"}</td>
+                    <td style={cellStyle}>{r.signed_up ? <Badge text="YES" color="#7dd3a0" /> : <Badge text="NO" color="#6b6d7e" />}</td>
                     <td style={{ ...cellStyle, fontFamily: MONO, fontWeight: 700 }}>{(r.trade_count || 0).toLocaleString()}</td>
                     <td style={cellStyle}>{fmtDate(r.last_event)}</td>
                   </tr>
@@ -265,7 +260,7 @@ function PipelineView({
                   <th style={headerStyle}>TRADES/SZN</th>
                   <th style={headerStyle}>COMM</th>
                   <th style={headerStyle}>TRADES</th>
-                  <th style={headerStyle}>ARTICLES</th>
+                  <th style={headerStyle}>ARTICLE</th>
                 </tr>
               </thead>
               <tbody>
@@ -280,7 +275,7 @@ function PipelineView({
                     <td style={cellStyle}>{r.trades_per_season || "—"}</td>
                     <td style={cellStyle}>{r.is_commissioner ? <Badge text="YES" color="#7dd3a0" /> : "—"}</td>
                     <td style={{ ...cellStyle, fontFamily: MONO, fontWeight: 700 }}>{(r.trade_count || 0).toLocaleString()}</td>
-                    <td style={cellStyle}>{r.has_articles ? <Badge text="YES" color="#7dd3a0" /> : <Badge text="NO" color="#e47272" />}</td>
+                    <td style={cellStyle}><Badge text="✅" color="#7dd3a0" /></td>
                   </tr>
                 ))}
               </tbody>
@@ -322,7 +317,7 @@ function PipelineView({
       </div>
 
       <div style={{ fontFamily: MONO, fontSize: 10, color: "#6b6d7e", marginTop: 12, textAlign: "center" }}>
-        {data.active.length} invited · {data.ready.length} ready · {data.needs_work.length} needs work
+        {data.active.length} in beta · {data.ready.length} ready · {data.needs_work.length} needs work
       </div>
     </div>
   );
