@@ -214,7 +214,7 @@ function PipelineView({
   return (
     <div>
       <div style={{ display: "flex", gap: 4, marginBottom: 12 }}>
-        <button style={subStyle("active")} onClick={() => setSub("active")}>ACTIVE BETA ({data.active.length})</button>
+        <button style={subStyle("active")} onClick={() => setSub("active")}>INVITED ({data.active.length})</button>
         <button style={subStyle("ready")} onClick={() => setSub("ready")}>READY TO INVITE ({data.ready.length})</button>
         <button style={subStyle("needs_work")} onClick={() => setSub("needs_work")}>NEEDS WORK ({data.needs_work.length})</button>
       </div>
@@ -322,7 +322,7 @@ function PipelineView({
       </div>
 
       <div style={{ fontFamily: MONO, fontSize: 10, color: "#6b6d7e", marginTop: 12, textAlign: "center" }}>
-        {data.active.length} active · {data.ready.length} ready · {data.needs_work.length} needs work
+        {data.active.length} invited · {data.ready.length} ready · {data.needs_work.length} needs work
       </div>
     </div>
   );
