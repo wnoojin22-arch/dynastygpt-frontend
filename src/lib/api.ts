@@ -12,21 +12,21 @@ import type {
 
 const API = "";
 
-async function getAuthToken(): Promise<string | null> {
+async function getAuthToken(skipCache = false): Promise<string | null> {
   try {
     // window.Clerk is injected by ClerkProvider after mount
     // In dev bypass mode or SSR, it won't exist — that's fine
     const clerk = (window as any).Clerk;
     if (!clerk?.session) return null;
-    const token = await clerk.session.getToken();
+    const token = await clerk.session.getToken(skipCache ? { skipCache: true } : undefined);
     return token || null;
   } catch {
     return null;
   }
 }
 
-async function authHeaders(): Promise<Record<string, string>> {
-  const token = await getAuthToken();
+async function authHeaders(skipCache = false): Promise<Record<string, string>> {
+  const token = await getAuthToken(skipCache);
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (token) headers["Authorization"] = `Bearer ${token}`;
   return headers;
@@ -47,6 +47,22 @@ function _logApiError(path: string, status: number, msg: string) {
 async function get<T>(path: string): Promise<T> {
   const headers = await authHeaders();
   const res = await fetch(`${API}${path}`, { headers });
+  // On 401: force a fresh Clerk token and retry once
+  if (res.status === 401) {
+    const freshHeaders = await authHeaders(true);
+    const retry = await fetch(`${API}${path}`, { headers: freshHeaders });
+    if (retry.status === 401) {
+      // Token refresh didn't help — session is truly expired
+      if (typeof window !== "undefined") window.location.href = "/sign-in";
+      throw new Error("Session expired");
+    }
+    if (!retry.ok) {
+      const text = await retry.text();
+      _logApiError(path, retry.status, text.slice(0, 500));
+      throw new Error(`API ${retry.status}: ${text}`);
+    }
+    return retry.json();
+  }
   if (!res.ok) {
     const text = await res.text();
     _logApiError(path, res.status, text.slice(0, 500));
@@ -57,11 +73,23 @@ async function get<T>(path: string): Promise<T> {
 
 async function post<T>(path: string, body?: unknown): Promise<T> {
   const headers = await authHeaders();
-  const res = await fetch(`${API}${path}`, {
-    method: "POST",
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  const payload = body ? JSON.stringify(body) : undefined;
+  const res = await fetch(`${API}${path}`, { method: "POST", headers, body: payload });
+  // On 401: force a fresh Clerk token and retry once
+  if (res.status === 401) {
+    const freshHeaders = await authHeaders(true);
+    const retry = await fetch(`${API}${path}`, { method: "POST", headers: freshHeaders, body: payload });
+    if (retry.status === 401) {
+      if (typeof window !== "undefined") window.location.href = "/sign-in";
+      throw new Error("Session expired");
+    }
+    if (!retry.ok) {
+      const text = await retry.text();
+      _logApiError(path, retry.status, text.slice(0, 500));
+      throw new Error(`API ${retry.status}: ${text}`);
+    }
+    return retry.json();
+  }
   if (!res.ok) {
     const text = await res.text();
     _logApiError(path, res.status, text.slice(0, 500));
