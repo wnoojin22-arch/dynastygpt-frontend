@@ -66,25 +66,32 @@ export default function ManagerCardMobile({
       onTouchCancel={onTouchEnd}
       style={{
         margin: "0 12px", borderRadius: 14, overflow: "hidden", cursor: "pointer",
-        background: C.bg,
-        border: `1.5px solid ${C.goldBorder}`,
-        boxShadow: `0 0 24px rgba(212,165,50,0.04)`,
+        background: `linear-gradient(135deg, rgba(212,165,50,0.10) 0%, rgba(212,165,50,0.05) 50%, rgba(212,165,50,0.08) 100%)`,
+        border: `1.5px solid ${C.gold}40`,
+        boxShadow: `0 0 20px rgba(212,165,50,0.15), 0 0 60px rgba(212,165,50,0.06), inset 0 0 30px rgba(212,165,50,0.03)`,
         position: "relative",
-        padding: "12px 16px 10px",
+        padding: "8px 14px 6px",
       }}
     >
-      {/* Subtle gold glow top-right */}
+      {/* Gold glow — top-right and bottom-left for depth */}
       <div style={{
-        position: "absolute", top: -30, right: -30, width: 100, height: 100,
+        position: "absolute", top: -40, right: -40, width: 140, height: 140,
+        background: "radial-gradient(circle, rgba(212,165,50,0.12) 0%, transparent 70%)",
+        pointerEvents: "none",
+      }} />
+      <div style={{
+        position: "absolute", bottom: -30, left: -30, width: 100, height: 100,
         background: "radial-gradient(circle, rgba(212,165,50,0.06) 0%, transparent 70%)",
         pointerEvents: "none",
       }} />
 
       {/* Top row: label + share hint */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
         <span style={{
-          fontFamily: MONO, fontSize: 8, fontWeight: 700, letterSpacing: "0.18em",
-          color: C.gold, textTransform: "uppercase",
+          fontFamily: MONO, fontSize: 8, fontWeight: 800, letterSpacing: "0.14em",
+          color: C.bg, textTransform: "uppercase",
+          background: `linear-gradient(135deg, ${C.gold}, ${C.goldBright})`,
+          padding: "3px 10px", borderRadius: 4,
         }}>
           DynastyGPT Manager Card
         </span>
@@ -92,7 +99,7 @@ export default function ManagerCardMobile({
       </div>
 
       {/* Owner info + score circle */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{
             fontFamily: SANS, fontSize: 22, fontWeight: 800,
@@ -105,12 +112,12 @@ export default function ManagerCardMobile({
         {/* Score circle */}
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, marginLeft: 12 }}>
           <div style={{
-            width: 58, height: 58, borderRadius: "50%",
+            width: 50, height: 50, borderRadius: "50%",
             border: `2.5px solid ${C.gold}`,
             display: "flex", alignItems: "center", justifyContent: "center",
             background: `radial-gradient(circle, rgba(212,165,50,0.08) 0%, transparent 70%)`,
           }}>
-            <span style={{ fontFamily: MONO, fontSize: 22, fontWeight: 800, color: C.primary }}>{myScore.score}</span>
+            <span style={{ fontFamily: MONO, fontSize: 19, fontWeight: 800, color: C.primary }}>{myScore.score}</span>
           </div>
           <span style={{
             fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.06em",
@@ -122,14 +129,14 @@ export default function ManagerCardMobile({
       </div>
 
       {/* Three stat boxes */}
-      <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+      <div style={{ display: "flex", gap: 6, marginBottom: 4 }}>
         {[
           { label: "LEAGUE", value: leagueRank ? `#${leagueRank}` : "—", accent: true },
           { label: "GLOBAL", value: globalRank ? `#${globalRank.toLocaleString()}` : "—", accent: true },
           { label: "TOP", value: topPct != null ? `${topPct}%` : "—", accent: false },
         ].map((s) => (
           <div key={s.label} style={{
-            flex: 1, textAlign: "center", padding: "5px 4px",
+            flex: 1, textAlign: "center", padding: "4px 4px",
             borderRadius: 8, background: "rgba(212,165,50,0.04)",
             border: `1px solid rgba(212,165,50,0.15)`,
           }}>
@@ -161,8 +168,10 @@ export default function ManagerCardMobile({
 
       {/* Hint */}
       <div style={{
-        textAlign: "center", fontFamily: MONO, fontSize: 7,
-        color: C.gold, opacity: 0.3, letterSpacing: "0.10em", marginTop: 6,
+        textAlign: "center", fontFamily: MONO, fontSize: 10, fontWeight: 700,
+        color: C.gold, letterSpacing: "0.12em", marginTop: 4, paddingTop: 6,
+        borderTop: `1px solid ${C.gold}20`,
+        animation: "pulse-gold 2.5s ease-in-out infinite",
       }}>
         TAP TO VIEW FULL CARD
       </div>

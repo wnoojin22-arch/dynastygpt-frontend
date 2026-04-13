@@ -4,8 +4,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useLeagueStore } from "@/lib/stores/league-store";
 import { authHeaders } from "@/lib/api";
-
-const API = "";
+// authHeaders still used by submit(). useUser + useLeagueStore used for payload.
 
 const C = {
   bg: "#06080d",
@@ -28,9 +27,6 @@ const TOTAL_QUESTIONS = 5;
 const LS_KEY = "beta_survey_completed";
 const EVENT_THRESHOLD = 10;
 
-// ── For local testing: always show for this username. REMOVE BEFORE PROD DEPLOY. ──
-const TEST_OVERRIDE_USERNAME = "Dukeofnuke";
-
 interface SurveyAnswers {
   q1_comparison: string;
   q2_feature: string;
@@ -52,29 +48,15 @@ export default function SurveyModal() {
     q5_missing: "",
   });
 
-  // Determine sleeper username from Clerk metadata
-  const meta = (user?.unsafeMetadata ?? {}) as Record<string, unknown>;
-  const sleeperUsername = (meta.sleeper_username as string) || "";
-
-  // Check eligibility: 10+ events OR test override
+  // Show survey for power users (10+ events) who haven't completed it yet.
   useEffect(() => {
-    if (!isLoaded) return;
     if (typeof window === "undefined") return;
     if (localStorage.getItem(LS_KEY)) return;
 
-    const isTestUser = sleeperUsername.toLowerCase() === TEST_OVERRIDE_USERNAME.toLowerCase();
-
-    if (isTestUser) {
-      // Test override — show after 2s delay regardless
-      const t = setTimeout(() => setShow(true), 2000);
-      return () => clearTimeout(t);
-    }
-
-    // Check event count via API
     (async () => {
       try {
         const hdrs = await authHeaders();
-        const res = await fetch(`${API}/api/events/count`, { headers: hdrs });
+        const res = await fetch("/api/events/count", { headers: hdrs });
         if (res.ok) {
           const data = await res.json();
           if ((data.count || 0) >= EVENT_THRESHOLD) {
@@ -85,7 +67,7 @@ export default function SurveyModal() {
         // Silent — don't show survey if we can't check
       }
     })();
-  }, [isLoaded, sleeperUsername]);
+  }, []);
 
   const dismiss = useCallback(() => {
     if (typeof window !== "undefined") localStorage.setItem(LS_KEY, "true");
@@ -95,7 +77,7 @@ export default function SurveyModal() {
   const submit = useCallback(async () => {
     try {
       const hdrs = await authHeaders();
-      await fetch(`${API}/api/league/feedback`, {
+      await fetch("/api/league/feedback", {
         method: "POST",
         headers: hdrs,
         body: JSON.stringify({
@@ -159,11 +141,7 @@ export default function SurveyModal() {
         {step <= 5 && (
           <div style={{ marginBottom: 24 }}>
             <p style={{ fontFamily: SANS, fontSize: 15, color: C.primary, lineHeight: 1.5, fontWeight: 500 }}>
-              Thanks for being an early DynastyGPT beta user. 🏆
-            </p>
-            <p style={{ fontFamily: SANS, fontSize: 13, color: C.secondary, lineHeight: 1.5, marginTop: 6 }}>
-              As one of our most active users, we'd love 30 seconds of your time.
-              Your feedback directly shapes what we build next.
+              Thank you for being an early beta tester. Please take this short survey that will help shape the product.
             </p>
           </div>
         )}
