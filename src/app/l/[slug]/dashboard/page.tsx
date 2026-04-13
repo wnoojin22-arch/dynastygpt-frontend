@@ -5,6 +5,7 @@ import { useLeagueStore } from "@/lib/stores/league-store";
 import { useQuery } from "@tanstack/react-query";
 import { getOverview } from "@/lib/api";
 import DashboardView from "@/components/league/DashboardView";
+import SurveyModal from "@/components/survey/SurveyModal";
 import { useTrack } from "@/hooks/useTrack";
 
 export default function DashboardPage() {
@@ -27,5 +28,10 @@ export default function DashboardPage() {
     </div>
   );
 
-  return <DashboardView lid={lid} owner={owner} ownerId={ownerId} />;
+  return (
+    <>
+      <DashboardView lid={lid} owner={owner} ownerId={ownerId} />
+      <SurveyModal />
+    </>
+  );
 }
