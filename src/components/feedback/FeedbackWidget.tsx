@@ -31,6 +31,7 @@ interface ThreadData {
   thread: { id: string; status: string } | null;
   messages: ThreadMessage[];
   has_unread: boolean;
+  unread_count: number;
 }
 
 function timeAgo(iso: string): string {
