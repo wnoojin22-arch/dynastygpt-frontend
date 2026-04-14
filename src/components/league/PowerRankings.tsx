@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from "react";
 import { C, SANS, MONO, leaguePrefix } from "./tokens";
+import { useOwnerClick } from "@/hooks/useOwnerClick";
 
 /* ═══════════════════════════════════════════════════════════════
    GLOW TABS
@@ -49,6 +50,7 @@ export default function PowerRankings({ rankings, leagueIntel, leagueName }: {
 }) {
   const prefix = leaguePrefix(leagueName);
   const [mode, setMode] = useState<"league" | "dynasty" | "winnow">("league");
+  const onOwnerClick = useOwnerClick();
 
   const tabs = [
     { id: "league", label: `${prefix.toUpperCase()} RANK` },
@@ -104,11 +106,12 @@ export default function PowerRankings({ rankings, leagueIntel, leagueName }: {
             onMouseLeave={(e) => { if (i > 0) e.currentTarget.style.background = "transparent"; }}>
               <span style={{ width: 18, fontSize: 11, fontWeight: 900, color, fontFamily: MONO, textAlign: "right", flexShrink: 0 }}>{r.rank}</span>
               {i === 0 && <span style={{ fontSize: 11, flexShrink: 0 }}>👑</span>}
-              <span style={{
+              <span onClick={(e) => { e.stopPropagation(); onOwnerClick(r.owner); }} style={{
                 fontSize: 12, fontWeight: i < 4 ? 700 : 500,
                 color: i < 4 ? C.primary : C.secondary, fontFamily: SANS,
                 minWidth: 0, flex: 1,
                 overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                cursor: "pointer", borderBottom: `1px dotted ${C.border}`,
               }}>{r.owner}</span>
               <div style={{ width: 50, height: 4, background: C.border, borderRadius: 2, overflow: "hidden", flexShrink: 0 }}>
                 <div style={{ height: "100%", borderRadius: 2, width: `${pct}%`, background: i === 0 ? C.gold : i < 4 ? C.green : i < 8 ? "#2563eb" : C.red, transition: "width 0.8s ease" }} />

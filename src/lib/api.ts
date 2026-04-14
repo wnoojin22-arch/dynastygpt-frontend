@@ -44,14 +44,24 @@ function _logApiError(path: string, status: number, msg: string) {
   } catch { /* silent */ }
 }
 
+/** Check if a response needs a token refresh retry (401, or 403 with "Token expired"). */
+async function _needsTokenRefresh(res: Response): Promise<boolean> {
+  if (res.status === 401) return true;
+  if (res.status === 403) {
+    const text = await res.clone().text();
+    return text.toLowerCase().includes("token expired");
+  }
+  return false;
+}
+
 async function get<T>(path: string): Promise<T> {
   const headers = await authHeaders();
   const res = await fetch(`${API}${path}`, { headers });
-  // On 401: force a fresh Clerk token and retry once
-  if (res.status === 401) {
+  // On 401 or 403 "Token expired": force a fresh Clerk token and retry once
+  if (await _needsTokenRefresh(res)) {
     const freshHeaders = await authHeaders(true);
     const retry = await fetch(`${API}${path}`, { headers: freshHeaders });
-    if (retry.status === 401) {
+    if (await _needsTokenRefresh(retry)) {
       // Token refresh didn't help — session is truly expired
       if (typeof window !== "undefined") window.location.href = "/sign-in";
       throw new Error("Session expired");
@@ -75,11 +85,11 @@ async function post<T>(path: string, body?: unknown): Promise<T> {
   const headers = await authHeaders();
   const payload = body ? JSON.stringify(body) : undefined;
   const res = await fetch(`${API}${path}`, { method: "POST", headers, body: payload });
-  // On 401: force a fresh Clerk token and retry once
-  if (res.status === 401) {
+  // On 401 or 403 "Token expired": force a fresh Clerk token and retry once
+  if (await _needsTokenRefresh(res)) {
     const freshHeaders = await authHeaders(true);
     const retry = await fetch(`${API}${path}`, { method: "POST", headers: freshHeaders, body: payload });
-    if (retry.status === 401) {
+    if (await _needsTokenRefresh(retry)) {
       if (typeof window !== "undefined") window.location.href = "/sign-in";
       throw new Error("Session expired");
     }
