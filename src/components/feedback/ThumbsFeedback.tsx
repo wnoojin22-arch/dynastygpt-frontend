@@ -3,89 +3,65 @@
 import { useState, useCallback } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useLeagueStore } from "@/lib/stores/league-store";
-
-const API = "";
-
-const C = {
-  dim: "#9596a5", green: "#7dd3a0", red: "#e47272",
-  greenDim: "rgba(125,211,160,0.12)", redDim: "rgba(228,114,114,0.12)",
-};
-const MONO = "'JetBrains Mono', 'SF Mono', monospace";
+import { authHeaders } from "@/lib/api";
 
 interface Props {
-  /** Question shown to user */
   prompt: string;
-  /** What are they rating? */
   tradeId?: string;
   suggestionId?: string;
-  /** Extra context to store */
   context?: Record<string, unknown>;
 }
 
 export default function ThumbsFeedback({ prompt, tradeId, suggestionId, context }: Props) {
   const [voted, setVoted] = useState<"up" | "down" | null>(null);
   const { user } = useUser();
-  const { currentLeagueId, currentOwner, currentOwnerId } = useLeagueStore();
+  const { currentLeagueId, currentOwner } = useLeagueStore();
 
   const submit = useCallback(async (vote: "up" | "down") => {
-    if (voted) return; // already voted
+    if (voted) return;
     setVoted(vote);
     try {
-      const { authHeaders } = await import("@/lib/api");
       const hdrs = await authHeaders();
-      await fetch(`${API}/api/league/feedback`, {
+      // Post to thread endpoint (primary)
+      await fetch("/api/user/feedback/thread/message", {
         method: "POST",
         headers: hdrs,
         body: JSON.stringify({
-          clerk_user_id: user?.id,
+          feedback_type: "thumbs",
+          message: `${vote === "up" ? "\u{1F44D}" : "\u{1F44E}"} ${prompt}`,
+          page_url: typeof window !== "undefined" ? window.location.href : "",
+          device: typeof navigator !== "undefined" && /Mobile/i.test(navigator.userAgent) ? "mobile" : "desktop",
           email: user?.primaryEmailAddress?.emailAddress,
           league_id: currentLeagueId,
           owner_name: currentOwner,
-          owner_user_id: currentOwnerId,
-          page_url: typeof window !== "undefined" ? window.location.href : "",
-          feedback_type: vote === "up" ? "thumbs_up" : "thumbs_down",
-          message: prompt,
           trade_id: tradeId,
           suggestion_id: suggestionId,
-          device: typeof navigator !== "undefined" && /Mobile/i.test(navigator.userAgent) ? "mobile" : "desktop",
           context,
         }),
       });
     } catch {
       // silent — micro-feedback is non-critical
     }
-  }, [voted, user, currentLeagueId, currentOwner, currentOwnerId, prompt, tradeId, suggestionId, context]);
+  }, [voted, user, currentLeagueId, currentOwner, prompt, tradeId, suggestionId, context]);
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0" }}>
-      <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>{prompt}</span>
+    <div className="flex items-center gap-2 py-1.5">
+      <span className="font-mono text-[10px] text-[#9596a5]">{prompt}</span>
       <button
         onClick={() => submit("up")}
         disabled={!!voted}
-        style={{
-          background: voted === "up" ? C.greenDim : "transparent",
-          border: `1px solid ${voted === "up" ? C.green : "transparent"}`,
-          borderRadius: 4, padding: "3px 8px", cursor: voted ? "default" : "pointer",
-          fontSize: 14, opacity: voted && voted !== "up" ? 0.3 : 1,
-          transition: "all 0.2s",
-        }}
+        className={`rounded px-2 py-0.5 text-sm transition-all ${voted === "up" ? "bg-[rgba(125,211,160,0.12)] border border-[#7dd3a0]" : "bg-transparent border border-transparent hover:border-[#1a1e30]"} ${voted && voted !== "up" ? "opacity-30" : ""} ${voted ? "cursor-default" : "cursor-pointer"}`}
       >
-        👍
+        {"\u{1F44D}"}
       </button>
       <button
         onClick={() => submit("down")}
         disabled={!!voted}
-        style={{
-          background: voted === "down" ? C.redDim : "transparent",
-          border: `1px solid ${voted === "down" ? C.red : "transparent"}`,
-          borderRadius: 4, padding: "3px 8px", cursor: voted ? "default" : "pointer",
-          fontSize: 14, opacity: voted && voted !== "down" ? 0.3 : 1,
-          transition: "all 0.2s",
-        }}
+        className={`rounded px-2 py-0.5 text-sm transition-all ${voted === "down" ? "bg-[rgba(228,114,114,0.12)] border border-[#e47272]" : "bg-transparent border border-transparent hover:border-[#1a1e30]"} ${voted && voted !== "down" ? "opacity-30" : ""} ${voted ? "cursor-default" : "cursor-pointer"}`}
       >
-        👎
+        {"\u{1F44E}"}
       </button>
-      {voted && <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>Thanks!</span>}
+      {voted && <span className="font-mono text-[9px] text-[#9596a5]">Thanks!</span>}
     </div>
   );
 }
