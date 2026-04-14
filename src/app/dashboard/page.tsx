@@ -168,29 +168,34 @@ function DashboardContent() {
             fontFamily: SERIF, fontSize: 28, fontWeight: 900, fontStyle: "italic",
             color: C.goldBright, margin: "0 0 12px",
           }}>
-            You&apos;re on the list
+            DynastyGPT is currently in private beta
           </h1>
           <p style={{
             fontFamily: SANS, fontSize: 15, color: C.secondary, lineHeight: 1.6,
-            margin: 0,
+            margin: "0 0 28px",
           }}>
-            Your beta application is under review.
-            {email && (
-              <> You&apos;ll get an email at{" "}
-                <span style={{ color: C.gold, fontWeight: 600 }}>{email}</span>
-                {" "}when your league is approved.</>
-            )}
-            {!email && <> You&apos;ll get an email when your league is approved.</>}
+            Request access to get in. We&apos;re onboarding new leagues every week.
           </p>
+          <a
+            href="https://dynastygpt.com/beta"
+            style={{
+              display: "block", width: "100%", padding: "13px 0", borderRadius: 8,
+              background: C.gold, color: "#06080d",
+              fontFamily: SANS, fontSize: 14, fontWeight: 700,
+              textAlign: "center", textDecoration: "none",
+              cursor: "pointer", transition: "opacity 0.15s",
+            }}
+          >
+            Request Beta Access
+          </a>
           <div style={{
-            marginTop: 28, fontFamily: MONO, fontSize: 10, fontWeight: 800,
+            marginTop: 20, fontFamily: MONO, fontSize: 10, fontWeight: 800,
             letterSpacing: "0.12em", color: C.dim,
           }}>
             SLEEPER ACCOUNT: {sleeperUsername}
           </div>
 
-          {/* Recovery actions for users who linked the wrong account */}
-          <div style={{ marginTop: 24, display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 10 }}>
             <button
               onClick={async () => {
                 if (!user?.id) return;
@@ -201,7 +206,6 @@ function DashboardContent() {
                     headers: hdrs,
                     body: JSON.stringify({ clerk_user_id: user.id }),
                   });
-                  // Clear Clerk metadata so dashboard sends user back to onboarding
                   await user.update({
                     unsafeMetadata: {
                       sleeper_username: undefined,
@@ -214,7 +218,6 @@ function DashboardContent() {
                   }
                   router.replace("/onboarding");
                 } catch {
-                  // Even on error, route back to onboarding so they can retry
                   router.replace("/onboarding");
                 }
               }}
