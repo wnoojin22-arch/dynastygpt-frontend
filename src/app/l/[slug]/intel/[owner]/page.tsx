@@ -13,6 +13,7 @@ import { ScoutingReport, RivalsView, TradeReportModal } from "@/components/leagu
 import { TradeAssetList } from "@/components/league/TradeAssets";
 import TradeProfile from "@/components/league/TradeProfile";
 import { C, SANS, MONO, DISPLAY, SERIF, fmt, posColor, getVerdictStyle, gradeColor } from "@/components/league/tokens";
+import { useTrack } from "@/hooks/useTrack";
 import type { RosterPlayer } from "@/lib/types";
 
 /* ═══════════════════════════════════════════════════════════════
@@ -62,6 +63,8 @@ export default function OwnerDetailPage({ params }: { params: Promise<{ owner: s
   const pathname = usePathname();
   const [tab, setTab] = useState<TabId>("overview");
 
+  const track = useTrack();
+  useEffect(() => { if (lid) track("owner_intel_scouting_viewed", { league_id: lid, owner_viewed: ownerName }); }, [lid, ownerName]); // eslint-disable-line react-hooks/exhaustive-deps
   const handleTab = (t: TabId) => setTab(t);
   const [reportTradeId, setReportTradeId] = useState<string | null>(null);
 

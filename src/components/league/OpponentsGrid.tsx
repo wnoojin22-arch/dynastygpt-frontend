@@ -5,6 +5,7 @@ import { useLeagueStore } from "@/lib/stores/league-store";
 import { useQuery } from "@tanstack/react-query";
 import { getLeagueIntel } from "@/lib/api";
 import { useTrack } from "@/hooks/useTrack";
+import { useOwnerClick } from "@/hooks/useOwnerClick";
 
 const C = {
   bg: "#06080d", panel: "#0a0d15", card: "#10131d", elevated: "#171b28",
@@ -36,6 +37,7 @@ export default function OpponentsGrid() {
   const pathname = usePathname();
   const track = useTrack();
   const slug = pathname.split("/")[2] || "";
+  const onOwnerClick = useOwnerClick();
 
   const { data: intel } = useQuery({ queryKey: ["league-intel", lid], queryFn: () => getLeagueIntel(lid!), enabled: !!lid });
 
@@ -72,7 +74,7 @@ export default function OpponentsGrid() {
               <div style={{ padding: 12 }}>
                 {/* Name + Rank */}
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                  <span style={{ fontSize: 14, fontWeight: 600, color: C.primary }}>{o.owner}</span>
+                  <span onClick={(e) => { e.stopPropagation(); onOwnerClick(o.owner); }} style={{ fontSize: 14, fontWeight: 600, color: C.primary, cursor: "pointer", borderBottom: `1px dotted ${C.border}` }}>{o.owner}</span>
                   <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: tier }}>#{o.sha_rank}</span>
                 </div>
 

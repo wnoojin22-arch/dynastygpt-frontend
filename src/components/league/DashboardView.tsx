@@ -26,6 +26,7 @@ import { usePlayerCardStore } from "@/lib/stores/player-card-store";
 import { useTradeBuilderStore } from "@/lib/stores/trade-builder-store";
 import { ChevronRight, Plus, FileText } from "lucide-react";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useOwnerClick } from "@/hooks/useOwnerClick";
 import DashboardMobile from "@/components/league/DashboardMobile";
 
 /* ═══════════════════════════════════════════════════════════════
@@ -263,6 +264,7 @@ const COMPONENT_LABELS: Record<string, string> = {
 function DynastyScoreCard({ lid, owner, ownerId }: { lid: string; owner: string; ownerId?: string | null }) {
   const [expanded, setExpanded] = useState(false);
   const track = useTrack();
+  const onOwnerClick = useOwnerClick();
 
   const { data: myScore, isLoading: loadingScore, isError: errorScore } = useQuery({
     queryKey: ["dynasty-score", lid, owner],
@@ -522,7 +524,7 @@ function DynastyScoreCard({ lid, owner, ownerId }: { lid: string; owner: string;
                             borderBottom: `1px solid ${C.white08}`,
                           }}>
                             <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: isMe ? C.gold : C.dim, minWidth: 18, textAlign: "right" }}>{idx + 1}</span>
-                            <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: isMe ? 700 : 400, color: isMe ? C.gold : C.primary, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.owner}</span>
+                            <span onClick={() => onOwnerClick(s.owner)} style={{ fontFamily: SANS, fontSize: 11, fontWeight: isMe ? 700 : 400, color: isMe ? C.gold : C.primary, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", cursor: "pointer", borderBottom: `1px dotted ${C.border}` }}>{s.owner}</span>
                             <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.secondary }}>{s.score}</span>
                             <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, padding: "1px 4px", borderRadius: 2, color: sTierColor, background: `${sTierColor}15`, textTransform: "uppercase" }}>{s.tier.label}</span>
                           </div>
@@ -552,6 +554,7 @@ function DashboardView({ lid, owner, ownerId }: { lid: string; owner: string; ow
   const router = useRouter();
   const openPlayerCard = usePlayerCardStore((s) => s.openPlayerCard);
   const { currentLeagueSlug } = useLeagueStore();
+  const onOwnerClick = useOwnerClick();
   const track = useTrack();
   useEffect(() => { if (lid) track("dashboard_viewed", { league_id: lid }); }, [lid]); // eslint-disable-line react-hooks/exhaustive-deps
 

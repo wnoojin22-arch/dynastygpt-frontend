@@ -1,11 +1,15 @@
 "use client";
 
+import { useEffect } from "react";
 import { useLeagueStore } from "@/lib/stores/league-store";
 import TradeBuilderProvider from "@/components/league/trade-builder/TradeBuilderProvider";
 import TradeBuilderUnified from "@/components/league/trade-builder/TradeBuilderUnified";
+import { useTrack } from "@/hooks/useTrack";
 
 export default function TradeAnalyzerPage() {
   const { currentLeagueId: lid, currentOwner: owner, currentOwnerId: ownerId } = useLeagueStore();
+  const track = useTrack();
+  useEffect(() => { if (lid) track("trade_analyzer_viewed", { league_id: lid }); }, [lid]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!lid) return (
     <div className="flex items-center justify-center h-full">

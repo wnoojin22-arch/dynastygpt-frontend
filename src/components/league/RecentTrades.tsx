@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { C, SANS, MONO, getVerdictStyle, gradeColor } from "./tokens";
 import { TradeAssetList } from "./TradeAssets";
 import TradeReportModal from "./TradeReportModal";
+import { useOwnerQuickViewStore } from "@/lib/stores/owner-quickview-store";
 
 /* ═══════════════════════════════════════════════════════════════
    RECENT TRADES — compact sidebar widget with picks + side verdicts
@@ -34,6 +35,7 @@ export default function RecentTrades({ trades, basePath, leagueId, limit = 7 }: 
 }) {
   const router = useRouter();
   const [reportTradeId, setReportTradeId] = useState<string | null>(null);
+  const openOwner = useOwnerQuickViewStore((s) => s.open);
 
   if (!trades.length) return null;
 
@@ -74,9 +76,19 @@ export default function RecentTrades({ trades, basePath, leagueId, limit = 7 }: 
                 <span style={{ fontSize: 10, color: C.dim, fontFamily: MONO, width: 36, flexShrink: 0 }}>{formatDate(t.date)}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 12, fontFamily: SANS, marginBottom: 2 }}>
-                    <span style={{ fontWeight: 700, color: C.primary }}>{t.owner}</span>
+                    <span
+                      onClick={(e) => { e.stopPropagation(); openOwner(t.owner, (t as any).owner_user_id); }}
+                      style={{ fontWeight: 700, color: C.primary, cursor: "pointer", borderBottom: `1px dotted ${C.border}` }}
+                      onMouseEnter={(e) => { e.currentTarget.style.color = C.gold; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.color = C.primary; }}
+                    >{t.owner}</span>
                     <span style={{ color: C.dim, fontWeight: 500, margin: "0 5px" }}>↔</span>
-                    <span style={{ fontWeight: 700, color: C.primary }}>{t.counter_party}</span>
+                    <span
+                      onClick={(e) => { e.stopPropagation(); openOwner(t.counter_party, (t as any).counter_party_user_id); }}
+                      style={{ fontWeight: 700, color: C.primary, cursor: "pointer", borderBottom: `1px dotted ${C.border}` }}
+                      onMouseEnter={(e) => { e.currentTarget.style.color = C.gold; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.color = C.primary; }}
+                    >{t.counter_party}</span>
                   </div>
                   <TradeAssetList
                     players={[...(t.players_sent || []), ...(t.players_received || [])]}

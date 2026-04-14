@@ -13,6 +13,7 @@ import {
   AreaChart, Area, XAxis, YAxis, Tooltip as RTooltip, ResponsiveContainer, ReferenceDot,
 } from "recharts";
 import type { PlayerCard, SeasonStat, ValueHistoryPoint } from "@/lib/types";
+import { useOwnerClick } from "@/hooks/useOwnerClick";
 import { C, SANS, MONO, DISPLAY, fmt, posColor } from "./tokens";
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -31,6 +32,7 @@ const TABS: { key: Tab; label: string }[] = [
 export default function PlayerCardModal() {
   const { isOpen, playerName, defaultTab, closePlayerCard } = usePlayerCardStore();
   const leagueId = useLeagueStore((s) => s.currentLeagueId) || "";
+  const onOwnerClick = useOwnerClick();
   const [tab, setTab] = useState<Tab>("overview");
   const contentRef = useRef<HTMLDivElement>(null);
 
@@ -258,6 +260,7 @@ export default function PlayerCardModal() {
    ═══════════════════════════════════════════════════════════════════════════ */
 
 function OverviewTab({ pc, seasons, history }: { pc?: PlayerCard; seasons: SeasonStat[]; history: ValueHistoryPoint[] }) {
+  const onOwnerClick = useOwnerClick();
   if (!pc) return <EmptyState text="Player not found in current values." />;
 
   return (
@@ -275,7 +278,7 @@ function OverviewTab({ pc, seasons, history }: { pc?: PlayerCard; seasons: Seaso
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
             <div>
               <div style={{ fontFamily: MONO, fontSize: 10, color: C.dim, letterSpacing: "0.08em" }}>OWNED BY</div>
-              <div style={{ fontFamily: SANS, fontSize: 16, fontWeight: 600, color: C.primary, marginTop: 2 }}>{pc.current_owner}</div>
+              <div onClick={() => pc.current_owner && onOwnerClick(pc.current_owner)} style={{ fontFamily: SANS, fontSize: 16, fontWeight: 600, color: C.primary, marginTop: 2, cursor: "pointer", borderBottom: `1px dotted ${C.border}`, display: "inline-block" }}>{pc.current_owner}</div>
             </div>
             {pc.acquisition && (
               <span style={{

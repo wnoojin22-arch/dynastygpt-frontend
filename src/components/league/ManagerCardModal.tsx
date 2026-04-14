@@ -5,6 +5,7 @@
  */
 import { useRef, useCallback, useState, useEffect } from "react";
 import type { DynastyScoreResponse } from "@/lib/api";
+import { useTrack } from "@/hooks/useTrack";
 import type { Championships, OwnerRecord } from "@/lib/types";
 import { Download } from "lucide-react";
 
@@ -47,13 +48,15 @@ export default function ManagerCardModal({
   const captureRef = useRef<HTMLDivElement>(null);
   const [sharing, setSharing] = useState(false);
   const tierColor = TIER_COLORS[myScore.tier.label] || "#9596a5";
+  const track = useTrack();
 
   useEffect(() => {
+    track("manager_card_opened", { owner });
     document.body.style.overflow = "hidden";
     const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", h);
     return () => { document.body.style.overflow = ""; window.removeEventListener("keydown", h); };
-  }, [onClose]);
+  }, [onClose]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleShare = useCallback(async () => {
     if (!captureRef.current || sharing) return;

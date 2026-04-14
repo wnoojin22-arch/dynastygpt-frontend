@@ -8,6 +8,7 @@ import { C, SANS, MONO, DISPLAY, fmt, posColor } from "./tokens";
 import PlayerName from "./PlayerName";
 import { ChevronDown } from "lucide-react";
 import CoachesCorner from "./CoachesCorner";
+import { useLeagueStore } from "@/lib/stores/league-store";
 import { useTrack } from "@/hooks/useTrack";
 
 /* ═══════════════════════════════════════════════════════════════
@@ -48,6 +49,8 @@ function parseActionItem(item: unknown): { action: string; dataPoint: string; de
    ═══════════════════════════════════════════════════════════════ */
 
 function GmVerdict({ text }: { text: string }) {
+  const lid = useLeagueStore((s) => s.currentLeagueId);
+  const track = useTrack();
   const [open, setOpen] = useState(false);
   const clean = _stripRanks((text || "").trim());
 
@@ -108,7 +111,7 @@ function GmVerdict({ text }: { text: string }) {
           </div>
         )}
       </div>
-      <div onClick={() => setOpen(!open)} style={{
+      <div onClick={() => { if (!open) track("gm_verdict_expanded", { league_id: lid }); setOpen(!open); }} style={{
         padding: "8px 16px", borderTop: `1px solid ${C.goldBorder}`, cursor: "pointer",
         display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
         background: `rgba(212,165,50,0.05)`,

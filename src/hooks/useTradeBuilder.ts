@@ -166,9 +166,19 @@ export function useTradeBuilder({
     queryFn: () => getRoster(leagueId, owner, ownerId),
     enabled: !!owner,
   });
+  // partner state stores the display name. Resolve uid from otherOwners for API calls.
+  const partnerUid = useMemo(() => {
+    if (!partner) return null;
+    const match = (ownersData?.owners || []).find(
+      (o: { name: string; platform_user_id?: string }) =>
+        o.name === partner || o.platform_user_id === partner,
+    );
+    return match?.platform_user_id || null;
+  }, [partner, ownersData]);
+
   const { data: partnerRoster } = useQuery({
     queryKey: ["roster", leagueId, partner],
-    queryFn: () => getRoster(leagueId, partner),
+    queryFn: () => getRoster(leagueId, partner, partnerUid),
     enabled: !!partner,
   });
   const { data: ownerPicks } = useQuery({
@@ -179,7 +189,7 @@ export function useTradeBuilder({
   });
   const { data: partnerPicks } = useQuery({
     queryKey: ["picks", leagueId, partner],
-    queryFn: () => getPicks(leagueId, partner),
+    queryFn: () => getPicks(leagueId, partner, partnerUid),
     enabled: !!partner,
     staleTime: 300000,
   });

@@ -14,7 +14,9 @@ import {
 import { RecentTrades, PlayerName } from "@/components/league";
 import PlayerHeadshot from "@/components/league/PlayerHeadshot";
 import WelcomeArticleCard from "@/components/league/WelcomeArticleCard";
+import ShareBanner from "@/components/league/ShareBanner";
 import { useTrack } from "@/hooks/useTrack";
+import { useOwnerClick } from "@/hooks/useOwnerClick";
 import { C, SANS, MONO, DISPLAY, fmt, posColor, getVerdictStyle, leaguePrefix } from "@/components/league/tokens";
 import type {
   LeagueReportCardResponse, TrendingPlayer, GradedTrade,
@@ -464,6 +466,7 @@ function CardSkeleton({ isHero = false }: { isHero?: boolean }) {
    ═══════════════════════════════════════════════════════════════ */
 
 function TradeFairnessIndex({ leaderboard }: { leaderboard: { owner: string; trades: number; wins: number; losses?: number; even?: number; win_pct: number; avg_sha_net: number }[] }) {
+  const onOwnerClick = useOwnerClick();
   if (!leaderboard.length) return null;
   // Fairness = even trades / total trades. Even = trades that were fair (not a clear win or loss for either side)
   // If 'even' field is missing from API, calculate as: trades - wins - (losses ?? 0)
@@ -492,7 +495,7 @@ function TradeFairnessIndex({ leaderboard }: { leaderboard: { owner: string; tra
               <span className="w-4 text-xs font-black text-right shrink-0" style={{ fontFamily: MONO, color }}>{i + 1}</span>
               {isFirst && <span className="text-xs shrink-0">⚖️</span>}
               {isLast && <span className="text-xs shrink-0">🔥</span>}
-              <span className={`text-sm truncate flex-1 min-w-0 ${i < 3 ? "font-bold text-primary" : "font-medium text-secondary"}`} style={{ fontFamily: SANS }}>
+              <span onClick={(e) => { e.stopPropagation(); onOwnerClick(entry.owner); }} className={`text-sm truncate flex-1 min-w-0 cursor-pointer border-b border-dotted border-border ${i < 3 ? "font-bold text-primary" : "font-medium text-secondary"}`} style={{ fontFamily: SANS }}>
                 {entry.owner}
               </span>
               <div className="w-14 h-1.5 bg-border rounded-full overflow-hidden shrink-0">
@@ -514,6 +517,7 @@ function TradeFairnessIndex({ leaderboard }: { leaderboard: { owner: string; tra
    ═══════════════════════════════════════════════════════════════ */
 
 function LeagueLegends({ reportCard }: { reportCard: LeagueReportCardResponse }) {
+  const onOwnerClick = useOwnerClick();
   const legends: { title: string; name: string; detail: string; accentBorder: string; accentBg: string; accentText: string; dotColor: string }[] = [];
 
   if (reportCard.most_active_trader) {
@@ -553,7 +557,7 @@ function LeagueLegends({ reportCard }: { reportCard: LeagueReportCardResponse })
           <div className={`w-2 h-2 rounded-full shrink-0 mt-1.5 ${l.dotColor}`} />
           <div className="flex-1 min-w-0">
             <div className={`text-[8px] font-black tracking-[0.12em] mb-0.5 ${l.accentText}`} style={{ fontFamily: SANS }}>{l.title}</div>
-            <div className="text-[13px] font-bold text-primary truncate" style={{ fontFamily: SANS }}>{l.name}</div>
+            <div onClick={() => onOwnerClick(l.name)} className="text-[13px] font-bold text-primary truncate cursor-pointer border-b border-dotted border-border inline-block" style={{ fontFamily: SANS }}>{l.name}</div>
             <div className="text-[11px] text-secondary leading-snug" style={{ fontFamily: SANS }}>{l.detail}</div>
           </div>
         </motion.div>
@@ -675,6 +679,9 @@ export default function LeagueHome() {
         reportCard={reportCard}
         leagueIntel={leagueIntel?.owners}
       />
+
+      {/* ═══════════════ SHARE BANNER ═══════════════ */}
+      <ShareBanner />
 
       {/* ═══════════════ ② HERO ═══════════════ */}
       {rcLoading && !reportCard ? <HeroSkeleton /> : (
