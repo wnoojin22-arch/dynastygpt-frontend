@@ -165,8 +165,8 @@ function DashboardContent() {
             D
           </div>
           <h1 style={{
-            fontFamily: SERIF, fontSize: 28, fontWeight: 900, fontStyle: "italic",
-            color: C.goldBright, margin: "0 0 12px",
+            fontFamily: SANS, fontSize: 24, fontWeight: 800,
+            color: C.primary, margin: "0 0 12px", letterSpacing: "-0.02em",
           }}>
             DynastyGPT is currently in private beta
           </h1>
