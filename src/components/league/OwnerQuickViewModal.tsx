@@ -6,6 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useOwnerQuickViewStore } from "@/lib/stores/owner-quickview-store";
 import { useLeagueStore } from "@/lib/stores/league-store";
 import { getRoster, getPicks, getTradeRecord, getOwnerProfile } from "@/lib/api";
+import { useTrack } from "@/hooks/useTrack";
 import type { LeagueIntelOwner } from "@/lib/types";
 
 /* ═══════════════════════════════════════════════════════════════
@@ -110,6 +111,7 @@ export default function OwnerQuickViewModal() {
   const { currentLeagueId, currentLeagueSlug, currentOwnerId } = useLeagueStore();
   const router = useRouter();
   const qc = useQueryClient();
+  const track = useTrack();
 
   const [roster, setRoster] = useState<any>(null);
   const [picks, setPicks] = useState<any>(null);
@@ -138,30 +140,33 @@ export default function OwnerQuickViewModal() {
     }
   }, [isOpen, isSelf, slug, ownerName, close, router]);
 
-  // Reset state on open
+  // Reset state on open + track
   useEffect(() => {
     if (!isOpen) return;
     setRoster(null); setPicks(null); setRecord(null); setProfile(null);
-  }, [isOpen, ownerName]);
+    if (!isSelf) track("owner_quick_view_opened", { league_id: currentLeagueId, owner_viewed: ownerName });
+  }, [isOpen, ownerName]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Lazy loaders
   const loadRoster = useCallback(() => {
     if (roster || rosterLoading || !lid) return;
+    track("owner_quick_view_roster_expanded", { league_id: lid, owner_viewed: ownerName });
     setRosterLoading(true);
     getRoster(lid, ownerName, ownerUserId)
       .then((res: any) => setRoster(res))
       .catch(() => setRoster({ by_position: {} }))
       .finally(() => setRosterLoading(false));
-  }, [roster, rosterLoading, lid, ownerName, ownerUserId]);
+  }, [roster, rosterLoading, lid, ownerName, ownerUserId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadPicks = useCallback(() => {
     if (picks || picksLoading || !lid) return;
+    track("owner_quick_view_picks_expanded", { league_id: lid, owner_viewed: ownerName });
     setPicksLoading(true);
     getPicks(lid, ownerName, ownerUserId)
       .then((res: any) => setPicks(res))
       .catch(() => setPicks({ by_year: {}, picks: [] }))
       .finally(() => setPicksLoading(false));
-  }, [picks, picksLoading, lid, ownerName, ownerUserId]);
+  }, [picks, picksLoading, lid, ownerName, ownerUserId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadTrading = useCallback(() => {
     if (record || tradingLoading || !lid) return;

@@ -373,7 +373,7 @@ export default function MyTradesView({ leagueId, owner: ownerProp, ownerId }: { 
           const active = historyTab === tab.id;
           return (
             <div key={tab.id}
-              onClick={() => setHistoryTab(tab.id)}
+              onClick={() => { setHistoryTab(tab.id); track("my_trades_tab_switched", { tab: tab.id }); }}
               style={{
                 padding: mobile ? '8px 16px' : '10px 28px',
                 fontFamily: SANS, fontSize: mobile ? 12 : 15, fontWeight: 800, letterSpacing: '0.12em',

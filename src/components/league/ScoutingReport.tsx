@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useTrack } from "@/hooks/useTrack";
 import { motion, AnimatePresence } from "framer-motion";
 import { getScoutingReport } from "@/lib/api";
 import {
@@ -96,12 +97,14 @@ function CollapsibleNarrative({ narrative, intel }: { narrative: string; intel: 
 export default function ScoutingReport({ leagueId, owner, ownerId }: {
   leagueId: string; owner: string; ownerId?: string | null;
 }) {
+  const track = useTrack();
   const { data, isLoading, error } = useQuery({
     queryKey: ["scouting-report", leagueId, owner],
     queryFn: () => getScoutingReport(leagueId, owner, ownerId),
     enabled: !!owner && !!leagueId,
     staleTime: 10 * 60 * 1000,
   });
+  useEffect(() => { if (data && leagueId) track("scouting_report_viewed", { league_id: leagueId, owner_viewed: owner }); }, [data, leagueId, owner]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Parse the response — handles structured JSON, cached shapes, and legacy plain text
   const raw = data as Record<string, unknown> | undefined;

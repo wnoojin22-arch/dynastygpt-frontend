@@ -1,7 +1,9 @@
 "use client";
 
-import React, { useState, useMemo, ReactNode } from "react";
+import React, { useState, useMemo, useEffect, ReactNode } from "react";
 import PlayerName from "./PlayerName";
+import { useLeagueStore } from "@/lib/stores/league-store";
+import { useTrack } from "@/hooks/useTrack";
 import {
   TrendingUp, TrendingDown, Minus, Trophy, Target, Shield,
   AlertTriangle, ArrowUpRight, ArrowDownRight, Clock,
@@ -340,6 +342,9 @@ export default function TradeProfile({ ownerName, profile }: {
   ownerName: string;
   profile: Record<string, unknown>;
 }) {
+  const lid = useLeagueStore((s) => s.currentLeagueId);
+  const track = useTrack();
+  useEffect(() => { if (lid) track("trade_profile_viewed", { league_id: lid, owner: ownerName }); }, [lid, ownerName]); // eslint-disable-line react-hooks/exhaustive-deps
   const [verdictFilter, setVerdictFilter] = useState<VerdictFilter>("ALL");
   const [yearFilter, setYearFilter] = useState("ALL");
   const [showAllTrades, setShowAllTrades] = useState(false);

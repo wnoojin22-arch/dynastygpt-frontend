@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getRivalries } from "@/lib/api";
 import { C, SANS, MONO, DISPLAY, SERIF, fmt } from "./tokens";
 import { useOwnerClick } from "@/hooks/useOwnerClick";
+import { useTrack } from "@/hooks/useTrack";
 
 /* ═══════════════════════════════════════════════════════════════
    RIVALS VIEW — Shadynasty "Rival Intelligence" pattern
@@ -122,6 +123,8 @@ export default function RivalsView({ leagueId, owner, ownerId }: {
   leagueId: string; owner: string; ownerId?: string | null;
 }) {
   const onOwnerClick = useOwnerClick();
+  const track = useTrack();
+  useEffect(() => { if (leagueId) track("rivals_view_opened", { league_id: leagueId }); }, [leagueId]); // eslint-disable-line react-hooks/exhaustive-deps
   const [expanded, setExpanded] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
