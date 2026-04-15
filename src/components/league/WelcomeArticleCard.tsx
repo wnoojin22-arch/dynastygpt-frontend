@@ -125,7 +125,7 @@ function ArticleCard({
     <>
       <motion.button
         type="button"
-        onClick={() => { track(variant === "league" ? "league_news_opened" : "my_news_opened", { article_title: article.headline }); setOpen(true); }}
+        onClick={() => { track(variant === "platform" ? "platform_update_opened" : variant === "league" ? "league_news_opened" : "my_news_opened", { article_title: article.headline, variant }); setOpen(true); }}
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35 }}
