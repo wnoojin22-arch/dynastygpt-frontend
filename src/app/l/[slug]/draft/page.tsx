@@ -18,6 +18,7 @@ import { usePlayerCardStore } from "@/lib/stores/player-card-store";
 import { C, SANS, MONO, SERIF, fmt, posColor } from "@/components/league/tokens";
 import { ChevronDown } from "lucide-react";
 import { useTrack } from "@/hooks/useTrack";
+import PickAcquisition from "@/components/league/PickAcquisition";
 
 // ── Tab definitions ─────────────────────────────────────────────────────
 
@@ -343,7 +344,7 @@ function MyDraftRoomTab({ lid, seasons, owner, ownerId }: { lid: string; seasons
         </div>
       </DCard>
 
-      {/* ── PICK INTEL (ported from DraftRoom.tsx MyDraftRoomTab) ── */}
+      {/* ── PICK INTEL + PICK ACQUISITION — side by side desktop, stacked mobile ── */}
       {pickIntel.length > 0 && (
         <>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
@@ -352,40 +353,51 @@ function MyDraftRoomTab({ lid, seasons, owner, ownerId }: { lid: string; seasons
             <div style={{ height: 1, flex: 1, background: C.border }} />
           </div>
 
-          {pickIntel.map((p: any, i: number) => {
-            const recColor = REC_C[p.recommendation] || C.dim;
-            const posEntries = Object.entries(p.position_breakdown || {}).sort(([, a]: any, [, b]: any) => b - a);
-            return (
-              <div key={i} style={{ borderRadius: 8, overflow: "hidden", border: `1px solid ${C.border}`, background: C.card }}>
-                <div style={{ padding: "10px 12px", display: "flex", alignItems: "center", justifyContent: "space-between", background: C.elevated }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.primary }}>{p.season} R{p.round}{p.slot ? `.${String(p.slot).padStart(2, "0")}` : ""}</span>
-                    {!p.is_own_pick && <span style={{ fontFamily: MONO, fontSize: 8, padding: "1px 6px", borderRadius: 3, background: "#6bb8e015", color: "#6bb8e0" }}>ACQUIRED</span>}
-                  </div>
-                  <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, padding: "4px 10px", borderRadius: 6, letterSpacing: "0.06em", color: recColor, background: `${recColor}15`, border: `1px solid ${recColor}30` }}>
-                    {p.recommendation}
-                  </span>
-                </div>
-                <div style={{ padding: "10px 12px", display: "flex", flexDirection: "column", gap: 6 }}>
-                  <p style={{ fontFamily: SANS, fontSize: 13, color: C.secondary, lineHeight: 1.5, margin: 0 }}>{p.reasoning}</p>
-                  <div style={{ display: "flex", gap: 12, fontFamily: MONO, fontSize: 10 }}>
-                    <span>Hit rate: <span style={{ fontWeight: 700, color: hrColor(p.hit_rate) }}>{p.hit_rate}%</span></span>
-                    {p.roster_need && <span>Need: <span style={{ fontWeight: 700, color: POS_C[p.roster_need] }}>{p.roster_need}</span></span>}
-                  </div>
-                  {posEntries.length > 0 && (
-                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                      {posEntries.slice(0, 4).map(([pos, pct]: [string, any]) => (
-                        <div key={pos} style={{ display: "flex", alignItems: "center", gap: 3, padding: "2px 6px", borderRadius: 4, background: C.elevated }}>
-                          <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: POS_C[pos] || C.dim }}>{pos}</span>
-                          <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>{pct}%</span>
-                        </div>
-                      ))}
+          <style>{`.draft-intel-grid { display: flex; flex-direction: column; gap: 8px; } @media (min-width: 768px) { .draft-intel-grid { flex-direction: row !important; align-items: flex-start !important; } .draft-intel-grid > .draft-intel-left { flex: 1; min-width: 0; } .draft-intel-grid > .draft-intel-right { flex: 1; min-width: 0; } }`}</style>
+          <div className="draft-intel-grid">
+            {/* Left: Pick Intel cards */}
+            <div className="draft-intel-left" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {pickIntel.map((p: any, i: number) => {
+                const recColor = REC_C[p.recommendation] || C.dim;
+                const posEntries = Object.entries(p.position_breakdown || {}).sort(([, a]: any, [, b]: any) => b - a);
+                return (
+                  <div key={i} style={{ borderRadius: 8, overflow: "hidden", border: `1px solid ${C.border}`, background: C.card }}>
+                    <div style={{ padding: "10px 12px", display: "flex", alignItems: "center", justifyContent: "space-between", background: C.elevated }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.primary }}>{p.season} R{p.round}{p.slot ? `.${String(p.slot).padStart(2, "0")}` : ""}</span>
+                        {!p.is_own_pick && <span style={{ fontFamily: MONO, fontSize: 8, padding: "1px 6px", borderRadius: 3, background: "#6bb8e015", color: "#6bb8e0" }}>ACQUIRED</span>}
+                      </div>
+                      <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, padding: "4px 10px", borderRadius: 6, letterSpacing: "0.06em", color: recColor, background: `${recColor}15`, border: `1px solid ${recColor}30` }}>
+                        {p.recommendation}
+                      </span>
                     </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+                    <div style={{ padding: "10px 12px", display: "flex", flexDirection: "column", gap: 6 }}>
+                      <p style={{ fontFamily: SANS, fontSize: 13, color: C.secondary, lineHeight: 1.5, margin: 0 }}>{p.reasoning}</p>
+                      <div style={{ display: "flex", gap: 12, fontFamily: MONO, fontSize: 10 }}>
+                        <span>Hit rate: <span style={{ fontWeight: 700, color: hrColor(p.hit_rate) }}>{p.hit_rate}%</span></span>
+                        {p.roster_need && <span>Need: <span style={{ fontWeight: 700, color: POS_C[p.roster_need] }}>{p.roster_need}</span></span>}
+                      </div>
+                      {posEntries.length > 0 && (
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                          {posEntries.slice(0, 4).map(([pos, pct]: [string, any]) => (
+                            <div key={pos} style={{ display: "flex", alignItems: "center", gap: 3, padding: "2px 6px", borderRadius: 4, background: C.elevated }}>
+                              <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: POS_C[pos] || C.dim }}>{pos}</span>
+                              <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>{pct}%</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Right on desktop, below on mobile: Pick Acquisition */}
+            <div className="draft-intel-right">
+              <PickAcquisition leagueId={lid} owner={owner} ownerId={ownerId} />
+            </div>
+          </div>
         </>
       )}
     </div>
