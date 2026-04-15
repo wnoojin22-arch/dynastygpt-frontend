@@ -107,7 +107,7 @@ export default function RecentTrades({ trades, basePath, leagueId, limit = 7 }: 
             );
           })}
         </div>
-        <div onClick={() => router.push(`${basePath}/trades`)}
+        <div onClick={() => router.push(`${basePath}/trades?tab=league`)}
           style={{ padding: "8px 14px", borderTop: `1px solid ${C.border}`, cursor: "pointer", textAlign: "center", transition: "background 0.12s" }}
           onMouseEnter={(e) => { e.currentTarget.style.background = C.elevated; }}
           onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
