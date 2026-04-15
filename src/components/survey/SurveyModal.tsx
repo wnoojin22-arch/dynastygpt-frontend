@@ -77,11 +77,10 @@ export default function SurveyModal() {
   const submit = useCallback(async () => {
     try {
       const hdrs = await authHeaders();
-      await fetch("/api/league/feedback", {
+      await fetch("/api/user/feedback/thread/message", {
         method: "POST",
         headers: hdrs,
         body: JSON.stringify({
-          clerk_user_id: user?.id,
           email: user?.primaryEmailAddress?.emailAddress,
           league_id: currentLeagueId,
           owner_name: currentOwner,

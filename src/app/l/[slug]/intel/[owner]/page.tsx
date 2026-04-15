@@ -12,6 +12,7 @@ import {
 import { ScoutingReport, RivalsView, TradeReportModal } from "@/components/league";
 import { TradeAssetList } from "@/components/league/TradeAssets";
 import TradeProfile from "@/components/league/TradeProfile";
+import PickAcquisition from "@/components/league/PickAcquisition";
 import { C, SANS, MONO, DISPLAY, SERIF, fmt, posColor, getVerdictStyle, gradeColor } from "@/components/league/tokens";
 import { useTrack } from "@/hooks/useTrack";
 import type { RosterPlayer } from "@/lib/types";
@@ -162,6 +163,9 @@ export default function OwnerDetailPage({ params }: { params: Promise<{ owner: s
                 </div>
               ) : <p style={{ fontFamily: MONO, fontSize: 12, color: C.dim }}>Loading...</p>}
             </DCard>
+
+          {/* Pick Acquisition Intelligence */}
+          {lid && <PickAcquisition leagueId={lid} owner={ownerName} ownerId={ownerUserId} />}
         </div>
       )}
 
