@@ -8,6 +8,7 @@ import { C, SANS, MONO, DISPLAY, fmt, posColor } from "./tokens";
 import PlayerName from "./PlayerName";
 import { ChevronDown } from "lucide-react";
 import CoachesCorner from "./CoachesCorner";
+import PickAcquisition from "./PickAcquisition";
 import { useLeagueStore } from "@/lib/stores/league-store";
 import { useTrack } from "@/hooks/useTrack";
 
@@ -423,7 +424,15 @@ export default function FranchiseIntel({ leagueId, owner, ownerId }: {
           <GmVerdict text={gmText} />
           <WindowRoster windowData={windowData} positions={positions} rosterData={rosterData} />
           <StopStartKeep stop={actionsData.stop} start={actionsData.start} keep={actionsData.keep} />
-          <MoveableAssets assets={moveable || []} />
+          {/* Pick Acquisition + Moveable Assets: side-by-side desktop, stacked mobile (pick acq first) */}
+          <div className="flex flex-col md:flex-row gap-2.5">
+            <div className="md:flex-1 md:min-w-0">
+              <PickAcquisition leagueId={leagueId} owner={owner} ownerId={ownerId} />
+            </div>
+            <div className="md:flex-1 md:min-w-0">
+              <MoveableAssets assets={moveable || []} />
+            </div>
+          </div>
         </div>
       ) : (
         <CoachesCorner leagueId={leagueId} owner={owner} ownerId={ownerId} />

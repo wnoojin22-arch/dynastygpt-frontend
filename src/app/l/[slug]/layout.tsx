@@ -410,33 +410,34 @@ export default function LeagueLayout({ children }: { children: React.ReactNode }
   if (!DEV_BYPASS_ACTIVE && !gateChecked) return null;
 
   return (
-    <div style={{
-      display: "flex", height: "100vh", overflow: "hidden",
-      background: C.bg, color: C.primary, fontFamily: SANS,
-    }}>
-      <style>{`@keyframes pulse-gold{0%,100%{opacity:1}50%{opacity:.3}} @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
+    <>
+      <div style={{
+        display: "flex", height: "100vh", overflow: "hidden",
+        background: C.bg, color: C.primary, fontFamily: SANS,
+      }}>
+        <style>{`@keyframes pulse-gold{0%,100%{opacity:1}50%{opacity:.3}} @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
 
-      {/* ── Icon Sidebar ── */}
-      <IconSidebar basePath={basePath} pathname={pathname} owner={currentOwner} shaRank={myRank?.rank || 0} />
+        {/* ── Icon Sidebar ── */}
+        <IconSidebar basePath={basePath} pathname={pathname} owner={currentOwner} shaRank={myRank?.rank || 0} />
 
-      {/* ── Main Area (Header + Content) ── */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
-        <HeaderBar
-          owner={currentOwner}
-          leagueName={overview?.name || ""}
-        />
+        {/* ── Main Area (Header + Content) ── */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
+          <HeaderBar
+            owner={currentOwner}
+            leagueName={overview?.name || ""}
+          />
 
-        <main className="pb-16 sm:pb-0" style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
-          {children}
-        </main>
+          <main className="pb-16 sm:pb-0" style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
+            {children}
+          </main>
+        </div>
       </div>
 
-      {/* ── Bottom Tab Bar (mobile only) ── */}
+      {/* ── Fixed overlays — outside overflow:hidden wrapper ── */}
       <BottomTabBar basePath={basePath} pathname={pathname} />
-
       <PlayerCardModal />
       <OwnerQuickViewModal />
       <FeedbackWidget />
-    </div>
+    </>
   );
 }

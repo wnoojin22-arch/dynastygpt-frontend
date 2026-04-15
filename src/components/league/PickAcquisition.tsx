@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getPickAcquisition } from "@/lib/api";
+import { C, SANS, MONO, fmt, posColor } from "./tokens";
 
 interface Pick {
   player: string;
@@ -14,6 +16,7 @@ interface Pick {
   original_owner: string;
   hit: boolean;
   bust: boolean;
+  label: string;
 }
 
 interface PickAcquisitionData {
@@ -29,135 +32,213 @@ interface PickAcquisitionData {
   best_acquired_pick: Pick | null;
   worst_acquired_pick: Pick | null;
   round_breakdown: Record<string, number>;
+  acquired_picks: Pick[];
+  own_picks: Pick[];
 }
 
-const POS_COLORS: Record<string, string> = {
-  QB: "text-accent-red", RB: "text-accent-blue", WR: "text-accent-green", TE: "text-accent-orange",
-};
-const POS_BG: Record<string, string> = {
-  QB: "bg-accent-red/10", RB: "bg-accent-blue/10", WR: "bg-accent-green/10", TE: "bg-accent-orange/10",
-};
-
-function PickCard({ pick, label, accent }: { pick: Pick; label: string; accent: string }) {
-  return (
-    <div className={`rounded-lg border p-3 ${accent === "green" ? "border-accent-green/20 bg-accent-green/[0.04]" : "border-accent-red/20 bg-accent-red/[0.04]"}`}>
-      <div className="flex items-center justify-between mb-1.5">
-        <span className={`font-mono text-[8px] font-bold tracking-widest ${accent === "green" ? "text-accent-green" : "text-accent-red"}`}>{label}</span>
-        <span className="font-mono text-[9px] text-dim">R{pick.round}.{String(pick.slot).padStart(2, "0")} · {pick.season}</span>
-      </div>
-      <div className="flex items-center gap-2">
-        <span className={`font-mono text-[10px] font-bold rounded px-1 py-0.5 ${POS_COLORS[pick.position] || "text-dim"} ${POS_BG[pick.position] || "bg-elevated"}`}>{pick.position}</span>
-        <span className="font-sans text-sm font-semibold text-primary flex-1">{pick.player}</span>
-        <span className="font-mono text-xs font-bold text-gold">{Math.round(pick.sha_value).toLocaleString()}</span>
-      </div>
-      <div className="flex items-center gap-1 mt-1">
-        <span className="font-mono text-[9px] text-dim">from</span>
-        <span className="font-mono text-[9px] text-secondary">{pick.original_owner}</span>
-        {pick.pos_rank && <span className="font-mono text-[9px] text-dim ml-auto">{pick.pos_rank}</span>}
-      </div>
-    </div>
-  );
-}
-
-export default function PickAcquisition({ leagueId, owner, ownerId }: { leagueId: string; owner: string; ownerId?: string | null }) {
+export default function PickAcquisition({ leagueId, owner, ownerId }: {
+  leagueId: string; owner: string; ownerId?: string | null;
+}) {
   const { data, isLoading } = useQuery({
     queryKey: ["pick-acquisition", leagueId, owner],
     queryFn: () => getPickAcquisition(leagueId, owner, ownerId),
     enabled: !!leagueId && !!owner,
     staleTime: 600_000,
   });
+  const [expandedRound, setExpandedRound] = useState<number | null>(null);
 
   const d = data as PickAcquisitionData | undefined;
 
   if (isLoading) {
     return (
-      <div className="rounded-lg border border-border bg-card p-4">
-        <div className="font-mono text-[9px] font-bold tracking-widest text-dim">PICK ACQUISITION</div>
-        <div className="font-sans text-sm text-dim mt-2">Loading...</div>
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
+        <div style={{ padding: "5px 12px", borderBottom: `1px solid ${C.border}`, background: C.goldDim }}>
+          <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.1em", color: C.gold }}>PICK ACQUISITION</span>
+        </div>
+        <div style={{ padding: 16 }}>
+          <div style={{ height: 14, width: 140, background: C.elevated, borderRadius: 4, marginBottom: 10 }} />
+          <div style={{ height: 40, background: C.elevated, borderRadius: 4 }} />
+        </div>
       </div>
     );
   }
 
-  if (!d || (d.acquired_count === 0 && d.own_count === 0)) {
-    return null; // No data — don't render
-  }
+  if (!d || (d.acquired_count === 0 && d.own_count === 0)) return null;
 
   const acqWins = d.acquired_hit_rate > d.own_hit_rate;
   const diff = Math.abs(d.acquired_hit_rate - d.own_hit_rate);
   const rdBreakdown = d.round_breakdown || {};
+  const allPicks = [...(d.acquired_picks || []), ...(d.own_picks || [])];
 
-  // Answer headline
+  // Headline
   let headline = "";
   if (d.acquired_count === 0) {
-    headline = "No picks acquired via trade yet.";
+    headline = "No picks acquired via trade.";
   } else if (acqWins && diff >= 15) {
-    headline = `Trades for picks at ${d.acquired_hit_rate}% — significantly better than their own ${d.own_hit_rate}%.`;
+    headline = `Acquired picks convert at ${d.acquired_hit_rate}% — outperforming own picks at ${d.own_hit_rate}%.`;
   } else if (acqWins) {
-    headline = `Acquired picks hit at ${d.acquired_hit_rate}% vs ${d.own_hit_rate}% on their own.`;
+    headline = `Acquired picks edge own: ${d.acquired_hit_rate}% vs ${d.own_hit_rate}%.`;
   } else if (diff >= 15) {
-    headline = `Own picks hit at ${d.own_hit_rate}% — significantly better than acquired ${d.acquired_hit_rate}%.`;
+    headline = `Own picks convert at ${d.own_hit_rate}% — outperforming acquired at ${d.acquired_hit_rate}%.`;
   } else {
-    headline = `Similar hit rates: ${d.acquired_hit_rate}% acquired vs ${d.own_hit_rate}% own.`;
+    headline = `Comparable hit rates: ${d.acquired_hit_rate}% acquired, ${d.own_hit_rate}% own.`;
   }
 
+  const hrColor = (rate: number) => rate >= 55 ? C.green : rate >= 35 ? C.gold : C.red;
+
   return (
-    <div className="rounded-lg border border-border bg-card overflow-hidden">
-      {/* Header */}
-      <div className="px-4 py-2.5 border-b border-border bg-elevated flex items-center gap-2">
-        <span className="text-gold text-xs">🎯</span>
-        <span className="font-mono text-[9px] font-bold tracking-widest text-dim">PICK ACQUISITION</span>
+    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
+      {/* Header — matches Moveable Assets / StopStartKeep pattern */}
+      <div style={{ padding: "5px 12px", borderBottom: `1px solid ${C.border}`, background: C.goldDim }}>
+        <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.1em", color: C.gold }}>PICK ACQUISITION</span>
       </div>
 
-      <div className="p-4 space-y-4">
-        {/* ── ANSWER ── */}
-        <p className="font-sans text-[13px] text-secondary leading-relaxed">{headline}</p>
+      <div style={{ padding: "10px 12px" }}>
+        {/* Headline */}
+        <p style={{ fontFamily: SANS, fontSize: 12, color: C.secondary, lineHeight: 1.5, margin: "0 0 10px 0" }}>{headline}</p>
 
-        {/* ── BY THE NUMBERS ── */}
         {d.acquired_count > 0 && (
           <>
-            <div className="grid grid-cols-2 gap-2">
-              {/* Acquired */}
-              <div className="rounded-lg border border-border bg-elevated p-3 text-center">
-                <div className="font-mono text-[8px] font-bold tracking-widest text-dim mb-1">ACQUIRED PICKS</div>
-                <div className={`font-mono text-2xl font-black ${acqWins ? "text-accent-green" : "text-primary"}`}>{d.acquired_hit_rate}%</div>
-                <div className="font-mono text-[9px] text-dim mt-0.5">{d.acquired_hits}/{d.acquired_count} hits · avg {d.acquired_avg_sha.toLocaleString()}</div>
+            {/* Hit rate comparison — two tight cells */}
+            <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+              <div style={{
+                flex: 1, textAlign: "center", padding: "8px 6px", borderRadius: 6,
+                border: `1px solid ${acqWins ? "rgba(125,211,160,0.25)" : C.border}`,
+                background: acqWins ? "rgba(125,211,160,0.04)" : C.elevated,
+              }}>
+                <div style={{ fontFamily: MONO, fontSize: 7, fontWeight: 800, letterSpacing: "0.12em", color: C.dim, marginBottom: 2 }}>ACQUIRED</div>
+                <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: acqWins ? C.green : C.primary }}>{d.acquired_hit_rate}%</div>
+                <div style={{ fontFamily: MONO, fontSize: 8, color: C.dim, marginTop: 1 }}>{d.acquired_hits}/{d.acquired_count} hits</div>
               </div>
-              {/* Own */}
-              <div className="rounded-lg border border-border bg-elevated p-3 text-center">
-                <div className="font-mono text-[8px] font-bold tracking-widest text-dim mb-1">OWN PICKS</div>
-                <div className={`font-mono text-2xl font-black ${!acqWins ? "text-accent-green" : "text-primary"}`}>{d.own_hit_rate}%</div>
-                <div className="font-mono text-[9px] text-dim mt-0.5">{d.own_hits}/{d.own_count} hits · avg {d.own_avg_sha.toLocaleString()}</div>
+              <div style={{
+                flex: 1, textAlign: "center", padding: "8px 6px", borderRadius: 6,
+                border: `1px solid ${!acqWins ? "rgba(125,211,160,0.25)" : C.border}`,
+                background: !acqWins ? "rgba(125,211,160,0.04)" : C.elevated,
+              }}>
+                <div style={{ fontFamily: MONO, fontSize: 7, fontWeight: 800, letterSpacing: "0.12em", color: C.dim, marginBottom: 2 }}>OWN</div>
+                <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: !acqWins ? C.green : C.primary }}>{d.own_hit_rate}%</div>
+                <div style={{ fontFamily: MONO, fontSize: 8, color: C.dim, marginTop: 1 }}>{d.own_hits}/{d.own_count} hits</div>
               </div>
             </div>
 
-            {/* Round breakdown pills */}
-            <div>
-              <div className="font-mono text-[8px] font-bold tracking-widest text-dim mb-2">ACQUIRED BY ROUND</div>
-              <div className="flex gap-1.5">
+            {/* Round breakdown — clickable */}
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontFamily: MONO, fontSize: 7, fontWeight: 800, letterSpacing: "0.12em", color: C.dim, marginBottom: 6 }}>ACQUIRED BY ROUND</div>
+              <div style={{ display: "flex", gap: 4 }}>
                 {[1, 2, 3, 4].map((rd) => {
                   const count = rdBreakdown[String(rd)] || 0;
+                  const active = count > 0;
+                  const isOpen = expandedRound === rd;
                   return (
-                    <div key={rd} className={`flex-1 rounded-md border text-center py-2 ${count > 0 ? "border-gold/20 bg-gold/[0.06]" : "border-border bg-elevated"}`}>
-                      <div className={`font-mono text-sm font-bold ${count > 0 ? "text-gold" : "text-dim"}`}>{count}</div>
-                      <div className="font-mono text-[8px] text-dim">R{rd}</div>
+                    <div
+                      key={rd}
+                      onClick={() => active && setExpandedRound(isOpen ? null : rd)}
+                      style={{
+                        flex: 1, textAlign: "center", padding: "6px 2px", borderRadius: 4, cursor: active ? "pointer" : "default",
+                        border: `1px solid ${isOpen ? C.gold : active ? "rgba(212,165,50,0.2)" : C.border}`,
+                        background: isOpen ? C.goldDim : active ? "rgba(212,165,50,0.04)" : C.elevated,
+                        transition: "all 0.15s",
+                      }}
+                    >
+                      <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: active ? C.gold : C.dim }}>{count}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 7, color: C.dim }}>R{rd}</div>
+                      {active && <div style={{ fontFamily: MONO, fontSize: 6, color: C.dim, marginTop: 1, opacity: 0.6 }}>tap</div>}
                     </div>
                   );
                 })}
               </div>
+
+              {/* Expanded round — player list */}
+              {expandedRound !== null && (() => {
+                const roundPicks = allPicks
+                  .filter(p => p.round === expandedRound)
+                  .sort((a, b) => b.sha_value - a.sha_value);
+                if (!roundPicks.length) return null;
+                return (
+                  <div style={{ marginTop: 8, borderTop: `1px solid ${C.border}`, paddingTop: 6 }}>
+                    <div style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, color: C.dim, marginBottom: 4, letterSpacing: "0.06em" }}>
+                      ROUND {expandedRound} ({roundPicks.length} picks)
+                    </div>
+                    {roundPicks.map((p, j) => {
+                      const isAcquired = (d.acquired_picks || []).some(
+                        ap => ap.player === p.player && ap.season === p.season && ap.round === p.round
+                      );
+                      return (
+                        <div key={j} style={{
+                          display: "flex", alignItems: "center", gap: 6, padding: "4px 0",
+                          borderBottom: j < roundPicks.length - 1 ? `1px solid rgba(255,255,255,0.04)` : "none",
+                        }}>
+                          <span style={{ fontFamily: MONO, fontSize: 8, color: C.dim, width: 18, flexShrink: 0 }}>
+                            {String(p.season).slice(2)}&apos;
+                          </span>
+                          <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.dim, width: 22, flexShrink: 0 }}>
+                            {p.round}.{String(p.slot).padStart(2, "0")}
+                          </span>
+                          <span style={{
+                            fontFamily: SANS, fontSize: 9, fontWeight: 700,
+                            color: posColor(p.position), background: posColor(p.position) + "18",
+                            padding: "1px 4px", borderRadius: 3, width: 22, textAlign: "center", flexShrink: 0,
+                          }}>{p.position}</span>
+                          <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 500, color: C.primary, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.player}</span>
+                          <span style={{
+                            fontFamily: MONO, fontSize: 7, fontWeight: 700, padding: "1px 5px", borderRadius: 3,
+                            color: isAcquired ? "#6bb8e0" : C.gold,
+                            background: isAcquired ? "rgba(107,184,224,0.1)" : C.goldDim,
+                            border: `1px solid ${isAcquired ? "rgba(107,184,224,0.2)" : "rgba(212,165,50,0.2)"}`,
+                          }}>{isAcquired ? "ACQUIRED" : "OWN"}</span>
+                          {(() => {
+                            const lbl = (p as Record<string, unknown>).label as string | undefined;
+                            if (!lbl || lbl === "Too Early") return null;
+                            const LC: Record<string, string> = { Star: C.gold, Hit: C.green, Miss: C.orange || "#e09c6b", Bust: C.red, Concerning: C.orange || "#e09c6b" };
+                            const LBG: Record<string, string> = { Star: "#d4a53218", Hit: "#7dd3a018", Miss: "#e09c6b18", Bust: "#e4727218", Concerning: "#e09c6b18" };
+                            return (
+                              <span style={{
+                                fontFamily: MONO, fontSize: 7, fontWeight: 700, padding: "1px 5px", borderRadius: 3,
+                                color: LC[lbl] || C.dim, background: LBG[lbl] || C.elevated,
+                              }}>{lbl.toUpperCase()}</span>
+                            );
+                          })()}
+                          <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: p.hit ? C.green : p.bust ? C.red : C.dim, minWidth: 36, textAlign: "right" }}>
+                            {fmt(p.sha_value)}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </div>
 
-            {/* ── EVIDENCE — best/worst ── */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {d.best_acquired_pick && <PickCard pick={d.best_acquired_pick} label="BEST ACQUIRED" accent="green" />}
-              {d.worst_acquired_pick && <PickCard pick={d.worst_acquired_pick} label="WORST ACQUIRED" accent="red" />}
-            </div>
-
-            {/* Acquisition % */}
-            <div className="flex items-center gap-2">
-              <div className="flex-1 h-1.5 rounded-full bg-elevated overflow-hidden">
-                <div className="h-full rounded-full bg-gold" style={{ width: `${d.acquired_pct}%` }} />
+            {/* Best / Worst — compact */}
+            {d.best_acquired_pick && (
+              <div style={{
+                display: "flex", alignItems: "center", gap: 6, padding: "5px 8px", marginBottom: 4,
+                borderRadius: 4, borderLeft: `2px solid ${C.green}`, background: "rgba(125,211,160,0.03)",
+              }}>
+                <span style={{ fontFamily: MONO, fontSize: 7, fontWeight: 800, color: C.green, letterSpacing: "0.08em", width: 30 }}>BEST</span>
+                <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 500, color: C.primary, flex: 1 }}>{d.best_acquired_pick.player}</span>
+                <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>R{d.best_acquired_pick.round}.{String(d.best_acquired_pick.slot).padStart(2, "0")}</span>
+                <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.gold }}>{fmt(d.best_acquired_pick.sha_value)}</span>
               </div>
-              <span className="font-mono text-[9px] text-dim">{d.acquired_pct}% of R1-4 picks were acquired via trade</span>
+            )}
+            {d.worst_acquired_pick && (
+              <div style={{
+                display: "flex", alignItems: "center", gap: 6, padding: "5px 8px", marginBottom: 6,
+                borderRadius: 4, borderLeft: `2px solid ${C.red}`, background: "rgba(228,114,114,0.03)",
+              }}>
+                <span style={{ fontFamily: MONO, fontSize: 7, fontWeight: 800, color: C.red, letterSpacing: "0.08em", width: 30 }}>WORST</span>
+                <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 500, color: C.primary, flex: 1 }}>{d.worst_acquired_pick.player}</span>
+                <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>R{d.worst_acquired_pick.round}.{String(d.worst_acquired_pick.slot).padStart(2, "0")}</span>
+                <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.dim }}>{fmt(d.worst_acquired_pick.sha_value)}</span>
+              </div>
+            )}
+
+            {/* Acquisition rate */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ flex: 1, height: 2, borderRadius: 1, background: C.elevated, overflow: "hidden" }}>
+                <div style={{ height: "100%", borderRadius: 1, background: `${C.gold}80`, width: `${d.acquired_pct}%` }} />
+              </div>
+              <span style={{ fontFamily: MONO, fontSize: 8, color: C.dim }}>{d.acquired_pct}% via trade</span>
             </div>
           </>
         )}
