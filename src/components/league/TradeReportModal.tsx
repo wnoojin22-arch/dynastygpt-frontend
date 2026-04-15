@@ -619,11 +619,11 @@ function FullReport({reportData,hindsightData,onClose,pickSlotMap}:{reportData:a
                     <span style={{fontSize:8,color:C.green,flexShrink:0,marginTop:3}}>●</span>
                     <span style={{fontFamily:SANS,fontSize:12,color:C.secondary,lineHeight:1.4}}>{f}</span>
                   </div>
-                )):<span style={{fontFamily:SANS,fontSize:12,color:C.dim,fontStyle:'italic'}}>No factors</span>}
+                )):<span style={{fontFamily:MONO,fontSize:10,color:C.dim,letterSpacing:'0.06em'}}>No factors</span>}
               </div>
             ))}
           </div>}
-        </>):(<div style={{padding:'12px',textAlign:'center'}}><span style={{fontFamily:SERIF,fontSize:13,fontStyle:'italic',color:C.goldBright}}>Hindsight grades unlock over time</span></div>)}
+        </>):(<div style={{padding:'12px',textAlign:'center'}}><span style={{fontFamily:MONO,fontSize:11,fontWeight:700,letterSpacing:'0.06em',color:C.goldBright}}>Hindsight grades unlock over time</span></div>)}
       </CollapsiblePill>
 
       {/* ASSETS ACQUIRED — collapsible per owner */}
@@ -750,7 +750,7 @@ export default function TradeReportModal({ leagueId, tradeId, onClose }: {
           <div style={{width:36,height:4,borderRadius:2,background:C.borderLt}}/>
         </div>}
         {/* Powered by — desktop only */}
-        {!mobile&&<div style={{position:'absolute',top:10,right:16,zIndex:10}}><div style={{display:'flex',alignItems:'center',gap:4,paddingTop:3,paddingBottom:3,paddingLeft:10,paddingRight:10,borderRadius:12,background:'rgba(212,165,50,0.06)',border:'1px solid rgba(212,165,50,0.22)'}}><span style={{fontFamily:SANS,fontSize:9,fontWeight:600,color:'#d4a532',fontStyle:'italic'}}>powered by</span><span style={{fontFamily:SANS,fontSize:10,fontWeight:900,color:'#eeeef2'}}>DynastyGPT<span style={{color:'#d4a532'}}>.com</span></span></div></div>}
+        {!mobile&&<div style={{position:'absolute',top:10,right:16,zIndex:10}}><div style={{display:'flex',alignItems:'center',gap:4,paddingTop:3,paddingBottom:3,paddingLeft:10,paddingRight:10,borderRadius:12,background:'rgba(212,165,50,0.06)',border:'1px solid rgba(212,165,50,0.22)'}}><span style={{fontFamily:SANS,fontSize:9,fontWeight:600,color:'#d4a532'}}>powered by</span><span style={{fontFamily:SANS,fontSize:10,fontWeight:900,color:'#eeeef2'}}>DynastyGPT<span style={{color:'#d4a532'}}>.com</span></span></div></div>}
         {isLoading?<LoadingSequence/>:hasReport?<FullReport reportData={r} hindsightData={hindsight} onClose={onClose} pickSlotMap={pickSlotMap}/>:(
           <div style={{paddingTop:40,paddingBottom:40,paddingLeft:20,paddingRight:20,textAlign:'center'}}><div style={{fontFamily:MONO,fontSize:12,color:C.red,marginBottom:8}}>Failed to load report</div><div style={{fontFamily:MONO,fontSize:10,color:C.dim}}>Trade ID: {tradeId}</div><div onClick={onClose} style={{marginTop:16,fontFamily:MONO,fontSize:11,color:C.gold,cursor:'pointer',paddingTop:6,paddingBottom:6,paddingLeft:16,paddingRight:16,borderRadius:4,border:`1px solid ${C.goldBorder}`,background:C.goldDim,display:'inline-block'}}>CLOSE</div></div>
         )}
