@@ -132,6 +132,8 @@ export const getIdealLineupSHA = (id: string, owner: string, userId?: string | n
 // ── Picks ────────────────────────────────────────────────────────────────
 export const getPicks = (id: string, owner: string, userId?: string | null) => get<PicksResponse>(`${L(id)}/picks/${O(owner, userId)}`);
 
+export const getPickAcquisition = (id: string, owner: string, userId?: string | null) => get<Record<string, unknown>>(`${L(id)}/owner/${O(owner, userId)}/pick-acquisition`);
+
 // ── Trades ───────────────────────────────────────────────────────────────
 export const getTrades = (id: string) => get<{ trades: unknown[] }>(`${L(id)}/trades`);
 export const getRecentTrades = (id: string, limit = 10) => get<{ trades: GradedTrade[] }>(`${L(id)}/trades/recent?limit=${limit}`);
