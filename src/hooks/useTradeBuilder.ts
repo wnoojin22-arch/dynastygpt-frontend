@@ -111,8 +111,11 @@ function buildRoster(data: unknown, picksData?: unknown): RosterPlayer[] {
       // 2026: show exact slot "2026 3.10". 2027+: no slots known, show "2027 Rd 1"
       const slotStr = season <= 2026 && pk.slot_label ? String(pk.slot_label) : `Rd ${pk.round}`;
       const label = `${pk.season} ${slotStr}`;
+      // Unique key: include original_owner to distinguish multiple picks of same round
+      const origOwner = pk.original_owner ? ` (${pk.original_owner})` : "";
+      const uniqueName = pk.is_own_pick ? label : `${label}${origOwner}`;
       all.push({
-        name: label,
+        name: uniqueName,
         name_clean: String(pk.season) + "_" + String(pk.round) + "_" + String(pk.original_owner || ""),
         position: "PICK",
         sha_value: Number(pk.sha_value || 0),
