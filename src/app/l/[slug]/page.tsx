@@ -785,8 +785,40 @@ export default function LeagueHome() {
       {/* ═══════════════ ③ MAIN CONTENT — left rail (Beta Guide + News) | Market Pulse ═══════════════ */}
       <div className="max-w-[1200px] mx-auto px-4 sm:px-8 pt-4 pb-8 grid grid-cols-1 lg:grid-cols-[76fr_24fr] gap-x-6 gap-y-3 items-start">
 
-        {/* ── BETA GUIDE HERO — top of left rail, natural height ── */}
+        {/* ── PLATFORM UPDATE — top of left rail ── */}
         <AnimatedSection className="order-0 lg:col-start-1">
+          <SectionLabel title="PLATFORM UPDATE" />
+          <WelcomeArticleCard variant="platform" leagueId={lid || ""} />
+        </AnimatedSection>
+
+        {/* ── NEWS RAIL — 2-col sub-grid ── */}
+        <div className="order-1 lg:col-start-1 grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* LEAGUE NEWS (left) */}
+          <AnimatedSection className="order-2 lg:order-1">
+            <SectionLabel title="LEAGUE NEWS" />
+            <WelcomeArticleCard variant="league" leagueId={lid || ""} />
+            <div className="text-[11px] font-bold tracking-wider text-gold text-center mt-3" style={{ fontFamily: SANS }}>
+              More league-specific articles coming soon
+            </div>
+          </AnimatedSection>
+
+          {/* MY NEWS (right) — first on mobile via order-1 */}
+          <AnimatedSection className="order-1 lg:order-2">
+            <SectionLabel title="MY NEWS" />
+            <WelcomeArticleCard
+              variant="my"
+              leagueId={lid || ""}
+              ownerName={currentOwner}
+              ownerUserId={currentOwnerId}
+            />
+            <div className="text-[11px] font-bold tracking-wider text-gold text-center mt-3" style={{ fontFamily: SANS }}>
+              More personalized content coming soon
+            </div>
+          </AnimatedSection>
+        </div>
+
+        {/* ── BETA GUIDE — below news, demoted from hero ── */}
+        <AnimatedSection className="order-3 lg:col-start-1">
           <Link
             href={`${basePath}/beta-guide`}
             onClick={() => track("beta_guide_opened", { league_id: lid })}
@@ -917,32 +949,6 @@ export default function LeagueHome() {
             </div>
           </Link>
         </AnimatedSection>
-
-        {/* ── NEWS RAIL — 2-col sub-grid below Beta Guide, same width as Beta Guide ── */}
-        <div className="order-1 lg:col-start-1 grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* LEAGUE NEWS (left) */}
-          <AnimatedSection className="order-2 lg:order-1">
-            <SectionLabel title="LEAGUE NEWS" />
-            <WelcomeArticleCard variant="league" leagueId={lid || ""} />
-            <div className="text-[11px] font-bold tracking-wider text-gold text-center mt-3" style={{ fontFamily: SANS }}>
-              More league-specific articles coming soon
-            </div>
-          </AnimatedSection>
-
-          {/* MY NEWS (right) — first on mobile via order-1 */}
-          <AnimatedSection className="order-1 lg:order-2">
-            <SectionLabel title="MY NEWS" />
-            <WelcomeArticleCard
-              variant="my"
-              leagueId={lid || ""}
-              ownerName={currentOwner}
-              ownerUserId={currentOwnerId}
-            />
-            <div className="text-[11px] font-bold tracking-wider text-gold text-center mt-3" style={{ fontFamily: SANS }}>
-              More personalized content coming soon
-            </div>
-          </AnimatedSection>
-        </div>
 
         {/* ── MARKET PULSE — right column, spans both rows of left rail ── */}
         <AnimatedSection className="order-2 lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:h-full">

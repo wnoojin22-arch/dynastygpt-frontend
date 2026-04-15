@@ -32,6 +32,7 @@ import { ArrowRight, Sparkles, X } from "lucide-react";
 import {
   getLeagueNewsWelcome,
   getMyNewsFirstReport,
+  getPlatformUpdate,
   type WelcomeArticleResponse,
   type WelcomeArticle,
 } from "@/lib/api";
@@ -56,17 +57,23 @@ interface MyProps extends BaseProps {
   ownerName: string | null;
   ownerUserId?: string | null;
 }
-type Props = LeagueProps | MyProps;
+interface PlatformProps extends BaseProps {
+  variant: "platform";
+}
+type Props = LeagueProps | MyProps | PlatformProps;
 
 export default function WelcomeArticleCard(props: Props) {
   const { leagueId, variant } = props;
 
   const queryKey =
-    variant === "league"
+    variant === "platform"
+      ? ["welcome-platform-update-v3"]
+      : variant === "league"
       ? ["welcome-league-news", leagueId]
       : ["welcome-my-news", leagueId, (props as MyProps).ownerName, (props as MyProps).ownerUserId];
 
   const queryFn = (): Promise<WelcomeArticleResponse> => {
+    if (variant === "platform") return getPlatformUpdate(leagueId);
     if (variant === "league") return getLeagueNewsWelcome(leagueId);
     const { ownerName, ownerUserId } = props as MyProps;
     if (!ownerName) {
@@ -76,7 +83,7 @@ export default function WelcomeArticleCard(props: Props) {
   };
 
   const enabled =
-    variant === "league" || (variant === "my" && Boolean((props as MyProps).ownerName));
+    variant === "platform" || variant === "league" || (variant === "my" && Boolean((props as MyProps).ownerName));
 
   const { data, isLoading } = useQuery({
     queryKey,
@@ -101,7 +108,7 @@ function ArticleCard({
   variant,
   response,
 }: {
-  variant: "league" | "my";
+  variant: "league" | "my" | "platform";
   response: WelcomeArticleResponse;
 }) {
   const article = response.article!;
@@ -112,7 +119,7 @@ function ArticleCard({
     ? generatedAt.toLocaleDateString("en-US", { month: "short", day: "numeric" })
     : null;
 
-  const kicker = variant === "league" ? "LEAGUE FEATURE" : "DYNASTY REPORT";
+  const kicker = variant === "platform" ? "PLATFORM UPDATE" : variant === "league" ? "LEAGUE FEATURE" : "DYNASTY REPORT";
 
   return (
     <>
@@ -122,13 +129,31 @@ function ArticleCard({
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35 }}
-        className="group rounded-lg overflow-hidden flex flex-col w-full text-left transition-all hover:border-gold/40 hover:shadow-[0_4px_24px_rgba(212,165,50,0.08)] cursor-pointer"
+        className="group relative rounded-lg overflow-hidden flex flex-col w-full text-left transition-all hover:border-gold/40 hover:shadow-[0_4px_24px_rgba(212,165,50,0.08)] cursor-pointer"
         style={{
           height: CARD_HEIGHT_PX,
           background: `linear-gradient(180deg, ${C.card} 0%, #0a0d15 100%)`,
           border: `1px solid ${C.border}`,
         }}
       >
+        {/* Pulsing badge for platform updates */}
+        {variant === "platform" && (
+          <>
+            <style>{`@keyframes updatePulse{0%,100%{box-shadow:0 0 6px rgba(212,165,50,0.4)}50%{box-shadow:0 0 16px rgba(212,165,50,0.8),0 0 30px rgba(212,165,50,0.3)}}`}</style>
+            <span
+              className="absolute top-2 right-2 z-10 px-2.5 py-1 rounded-full text-[8px] font-black tracking-[0.10em]"
+              style={{
+                fontFamily: MONO,
+                color: "#06080d",
+                background: C.gold,
+                animation: "updatePulse 2s ease infinite",
+              }}
+            >
+              PLATFORM UPDATE — PLEASE READ
+            </span>
+          </>
+        )}
+
         {/* Top accent bar */}
         <div
           className="h-[2px] flex-shrink-0"
@@ -211,7 +236,7 @@ function ArticleModal({
   onClose,
 }: {
   article: WelcomeArticle;
-  variant: "league" | "my";
+  variant: "league" | "my" | "platform";
   kicker: string;
   dateStr: string | null;
   onClose: () => void;
@@ -338,6 +363,23 @@ function ArticleModal({
  * a quieter style; last paragraph (hardcoded closing) gets a quieter style;
  * middle AI paragraphs are the main body. NEVER italic.
  */
+/** Render inline bold (**text**) as <strong> elements */
+function renderInlineBold(text: string) {
+  const parts = text.split(/\*\*(.+?)\*\*/g);
+  if (parts.length === 1) return <>{text}</>;
+  return (
+    <>
+      {parts.map((part, i) =>
+        i % 2 === 1 ? (
+          <strong key={i} style={{ fontWeight: 700, color: C.primary }}>{part}</strong>
+        ) : (
+          <span key={i}>{part}</span>
+        )
+      )}
+    </>
+  );
+}
+
 function ModalParagraph({
   text,
   index,
@@ -349,6 +391,45 @@ function ModalParagraph({
 }) {
   const isOpening = index === 0;
   const isClosing = index === totalCount - 1;
+  const trimmed = text.trim();
+
+  // Section divider
+  if (trimmed === "---") {
+    return <div className="my-4 h-px" style={{ background: `linear-gradient(90deg, transparent, ${C.gold}40, transparent)` }} />;
+  }
+
+  // Callout box: >>>CALLOUT: text<<<
+  const calloutMatch = trimmed.match(/^>>>CALLOUT:\s*([\s\S]+?)<<<$/);
+  if (calloutMatch) {
+    return (
+      <div
+        className="my-4 px-4 py-3 rounded-lg border-l-[3px]"
+        style={{
+          fontFamily: SANS,
+          fontSize: 13,
+          lineHeight: 1.7,
+          color: C.gold,
+          background: "rgba(212,165,50,0.06)",
+          borderColor: C.gold,
+        }}
+      >
+        {renderInlineBold(calloutMatch[1])}
+      </div>
+    );
+  }
+
+  // Section header: all-caps line, short, no period
+  const isHeader = /^[A-Z\s\u2014\u2019\u201C\u201D\u2018:]+$/.test(trimmed) && trimmed.length < 80 && !trimmed.includes(".");
+  if (isHeader) {
+    return (
+      <h3
+        className="text-[13px] sm:text-[15px] font-black tracking-[0.10em] mt-6 mb-2"
+        style={{ fontFamily: MONO, color: C.gold }}
+      >
+        {trimmed}
+      </h3>
+    );
+  }
 
   if (isOpening) {
     return (
@@ -361,7 +442,7 @@ function ModalParagraph({
           fontWeight: 500,
         }}
       >
-        {text}
+        {renderInlineBold(text)}
       </p>
     );
   }
@@ -372,7 +453,7 @@ function ModalParagraph({
         className="text-[12px] sm:text-[13px] leading-relaxed text-dim pt-2 border-t border-border"
         style={{ fontFamily: SANS }}
       >
-        {text}
+        {renderInlineBold(text)}
       </p>
     );
   }
@@ -382,7 +463,7 @@ function ModalParagraph({
       className="text-[14px] sm:text-[15px] leading-[1.7] text-primary"
       style={{ fontFamily: SANS, fontWeight: 400 }}
     >
-      {text}
+      {renderInlineBold(text)}
     </p>
   );
 }
@@ -390,8 +471,8 @@ function ModalParagraph({
 /* ═══════════════════════════════════════════════════════════════════════════
    HERO MOCK IMAGE — distinct per variant. NEVER uses the same image twice.
    ═══════════════════════════════════════════════════════════════════════════ */
-function HeroMockImage({ variant }: { variant: "league" | "my" }) {
-  if (variant === "league") return <LeagueHeroMock />;
+function HeroMockImage({ variant }: { variant: "league" | "my" | "platform" }) {
+  if (variant === "league" || variant === "platform") return <LeagueHeroMock />;
   return <MyDynastyHeroMock />;
 }
 
@@ -584,7 +665,7 @@ function MyDynastyHeroMock() {
 /* ═══════════════════════════════════════════════════════════════════════════
    COMING SOON — same vertical dimensions as the real card
    ═══════════════════════════════════════════════════════════════════════════ */
-function ComingSoonCard({ variant, hasOwner }: { variant: "league" | "my"; hasOwner: boolean }) {
+function ComingSoonCard({ variant, hasOwner }: { variant: "league" | "my" | "platform"; hasOwner: boolean }) {
   if (variant === "my" && !hasOwner) {
     return (
       <div

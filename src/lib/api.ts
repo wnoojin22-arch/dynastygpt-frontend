@@ -216,6 +216,8 @@ export interface WelcomeArticleResponse {
   expired?: boolean;
   article?: WelcomeArticle;
 }
+export const getPlatformUpdate = (id: string) =>
+  get<WelcomeArticleResponse>(`${L(id)}/welcome/platform-update`);
 export const getLeagueNewsWelcome = (id: string) =>
   get<WelcomeArticleResponse>(`${L(id)}/welcome/league-news`);
 export const getMyNewsFirstReport = (id: string, owner: string, userId?: string | null) =>
