@@ -495,7 +495,7 @@ function TradeFairnessIndex({ leaderboard }: { leaderboard: { owner: string; tra
               <span className="w-4 text-xs font-black text-right shrink-0" style={{ fontFamily: MONO, color }}>{i + 1}</span>
               {isFirst && <span className="text-xs shrink-0">⚖️</span>}
               {isLast && <span className="text-xs shrink-0">🔥</span>}
-              <span onClick={(e) => { e.stopPropagation(); onOwnerClick(entry.owner); }} className={`text-sm truncate flex-1 min-w-0 cursor-pointer border-b border-dotted border-border ${i < 3 ? "font-bold text-primary" : "font-medium text-secondary"}`} style={{ fontFamily: SANS }}>
+              <span onClick={(e) => { e.stopPropagation(); track("rankings_ticker_clicked", { league_id: lid, owner_name: entry.owner, rank: i + 1 }); onOwnerClick(entry.owner); }} className={`text-sm truncate flex-1 min-w-0 cursor-pointer border-b border-dotted border-border ${i < 3 ? "font-bold text-primary" : "font-medium text-secondary"}`} style={{ fontFamily: SANS }}>
                 {entry.owner}
               </span>
               <div className="w-14 h-1.5 bg-border rounded-full overflow-hidden shrink-0">
@@ -557,7 +557,7 @@ function LeagueLegends({ reportCard }: { reportCard: LeagueReportCardResponse })
           <div className={`w-2 h-2 rounded-full shrink-0 mt-1.5 ${l.dotColor}`} />
           <div className="flex-1 min-w-0">
             <div className={`text-[8px] font-black tracking-[0.12em] mb-0.5 ${l.accentText}`} style={{ fontFamily: SANS }}>{l.title}</div>
-            <div onClick={() => onOwnerClick(l.name)} className="text-[13px] font-bold text-primary truncate cursor-pointer border-b border-dotted border-border inline-block" style={{ fontFamily: SANS }}>{l.name}</div>
+            <div onClick={() => { track("leaderboard_owner_clicked", { league_id: lid, owner_name: l.name }); onOwnerClick(l.name); }} className="text-[13px] font-bold text-primary truncate cursor-pointer border-b border-dotted border-border inline-block" style={{ fontFamily: SANS }}>{l.name}</div>
             <div className="text-[11px] text-secondary leading-snug" style={{ fontFamily: SANS }}>{l.detail}</div>
           </div>
         </motion.div>
@@ -975,7 +975,7 @@ export default function LeagueHome() {
           <div className="text-[10px] font-black tracking-[0.12em] text-dim mb-3" style={{ fontFamily: SANS }}>TRADE MARKET — ABOVE/BELOW CONSENSUS</div>
           <div className="flex flex-col gap-1">
             {(marketPulse?.above_market || []).slice(0, 3).map((p: any, i: number) => (
-              <div key={`a${i}`} className="flex items-center gap-2 py-1.5 cursor-pointer hover:bg-elevated/50 transition-colors rounded-sm" onClick={() => usePlayerCardStore.getState().openPlayerCard(p.player)}>
+              <div key={`a${i}`} className="flex items-center gap-2 py-1.5 cursor-pointer hover:bg-elevated/50 transition-colors rounded-sm" onClick={() => { track("market_pulse_player_clicked", { league_id: lid, player: p.player, section: "above_consensus", pct_diff: Math.round(p.pct_diff) }); usePlayerCardStore.getState().openPlayerCard(p.player); }}>
                 <PlayerHeadshot name={p.player} position={p.position || ""} size={20} />
                 <PlayerName name={p.player} style={{ fontSize: 11, fontWeight: 600, color: C.primary, fontFamily: SANS }} className="truncate flex-1" />
                 <span className="text-[10px] font-black text-accent-green shrink-0" style={{ fontFamily: MONO }}>+{Math.round(p.pct_diff)}%</span>
@@ -985,7 +985,7 @@ export default function LeagueHome() {
               <div className="h-px bg-border my-1" />
             )}
             {(marketPulse?.below_market || []).slice(0, 3).map((p: any, i: number) => (
-              <div key={`b${i}`} className="flex items-center gap-2 py-1.5 cursor-pointer hover:bg-elevated/50 transition-colors rounded-sm" onClick={() => usePlayerCardStore.getState().openPlayerCard(p.player)}>
+              <div key={`b${i}`} className="flex items-center gap-2 py-1.5 cursor-pointer hover:bg-elevated/50 transition-colors rounded-sm" onClick={() => { track("market_pulse_player_clicked", { league_id: lid, player: p.player, section: "below_consensus", pct_diff: Math.round(p.pct_diff) }); usePlayerCardStore.getState().openPlayerCard(p.player); }}>
                 <PlayerHeadshot name={p.player} position={p.position || ""} size={20} />
                 <PlayerName name={p.player} style={{ fontSize: 11, fontWeight: 600, color: C.primary, fontFamily: SANS }} className="truncate flex-1" />
                 <span className="text-[10px] font-black text-accent-red shrink-0" style={{ fontFamily: MONO }}>{Math.round(p.pct_diff)}%</span>
