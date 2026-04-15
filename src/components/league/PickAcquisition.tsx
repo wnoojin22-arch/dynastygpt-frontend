@@ -187,7 +187,7 @@ export default function PickAcquisition({ leagueId, owner, ownerId }: {
                             border: `1px solid ${isAcquired ? "rgba(107,184,224,0.2)" : "rgba(212,165,50,0.2)"}`,
                           }}>{isAcquired ? "ACQUIRED" : "OWN"}</span>
                           {(() => {
-                            const lbl = (p as Record<string, unknown>).label as string | undefined;
+                            const lbl = (p as unknown as Record<string, unknown>).label as string | undefined;
                             if (!lbl || lbl === "Too Early") return null;
                             const LC: Record<string, string> = { Star: C.gold, Hit: C.green, Miss: C.orange || "#e09c6b", Bust: C.red, Concerning: C.orange || "#e09c6b" };
                             const LBG: Record<string, string> = { Star: "#d4a53218", Hit: "#7dd3a018", Miss: "#e09c6b18", Bust: "#e4727218", Concerning: "#e09c6b18" };
