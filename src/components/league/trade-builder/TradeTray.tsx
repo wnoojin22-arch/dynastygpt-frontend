@@ -90,10 +90,12 @@ function computeLiveBalance(giveNames: string[], receiveNames: string[], giveRos
 
   let verdict = "FAIR";
   const absPct = Math.abs(gapPct);
+  // gap > 0 = recvAdj > giveAdj = owner receiving MORE than sending = good deal (UNDERPAY)
+  // gap < 0 = owner sending MORE than receiving = bad deal (OVERPAY)
   if (absPct <= 5) verdict = "FAIR";
-  else if (absPct <= 10) verdict = gap > 0 ? "SLIGHT_OVERPAY_YOU" : "SLIGHT_UNDERPAY";
-  else if (absPct <= 20) verdict = gap > 0 ? "OVERPAY_YOU" : "UNDERPAY";
-  else verdict = gap > 0 ? "SIGNIFICANT_OVERPAY" : "SIGNIFICANT_UNDERPAY";
+  else if (absPct <= 10) verdict = gap < 0 ? "SLIGHT_OVERPAY" : "SLIGHT_UNDERPAY";
+  else if (absPct <= 20) verdict = gap < 0 ? "OVERPAY" : "UNDERPAY";
+  else verdict = gap < 0 ? "SIGNIFICANT_OVERPAY" : "SIGNIFICANT_UNDERPAY";
 
   return { giveRaw: giveTotal, giveAdj, recvRaw: recvTotal, recvAdj, gapPct, verdict, consPremium, consSide };
 }
