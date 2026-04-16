@@ -224,29 +224,37 @@ export default function AnalysisModal({ evaluation, owner, partner, onClose }: {
         {/* AI INSIGHT — GM verdict card, top of modal (handles bullets + legacy sections) */}
         <AIInsightCard text={evaluation.ai_insight} />
 
-        {/* Recommendation banner — score is the primary signal, verdict is the label */}
-        <div style={{ padding: "12px 20px", background: `${verdictColor}08`, borderBottom: `1px solid ${verdictColor}25`, display: "flex", alignItems: "center", justifyContent: "center", gap: 16 }}>
-          <div style={{ textAlign: "center" }}>
-            <div style={{ fontFamily: MONO, fontSize: 48, fontWeight: 900, color: verdictColor, lineHeight: 1 }}>
-              {grade.score}
-            </div>
-            <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: "0.10em", color: C.dim, marginTop: 2 }}>
-              / 100
-            </div>
+        {/* Recommendation banner — verdict left, acceptance circle + text right, one row */}
+        <div style={{
+          padding: "14px 20px",
+          background: `${verdictColor}08`,
+          borderBottom: `1px solid ${verdictColor}25`,
+          display: "flex",
+          alignItems: "center",
+          gap: 20,
+        }}>
+          {/* Verdict word — the primary signal */}
+          <div style={{
+            fontFamily: DISPLAY, fontSize: 32, fontWeight: 900,
+            color: verdictColor, letterSpacing: "0.04em",
+            lineHeight: 1,
+          }}>
+            {grade.verdict}
           </div>
-          <div>
-            <div style={{ fontFamily: DISPLAY, fontSize: 22, color: verdictColor, letterSpacing: "0.04em" }}>{grade.verdict}</div>
-          </div>
-          <div style={{ marginLeft: "auto", display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-            <AcceptanceGauge score={acc?.acceptance_likelihood || 0} size={60} />
-            <div style={{ fontFamily: SANS, fontSize: 10, color: C.dim, textAlign: "center", maxWidth: 120, lineHeight: 1.3 }}>
-              Based on roster fit, trade history, and behavioral patterns.
-            </div>
-            {h2h && h2h.total_trades > 0 && (
-              <div style={{ fontFamily: MONO, fontSize: 10, color: C.secondary, textAlign: "center" }}>
-                {h2h.total_trades} trade{h2h.total_trades === 1 ? "" : "s"} with {partner} · won {h2h.wins}
+
+          {/* Acceptance circle + context text — horizontal beside verdict */}
+          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 14 }}>
+            <AcceptanceGauge score={acc?.acceptance_likelihood || 0} size={120} />
+            <div style={{ display: "flex", flexDirection: "column", gap: 4, maxWidth: 180 }}>
+              <div style={{ fontFamily: SANS, fontSize: 11, color: C.dim, lineHeight: 1.35 }}>
+                Based on roster fit, trade history, and behavioral patterns.
               </div>
-            )}
+              {h2h && h2h.total_trades > 0 && (
+                <div style={{ fontFamily: MONO, fontSize: 10, color: C.secondary }}>
+                  {h2h.total_trades} trade{h2h.total_trades === 1 ? "" : "s"} with {partner} · won {h2h.wins}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
