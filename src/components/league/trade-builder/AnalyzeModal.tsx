@@ -285,94 +285,6 @@ function SectionLabel({ text }: { text: string }) {
   );
 }
 
-<<<<<<< HEAD
-=======
-// ── DynastyGPT Insights card — collapsible, gold glow, 2-bullet preview ──
-
-function DynastyGPTInsightsCard({ text }: { text: string | null | undefined }) {
-  const [expanded, setExpanded] = useState(false);
-  if (!text) return null;
-  const cleaned = scrubInsight(text.replace(/\*+/g, "").trim());
-  if (!cleaned) return null;
-
-  const cardStyle: React.CSSProperties = {
-    marginBottom: 20,
-    border: "2px solid rgba(245,162,35,0.6)",
-    background: "rgba(245,162,35,0.06)",
-    borderRadius: 8,
-    padding: 14,
-    display: "flex",
-    flexDirection: "column",
-    gap: 6,
-    boxShadow: "0 0 20px rgba(245,162,35,0.3), 0 0 40px rgba(245,162,35,0.15)",
-  };
-  const labelStyle: React.CSSProperties = {
-    fontFamily: MONO, fontSize: 10, fontWeight: 900,
-    letterSpacing: "0.12em", color: "#f5a223", marginBottom: 2,
-  };
-  const bulletLineStyle: React.CSSProperties = {
-    fontFamily: SANS, fontSize: 13, fontWeight: 400,
-    color: "#ffffff", lineHeight: 1.45,
-  };
-  const toggleLinkStyle: React.CSSProperties = {
-    fontFamily: MONO, fontSize: 10, fontWeight: 700,
-    letterSpacing: "0.08em", color: "#f5a223",
-    marginTop: 6, cursor: "pointer", userSelect: "none",
-    padding: "4px 0",  // larger touch target for mobile
-  };
-
-  // Detect bullet format (Haiku v2): lines starting with • or -
-  const lines = cleaned.split("\n").map((l) => l.trim()).filter(Boolean);
-  const bulletCount = lines.filter((l) => /^[•\-]\s/.test(l)).length;
-  const isBulletFormat = bulletCount >= 2 && bulletCount >= lines.length * 0.6;
-
-  if (isBulletFormat) {
-    const visibleLines = expanded ? lines : lines.slice(0, 1);
-    const hasMore = lines.length > 1;
-    return (
-      <div style={cardStyle}>
-        <div style={labelStyle}>DYNASTYGPT INSIGHTS</div>
-        {visibleLines.map((line, i) => (
-          <div key={i} style={bulletLineStyle}>{line}</div>
-        ))}
-        {hasMore && (
-          <div style={toggleLinkStyle} onClick={() => setExpanded((e) => !e)}>
-            {expanded
-              ? "TAP TO COLLAPSE ▲"
-              : `TAP TO EXPAND (+${lines.length - 1} MORE) ▼`}
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  // Legacy prose fallback (cached v1 insights during TTL): show first ~120
-  // chars collapsed, full text expanded.
-  const COLLAPSED_LEN = 160;
-  const isLong = cleaned.length > COLLAPSED_LEN;
-  const preview = isLong && !expanded
-    ? cleaned.slice(0, COLLAPSED_LEN).replace(/\s+\S*$/, "") + "…"
-    : cleaned;
-
-  return (
-    <div style={{ ...cardStyle, padding: 16, gap: 10 }}>
-      <div style={labelStyle}>DYNASTYGPT INSIGHTS</div>
-      <div style={{
-        fontFamily: SANS, fontSize: 14, fontWeight: 400,
-        color: "#ffffff", lineHeight: 1.6,
-      }}>
-        {preview}
-      </div>
-      {isLong && (
-        <div style={toggleLinkStyle} onClick={() => setExpanded((e) => !e)}>
-          {expanded ? "TAP TO COLLAPSE ▲" : "TAP TO EXPAND ▼"}
-        </div>
-      )}
-    </div>
-  );
-}
-
->>>>>>> 00b6ec0 (fix: pass pick counts to backend, personal_insights replaces negotiation_insights)
 // ── Main Modal ───────────────────────────────────────────────────────────
 
 interface AnalyzeModalProps {
@@ -775,17 +687,6 @@ export default function AnalyzeModal({ isOpen, onClose, evaluation, partner, own
               {((ev?.personal_insights?.length ?? 0) > 0) && (
                 <div style={{ marginBottom: 20 }}>
                   <SectionLabel text="INSIGHTS" />
-<<<<<<< HEAD
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    {insights.slice(0, 3).map((ins, i) => (
-                      <div key={i} style={{
-                        background: M.card, border: `1px solid ${C.border}`, borderRadius: 6,
-                        padding: "8px 12px", fontFamily: SANS, fontSize: 12, color: C.secondary, lineHeight: 1.5,
-                      }}>
-                        {_scrubLanguage(ins.insight)}
-                      </div>
-                    ))}
-=======
                   <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
                     {(ev?.personal_insights || []).map((pi, i) => {
                       const tc = pi.tone === "positive" ? C.green : pi.tone === "warning" ? C.red : C.dim;
@@ -799,7 +700,6 @@ export default function AnalyzeModal({ isOpen, onClose, evaluation, partner, own
                         </div>
                       );
                     })}
->>>>>>> 00b6ec0 (fix: pass pick counts to backend, personal_insights replaces negotiation_insights)
                   </div>
                 </div>
               )}
