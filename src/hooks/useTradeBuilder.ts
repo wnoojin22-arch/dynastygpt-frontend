@@ -393,10 +393,11 @@ export function useTradeBuilder({
         if (!job_id) { setError("No job ID returned"); setSuggestLoading(false); return; }
 
         // Step 2: Poll for result
-        // 60 attempts × 2s = 120s ceiling. Backend AI generation typically
-        // takes 70-90s on a cold (uncached) job, so 60s was always too short.
+        // 90 attempts × 2s = 180s ceiling. Backend AI generation typically
+        // takes 70-90s; raised from 120s so a single Claude 429 retry
+        // (60s backoff) doesn't push us past the ceiling.
         let data: Record<string, unknown> | null = null;
-        for (let attempt = 0; attempt < 60; attempt++) {
+        for (let attempt = 0; attempt < 90; attempt++) {
           await new Promise((r) => setTimeout(r, 2000));
           const freshHdrs = await getHdrs(); // refresh token each poll — Clerk JWTs expire ~60s
           const pollRes = await fetch(`${API}/api/league/${leagueId}/v2/trade-engine/status/${job_id}`, { cache: "no-store", headers: freshHdrs });
