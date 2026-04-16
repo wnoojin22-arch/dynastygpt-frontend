@@ -12,6 +12,8 @@ interface Props {
   receiveNames: string[];
   giveRoster: RosterPlayer[];
   receiveRoster: RosterPlayer[];
+  givePicks?: unknown;
+  receivePicks?: unknown;
   evaluation: TradeEvaluation | null;
   analyzing: boolean;
   onRemoveGive: (name: string) => void;
@@ -20,17 +22,48 @@ interface Props {
   onClear: () => void;
 }
 
-function computeLiveBalance(giveNames: string[], receiveNames: string[], giveRoster: RosterPlayer[], receiveRoster: RosterPlayer[]): LiveBalance {
-  const find = (name: string, roster: RosterPlayer[]) => roster.find(p => p.name.toLowerCase() === name.toLowerCase());
+// Reconstruct the label buildRoster() uses for picks — must match hook logic exactly.
+// Own pick: "2026 1.12" | Received: "2026 2.03 (Dark Knights)"
+function pickLabel(pk: Record<string, unknown>): string {
+  const season = Number(pk.season);
+  const slotStr = season <= 2026 && pk.slot_label ? String(pk.slot_label) : `Rd ${pk.round}`;
+  const label = `${pk.season} ${slotStr}`;
+  if (pk.is_own_pick) return label;
+  const orig = pk.original_owner ? ` (${pk.original_owner})` : "";
+  return `${label}${orig}`;
+}
+
+// Defensive fallback: lookup a pick by its displayed name in the raw /picks
+// response. Used when roster.find() misses due to smart-quote drift, hydration
+// race, or any other subtle name mismatch between RosterColumn and TradeTray.
+function findPick(name: string, picksData: unknown): { sha_value: number } | undefined {
+  if (!picksData) return undefined;
+  const pd = picksData as Record<string, unknown>;
+  const picks = (pd.picks || []) as Array<Record<string, unknown>>;
+  const target = name.toLowerCase().trim();
+  for (const pk of picks) {
+    if (pickLabel(pk).toLowerCase().trim() === target) {
+      return { sha_value: Number(pk.sha_value || 0) };
+    }
+  }
+  return undefined;
+}
+
+function computeLiveBalance(giveNames: string[], receiveNames: string[], giveRoster: RosterPlayer[], receiveRoster: RosterPlayer[], givePicks?: unknown, receivePicks?: unknown): LiveBalance {
+  const find = (name: string, roster: RosterPlayer[], picks?: unknown): { sha_value: number } | undefined => {
+    const hit = roster.find(p => p.name.toLowerCase() === name.toLowerCase());
+    if (hit) return hit;
+    return findPick(name, picks);
+  };
 
   let giveTotal = 0;
   for (const n of giveNames) {
-    const p = find(n, giveRoster);
+    const p = find(n, giveRoster, givePicks);
     giveTotal += p?.sha_value || 0;
   }
   let recvTotal = 0;
   for (const n of receiveNames) {
-    const p = find(n, receiveRoster);
+    const p = find(n, receiveRoster, receivePicks);
     recvTotal += p?.sha_value || 0;
   }
 
@@ -43,8 +76,8 @@ function computeLiveBalance(giveNames: string[], receiveNames: string[], giveRos
   if (giveNames.length !== receiveNames.length && giveNames.length > 0 && receiveNames.length > 0) {
     const concentrated = giveNames.length < receiveNames.length ? "give" : "receive";
     const allValues = concentrated === "give"
-      ? giveNames.map(n => find(n, giveRoster)?.sha_value || 0)
-      : receiveNames.map(n => find(n, receiveRoster)?.sha_value || 0);
+      ? giveNames.map(n => find(n, giveRoster, givePicks)?.sha_value || 0)
+      : receiveNames.map(n => find(n, receiveRoster, receivePicks)?.sha_value || 0);
     const top = Math.max(...allValues, 0);
     consPremium = Math.round(top * consPct);
     consSide = concentrated === "give" ? "SEND" : "GET";
@@ -65,8 +98,11 @@ function computeLiveBalance(giveNames: string[], receiveNames: string[], giveRos
   return { giveRaw: giveTotal, giveAdj, recvRaw: recvTotal, recvAdj, gapPct, verdict, consPremium, consSide };
 }
 
-function AssetRow({ name, roster, onRemove, side }: { name: string; roster: RosterPlayer[]; onRemove: (n: string) => void; side: "give" | "receive" }) {
-  const p = roster.find(r => r.name.toLowerCase() === name.toLowerCase());
+function AssetRow({ name, roster, picks, onRemove, side }: { name: string; roster: RosterPlayer[]; picks?: unknown; onRemove: (n: string) => void; side: "give" | "receive" }) {
+  const rosterHit = roster.find(r => r.name.toLowerCase() === name.toLowerCase());
+  const pickHit = rosterHit ? undefined : findPick(name, picks);
+  const p: { name: string; position: string; sha_value: number; sha_pos_rank?: string } | undefined =
+    rosterHit || (pickHit ? { name, position: "PICK", sha_value: pickHit.sha_value } : undefined);
   const color = side === "give" ? C.red : C.green;
 
   return (
@@ -84,9 +120,9 @@ function AssetRow({ name, roster, onRemove, side }: { name: string; roster: Rost
   );
 }
 
-export default function TradeTray({ giveNames, receiveNames, giveRoster, receiveRoster, evaluation, analyzing, onRemoveGive, onRemoveReceive, onAnalyze, onClear }: Props) {
+export default function TradeTray({ giveNames, receiveNames, giveRoster, receiveRoster, givePicks, receivePicks, evaluation, analyzing, onRemoveGive, onRemoveReceive, onAnalyze, onClear }: Props) {
   const hasAssets = giveNames.length > 0 || receiveNames.length > 0;
-  const live = computeLiveBalance(giveNames, receiveNames, giveRoster, receiveRoster);
+  const live = computeLiveBalance(giveNames, receiveNames, giveRoster, receiveRoster, givePicks, receivePicks);
   const grade = evaluation?.owner_grade;
   const acceptance = evaluation?.acceptance;
 
@@ -97,7 +133,7 @@ export default function TradeTray({ giveNames, receiveNames, giveRoster, receive
         <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.10em", color: C.red }}>YOU SEND</span>
       </div>
       <div style={{ minHeight: 60, padding: "4px 0" }}>
-        {giveNames.length > 0 ? giveNames.map(n => <AssetRow key={n} name={n} roster={giveRoster} onRemove={onRemoveGive} side="give" />) : (
+        {giveNames.length > 0 ? giveNames.map(n => <AssetRow key={n} name={n} roster={giveRoster} picks={givePicks} onRemove={onRemoveGive} side="give" />) : (
           <div style={{ padding: "16px 10px", textAlign: "center", fontFamily: MONO, fontSize: 10, color: C.dim }}>Click players from YOUR roster</div>
         )}
       </div>
@@ -110,7 +146,7 @@ export default function TradeTray({ giveNames, receiveNames, giveRoster, receive
         <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.10em", color: C.green }}>YOU RECEIVE</span>
       </div>
       <div style={{ minHeight: 60, padding: "4px 0" }}>
-        {receiveNames.length > 0 ? receiveNames.map(n => <AssetRow key={n} name={n} roster={receiveRoster} onRemove={onRemoveReceive} side="receive" />) : (
+        {receiveNames.length > 0 ? receiveNames.map(n => <AssetRow key={n} name={n} roster={receiveRoster} picks={receivePicks} onRemove={onRemoveReceive} side="receive" />) : (
           <div style={{ padding: "16px 10px", textAlign: "center", fontFamily: MONO, fontSize: 10, color: C.dim }}>Click players from THEIR roster</div>
         )}
       </div>
