@@ -251,11 +251,20 @@ export default function AnalyzeModal({ isOpen, onClose, evaluation, partner, own
   const gapPct = giveTotal > 0 ? Math.round((gap / giveTotal) * 100) : 0;
   const insights = ev?.negotiation_insights || [];
   const impact = ev?.positional_impact;
+  const archetype = ev?.partner_archetype;
+  const h2h = ev?.h2h_history;
 
   // Acceptance factors
   const factors: string[] = [];
   if (acceptance?.roster_fit_detail?.fills?.length) {
-    factors.push(`Fills ${acceptance.roster_fit_detail.fills.join(", ")} need`);
+    const fillPositions = Array.from(new Set(
+      (acceptance.roster_fit_detail.fills as Array<string | { position?: string }>)
+        .map(f => typeof f === "string" ? f : f?.position)
+        .filter((p): p is string => Boolean(p))
+    ));
+    if (fillPositions.length > 0) {
+      factors.push(`Fills ${fillPositions.join(", ")} need`);
+    }
   }
   if (acceptance?.breakdown) {
     const bd = acceptance.breakdown;
@@ -333,7 +342,7 @@ export default function AnalyzeModal({ isOpen, onClose, evaluation, partner, own
               }} />
 
               {/* ── 2. Header ── */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: archetype?.line ? 8 : 16 }}>
                 <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.14em", color: C.gold }}>
                   TRADE ANALYSIS
                 </span>
@@ -341,6 +350,18 @@ export default function AnalyzeModal({ isOpen, onClose, evaluation, partner, own
                   dynastygpt.com
                 </span>
               </div>
+
+              {/* ── 2b. Partner archetype banner (only if behavioral_intel data exists) ── */}
+              {archetype?.line && (
+                <div style={{
+                  marginBottom: 14, padding: "6px 10px", borderRadius: 6,
+                  background: C.elevated, border: `1px solid ${C.border}`,
+                  fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.gold,
+                  letterSpacing: "0.04em", textAlign: "center",
+                }}>
+                  {partner.toUpperCase()} · {archetype.line}
+                </div>
+              )}
 
               {/* ── 3. Trade Card ── */}
               <div style={{
@@ -407,9 +428,22 @@ export default function AnalyzeModal({ isOpen, onClose, evaluation, partner, own
               </div>
 
               {/* ── 4. Grade + Acceptance side by side ── */}
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 32, marginBottom: 24 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 32, marginBottom: 8 }}>
                 <GradeBadge grade={grade} delay={0.2} />
-                <CircularGauge value={acc} size={110} delay={0.4} />
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                  <CircularGauge value={acc} size={110} delay={0.4} />
+                </div>
+              </div>
+              {/* Acceptance explanation + H2H history line */}
+              <div style={{ textAlign: "center", marginBottom: 20 }}>
+                <div style={{ fontFamily: SANS, fontSize: 11, color: C.dim, lineHeight: 1.4 }}>
+                  Based on roster fit, trade history, and behavioral patterns.
+                </div>
+                {h2h && h2h.total_trades > 0 && (
+                  <div style={{ fontFamily: MONO, fontSize: 10, color: C.secondary, marginTop: 4 }}>
+                    {h2h.total_trades} trade{h2h.total_trades === 1 ? "" : "s"} with {partner} · won {h2h.wins}
+                  </div>
+                )}
               </div>
 
               {/* ── 5. Acceptance factors ── */}
@@ -443,6 +477,29 @@ export default function AnalyzeModal({ isOpen, onClose, evaluation, partner, own
                     <span style={{ color: gap >= 0 ? C.green : C.red, fontWeight: 700 }}>
                       {gap >= 0 ? "Favorable" : "Unfavorable"} by {Math.abs(gapPct)}%.
                     </span>
+                    {(() => {
+                      const nGive = giveAssets.length;
+                      const nRecv = getAssets.length;
+                      if (nGive === nRecv) return null;
+                      const diff = Math.abs(nGive - nRecv);
+                      const premiumPct = [0, 25, 65, 85, 95][Math.min(diff, 4)];
+                      const concentratedSide = nGive < nRecv ? "you're sending" : "you're receiving";
+                      const benefited = nGive < nRecv ? giveTotal : getTotal;
+                      const absorbed = nGive < nRecv ? getTotal : giveTotal;
+                      const meets = benefited * (1 + premiumPct / 100) <= absorbed;
+                      return (
+                        <div style={{
+                          marginTop: 8, paddingTop: 8, borderTop: `1px solid ${C.border}`,
+                          fontFamily: SANS, fontSize: 11, color: C.dim, lineHeight: 1.5,
+                        }}>
+                          Trading {Math.max(nGive, nRecv)} for {Math.min(nGive, nRecv)} typically
+                          commands a ~{premiumPct}% premium on the side {concentratedSide}.{" "}
+                          <span style={{ color: meets ? C.green : C.orange, fontWeight: 700 }}>
+                            This trade {meets ? "accounts for that." : "does not account for that."}
+                          </span>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               )}
@@ -524,21 +581,20 @@ export default function AnalyzeModal({ isOpen, onClose, evaluation, partner, own
                 </div>
               )}
 
-              {/* ── 9. AI Insights (placeholder) ── */}
-              <div style={{ marginBottom: 20 }}>
-                <SectionLabel text="AI INSIGHTS" />
-                <div style={{
-                  background: M.card, border: `1px solid ${C.border}`, borderRadius: 8,
-                  padding: "14px 16px",
-                }}>
-                  <p style={{
-                    fontFamily: SANS, fontSize: 14, fontStyle: "normal",
-                    color: C.primary, lineHeight: 1.6, margin: 0,
+              {/* ── 9. AI Insight — Claude Haiku (single paragraph) ── */}
+              {ev?.ai_insight && (
+                <div style={{ marginBottom: 20 }}>
+                  <SectionLabel text="AI INSIGHT" />
+                  <div style={{
+                    background: M.card, border: `1px solid ${C.border}`, borderRadius: 6,
+                    padding: "10px 14px",
+                    fontFamily: SANS, fontSize: 14, fontWeight: 400, fontStyle: "normal",
+                    color: C.primary, lineHeight: 1.6,
                   }}>
-                    Trade analysis powered by behavioral intelligence. Coming soon.
-                  </p>
+                    {ev.ai_insight}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* ── 10. Watermark ── */}
               <div style={{

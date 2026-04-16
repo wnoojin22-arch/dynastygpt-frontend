@@ -78,6 +78,19 @@ export interface PositionalImpact {
   partner?: Record<string, { before: string; after: string; direction: "up" | "down" | "same" }>;
 }
 
+export interface PartnerArchetype {
+  window: string | null;
+  tendency: string | null;
+  activity: string | null;
+  line: string;
+}
+
+export interface H2HHistory {
+  total_trades: number;
+  wins: number;
+  partner_user_id: string;
+}
+
 export interface TradeEvaluation {
   league_id: string;
   i_give: TradeAsset[];
@@ -88,6 +101,9 @@ export interface TradeEvaluation {
   negotiation_insights: NegotiationInsight[];
   ask_for_more: Array<{ asset: string; sha_value: number; position: string; reason: string }>;
   positional_impact?: PositionalImpact;
+  partner_archetype?: PartnerArchetype | null;
+  h2h_history?: H2HHistory | null;
+  ai_insight?: string | null;
 }
 
 export interface SuggestedPackage {

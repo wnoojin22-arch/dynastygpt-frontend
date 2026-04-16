@@ -15,6 +15,7 @@ import { C, SANS, MONO, DISPLAY, SERIF, fmt, posColor } from "../tokens";
 import RosterColumn from "./RosterColumn";
 import TradeTray from "./TradeTray";
 import AnalysisModal from "./AnalysisModal";
+import SuggestLoadingModal from "./SuggestLoadingModal";
 import ChatPanel from "./ChatPanel";
 import PlayerName from "../PlayerName";
 import { getAllRosters } from "@/lib/api";
@@ -469,6 +470,7 @@ export default function TradeBuilderDesktop({
         </div>
 
         {showModal && evaluation && <AnalysisModal evaluation={evaluation} owner={owner} partner={partner} onClose={() => setShowModal(false)} />}
+        {suggestLoading && <SuggestLoadingModal elapsedSec={suggestElapsedSec} query={suggestQuery} />}
       </div>
 
       {/* ── CHAT PANEL ── */}
