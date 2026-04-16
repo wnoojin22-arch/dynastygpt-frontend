@@ -643,7 +643,7 @@ export default function AnalyzeModal({ isOpen, onClose, evaluation, partner, own
                         background: M.card, border: `1px solid ${C.border}`, borderRadius: 6,
                         padding: "8px 12px", fontFamily: SANS, fontSize: 12, color: C.secondary, lineHeight: 1.5,
                       }}>
-                        {ins.insight}
+                        {_scrubLanguage(ins.insight)}
                       </div>
                     ))}
                   </div>

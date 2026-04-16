@@ -295,7 +295,7 @@ export default function AnalysisModal({ evaluation, owner, partner, onClose }: {
                   return (
                     <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "6px 8px", borderRadius: 5, background: `${tc}08`, borderLeft: `3px solid ${tc}` }}>
                       <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, color: tc, letterSpacing: "0.06em", flexShrink: 0, marginTop: 2 }}>{ins.type.toUpperCase()}</span>
-                      <span style={{ fontFamily: SANS, fontSize: 12, color: C.secondary, lineHeight: 1.4 }}>{ins.insight}</span>
+                      <span style={{ fontFamily: SANS, fontSize: 12, color: C.secondary, lineHeight: 1.4 }}>{_scrubLanguage(ins.insight)}</span>
                     </div>
                   );
                 })}
