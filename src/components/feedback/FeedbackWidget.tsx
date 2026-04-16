@@ -81,6 +81,15 @@ export default function FeedbackWidget() {
   const { currentLeagueId, currentOwner, currentOwnerId } = useLeagueStore();
   const pathname = usePathname();
   const isTradeBuilder = pathname.includes("/trades") || pathname.includes("/trade-analyzer") || pathname.includes("/war-room");
+  const [modalOpen, setModalOpen] = useState(false);
+
+  useEffect(() => {
+    const check = () => setModalOpen(document.body.style.overflow === "hidden");
+    check();
+    const observer = new MutationObserver(check);
+    observer.observe(document.body, { attributes: true, attributeFilter: ["style"] });
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 640);
@@ -295,7 +304,7 @@ export default function FeedbackWidget() {
       {/* Floating button */}
       <button
         onClick={() => { setOpen(true); setPulse(false); }}
-        className={`fixed z-[9998] cursor-pointer items-center gap-1.5 sm:bottom-5 sm:right-5 sm:rounded-[20px] sm:px-4 sm:py-2.5 top-2 right-3 sm:top-auto rounded-md px-2.5 py-1.5 bg-[#d4a532] text-[#06080d] font-mono font-extrabold tracking-wide shadow-[0_4px_20px_rgba(212,165,50,0.3)] ${pulse ? "animate-[feedbackPulse_2s_ease_infinite]" : ""} ${open || (isMobile && isTradeBuilder) ? "hidden" : "flex"}`}
+        className={`fixed z-[9998] cursor-pointer items-center gap-1.5 sm:bottom-5 sm:right-5 sm:rounded-[20px] sm:px-4 sm:py-2.5 top-2 right-3 sm:top-auto rounded-md px-2.5 py-1.5 bg-[#d4a532] text-[#06080d] font-mono font-extrabold tracking-wide shadow-[0_4px_20px_rgba(212,165,50,0.3)] ${pulse ? "animate-[feedbackPulse_2s_ease_infinite]" : ""} ${open || modalOpen || (isMobile && isTradeBuilder) ? "hidden" : "flex"}`}
       >
         <span className="text-[10px] sm:text-xs relative">
           {"\u{1F4AC}"}

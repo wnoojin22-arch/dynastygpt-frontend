@@ -482,23 +482,21 @@ export default function AnalyzeModal({ isOpen, onClose, evaluation, partner, own
                 </div>
               )}
 
-              {/* ── 9. AI Verdict ── */}
-              {grade?.reasons?.length ? (
-                <div style={{ marginBottom: 20 }}>
-                  <SectionLabel text="AI VERDICT" />
-                  <div style={{
-                    background: M.card, border: `1px solid ${C.border}`, borderRadius: 8,
-                    padding: "14px 16px",
+              {/* ── 9. AI Insights (placeholder) ── */}
+              <div style={{ marginBottom: 20 }}>
+                <SectionLabel text="AI INSIGHTS" />
+                <div style={{
+                  background: M.card, border: `1px solid ${C.border}`, borderRadius: 8,
+                  padding: "14px 16px",
+                }}>
+                  <p style={{
+                    fontFamily: SANS, fontSize: 14, fontStyle: "normal",
+                    color: C.primary, lineHeight: 1.6, margin: 0,
                   }}>
-                    <p style={{
-                      fontFamily: SERIF, fontSize: 15, fontStyle: "italic",
-                      color: C.primary, lineHeight: 1.6, margin: 0,
-                    }}>
-                      {grade.reasons.slice(0, 2).join(" ")}
-                    </p>
-                  </div>
+                    Trade analysis powered by behavioral intelligence. Coming soon.
+                  </p>
                 </div>
-              ) : null}
+              </div>
 
               {/* ── 10. Watermark ── */}
               <div style={{
