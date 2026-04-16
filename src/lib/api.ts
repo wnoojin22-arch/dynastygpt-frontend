@@ -248,7 +248,10 @@ export const getPlayerValue = (id: string, player: string, date?: string) => get
 export const getPlayerProduction = (id: string, player: string) => get<unknown>(`${L(id)}/player-production/${E(player)}`);
 export const getWhoHas = (id: string, player: string) => get<unknown>(`${L(id)}/who-has/${E(player)}`);
 export const getPointInTimeRank = (id: string, player: string, date: string) => get<unknown>(`${L(id)}/point-in-time-rank/${player}?date=${date}`);
-export const getPlayerPriceHistory = (player: string) => get<Record<string, unknown>>(`/api/market/player/${encodeURIComponent(player)}/price-history`);
+export const getPlayerPriceHistory = (player: string, leagueId?: string) =>
+  get<Record<string, unknown>>(
+    `/api/market/player/${encodeURIComponent(player)}/price-history${leagueId ? `?league_id=${encodeURIComponent(leagueId)}` : ""}`
+  );
 
 // ── Draft ────────────────────────────────────────────────────────────────
 export const getDraftHistory = (id: string) => get<any>(`${L(id)}/draft/history`);

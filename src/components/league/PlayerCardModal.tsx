@@ -89,8 +89,8 @@ export default function PlayerCardModal() {
     staleTime: 300_000,
   });
   const { data: priceData } = useQuery({
-    queryKey: ["player-price-history", playerName],
-    queryFn: () => getPlayerPriceHistory(playerName),
+    queryKey: ["player-price-history", playerName, leagueId],
+    queryFn: () => getPlayerPriceHistory(playerName, leagueId),
     enabled: isOpen && !!playerName && (tab === "value" || tab === "market"),
     staleTime: 600_000,
   });
@@ -540,6 +540,8 @@ function MarketTab({ priceHistory, pc }: { priceHistory?: Record<string, unknown
   const marketPrice = typeof cvObj.market_price === "number" ? cvObj.market_price : null;
   const basedOn = typeof cvObj.based_on_trades === "number" ? cvObj.based_on_trades : 0;
   const lowConf = typeof cvObj.low_confidence === "boolean" ? cvObj.low_confidence : true;
+  // Both market_price and sha_value are now format-adjusted by the backend
+  // (market.py applies league format multiplier to sha_value when league_id is passed).
   const shaValue = pc?.sha_value || (typeof cvObj.sha_value === "number" ? cvObj.sha_value : null);
 
   const sigObj = (ph.signal || {}) as Record<string, unknown>;
@@ -563,7 +565,7 @@ function MarketTab({ priceHistory, pc }: { priceHistory?: Record<string, unknown
   const signalColor = signal === "BUY" ? "#7dd3a0" : signal === "SELL" ? "#e47272" : C.gold;
   const trendColor = trendDir === "rising" ? "#7dd3a0" : trendDir === "falling" ? "#e47272" : C.dim;
 
-  // vs consensus
+  // vs consensus — both values are format-adjusted from the backend
   let vsPct = 0;
   if (marketPrice && shaValue && shaValue > 0) {
     vsPct = Math.round(((marketPrice - shaValue) / shaValue) * 100);

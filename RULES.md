@@ -137,6 +137,7 @@ If ANY step is missing, the league is INCOMPLETE. Log it. Fix it. Do not ship in
 ## 10. CODE STANDARDS
 
 - Python 3.9: always `from __future__ import annotations` as line 1 in every file
+- **Never use PEP 604 `X | None` union syntax anywhere in the Python codebase.** Always write `Optional[X]` (imported from `typing`). Python 3.9 does not support the pipe union operator on types — FastAPI calls `get_type_hints()` during `include_router()`, which evaluates the annotation string even with `from __future__ import annotations`. A single `str | None` in a route handler signature crashes the entire ASGI app on startup, making every endpoint 500 (bug: 2026-04-16, `market.py` price-history route).
 - Tailwind CSS exclusively — never inline styles on frontend
 - Billy never manually edits code — always provide terminal commands in ``` blocks for copy-paste
 - Tests on localhost:3000 — frontend hits Render API on production, localhost:8000 on local

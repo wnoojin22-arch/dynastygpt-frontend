@@ -14,6 +14,7 @@ import { useLeagueStore } from "@/lib/stores/league-store";
 import { useTradeBuilderStore } from "@/lib/stores/trade-builder-store";
 import { getAllRosters } from "@/lib/api";
 import AnalyzeModal from "./AnalyzeModal";
+import SuggestLoadingModal from "./SuggestLoadingModal";
 import { C, SANS, MONO, DISPLAY, fmt, posColor } from "../tokens";
 import { HowItWorksButton } from "./HowItWorksModal";
 import SwipeStack from "./SwipeStack";
@@ -1094,6 +1095,9 @@ export default function TradeBuilderUnified() {
       {/* ══════════════════════════════════════════════════════════
           ANALYZE MODAL — portal, THE screenshot moment
           ══════════════════════════════════════════════════════════ */}
+      {tb.suggestLoading && (
+        <SuggestLoadingModal elapsedSec={tb.suggestElapsedSec} query={tb.suggestQuery} />
+      )}
       <AnalyzeModal
         isOpen={ui.showAnalyzeModal}
         onClose={ctx.closeAnalyze}

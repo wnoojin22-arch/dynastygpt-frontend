@@ -6,6 +6,69 @@ import GradeBadge from "./GradeBadge";
 import AcceptanceGauge from "./AcceptanceGauge";
 import type { TradeEvaluation, PositionalImpact } from "./types";
 
+// Max score per grade dimension (see compute_owner_trade_grade in backend)
+const GRADE_DIM_MAX: Record<string, number> = {
+  value_return: 30,
+  asset_quality: 25,
+  roster_impact: 20,
+  positional_need: 15,
+  strategic_fit: 10,
+};
+
+// Max score per acceptance factor (see compute_acceptance_likelihood)
+const PERCEPTION_MAX: Record<string, number> = {
+  sha_fairness: 35,
+  roster_fit: 25,
+  positional_overpay: 15,
+  partner_perceived_value: 10,
+  pick_preference: 5,
+  panic_boost: 5,
+  window_compatibility: 3,
+  timing: 2,
+};
+
+function barColor(pct: number): string {
+  if (pct >= 0.70) return C.green;
+  if (pct >= 0.40) return C.gold; // "yellow"
+  return C.red;
+}
+
+function ScoreBar({ value, max }: { value: number; max: number }) {
+  const pct = max > 0 ? Math.max(0, Math.min(1, value / max)) : 0;
+  const color = barColor(pct);
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
+      <div style={{ flex: 1, height: 6, background: C.white08, borderRadius: 3, overflow: "hidden" }}>
+        <div style={{ width: `${pct * 100}%`, height: "100%", background: color, borderRadius: 3, transition: "width 0.3s ease" }} />
+      </div>
+      <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color, minWidth: 38, textAlign: "right" }}>
+        {value}/{max}
+      </span>
+    </div>
+  );
+}
+
+// Row-level helper text shown under each factor label so the user knows
+// what they're looking at without hover.
+const GRADE_DIM_SUBTITLES: Record<string, string> = {
+  value_return: "How much value you're getting relative to what you're sending",
+  asset_quality: "Quality and age profile of assets involved",
+  roster_impact: "How this trade changes your starting lineup",
+  positional_need: "Whether you're acquiring positions you actually need",
+  strategic_fit: "Whether this trade matches your competitive window",
+};
+
+const PERCEPTION_SUBTITLES: Record<string, string> = {
+  sha_fairness: "Does the partner see this as a fair deal",
+  roster_fit: "Does what you're sending fill their roster needs",
+  positional_overpay: "Are they being asked to overpay at a scarce position",
+  partner_perceived_value: "How they value the assets relative to their system",
+  pick_preference: "Their historical preference for picks vs players",
+  panic_boost: "Are they likely to be in a desperate trading position",
+  window_compatibility: "Does this trade match their competitive timeline",
+  timing: "Is this a good time in the season to approach them",
+};
+
 export default function AnalysisModal({ evaluation, owner, partner, onClose }: {
   evaluation: TradeEvaluation; owner: string; partner: string; onClose: () => void;
 }) {
@@ -15,6 +78,8 @@ export default function AnalysisModal({ evaluation, owner, partner, onClose }: {
   const insights = evaluation.negotiation_insights;
   const askMore = evaluation.ask_for_more;
   const posImpact = evaluation.positional_impact;
+  const archetype = evaluation.partner_archetype;
+  const h2h = evaluation.h2h_history;
 
   const verdictColor = grade.verdict.includes("SMASH") || grade.verdict.includes("GOOD") ? C.green
     : grade.verdict.includes("BREAK") ? C.gold
@@ -45,15 +110,34 @@ export default function AnalysisModal({ evaluation, owner, partner, onClose }: {
           </div>
         </div>
 
+        {/* Partner archetype banner — pulled from behavioral_intel */}
+        {archetype?.line && (
+          <div style={{
+            padding: "8px 20px", background: C.elevated,
+            borderBottom: `1px solid ${C.border}`,
+            fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.gold,
+            letterSpacing: "0.06em", textAlign: "center",
+          }}>
+            {partner.toUpperCase()} · {archetype.line}
+          </div>
+        )}
+
         {/* Recommendation banner */}
         <div style={{ padding: "12px 20px", background: `${verdictColor}08`, borderBottom: `1px solid ${verdictColor}25`, display: "flex", alignItems: "center", justifyContent: "center", gap: 12 }}>
           <GradeBadge grade={grade.grade} score={grade.score} verdict={grade.verdict} large />
           <div>
             <div style={{ fontFamily: DISPLAY, fontSize: 18, color: verdictColor }}>{grade.verdict}</div>
-            {grade.reasons?.[0] && <div style={{ fontFamily: SANS, fontSize: 12, color: C.secondary, marginTop: 2 }}>{grade.reasons[0]}</div>}
           </div>
-          <div style={{ marginLeft: "auto" }}>
+          <div style={{ marginLeft: "auto", display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
             <AcceptanceGauge score={acc?.acceptance_likelihood || 0} size={60} />
+            <div style={{ fontFamily: SANS, fontSize: 10, color: C.dim, textAlign: "center", maxWidth: 120, lineHeight: 1.3 }}>
+              Based on roster fit, trade history, and behavioral patterns.
+            </div>
+            {h2h && h2h.total_trades > 0 && (
+              <div style={{ fontFamily: MONO, fontSize: 10, color: C.secondary, textAlign: "center" }}>
+                {h2h.total_trades} trade{h2h.total_trades === 1 ? "" : "s"} with {partner} · won {h2h.wins}
+              </div>
+            )}
           </div>
         </div>
 
@@ -63,53 +147,78 @@ export default function AnalysisModal({ evaluation, owner, partner, onClose }: {
             <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.10em", color: C.gold, marginBottom: 8 }}>YOUR GRADE</div>
             {grade.dimension_scores && Object.entries(grade.dimension_scores).map(([key, val]) => {
               const label = key.replace(/_/g, " ").replace(/sha/gi, "value").replace(/\b\w/g, c => c.toUpperCase());
+              const subtitle = GRADE_DIM_SUBTITLES[key];
+              const max = GRADE_DIM_MAX[key] ?? 100;
               return (
-                <div key={key} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", borderBottom: `1px solid ${C.white08}` }}>
+                <div key={key} style={{ padding: "8px 0", borderBottom: `1px solid ${C.white08}` }}>
                   <span style={{ fontFamily: SANS, fontSize: 11, color: C.secondary }}>{label}</span>
-                  <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.primary }}>{val as number}</span>
+                  {subtitle && (
+                    <div style={{ fontFamily: SANS, fontSize: 10, color: C.dim, marginTop: 2, lineHeight: 1.3 }}>
+                      {subtitle}
+                    </div>
+                  )}
+                  <ScoreBar value={val as number} max={max} />
                 </div>
               );
             })}
-            {grade.reasons?.slice(1).map((r, i) => (
-              <div key={i} style={{ fontFamily: SANS, fontSize: 11, color: C.dim, padding: "4px 0", borderBottom: `1px solid ${C.white08}` }}>→ {r}</div>
-            ))}
           </div>
 
           {/* ACCEPTANCE */}
           <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 14 }}>
             <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.10em", color: C.gold, marginBottom: 8 }}>PARTNER PERCEPTION</div>
-            {acc?.breakdown && Object.entries(acc.breakdown).map(([key, val]) => {
+            {(() => {
               const LABELS: Record<string, string> = {
                 sha_fairness: "Value Fairness",
+                roster_fit: "Roster Fit",
                 positional_overpay: "Positional Overpay",
+                partner_perceived_value: "Perceived Value",
+                pick_preference: "Pick Preference",
+                panic_boost: "Panic Signal",
                 window_compatibility: "Window Compatibility",
-                behavioral_fit: "Behavioral Fit",
-                roster_need: "Roster Need",
-                partner_history: "Partner History",
-                panic_trader: "Panic Trader",
-                overpay_signal: "Overpay Signal",
-                consolidation: "Consolidation",
-                age_direction: "Age Direction",
+                timing: "Timing",
               };
-              const label = LABELS[key] || key.replace(/_/g, " ").replace(/sha/gi, "value").replace(/\b\w/g, c => c.toUpperCase());
+              const entries = acc?.breakdown ? Object.entries(acc.breakdown) : [];
+              if (entries.length === 0 && !acc?.modifiers?.length) {
+                return (
+                  <div style={{ fontFamily: SANS, fontSize: 11, color: C.dim, padding: "8px 0", fontStyle: "normal" }}>
+                    {(acc as { error?: string })?.error
+                      ? "Could not compute partner perception for this trade."
+                      : "No partner perception data available."}
+                  </div>
+                );
+              }
               return (
-                <div key={key} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", borderBottom: `1px solid ${C.white08}` }}>
-                  <span style={{ fontFamily: SANS, fontSize: 11, color: C.secondary }}>{label}</span>
-                  <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.primary }}>{val as number}</span>
-                </div>
+                <>
+                  {entries.map(([key, val]) => {
+                    const label = LABELS[key] || key.replace(/_/g, " ").replace(/sha/gi, "value").replace(/\b\w/g, c => c.toUpperCase());
+                    const subtitle = PERCEPTION_SUBTITLES[key];
+                    const max = PERCEPTION_MAX[key] ?? 100;
+                    return (
+                      <div key={key} style={{ padding: "8px 0", borderBottom: `1px solid ${C.white08}` }}>
+                        <span style={{ fontFamily: SANS, fontSize: 11, color: C.secondary }}>{label}</span>
+                        {subtitle && (
+                          <div style={{ fontFamily: SANS, fontSize: 10, color: C.dim, marginTop: 2, lineHeight: 1.3 }}>
+                            {subtitle}
+                          </div>
+                        )}
+                        <ScoreBar value={val as number} max={max} />
+                      </div>
+                    );
+                  })}
+                  {acc?.modifiers?.map((m, i) => (
+                    <div key={i} style={{ fontFamily: SANS, fontSize: 10, color: (m.adjustment as number) > 0 ? C.green : C.red, padding: "3px 0" }}>
+                      {(m.adjustment as number) > 0 ? "+" : ""}{m.adjustment} — {m.reason}
+                    </div>
+                  ))}
+                </>
               );
-            })}
-            {acc?.modifiers?.map((m, i) => (
-              <div key={i} style={{ fontFamily: SANS, fontSize: 10, color: (m.adjustment as number) > 0 ? C.green : C.red, padding: "3px 0" }}>
-                {(m.adjustment as number) > 0 ? "+" : ""}{m.adjustment} — {m.reason}
-              </div>
-            ))}
+            })()}
           </div>
 
           {/* NEGOTIATION INTEL */}
           {insights.length > 0 && (
             <div style={{ gridColumn: "1 / -1", background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 14 }}>
-              <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.10em", color: C.gold, marginBottom: 8 }}>NEGOTIATION INTEL</div>
+              <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.10em", color: C.gold, marginBottom: 8 }}>INSIGHTS</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {insights.map((ins, i) => {
                   const tc = ins.type === "leverage" ? C.green : ins.type === "warning" ? C.red : ins.type === "tactic" ? C.blue : C.gold;
@@ -120,6 +229,19 @@ export default function AnalysisModal({ evaluation, owner, partner, onClose }: {
                     </div>
                   );
                 })}
+              </div>
+            </div>
+          )}
+
+          {/* AI INSIGHT — Claude Haiku situational analysis (single paragraph) */}
+          {evaluation.ai_insight && (
+            <div style={{ gridColumn: "1 / -1", background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 14 }}>
+              <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.10em", color: C.gold, marginBottom: 8 }}>AI INSIGHT</div>
+              <div style={{
+                fontFamily: SANS, fontSize: 14, fontWeight: 400, fontStyle: "normal",
+                color: C.primary, lineHeight: 1.6,
+              }}>
+                {evaluation.ai_insight}
               </div>
             </div>
           )}
@@ -159,36 +281,89 @@ export default function AnalysisModal({ evaluation, owner, partner, onClose }: {
                     </div>
                   ))}
                 </div>
+                {/* Consolidation context — only shown when asset counts differ */}
+                {(() => {
+                  const nGive = bal?.i_give?.assets?.length ?? 0;
+                  const nRecv = bal?.i_receive?.assets?.length ?? 0;
+                  if (nGive === nRecv) return null;
+                  const diff = Math.abs(nGive - nRecv);
+                  const premiumPct = [0, 25, 65, 85, 95][Math.min(diff, 4)];
+                  const concentratedSide = nGive < nRecv ? "you're sending" : "you're receiving";
+                  const benefited = nGive < nRecv ? giveRaw : recvRaw;
+                  const absorbed = nGive < nRecv ? recvRaw : giveRaw;
+                  const meets = benefited * (1 + premiumPct / 100) <= absorbed;
+                  return (
+                    <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${C.white08}`,
+                                  fontFamily: SANS, fontSize: 11, color: C.dim, lineHeight: 1.4 }}>
+                      Trading {Math.max(nGive, nRecv)} assets for {Math.min(nGive, nRecv)} typically
+                      commands a ~{premiumPct}% premium on the side {concentratedSide}.{" "}
+                      <span style={{ color: meets ? C.green : C.orange, fontWeight: 700 }}>
+                        This trade {meets ? "accounts for that." : "does not account for that."}
+                      </span>
+                    </div>
+                  );
+                })()}
               </div>
             );
           })()}
 
-          {/* POSITIONAL IMPACT */}
-          {posImpact?.owner && (
-            <div style={{ gridColumn: "1 / -1", background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 14 }}>
-              <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.10em", color: C.gold, marginBottom: 8 }}>POSITIONAL IMPACT</div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
-                {(["QB", "RB", "WR", "TE"] as const).map((pos) => {
-                  const d = posImpact.owner?.[pos];
-                  if (!d) return null;
-                  const dirColor = d.direction === "up" ? C.green : d.direction === "down" ? C.red : C.dim;
-                  const arrow = d.direction === "up" ? "▲" : d.direction === "down" ? "▼" : "—";
-                  const beforeColor = d.before === "ELITE" || d.before === "STRONG" ? C.green : d.before === "WEAK" || d.before === "CRITICAL" ? C.red : C.gold;
-                  const afterColor = d.after === "ELITE" || d.after === "STRONG" ? C.green : d.after === "WEAK" || d.after === "CRITICAL" ? C.red : C.gold;
-                  return (
-                    <div key={pos} style={{ textAlign: "center", padding: "6px 4px", borderRadius: 6, background: d.direction !== "same" ? `${dirColor}06` : "transparent", border: `1px solid ${d.direction !== "same" ? `${dirColor}20` : C.border}` }}>
-                      <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: posColor(pos), marginBottom: 4 }}>{pos}</div>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
-                        <span style={{ fontFamily: MONO, fontSize: 11, color: beforeColor }}>{d.before}</span>
-                        <span style={{ fontFamily: MONO, fontSize: 10, color: dirColor }}>{arrow}</span>
-                        <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: afterColor }}>{d.after}</span>
+          {/* POSITIONAL IMPACT — only positions in the trade, both sides */}
+          {(() => {
+            if (!posImpact) return null;
+            const tradedPositions = new Set<string>();
+            [...(bal?.i_give?.assets || []), ...(bal?.i_receive?.assets || [])].forEach((a: any) => {
+              if (a?.position && ["QB", "RB", "WR", "TE"].includes(a.position)) {
+                tradedPositions.add(a.position);
+              }
+            });
+            if (tradedPositions.size === 0) return null;
+
+            const positions = Array.from(tradedPositions).filter(
+              p => posImpact.owner?.[p] || posImpact.partner?.[p]
+            );
+            if (positions.length === 0) return null;
+
+            const colorForGrade = (g: string) =>
+              g === "ELITE" || g === "STRONG" ? C.green :
+              g === "WEAK" || g === "CRITICAL" ? C.red : C.gold;
+
+            const renderRow = (d: { before: string; after: string; direction: string } | undefined) => {
+              if (!d) return <span style={{ fontFamily: MONO, fontSize: 11, color: C.dim }}>—</span>;
+              const dirColor = d.direction === "up" ? C.green : d.direction === "down" ? C.red : C.dim;
+              const arrow = d.direction === "up" ? "▲" : d.direction === "down" ? "▼" : "—";
+              return (
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontFamily: MONO, fontSize: 11, color: colorForGrade(d.before) }}>{d.before}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 10, color: dirColor }}>{arrow}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: colorForGrade(d.after) }}>{d.after}</span>
+                </div>
+              );
+            };
+
+            return (
+              <div style={{ gridColumn: "1 / -1", background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 14 }}>
+                <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.10em", color: C.gold, marginBottom: 4 }}>POSITIONAL IMPACT</div>
+                <div style={{ fontFamily: SANS, fontSize: 11, color: C.dim, marginBottom: 10 }}>
+                  How each side&apos;s depth at the traded position changes after the deal.
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {positions.map((pos) => (
+                    <div key={pos} style={{ border: `1px solid ${C.border}`, borderRadius: 6, padding: "10px 12px" }}>
+                      <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: posColor(pos), marginBottom: 8 }}>
+                        {pos}
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "6px 16px", alignItems: "center" }}>
+                        <span style={{ fontFamily: SANS, fontSize: 11, color: C.secondary }}>You</span>
+                        {renderRow(posImpact.owner?.[pos])}
+                        <span style={{ fontFamily: SANS, fontSize: 11, color: C.secondary }}>Partner</span>
+                        {renderRow(posImpact.partner?.[pos])}
                       </div>
                     </div>
-                  );
-                })}
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* ASK FOR MORE */}
           {askMore && askMore.length > 0 && (
