@@ -237,7 +237,7 @@ export default function AnalysisModal({ evaluation, owner, partner, onClose }: {
           <div style={{
             fontFamily: DISPLAY, fontSize: 32, fontWeight: 900,
             color: verdictColor, letterSpacing: "0.04em",
-            lineHeight: 1,
+            lineHeight: 1, alignSelf: "center", margin: 0, padding: 0,
           }}>
             {grade.verdict}
           </div>
