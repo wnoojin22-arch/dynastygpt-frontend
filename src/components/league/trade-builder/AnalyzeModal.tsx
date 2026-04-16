@@ -25,6 +25,23 @@ const M = {
   market: "#6bb8e0",
 };
 
+// Scrub backend/AI-generated SHA + overpay language from user-facing text.
+// Defensive — catches any "Overpaying by X% SHA" / bare SHA leaks from cached
+// AI insights. Pairs with backend source fix in trade_builder.py.
+function scrubInsight(s: string | null | undefined): string {
+  if (!s) return "";
+  let out = s;
+  out = out.replace(
+    /Overpaying by\s+(\d+\.?\d*)%\s*SHA\s*[—\-]\s*sending\s+[\d,\.]+\s+to\s+get\s+back\s+[\d,\.]+\.?/gi,
+    (_m, pct) => `Sending ${pct}% more than you're receiving.`
+  );
+  out = out.replace(/\bOverpaying\b/g, "Sending more");
+  out = out.replace(/\bUnderpaying\b/g, "Receiving more");
+  out = out.replace(/(\d+\.?\d*)\s*%\s*SHA\b/gi, "$1%");
+  out = out.replace(/\bSHA\b/g, "value");
+  return out;
+}
+
 // ── Helper: grade to display ─────────────────────────────────────────────
 
 function gradeDisplay(g: GradeResult | null | undefined) {
@@ -574,7 +591,7 @@ export default function AnalyzeModal({ isOpen, onClose, evaluation, partner, own
                         background: M.card, border: `1px solid ${C.border}`, borderRadius: 6,
                         padding: "8px 12px", fontFamily: SANS, fontSize: 12, color: C.secondary, lineHeight: 1.5,
                       }}>
-                        {ins.insight}
+                        {scrubInsight(ins.insight)}
                       </div>
                     ))}
                   </div>
@@ -591,7 +608,7 @@ export default function AnalyzeModal({ isOpen, onClose, evaluation, partner, own
                     fontFamily: SANS, fontSize: 14, fontWeight: 400, fontStyle: "normal",
                     color: C.primary, lineHeight: 1.6,
                   }}>
-                    {ev.ai_insight}
+                    {scrubInsight(ev.ai_insight)}
                   </div>
                 </div>
               )}

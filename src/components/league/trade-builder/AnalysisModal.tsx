@@ -6,6 +6,21 @@ import GradeBadge from "./GradeBadge";
 import AcceptanceGauge from "./AcceptanceGauge";
 import type { TradeEvaluation, PositionalImpact } from "./types";
 
+// Scrub backend/AI-generated SHA + overpay language from user-facing text.
+function scrubInsight(s: string | null | undefined): string {
+  if (!s) return "";
+  let out = s;
+  out = out.replace(
+    /Overpaying by\s+(\d+\.?\d*)%\s*SHA\s*[—\-]\s*sending\s+[\d,\.]+\s+to\s+get\s+back\s+[\d,\.]+\.?/gi,
+    (_m, pct) => `Sending ${pct}% more than you're receiving.`
+  );
+  out = out.replace(/\bOverpaying\b/g, "Sending more");
+  out = out.replace(/\bUnderpaying\b/g, "Receiving more");
+  out = out.replace(/(\d+\.?\d*)\s*%\s*SHA\b/gi, "$1%");
+  out = out.replace(/\bSHA\b/g, "value");
+  return out;
+}
+
 // Max score per grade dimension (see compute_owner_trade_grade in backend)
 const GRADE_DIM_MAX: Record<string, number> = {
   value_return: 30,
@@ -225,7 +240,7 @@ export default function AnalysisModal({ evaluation, owner, partner, onClose }: {
                   return (
                     <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "6px 8px", borderRadius: 5, background: `${tc}08`, borderLeft: `3px solid ${tc}` }}>
                       <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, color: tc, letterSpacing: "0.06em", flexShrink: 0, marginTop: 2 }}>{ins.type.toUpperCase()}</span>
-                      <span style={{ fontFamily: SANS, fontSize: 12, color: C.secondary, lineHeight: 1.4 }}>{ins.insight}</span>
+                      <span style={{ fontFamily: SANS, fontSize: 12, color: C.secondary, lineHeight: 1.4 }}>{scrubInsight(ins.insight)}</span>
                     </div>
                   );
                 })}
@@ -241,7 +256,7 @@ export default function AnalysisModal({ evaluation, owner, partner, onClose }: {
                 fontFamily: SANS, fontSize: 14, fontWeight: 400, fontStyle: "normal",
                 color: C.primary, lineHeight: 1.6,
               }}>
-                {evaluation.ai_insight}
+                {scrubInsight(evaluation.ai_insight)}
               </div>
             </div>
           )}
