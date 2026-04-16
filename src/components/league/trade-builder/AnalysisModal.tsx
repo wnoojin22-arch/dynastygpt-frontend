@@ -124,25 +124,44 @@ export default function AnalysisModal({ evaluation, owner, partner, onClose }: {
             </div>
           )}
 
-          {/* TRADE BALANCE */}
-          <div style={{ gridColumn: "1 / -1", background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 14 }}>
-            <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.10em", color: C.gold, marginBottom: 8 }}>TRADE BALANCE</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
-              {[
-                { label: "VALUE", gap: bal?.sha_gap, pct: bal?.sha_gap_percentage },
-                { label: "DYNASTY", gap: bal?.dynasty_gap, pct: bal?.dynasty_gap_percentage },
-                { label: "WIN-NOW", gap: bal?.winnow_gap, pct: bal?.winnow_gap_percentage },
-              ].map(({ label, gap, pct }) => (
-                <div key={label} style={{ textAlign: "center" }}>
-                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, letterSpacing: "0.06em" }}>{label}</div>
-                  <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 800, color: (gap || 0) >= 0 ? C.green : C.red }}>
-                    {(gap || 0) >= 0 ? "+" : ""}{fmt(gap || 0)}
-                  </div>
-                  <div style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>{((pct || 0) >= 0 ? "+" : "")}{(pct || 0).toFixed(1)}%</div>
+          {/* TRADE BALANCE — RAW totals only, no consolidation premium */}
+          {(() => {
+            const giveRaw = bal?.i_give?.sha_total_raw ?? 0;
+            const recvRaw = bal?.i_receive?.sha_total_raw ?? 0;
+            const valueGap = recvRaw - giveRaw;
+            const valuePct = giveRaw > 0 ? (valueGap / giveRaw) * 100 : 0;
+            const giveDynRaw = bal?.i_give?.dynasty_total_raw ?? 0;
+            const recvDynRaw = bal?.i_receive?.dynasty_total_raw ?? 0;
+            const dynGap = recvDynRaw - giveDynRaw;
+            const dynPct = giveDynRaw > 0 ? (dynGap / giveDynRaw) * 100 : 0;
+            const giveWinRaw = bal?.i_give?.winnow_total_raw ?? 0;
+            const recvWinRaw = bal?.i_receive?.winnow_total_raw ?? 0;
+            const winGap = recvWinRaw - giveWinRaw;
+            const winPct = giveWinRaw > 0 ? (winGap / giveWinRaw) * 100 : 0;
+            return (
+              <div style={{ gridColumn: "1 / -1", background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 14 }}>
+                <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.10em", color: C.gold, marginBottom: 4 }}>YOUR VALUE BALANCE</div>
+                <div style={{ fontFamily: SANS, fontSize: 11, color: C.dim, marginBottom: 10 }}>
+                  Difference between what you get and what you send. Positive = favorable for you.
                 </div>
-              ))}
-            </div>
-          </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+                  {[
+                    { label: "VALUE", gap: valueGap, pct: valuePct },
+                    { label: "DYNASTY", gap: dynGap, pct: dynPct },
+                    { label: "WIN-NOW", gap: winGap, pct: winPct },
+                  ].map(({ label, gap, pct }) => (
+                    <div key={label} style={{ textAlign: "center" }}>
+                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, letterSpacing: "0.06em" }}>{label}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 800, color: gap >= 0 ? C.green : C.red }}>
+                        {gap >= 0 ? "+" : ""}{fmt(gap)}
+                      </div>
+                      <div style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>{(pct >= 0 ? "+" : "")}{pct.toFixed(1)}%</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* POSITIONAL IMPACT */}
           {posImpact?.owner && (
