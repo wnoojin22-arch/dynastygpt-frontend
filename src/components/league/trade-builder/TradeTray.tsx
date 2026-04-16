@@ -4,7 +4,6 @@ import React from "react";
 import { C, SANS, MONO, fmt, posColor } from "../tokens";
 import BalanceBar from "./BalanceBar";
 import AcceptanceGauge from "./AcceptanceGauge";
-import GradeBadge from "./GradeBadge";
 import type { RosterPlayer, LiveBalance, TradeEvaluation } from "./types";
 
 interface Props {
@@ -90,12 +89,10 @@ function computeLiveBalance(giveNames: string[], receiveNames: string[], giveRos
 
   let verdict = "FAIR";
   const absPct = Math.abs(gapPct);
-  // gap > 0 = recvAdj > giveAdj = owner receiving MORE than sending = good deal (UNDERPAY)
-  // gap < 0 = owner sending MORE than receiving = bad deal (OVERPAY)
   if (absPct <= 5) verdict = "FAIR";
-  else if (absPct <= 10) verdict = gap < 0 ? "SLIGHT_OVERPAY" : "SLIGHT_UNDERPAY";
-  else if (absPct <= 20) verdict = gap < 0 ? "OVERPAY" : "UNDERPAY";
-  else verdict = gap < 0 ? "SIGNIFICANT_OVERPAY" : "SIGNIFICANT_UNDERPAY";
+  else if (absPct <= 10) verdict = gap < 0 ? "SLIGHT OVERPAY" : "FAVORABLE";
+  else if (absPct <= 20) verdict = gap < 0 ? "OVERPAY" : "STRONG WIN";
+  else verdict = gap < 0 ? "BIG OVERPAY" : "SMASH WIN";
 
   return { giveRaw: giveTotal, giveAdj, recvRaw: recvTotal, recvAdj, gapPct, verdict, consPremium, consSide };
 }
@@ -156,11 +153,24 @@ export default function TradeTray({ giveNames, receiveNames, giveRoster, receive
       {/* GAUGES + BUTTONS */}
       {hasAssets && (
         <div style={{ padding: "10px 8px", borderTop: `1px solid ${C.border}`, display: "flex", flexDirection: "column", gap: 8 }}>
-          {/* Gauges row */}
+          {/* Verdict + acceptance row */}
           {(grade || acceptance) && (
-            <div style={{ display: "flex", justifyContent: "center", gap: 16 }}>
-              {grade && <GradeBadge grade={grade.grade} score={grade.score} verdict={grade.verdict} large />}
-              {acceptance && <AcceptanceGauge score={acceptance.acceptance_likelihood} size={64} />}
+            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 12 }}>
+              {grade && (() => {
+                const vc = grade.verdict === "SMASH" || grade.verdict === "WIN" ? C.green
+                  : grade.verdict === "FAIR" ? C.gold
+                  : grade.verdict === "LEANS AGAINST" ? C.orange : C.red;
+                return (
+                  <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: vc, letterSpacing: "0.06em" }}>
+                    {grade.verdict}
+                  </span>
+                );
+              })()}
+              {acceptance && (
+                <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: C.gold }}>
+                  {acceptance.acceptance_likelihood}%
+                </span>
+              )}
             </div>
           )}
 
