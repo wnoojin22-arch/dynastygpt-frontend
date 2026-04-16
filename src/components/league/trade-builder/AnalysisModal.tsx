@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { C, SANS, MONO, DISPLAY, fmt, posColor, gradeColor } from "../tokens";
 import AcceptanceGauge from "./AcceptanceGauge";
 import type { TradeEvaluation, PositionalImpact } from "./types";
@@ -177,6 +177,8 @@ export default function AnalysisModal({ evaluation, owner, partner, onClose }: {
   const posImpact = evaluation.positional_impact;
   const archetype = evaluation.partner_archetype;
   const h2h = evaluation.h2h_history;
+  const [gradeOpen, setGradeOpen] = useState(false);
+  const [perceptionOpen, setPerceptionOpen] = useState(false);
 
   const verdictColor = grade.verdict === "SMASH" || grade.verdict === "WIN" ? C.green
     : grade.verdict === "FAIR" ? C.gold
@@ -249,10 +251,21 @@ export default function AnalysisModal({ evaluation, owner, partner, onClose }: {
         </div>
 
         <div style={{ padding: "16px 20px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-          {/* YOUR GRADE */}
+          {/* YOUR GRADE — collapsed by default on desktop */}
           <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 14 }}>
-            <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.10em", color: C.gold, marginBottom: 8 }}>YOUR GRADE</div>
-            {grade.dimension_scores && Object.entries(grade.dimension_scores).map(([key, val]) => {
+            <div
+              onClick={() => setGradeOpen((o) => !o)}
+              style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.10em", color: C.gold, marginBottom: gradeOpen ? 8 : 0, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}
+            >
+              <span>YOUR GRADE</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                {!gradeOpen && grade.score != null && (
+                  <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.primary }}>{grade.score}/100</span>
+                )}
+                <span style={{ fontSize: 10, color: C.dim }}>{gradeOpen ? "▲" : "▼"}</span>
+              </div>
+            </div>
+            {gradeOpen && grade.dimension_scores && Object.entries(grade.dimension_scores).map(([key, val]) => {
               const label = key.replace(/_/g, " ").replace(/sha/gi, "value").replace(/\b\w/g, c => c.toUpperCase());
               const subtitle = GRADE_DIM_SUBTITLES[key];
               const max = GRADE_DIM_MAX[key] ?? 100;
@@ -270,10 +283,22 @@ export default function AnalysisModal({ evaluation, owner, partner, onClose }: {
             })}
           </div>
 
-          {/* ACCEPTANCE */}
+          {/* ACCEPTANCE — collapsed by default on desktop */}
           <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 14 }}>
-            <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.10em", color: C.gold, marginBottom: 8 }}>PARTNER PERCEPTION</div>
+            <div
+              onClick={() => setPerceptionOpen((o) => !o)}
+              style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.10em", color: C.gold, marginBottom: perceptionOpen ? 8 : 0, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}
+            >
+              <span>PARTNER PERCEPTION</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                {!perceptionOpen && acc?.acceptance_likelihood != null && (
+                  <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.primary }}>{acc.acceptance_likelihood}%</span>
+                )}
+                <span style={{ fontSize: 10, color: C.dim }}>{perceptionOpen ? "▲" : "▼"}</span>
+              </div>
+            </div>
             {(() => {
+              if (!perceptionOpen) return null;
               const LABELS: Record<string, string> = {
                 sha_fairness: "Value Fairness",
                 roster_fit: "Roster Fit",
@@ -322,17 +347,26 @@ export default function AnalysisModal({ evaluation, owner, partner, onClose }: {
             })()}
           </div>
 
-          {/* NEGOTIATION INTEL */}
-          {insights.length > 0 && (
+          {/* INSIGHTS — owner's personal trade data, scoped to this deal */}
+          {(evaluation.personal_insights?.length ?? 0) > 0 && (
             <div style={{ gridColumn: "1 / -1", background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 14 }}>
               <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.10em", color: C.gold, marginBottom: 8 }}>INSIGHTS</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {insights.map((ins, i) => {
-                  const tc = ins.type === "leverage" ? C.green : ins.type === "warning" ? C.red : ins.type === "tactic" ? C.blue : C.gold;
+                {(evaluation.personal_insights || []).map((pi, i) => {
+                  const tc = pi.tone === "positive" ? C.green : pi.tone === "warning" ? C.red : C.dim;
                   return (
+<<<<<<< HEAD
                     <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "6px 8px", borderRadius: 5, background: `${tc}08`, borderLeft: `3px solid ${tc}` }}>
                       <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, color: tc, letterSpacing: "0.06em", flexShrink: 0, marginTop: 2 }}>{ins.type.toUpperCase()}</span>
                       <span style={{ fontFamily: SANS, fontSize: 12, color: C.secondary, lineHeight: 1.4 }}>{_scrubLanguage(ins.insight)}</span>
+=======
+                    <div key={i} style={{
+                      padding: "6px 10px", borderRadius: 5,
+                      background: `${tc}0a`, borderLeft: `3px solid ${tc}`,
+                      fontFamily: SANS, fontSize: 13, color: C.primary, lineHeight: 1.45,
+                    }}>
+                      {pi.text}
+>>>>>>> 00b6ec0 (fix: pass pick counts to backend, personal_insights replaces negotiation_insights)
                     </div>
                   );
                 })}

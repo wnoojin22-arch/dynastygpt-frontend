@@ -104,6 +104,7 @@ export interface TradeEvaluation {
   partner_archetype?: PartnerArchetype | null;
   h2h_history?: H2HHistory | null;
   ai_insight?: string | null;
+  personal_insights?: Array<{ text: string; tone: "positive" | "warning" | "neutral"; category: string }>;
 }
 
 export interface SuggestedPackage {

@@ -312,6 +312,11 @@ export function useTradeBuilder({
             window_override: myWindow ? toBackend(myWindow) : null,
             partner_window_override: theirWindow ? toBackend(theirWindow) : null,
             user_id: ownerId || undefined,
+            // Pick counts from the already-loaded picks queries — no new API call.
+            // Backend uses these for the AI insight context instead of trying to
+            // derive pick capital from stale league_intel.moveable_assets.
+            owner_pick_count: ((ownerPicks as unknown as Record<string, unknown>)?.picks as unknown[] || []).length || 0,
+            partner_pick_count: ((partnerPicks as unknown as Record<string, unknown>)?.picks as unknown[] || []).length || 0,
           }),
         },
       );
