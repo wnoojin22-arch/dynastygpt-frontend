@@ -14,7 +14,6 @@ import {
 import { RecentTrades, PlayerName } from "@/components/league";
 import PlayerHeadshot from "@/components/league/PlayerHeadshot";
 import WelcomeArticleCard from "@/components/league/WelcomeArticleCard";
-import ShareBanner from "@/components/league/ShareBanner";
 import { useTrack } from "@/hooks/useTrack";
 import { useOwnerClick } from "@/hooks/useOwnerClick";
 import { C, SANS, MONO, DISPLAY, fmt, posColor, getVerdictStyle, leaguePrefix } from "@/components/league/tokens";
@@ -581,6 +580,7 @@ export default function LeagueHome() {
   const slug = pathname.split("/")[2] || "";
   const basePath = `/l/${slug}`;
   const track = useTrack();
+  const [maintenanceDismissed, setMaintenanceDismissed] = useState(false);
   useEffect(() => { track("league_home_viewed", { league_id: lid }); }, [lid]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ── Data queries (unchanged) ── */
@@ -684,8 +684,28 @@ export default function LeagueHome() {
         leagueIntel={leagueIntel?.owners}
       />
 
-      {/* ═══════════════ SHARE BANNER ═══════════════ */}
-      <ShareBanner />
+      {/* ═══════════════ MAINTENANCE BANNER ═══════════════ */}
+      {!maintenanceDismissed && (
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "center",
+          padding: "8px 16px", gap: 12,
+          background: "rgba(245,162,35,0.12)",
+          border: "1px solid rgba(245,162,35,0.3)",
+          borderLeft: "none", borderRight: "none",
+        }}>
+          <span style={{
+            fontFamily: "'JetBrains Mono','SF Mono',monospace",
+            fontSize: 11, fontWeight: 700, letterSpacing: "0.04em",
+            color: "#eeeef2", textAlign: "center", flex: 1,
+          }}>
+            Beta updates in progress — some features may be temporarily affected.
+          </span>
+          <span
+            onClick={() => setMaintenanceDismissed(true)}
+            style={{ color: "rgba(245,162,35,0.5)", cursor: "pointer", fontSize: 12, padding: "0 4px", flexShrink: 0 }}
+          >✕</span>
+        </div>
+      )}
 
       {/* ═══════════════ ② HERO ═══════════════ */}
       {rcLoading && !reportCard ? <HeroSkeleton /> : (
