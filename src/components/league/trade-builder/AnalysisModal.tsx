@@ -6,6 +6,73 @@ import GradeBadge from "./GradeBadge";
 import AcceptanceGauge from "./AcceptanceGauge";
 import type { TradeEvaluation, PositionalImpact } from "./types";
 
+function _scrubLanguage(s: string): string {
+  let out = s;
+  // Neutralize "Overpaying by X% SHA — sending Y to get back Z"
+  out = out.replace(
+    /Overpaying by\s+(\d+\.?\d*)%\s*SHA\s*[—\-]\s*sending\s+[\d,\.]+\s+to\s+get\s+back\s+[\d,\.]+\.?/gi,
+    (_m, pct) => `Sending ${pct}% more than you're receiving.`
+  );
+  // Neutralize bare "Overpaying" / "Underpaying" verbs
+  out = out.replace(/\bOverpaying\b/g, "Sending more");
+  out = out.replace(/\bUnderpaying\b/g, "Receiving more");
+  // Strip any remaining "X% SHA" → "X%"
+  out = out.replace(/(\d+\.?\d*)\s*%\s*SHA\b/gi, "$1%");
+  // Strip standalone SHA → "value"
+  out = out.replace(/\bSHA\b/g, "value");
+  return out;
+}
+
+// Split an AI insight string into YOUR SITUATION / THEIR SITUATION sections
+function parseInsight(text: string | null | undefined): { you: string; them: string } {
+  if (!text) return { you: "", them: "" };
+  const clean = _scrubLanguage(text.replace(/\*+/g, "").trim());
+  const yMatch = clean.match(/YOUR SITUATION\s*:?\s*([\s\S]*?)(?=THEIR SITUATION\s*:|$)/i);
+  const tMatch = clean.match(/THEIR SITUATION\s*:?\s*([\s\S]*)$/i);
+  const you = (yMatch?.[1] || "").trim();
+  const them = (tMatch?.[1] || "").trim();
+  // Fallback: if no labels found, dump everything into "you"
+  if (!you && !them) return { you: clean, them: "" };
+  return { you, them };
+}
+
+function AIInsightCard({ text }: { text: string | null | undefined }) {
+  if (!text) return null;
+  const { you, them } = parseInsight(text);
+  if (!you && !them) return null;
+  return (
+    <div style={{
+      margin: "16px 20px 0 20px",
+      border: "2px solid rgba(245,162,35,0.6)",
+      background: "rgba(245,162,35,0.06)",
+      borderRadius: 8,
+      padding: 16,
+      display: "flex", flexDirection: "column", gap: 14,
+    }}>
+      {you && (
+        <div>
+          <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 900,
+            letterSpacing: "0.12em", color: "#f5a223", marginBottom: 6 }}>
+            YOUR SITUATION
+          </div>
+          <div style={{ fontFamily: SANS, fontSize: 15, fontWeight: 400,
+            color: "#ffffff", lineHeight: 1.7 }}>{you}</div>
+        </div>
+      )}
+      {them && (
+        <div>
+          <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 900,
+            letterSpacing: "0.12em", color: "#f5a223", marginBottom: 6 }}>
+            THEIR SITUATION
+          </div>
+          <div style={{ fontFamily: SANS, fontSize: 15, fontWeight: 400,
+            color: "#ffffff", lineHeight: 1.7 }}>{them}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Max score per grade dimension (see compute_owner_trade_grade in backend)
 const GRADE_DIM_MAX: Record<string, number> = {
   value_return: 30,
@@ -122,6 +189,9 @@ export default function AnalysisModal({ evaluation, owner, partner, onClose }: {
           </div>
         )}
 
+        {/* AI INSIGHT — dual-section GM verdict, top of modal */}
+        <AIInsightCard text={evaluation.ai_insight} />
+
         {/* Recommendation banner */}
         <div style={{ padding: "12px 20px", background: `${verdictColor}08`, borderBottom: `1px solid ${verdictColor}25`, display: "flex", alignItems: "center", justifyContent: "center", gap: 12 }}>
           <GradeBadge grade={grade.grade} score={grade.score} verdict={grade.verdict} large />
@@ -233,18 +303,7 @@ export default function AnalysisModal({ evaluation, owner, partner, onClose }: {
             </div>
           )}
 
-          {/* AI INSIGHT — Claude Haiku situational analysis (single paragraph) */}
-          {evaluation.ai_insight && (
-            <div style={{ gridColumn: "1 / -1", background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 14 }}>
-              <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.10em", color: C.gold, marginBottom: 8 }}>AI INSIGHT</div>
-              <div style={{
-                fontFamily: SANS, fontSize: 14, fontWeight: 400, fontStyle: "normal",
-                color: C.primary, lineHeight: 1.6,
-              }}>
-                {evaluation.ai_insight}
-              </div>
-            </div>
-          )}
+          {/* AI INSIGHT moved to top of modal (see AIInsightCard above) */}
 
           {/* TRADE BALANCE — RAW totals only, no consolidation premium */}
           {(() => {

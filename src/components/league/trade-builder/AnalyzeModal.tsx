@@ -25,6 +25,72 @@ const M = {
   market: "#6bb8e0",
 };
 
+// ── AI Insight dual-section parser + card ────────────────────────────────
+function _scrubLanguage(s: string): string {
+  let out = s;
+  // Neutralize "Overpaying by X% SHA — sending Y to get back Z"
+  out = out.replace(
+    /Overpaying by\s+(\d+\.?\d*)%\s*SHA\s*[—\-]\s*sending\s+[\d,\.]+\s+to\s+get\s+back\s+[\d,\.]+\.?/gi,
+    (_m, pct) => `Sending ${pct}% more than you're receiving.`
+  );
+  // Neutralize bare "Overpaying" / "Underpaying" verbs
+  out = out.replace(/\bOverpaying\b/g, "Sending more");
+  out = out.replace(/\bUnderpaying\b/g, "Receiving more");
+  // Strip any remaining "X% SHA" → "X%"
+  out = out.replace(/(\d+\.?\d*)\s*%\s*SHA\b/gi, "$1%");
+  // Strip standalone SHA → "value"
+  out = out.replace(/\bSHA\b/g, "value");
+  return out;
+}
+
+function parseInsight(text: string | null | undefined): { you: string; them: string } {
+  if (!text) return { you: "", them: "" };
+  const clean = _scrubLanguage(text.replace(/\*+/g, "").trim());
+  const yMatch = clean.match(/YOUR SITUATION\s*:?\s*([\s\S]*?)(?=THEIR SITUATION\s*:|$)/i);
+  const tMatch = clean.match(/THEIR SITUATION\s*:?\s*([\s\S]*)$/i);
+  const you = (yMatch?.[1] || "").trim();
+  const them = (tMatch?.[1] || "").trim();
+  if (!you && !them) return { you: clean, them: "" };
+  return { you, them };
+}
+
+function AIInsightCard({ text }: { text: string | null | undefined }) {
+  if (!text) return null;
+  const { you, them } = parseInsight(text);
+  if (!you && !them) return null;
+  return (
+    <div style={{
+      marginBottom: 16,
+      border: "2px solid rgba(245,162,35,0.6)",
+      background: "rgba(245,162,35,0.06)",
+      borderRadius: 8,
+      padding: 16,
+      display: "flex", flexDirection: "column", gap: 14,
+    }}>
+      {you && (
+        <div>
+          <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 900,
+            letterSpacing: "0.12em", color: "#f5a223", marginBottom: 6 }}>
+            YOUR SITUATION
+          </div>
+          <div style={{ fontFamily: SANS, fontSize: 15, fontWeight: 400,
+            color: "#ffffff", lineHeight: 1.7 }}>{you}</div>
+        </div>
+      )}
+      {them && (
+        <div>
+          <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 900,
+            letterSpacing: "0.12em", color: "#f5a223", marginBottom: 6 }}>
+            THEIR SITUATION
+          </div>
+          <div style={{ fontFamily: SANS, fontSize: 15, fontWeight: 400,
+            color: "#ffffff", lineHeight: 1.7 }}>{them}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Helper: grade to display ─────────────────────────────────────────────
 
 function gradeDisplay(g: GradeResult | null | undefined) {
@@ -363,6 +429,9 @@ export default function AnalyzeModal({ isOpen, onClose, evaluation, partner, own
                 </div>
               )}
 
+              {/* ── 2c. AI INSIGHT — dual-section GM verdict ── */}
+              <AIInsightCard text={ev?.ai_insight} />
+
               {/* ── 3. Trade Card ── */}
               <div style={{
                 background: M.card, borderRadius: 10,
@@ -581,20 +650,7 @@ export default function AnalyzeModal({ isOpen, onClose, evaluation, partner, own
                 </div>
               )}
 
-              {/* ── 9. AI Insight — Claude Haiku (single paragraph) ── */}
-              {ev?.ai_insight && (
-                <div style={{ marginBottom: 20 }}>
-                  <SectionLabel text="AI INSIGHT" />
-                  <div style={{
-                    background: M.card, border: `1px solid ${C.border}`, borderRadius: 6,
-                    padding: "10px 14px",
-                    fontFamily: SANS, fontSize: 14, fontWeight: 400, fontStyle: "normal",
-                    color: C.primary, lineHeight: 1.6,
-                  }}>
-                    {ev.ai_insight}
-                  </div>
-                </div>
-              )}
+              {/* AI Insight moved to top of modal (see AIInsightCard above) */}
 
               {/* ── 10. Watermark ── */}
               <div style={{
