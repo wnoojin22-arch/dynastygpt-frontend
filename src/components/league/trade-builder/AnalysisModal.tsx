@@ -61,12 +61,15 @@ export default function AnalysisModal({ evaluation, owner, partner, onClose }: {
           {/* YOUR GRADE */}
           <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 14 }}>
             <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.10em", color: C.gold, marginBottom: 8 }}>YOUR GRADE</div>
-            {grade.dimension_scores && Object.entries(grade.dimension_scores).map(([key, val]) => (
-              <div key={key} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", borderBottom: `1px solid ${C.white08}` }}>
-                <span style={{ fontFamily: SANS, fontSize: 11, color: C.secondary }}>{key.replace(/_/g, " ")}</span>
-                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.primary }}>{val as number}</span>
-              </div>
-            ))}
+            {grade.dimension_scores && Object.entries(grade.dimension_scores).map(([key, val]) => {
+              const label = key.replace(/_/g, " ").replace(/sha/gi, "value").replace(/\b\w/g, c => c.toUpperCase());
+              return (
+                <div key={key} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", borderBottom: `1px solid ${C.white08}` }}>
+                  <span style={{ fontFamily: SANS, fontSize: 11, color: C.secondary }}>{label}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.primary }}>{val as number}</span>
+                </div>
+              );
+            })}
             {grade.reasons?.slice(1).map((r, i) => (
               <div key={i} style={{ fontFamily: SANS, fontSize: 11, color: C.dim, padding: "4px 0", borderBottom: `1px solid ${C.white08}` }}>→ {r}</div>
             ))}
@@ -75,12 +78,27 @@ export default function AnalysisModal({ evaluation, owner, partner, onClose }: {
           {/* ACCEPTANCE */}
           <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 14 }}>
             <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.10em", color: C.gold, marginBottom: 8 }}>PARTNER PERCEPTION</div>
-            {acc?.breakdown && Object.entries(acc.breakdown).map(([key, val]) => (
-              <div key={key} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", borderBottom: `1px solid ${C.white08}` }}>
-                <span style={{ fontFamily: SANS, fontSize: 11, color: C.secondary }}>{key.replace(/_/g, " ")}</span>
-                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.primary }}>{val as number}</span>
-              </div>
-            ))}
+            {acc?.breakdown && Object.entries(acc.breakdown).map(([key, val]) => {
+              const LABELS: Record<string, string> = {
+                sha_fairness: "Value Fairness",
+                positional_overpay: "Positional Overpay",
+                window_compatibility: "Window Compatibility",
+                behavioral_fit: "Behavioral Fit",
+                roster_need: "Roster Need",
+                partner_history: "Partner History",
+                panic_trader: "Panic Trader",
+                overpay_signal: "Overpay Signal",
+                consolidation: "Consolidation",
+                age_direction: "Age Direction",
+              };
+              const label = LABELS[key] || key.replace(/_/g, " ").replace(/sha/gi, "value").replace(/\b\w/g, c => c.toUpperCase());
+              return (
+                <div key={key} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", borderBottom: `1px solid ${C.white08}` }}>
+                  <span style={{ fontFamily: SANS, fontSize: 11, color: C.secondary }}>{label}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.primary }}>{val as number}</span>
+                </div>
+              );
+            })}
             {acc?.modifiers?.map((m, i) => (
               <div key={i} style={{ fontFamily: SANS, fontSize: 10, color: (m.adjustment as number) > 0 ? C.green : C.red, padding: "3px 0" }}>
                 {(m.adjustment as number) > 0 ? "+" : ""}{m.adjustment} — {m.reason}
