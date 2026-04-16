@@ -5,6 +5,7 @@
  * Enhanced with DynastyGPT context (cross-league comps, partner history, behavioral data).
  */
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useTrack } from "@/hooks/useTrack";
 
 const C = {
   bg: '#06080d', panel: '#0a0d15', card: '#10131d', elevated: '#171b28',
@@ -91,6 +92,16 @@ export default function ChatPanel({ leagueId, owner, activeTrade, suggestedPacka
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const lastInjectedRef = useRef<string | null>(null);
+  const track = useTrack();
+
+  // Fire trade_advisor_opened when user expands the panel (not on initial mount if already open)
+  const prevCollapsedRef = useRef<boolean>(collapsed);
+  useEffect(() => {
+    if (prevCollapsedRef.current === true && collapsed === false) {
+      track("trade_advisor_opened", { league_id: leagueId, has_active_trade: !!activeTrade });
+    }
+    prevCollapsedRef.current = collapsed;
+  }, [collapsed]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
   useEffect(() => { if (!collapsed) setTimeout(() => inputRef.current?.focus(), 100); }, [collapsed]);
@@ -106,7 +117,15 @@ export default function ChatPanel({ leagueId, owner, activeTrade, suggestedPacka
 
   const sendMessage = useCallback(async (text: string) => {
     if (!text.trim() || streaming) return;
-    setMessages(prev => [...prev, { role: 'user', content: text.trim() }]);
+    const cleanText = text.trim();
+    track("trade_advisor_message_sent", {
+      league_id: leagueId,
+      message: cleanText.slice(0, 500),
+      msg_length: cleanText.length,
+      has_active_trade: !!activeTrade,
+      conversation_turn: messages.length,
+    });
+    setMessages(prev => [...prev, { role: 'user', content: cleanText }]);
     setInput('');
     setStreaming(true);
     setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
