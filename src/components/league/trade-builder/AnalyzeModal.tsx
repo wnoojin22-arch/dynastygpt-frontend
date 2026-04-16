@@ -217,30 +217,13 @@ function GradeBadge({ grade, delay = 0.2 }: { grade: GradeResult | null | undefi
 
   return (
     <div style={{ textAlign: "center", position: "relative", minWidth: 180 }}>
-      {/* Gold burst behind verdict */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.5 }}
-        animate={{ opacity: [0, 0.3, 0] }}
-        transition={{ duration: 0.6, delay, times: [0, 0.3, 1] }}
-        style={{
-          position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
-          width: 180, height: 120, borderRadius: "50%",
-          background: `radial-gradient(circle, ${C.gold}30 0%, transparent 70%)`,
-        }}
-      />
-      {/* Verdict phrase — primary and only signal */}
-      <motion.div
-        initial={{ scale: 0.5, opacity: 0 }}
-        animate={{ scale: [0.5, 1.12, 1], opacity: 1 }}
-        transition={{ duration: 0.4, delay, ease: [0.34, 1.56, 0.64, 1] }}
-        style={{
-          fontFamily: DISPLAY, fontSize: verdictSize, fontWeight: 900,
-          color, lineHeight: 1, position: "relative",
-          letterSpacing: "0.02em",
-        }}
-      >
+      {/* Verdict phrase — static, no animation */}
+      <div style={{
+        fontFamily: DISPLAY, fontSize: verdictSize, fontWeight: 900,
+        color, lineHeight: 1, letterSpacing: "0.02em",
+      }}>
         {label}
-      </motion.div>
+      </div>
     </div>
   );
 }
