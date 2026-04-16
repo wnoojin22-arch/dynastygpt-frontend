@@ -389,6 +389,9 @@ export default function AnalyzeModal({ isOpen, onClose, evaluation, partner, own
                   textAlign: "center", marginTop: 10, paddingTop: 8,
                   borderTop: `1px solid ${C.border}`,
                 }}>
+                  <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: "0.10em", color: C.dim, marginBottom: 4 }}>
+                    YOUR VALUE BALANCE
+                  </div>
                   <span style={{
                     fontFamily: MONO, fontSize: 12, fontWeight: 800,
                     color: gap >= 0 ? C.green : C.red,
@@ -397,6 +400,9 @@ export default function AnalyzeModal({ isOpen, onClose, evaluation, partner, own
                   }}>
                     {gap >= 0 ? "+" : ""}{fmt(gap)} ({gapPct >= 0 ? "+" : ""}{gapPct}%)
                   </span>
+                  <div style={{ fontFamily: SANS, fontSize: 10, color: C.dim, marginTop: 4 }}>
+                    {gap >= 0 ? "You're getting more value than you're sending." : "You're sending more value than you're getting back."}
+                  </div>
                 </div>
               </div>
 
@@ -442,28 +448,64 @@ export default function AnalyzeModal({ isOpen, onClose, evaluation, partner, own
               )}
 
               {/* ── 7. Positional Impact ── */}
-              {impact?.owner && Object.keys(impact.owner).length > 0 && (
-                <div style={{ marginBottom: 20 }}>
-                  <SectionLabel text="ROSTER IMPACT" />
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                    {Object.entries(impact.owner).map(([pos, data]) => {
-                      const dirColor = data.direction === "up" ? C.green : data.direction === "down" ? C.red : C.dim;
-                      const arrow = data.direction === "up" ? "↑" : data.direction === "down" ? "↓" : "→";
-                      return (
+              {(() => {
+                if (!impact) return null;
+                // Only show positions actually in the trade (players sent or received)
+                const tradedPositions = new Set<string>();
+                [...giveAssets, ...getAssets].forEach(a => {
+                  if (a.position && ["QB", "RB", "WR", "TE"].includes(a.position)) {
+                    tradedPositions.add(a.position);
+                  }
+                });
+                if (tradedPositions.size === 0) return null;
+
+                const ownerData = impact.owner || {};
+                const partnerData = impact.partner || {};
+                const positions = Array.from(tradedPositions).filter(
+                  p => ownerData[p] || partnerData[p]
+                );
+                if (positions.length === 0) return null;
+
+                const renderRow = (data: { before: string; after: string; direction: string } | undefined, pos: string) => {
+                  if (!data) return <span style={{ fontFamily: MONO, fontSize: 11, color: C.dim }}>no change</span>;
+                  const dirColor = data.direction === "up" ? C.green : data.direction === "down" ? C.red : C.dim;
+                  const arrow = data.direction === "up" ? "↑" : data.direction === "down" ? "↓" : "→";
+                  return (
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ fontFamily: MONO, fontSize: 11, color: C.dim }}>{data.before}</span>
+                      <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: dirColor }}>{arrow}</span>
+                      <span style={{ fontFamily: MONO, fontSize: 11, color: dirColor, fontWeight: 700 }}>{data.after}</span>
+                    </div>
+                  );
+                };
+
+                return (
+                  <div style={{ marginBottom: 20 }}>
+                    <SectionLabel text="POSITIONAL IMPACT" />
+                    <div style={{ fontFamily: SANS, fontSize: 11, color: C.dim, marginBottom: 8 }}>
+                      How each side&apos;s depth at the traded position changes after the deal.
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      {positions.map((pos) => (
                         <div key={pos} style={{
                           background: M.card, border: `1px solid ${C.border}`, borderRadius: 6,
-                          padding: "6px 10px", display: "flex", alignItems: "center", gap: 6,
+                          padding: "8px 12px",
                         }}>
-                          <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: posColor(pos) }}>{pos}</span>
-                          <span style={{ fontFamily: MONO, fontSize: 11, color: C.dim }}>{data.before}</span>
-                          <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: dirColor }}>{arrow}</span>
-                          <span style={{ fontFamily: MONO, fontSize: 11, color: dirColor, fontWeight: 700 }}>{data.after}</span>
+                          <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: posColor(pos), marginBottom: 6 }}>
+                            {pos}
+                          </div>
+                          <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "4px 12px", alignItems: "center" }}>
+                            <span style={{ fontFamily: SANS, fontSize: 11, color: C.secondary }}>You</span>
+                            {renderRow(ownerData[pos], pos)}
+                            <span style={{ fontFamily: SANS, fontSize: 11, color: C.secondary }}>Partner</span>
+                            {renderRow(partnerData[pos], pos)}
+                          </div>
                         </div>
-                      );
-                    })}
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* ── 8. Insights ── */}
               {insights.length > 0 && (
