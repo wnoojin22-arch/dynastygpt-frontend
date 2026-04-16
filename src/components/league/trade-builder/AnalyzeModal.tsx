@@ -56,7 +56,38 @@ function parseInsight(text: string | null | undefined): { you: string; them: str
 
 function AIInsightCard({ text }: { text: string | null | undefined }) {
   if (!text) return null;
-  const { you, them } = parseInsight(text);
+  const cleaned = _scrubLanguage(text.replace(/\*+/g, "").trim());
+  if (!cleaned) return null;
+
+  // Detect bullet format (new Haiku v2 output): lines starting with • or -
+  const lines = cleaned.split("\n").map((l) => l.trim()).filter(Boolean);
+  const bulletCount = lines.filter((l) => /^[•\-]\s/.test(l)).length;
+  const isBulletFormat = bulletCount >= 2 && bulletCount >= lines.length * 0.6;
+
+  if (isBulletFormat) {
+    return (
+      <div style={{
+        marginBottom: 16,
+        border: "2px solid rgba(245,162,35,0.6)",
+        background: "rgba(245,162,35,0.06)",
+        borderRadius: 8,
+        padding: 14,
+        display: "flex", flexDirection: "column", gap: 6,
+      }}>
+        <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 900,
+          letterSpacing: "0.12em", color: "#f5a223", marginBottom: 2 }}>
+          AI INSIGHT
+        </div>
+        {lines.map((line, i) => (
+          <div key={i} style={{ fontFamily: SANS, fontSize: 13, fontWeight: 400,
+            color: "#ffffff", lineHeight: 1.45 }}>{line}</div>
+        ))}
+      </div>
+    );
+  }
+
+  // Legacy labeled-section fallback (serves old cached insights until v1 expires)
+  const { you, them } = parseInsight(cleaned);
   if (!you && !them) return null;
   return (
     <div style={{
@@ -152,11 +183,18 @@ function CircularGauge({ value, size = 120, delay = 0.4 }: { value: number; size
 // ── Grade Badge (animated reveal) ────────────────────────────────────────
 
 function GradeBadge({ grade, delay = 0.2 }: { grade: GradeResult | null | undefined; delay?: number }) {
-  const { letter, color, label } = gradeDisplay(grade);
+  const score = grade?.score ?? 0;
+  const label = (grade?.verdict || "").toUpperCase();
+  // Match the desktop modal's verdict-based color logic exactly.
+  const color =
+    label === "SMASH" || label === "WIN" ? "#7dd3a0"        // C.green
+    : label === "FAIR" ? "#d4a532"                          // C.gold
+    : label === "LEANS AGAINST" ? "#e09c6b"                 // C.orange
+    : "#e47272";                                            // C.red
 
   return (
     <div style={{ textAlign: "center", position: "relative" }}>
-      {/* Gold burst behind grade */}
+      {/* Gold burst behind score */}
       <motion.div
         initial={{ opacity: 0, scale: 0.5 }}
         animate={{ opacity: [0, 0.3, 0] }}
@@ -167,18 +205,21 @@ function GradeBadge({ grade, delay = 0.2 }: { grade: GradeResult | null | undefi
           background: `radial-gradient(circle, ${C.gold}30 0%, transparent 70%)`,
         }}
       />
-      {/* Grade letter */}
+      {/* Score — primary signal */}
       <motion.div
         initial={{ scale: 0.5, opacity: 0 }}
         animate={{ scale: [0.5, 1.12, 1], opacity: 1 }}
         transition={{ duration: 0.4, delay, ease: [0.34, 1.56, 0.64, 1] }}
         style={{
-          fontFamily: MONO, fontSize: 80, fontWeight: 900,
+          fontFamily: MONO, fontSize: 72, fontWeight: 900,
           color, lineHeight: 1, position: "relative",
         }}
       >
-        {letter}
+        {score}
       </motion.div>
+      <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, letterSpacing: "0.10em", color: C.dim, marginTop: 2 }}>
+        / 100
+      </div>
       {/* Verdict label */}
       <motion.div
         initial={{ opacity: 0, y: 8 }}
@@ -186,10 +227,10 @@ function GradeBadge({ grade, delay = 0.2 }: { grade: GradeResult | null | undefi
         transition={{ delay: delay + 0.3, duration: 0.3 }}
         style={{
           fontFamily: MONO, fontSize: 12, fontWeight: 700,
-          color, letterSpacing: "0.08em", marginTop: 4,
+          color, letterSpacing: "0.08em", marginTop: 6,
         }}
       >
-        {label.toUpperCase()}
+        {label}
       </motion.div>
     </div>
   );

@@ -2,7 +2,6 @@
 
 import React from "react";
 import { C, SANS, MONO, DISPLAY, fmt, posColor, gradeColor } from "../tokens";
-import GradeBadge from "./GradeBadge";
 import AcceptanceGauge from "./AcceptanceGauge";
 import type { TradeEvaluation, PositionalImpact } from "./types";
 
@@ -38,7 +37,38 @@ function parseInsight(text: string | null | undefined): { you: string; them: str
 
 function AIInsightCard({ text }: { text: string | null | undefined }) {
   if (!text) return null;
-  const { you, them } = parseInsight(text);
+  const cleaned = _scrubLanguage(text.replace(/\*+/g, "").trim());
+  if (!cleaned) return null;
+
+  // Detect bullet format (new Haiku v2 output): lines starting with • or -
+  const lines = cleaned.split("\n").map((l) => l.trim()).filter(Boolean);
+  const bulletCount = lines.filter((l) => /^[•\-]\s/.test(l)).length;
+  const isBulletFormat = bulletCount >= 2 && bulletCount >= lines.length * 0.6;
+
+  if (isBulletFormat) {
+    return (
+      <div style={{
+        margin: "16px 20px 0 20px",
+        border: "2px solid rgba(245,162,35,0.6)",
+        background: "rgba(245,162,35,0.06)",
+        borderRadius: 8,
+        padding: 16,
+        display: "flex", flexDirection: "column", gap: 8,
+      }}>
+        <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 900,
+          letterSpacing: "0.12em", color: "#f5a223", marginBottom: 2 }}>
+          AI INSIGHT
+        </div>
+        {lines.map((line, i) => (
+          <div key={i} style={{ fontFamily: SANS, fontSize: 14, fontWeight: 400,
+            color: "#ffffff", lineHeight: 1.5 }}>{line}</div>
+        ))}
+      </div>
+    );
+  }
+
+  // Legacy labeled-section fallback (serves old cached insights until v1 expires)
+  const { you, them } = parseInsight(cleaned);
   if (!you && !them) return null;
   return (
     <div style={{
@@ -148,9 +178,9 @@ export default function AnalysisModal({ evaluation, owner, partner, onClose }: {
   const archetype = evaluation.partner_archetype;
   const h2h = evaluation.h2h_history;
 
-  const verdictColor = grade.verdict.includes("SMASH") || grade.verdict.includes("GOOD") ? C.green
-    : grade.verdict.includes("BREAK") ? C.gold
-    : grade.verdict.includes("BELOW") ? C.orange : C.red;
+  const verdictColor = grade.verdict === "SMASH" || grade.verdict === "WIN" ? C.green
+    : grade.verdict === "FAIR" ? C.gold
+    : grade.verdict === "LEANS AGAINST" ? C.orange : C.red;
 
   return (
     <div onClick={onClose} style={{
@@ -189,14 +219,21 @@ export default function AnalysisModal({ evaluation, owner, partner, onClose }: {
           </div>
         )}
 
-        {/* AI INSIGHT — dual-section GM verdict, top of modal */}
+        {/* AI INSIGHT — GM verdict card, top of modal (handles bullets + legacy sections) */}
         <AIInsightCard text={evaluation.ai_insight} />
 
-        {/* Recommendation banner */}
-        <div style={{ padding: "12px 20px", background: `${verdictColor}08`, borderBottom: `1px solid ${verdictColor}25`, display: "flex", alignItems: "center", justifyContent: "center", gap: 12 }}>
-          <GradeBadge grade={grade.grade} score={grade.score} verdict={grade.verdict} large />
+        {/* Recommendation banner — score is the primary signal, verdict is the label */}
+        <div style={{ padding: "12px 20px", background: `${verdictColor}08`, borderBottom: `1px solid ${verdictColor}25`, display: "flex", alignItems: "center", justifyContent: "center", gap: 16 }}>
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontFamily: MONO, fontSize: 48, fontWeight: 900, color: verdictColor, lineHeight: 1 }}>
+              {grade.score}
+            </div>
+            <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: "0.10em", color: C.dim, marginTop: 2 }}>
+              / 100
+            </div>
+          </div>
           <div>
-            <div style={{ fontFamily: DISPLAY, fontSize: 18, color: verdictColor }}>{grade.verdict}</div>
+            <div style={{ fontFamily: DISPLAY, fontSize: 22, color: verdictColor, letterSpacing: "0.04em" }}>{grade.verdict}</div>
           </div>
           <div style={{ marginLeft: "auto", display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
             <AcceptanceGauge score={acc?.acceptance_likelihood || 0} size={60} />
