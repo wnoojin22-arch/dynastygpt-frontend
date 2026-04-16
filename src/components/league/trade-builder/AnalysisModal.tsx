@@ -355,18 +355,12 @@ export default function AnalysisModal({ evaluation, owner, partner, onClose }: {
                 {(evaluation.personal_insights || []).map((pi, i) => {
                   const tc = pi.tone === "positive" ? C.green : pi.tone === "warning" ? C.red : C.dim;
                   return (
-<<<<<<< HEAD
-                    <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "6px 8px", borderRadius: 5, background: `${tc}08`, borderLeft: `3px solid ${tc}` }}>
-                      <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, color: tc, letterSpacing: "0.06em", flexShrink: 0, marginTop: 2 }}>{ins.type.toUpperCase()}</span>
-                      <span style={{ fontFamily: SANS, fontSize: 12, color: C.secondary, lineHeight: 1.4 }}>{_scrubLanguage(ins.insight)}</span>
-=======
                     <div key={i} style={{
                       padding: "6px 10px", borderRadius: 5,
                       background: `${tc}0a`, borderLeft: `3px solid ${tc}`,
                       fontFamily: SANS, fontSize: 13, color: C.primary, lineHeight: 1.45,
                     }}>
                       {pi.text}
->>>>>>> 00b6ec0 (fix: pass pick counts to backend, personal_insights replaces negotiation_insights)
                     </div>
                   );
                 })}
