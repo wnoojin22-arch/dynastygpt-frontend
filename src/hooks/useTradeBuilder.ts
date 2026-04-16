@@ -19,6 +19,8 @@ export interface UseTradeBuilderReturn {
   // Data
   myRoster: RosterPlayer[];
   theirRoster: RosterPlayer[];
+  ownerPicks: unknown;
+  partnerPicks: unknown;
   otherOwners: { name: string }[];
   myIntel: Record<string, unknown> | undefined;
   theirIntel: Record<string, unknown> | undefined;
@@ -616,6 +618,8 @@ export function useTradeBuilder({
   return {
     myRoster,
     theirRoster,
+    ownerPicks,
+    partnerPicks,
     otherOwners,
     myIntel,
     theirIntel,

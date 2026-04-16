@@ -304,7 +304,7 @@ export default function TradeBuilderDesktop({
 }) {
   const {
     partner, setPartner, myWindow, setMyWindow, theirWindow, setTheirWindow,
-    mode, setMode, myRoster, theirRoster, otherOwners, myGrades, theirGrades,
+    mode, setMode, myRoster, theirRoster, ownerPicks, partnerPicks, otherOwners, myGrades, theirGrades,
     computedOW, computedPW, giveNames, receiveNames, evaluation, analyzing,
     suggestedPkgs, suggestLoading, suggestElapsedSec, suggestQuery, activeSellAsset, error, setError,
     showModal, setShowModal, chatCollapsed, setChatCollapsed, chatInjection,
@@ -434,6 +434,7 @@ export default function TradeBuilderDesktop({
           {/* CENTER: Tray or empty */}
           {partner && (hasTray || !showResults) && (
             <TradeTray giveNames={giveNames} receiveNames={receiveNames} giveRoster={myRoster} receiveRoster={theirRoster}
+              givePicks={ownerPicks} receivePicks={partnerPicks}
               evaluation={evaluation} analyzing={analyzing}
               onRemoveGive={(n) => { setGiveNames((p) => p.filter((x) => x !== n)); setEvaluation(null); }}
               onRemoveReceive={(n) => { setReceiveNames((p) => p.filter((x) => x !== n)); setEvaluation(null); }}
