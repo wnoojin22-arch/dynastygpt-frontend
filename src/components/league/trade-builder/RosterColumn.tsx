@@ -5,6 +5,54 @@ import { C, SANS, MONO, fmt, posColor } from "../tokens";
 import { usePlayerCardStore } from "@/lib/stores/player-card-store";
 import type { RosterPlayer } from "./types";
 
+// Parse a pick label into {year, round, slot} for chronological sorting.
+// Handles every format the app emits:
+//   "2026 1.07"          → { year: 2026, round: 1, slot: 7 }
+//   "2026 1st"           → { year: 2026, round: 1, slot: 50 }  (tier midpoint)
+//   "2027 R1" / "2027 Rd 1" → { year: 2027, round: 1, slot: 50 }
+//   "2028 Early 1st"     → { year: 2028, round: 1, slot: 20 }
+//   "2028 Mid 2nd"       → { year: 2028, round: 2, slot: 50 }
+//   "2028 Late 3rd"      → { year: 2028, round: 3, slot: 80 }
+//   "Billy's 2026 2nd"   → owner prefix stripped
+function parsePick(label: string): { year: number; round: number; slot: number } {
+  if (!label) return { year: 9999, round: 9, slot: 99 };
+  // Strip owner prefix like "Billy's " and parenthetical owner like " (Billy)"
+  const stripped = label
+    .replace(/^[A-Za-z0-9]+['\u2019]s\s*/, "")
+    .replace(/\s*\([^)]*\)\s*$/, "")
+    .trim();
+  const yearM = stripped.match(/(20\d{2})/);
+  const year = yearM ? parseInt(yearM[1], 10) : 9999;
+  // Slot format "1.07" — parse both round and slot
+  const slotM = stripped.match(/(\d)\.(\d+)/);
+  if (slotM) {
+    return {
+      year,
+      round: parseInt(slotM[1], 10),
+      slot: parseInt(slotM[2], 10),
+    };
+  }
+  // Round: "1st" / "2nd" / "3rd" / "4th" or "R1" / "Rd 1" / "Round 1"
+  const ordM = stripped.match(/(\d)(?:st|nd|rd|th)/);
+  const roundM =
+    ordM || stripped.match(/R(?:ound)?\s*(\d)/i) || stripped.match(/Rd\s*(\d)/i);
+  const round = roundM ? parseInt(roundM[1], 10) : 9;
+  // Tier within round: Early=20, Mid=50, Late=80 (numeric midpoints)
+  let slot = 50;
+  if (/early/i.test(stripped)) slot = 20;
+  else if (/late/i.test(stripped)) slot = 80;
+  return { year, round, slot };
+}
+
+function comparePicks(aName: string, bName: string): number {
+  const a = parsePick(aName);
+  const b = parsePick(bName);
+  if (a.year !== b.year) return a.year - b.year;
+  if (a.round !== b.round) return a.round - b.round;
+  if (a.slot !== b.slot) return a.slot - b.slot;
+  return aName.localeCompare(bName);
+}
+
 interface Props {
   title: string;
   roster: RosterPlayer[];
@@ -24,8 +72,14 @@ export default function RosterColumn({ title, roster, selectedNames, onToggle, s
       const pos = p.position in groups ? p.position : "PICK";
       groups[pos].push(p);
     }
+    // Players: sort by descending value. Picks: sort chronologically
+    // (earliest year first), then by round, then by slot within round.
     for (const pos of Object.keys(groups)) {
-      groups[pos].sort((a, b) => (b.sha_value || 0) - (a.sha_value || 0));
+      if (pos === "PICK") {
+        groups[pos].sort((a, b) => comparePicks(a.name, b.name));
+      } else {
+        groups[pos].sort((a, b) => (b.sha_value || 0) - (a.sha_value || 0));
+      }
     }
     return Object.entries(groups).filter(([_, players]) => players.length > 0);
   }, [roster]);
