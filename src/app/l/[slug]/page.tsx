@@ -468,6 +468,7 @@ function CardSkeleton({ isHero = false }: { isHero?: boolean }) {
 function TradeFairnessIndex({ leaderboard }: { leaderboard: { owner: string; trades: number; wins: number; losses?: number; even?: number; win_pct: number; avg_sha_net: number }[] }) {
   const onOwnerClick = useOwnerClick();
   const track = useTrack();
+  const { currentLeagueId: lid } = useLeagueStore();
   if (!leaderboard.length) return null;
   // Fairness = even trades / total trades. Even = trades that were fair (not a clear win or loss for either side)
   // If 'even' field is missing from API, calculate as: trades - wins - (losses ?? 0)
@@ -520,6 +521,7 @@ function TradeFairnessIndex({ leaderboard }: { leaderboard: { owner: string; tra
 function LeagueLegends({ reportCard }: { reportCard: LeagueReportCardResponse }) {
   const onOwnerClick = useOwnerClick();
   const track = useTrack();
+  const { currentLeagueId: lid } = useLeagueStore();
   const legends: { title: string; name: string; detail: string; accentBorder: string; accentBg: string; accentText: string; dotColor: string }[] = [];
 
   if (reportCard.most_active_trader) {
