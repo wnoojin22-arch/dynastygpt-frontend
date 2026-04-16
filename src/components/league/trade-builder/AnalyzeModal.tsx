@@ -12,7 +12,7 @@
 import React, { useRef, useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { C, SANS, MONO, SERIF, fmt, posColor, gradeColor } from "../tokens";
+import { C, SANS, MONO, SERIF, DISPLAY, fmt, posColor, gradeColor } from "../tokens";
 import type { TradeEvaluation, TradeAsset, GradeResult, AcceptanceResult } from "./types";
 
 // ── Design tokens specific to this modal ─────────────────────────────────
@@ -55,67 +55,87 @@ function parseInsight(text: string | null | undefined): { you: string; them: str
 }
 
 function AIInsightCard({ text }: { text: string | null | undefined }) {
+  const [expanded, setExpanded] = useState(false);
+
   if (!text) return null;
   const cleaned = _scrubLanguage(text.replace(/\*+/g, "").trim());
   if (!cleaned) return null;
 
-  // Detect bullet format (new Haiku v2 output): lines starting with • or -
+  // Gold glow + label + base frame, shared across bullet/legacy formats
+  const cardStyle: React.CSSProperties = {
+    marginBottom: 16,
+    border: "2px solid rgba(245,162,35,0.6)",
+    background: "rgba(245,162,35,0.06)",
+    borderRadius: 8,
+    padding: 14,
+    display: "flex", flexDirection: "column", gap: 6,
+    boxShadow: "0 0 20px rgba(245,162,35,0.3), 0 0 40px rgba(245,162,35,0.15)",
+  };
+  const labelStyle: React.CSSProperties = {
+    fontFamily: MONO, fontSize: 10, fontWeight: 900,
+    letterSpacing: "0.12em", color: "#f5a223", marginBottom: 2,
+  };
+  const bulletLineStyle: React.CSSProperties = {
+    fontFamily: SANS, fontSize: 13, fontWeight: 400,
+    color: "#ffffff", lineHeight: 1.45,
+  };
+  const toggleLinkStyle: React.CSSProperties = {
+    fontFamily: MONO, fontSize: 10, fontWeight: 700,
+    letterSpacing: "0.08em", color: "#f5a223",
+    marginTop: 6, cursor: "pointer", userSelect: "none",
+    padding: "4px 0",  // larger touch target on mobile
+  };
+
+  // Detect bullet format (Haiku v2): lines starting with • or -
   const lines = cleaned.split("\n").map((l) => l.trim()).filter(Boolean);
   const bulletCount = lines.filter((l) => /^[•\-]\s/.test(l)).length;
   const isBulletFormat = bulletCount >= 2 && bulletCount >= lines.length * 0.6;
 
   if (isBulletFormat) {
+    const visibleLines = expanded ? lines : lines.slice(0, 2);
+    const hasMore = lines.length > 2;
     return (
-      <div style={{
-        marginBottom: 16,
-        border: "2px solid rgba(245,162,35,0.6)",
-        background: "rgba(245,162,35,0.06)",
-        borderRadius: 8,
-        padding: 14,
-        display: "flex", flexDirection: "column", gap: 6,
-      }}>
-        <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 900,
-          letterSpacing: "0.12em", color: "#f5a223", marginBottom: 2 }}>
-          AI INSIGHT
-        </div>
-        {lines.map((line, i) => (
-          <div key={i} style={{ fontFamily: SANS, fontSize: 13, fontWeight: 400,
-            color: "#ffffff", lineHeight: 1.45 }}>{line}</div>
+      <div style={cardStyle}>
+        <div style={labelStyle}>DYNASTYGPT INSIGHTS</div>
+        {visibleLines.map((line, i) => (
+          <div key={i} style={bulletLineStyle}>{line}</div>
         ))}
+        {hasMore && (
+          <div style={toggleLinkStyle} onClick={() => setExpanded((e) => !e)}>
+            {expanded
+              ? "TAP TO COLLAPSE ▲"
+              : `TAP TO EXPAND (+${lines.length - 2} MORE) ▼`}
+          </div>
+        )}
       </div>
     );
   }
 
-  // Legacy labeled-section fallback (serves old cached insights until v1 expires)
+  // Legacy labeled-section fallback (serves cached v1 insights during TTL)
   const { you, them } = parseInsight(cleaned);
   if (!you && !them) return null;
   return (
-    <div style={{
-      marginBottom: 16,
-      border: "2px solid rgba(245,162,35,0.6)",
-      background: "rgba(245,162,35,0.06)",
-      borderRadius: 8,
-      padding: 16,
-      display: "flex", flexDirection: "column", gap: 14,
-    }}>
+    <div style={{ ...cardStyle, padding: 16, gap: 14 }}>
+      <div style={labelStyle}>DYNASTYGPT INSIGHTS</div>
       {you && (
-        <div>
-          <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 900,
-            letterSpacing: "0.12em", color: "#f5a223", marginBottom: 6 }}>
-            YOUR SITUATION
-          </div>
-          <div style={{ fontFamily: SANS, fontSize: 15, fontWeight: 400,
-            color: "#ffffff", lineHeight: 1.7 }}>{you}</div>
+        <div style={{
+          fontFamily: SANS, fontSize: 14, fontWeight: 400,
+          color: "#ffffff", lineHeight: 1.6,
+        }}>
+          {you}
+        </div>
+      )}
+      {expanded && them && (
+        <div style={{
+          fontFamily: SANS, fontSize: 14, fontWeight: 400,
+          color: "#ffffff", lineHeight: 1.6, marginTop: 4,
+        }}>
+          {them}
         </div>
       )}
       {them && (
-        <div>
-          <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 900,
-            letterSpacing: "0.12em", color: "#f5a223", marginBottom: 6 }}>
-            THEIR SITUATION
-          </div>
-          <div style={{ fontFamily: SANS, fontSize: 15, fontWeight: 400,
-            color: "#ffffff", lineHeight: 1.7 }}>{them}</div>
+        <div style={toggleLinkStyle} onClick={() => setExpanded((e) => !e)}>
+          {expanded ? "TAP TO COLLAPSE ▲" : "TAP TO EXPAND ▼"}
         </div>
       )}
     </div>
@@ -183,51 +203,40 @@ function CircularGauge({ value, size = 120, delay = 0.4 }: { value: number; size
 // ── Grade Badge (animated reveal) ────────────────────────────────────────
 
 function GradeBadge({ grade, delay = 0.2 }: { grade: GradeResult | null | undefined; delay?: number }) {
-  const score = grade?.score ?? 0;
+  // Mobile: verdict phrase IS the grade. No score number, no "/100".
   const label = (grade?.verdict || "").toUpperCase();
-  // Match the desktop modal's verdict-based color logic exactly.
   const color =
     label === "SMASH" || label === "WIN" ? "#7dd3a0"        // C.green
     : label === "FAIR" ? "#d4a532"                          // C.gold
     : label === "LEANS AGAINST" ? "#e09c6b"                 // C.orange
     : "#e47272";                                            // C.red
 
+  // Down-scale the font when the phrase is long so "LEANS AGAINST" doesn't
+  // wrap on narrow phones. Single-word verdicts stay big and dramatic.
+  const verdictSize = label.length > 8 ? 32 : 44;
+
   return (
-    <div style={{ textAlign: "center", position: "relative" }}>
-      {/* Gold burst behind score */}
+    <div style={{ textAlign: "center", position: "relative", minWidth: 180 }}>
+      {/* Gold burst behind verdict */}
       <motion.div
         initial={{ opacity: 0, scale: 0.5 }}
         animate={{ opacity: [0, 0.3, 0] }}
         transition={{ duration: 0.6, delay, times: [0, 0.3, 1] }}
         style={{
           position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
-          width: 140, height: 140, borderRadius: "50%",
+          width: 180, height: 120, borderRadius: "50%",
           background: `radial-gradient(circle, ${C.gold}30 0%, transparent 70%)`,
         }}
       />
-      {/* Score — primary signal */}
+      {/* Verdict phrase — primary and only signal */}
       <motion.div
         initial={{ scale: 0.5, opacity: 0 }}
         animate={{ scale: [0.5, 1.12, 1], opacity: 1 }}
         transition={{ duration: 0.4, delay, ease: [0.34, 1.56, 0.64, 1] }}
         style={{
-          fontFamily: MONO, fontSize: 72, fontWeight: 900,
+          fontFamily: DISPLAY, fontSize: verdictSize, fontWeight: 900,
           color, lineHeight: 1, position: "relative",
-        }}
-      >
-        {score}
-      </motion.div>
-      <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, letterSpacing: "0.10em", color: C.dim, marginTop: 2 }}>
-        / 100
-      </div>
-      {/* Verdict label */}
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: delay + 0.3, duration: 0.3 }}
-        style={{
-          fontFamily: MONO, fontSize: 12, fontWeight: 700,
-          color, letterSpacing: "0.08em", marginTop: 6,
+          letterSpacing: "0.02em",
         }}
       >
         {label}
