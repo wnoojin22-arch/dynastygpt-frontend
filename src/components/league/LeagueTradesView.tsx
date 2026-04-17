@@ -166,8 +166,9 @@ export default function LeagueTradesView({ leagueId }: { leagueId: string }) {
     const bestTrader = avgScores[0];
     const topWinner = Object.entries(winMap).sort((a, b) => b[1] - a[1])[0];
     const topLoser = Object.entries(lossMap).sort((a, b) => b[1] - a[1])[0];
+    const ungraded = total - won - even;
     const evenPct = total > 0 ? Math.round((even / total) * 100) : 0;
-    return { total, won, lost: Object.values(lossMap).reduce((s, v) => s + v, 0), even, mostActive, bestTrader, topWinner: topWinner ? { name: topWinner[0], count: topWinner[1] } : null, topLoser: topLoser ? { name: topLoser[0], count: topLoser[1] } : null, evenPct };
+    return { total, won, ungraded, even, mostActive, bestTrader, topWinner: topWinner ? { name: topWinner[0], count: topWinner[1] } : null, topLoser: topLoser ? { name: topLoser[0], count: topLoser[1] } : null, evenPct };
   }, [trades]);
 
   // Filter
@@ -196,9 +197,9 @@ export default function LeagueTradesView({ leagueId }: { leagueId: string }) {
         <div style={{ fontFamily: SERIF, fontSize: mobile ? 18 : 22, fontWeight: 900, fontStyle: "italic", color: C.goldBright, marginBottom: 6 }}>League Trade History</div>
         <div style={{ display: "flex", alignItems: "center", gap: mobile ? 8 : 12, flexWrap: "wrap" }}>
           <span style={{ fontFamily: MONO, fontSize: mobile ? 10 : 12, color: C.secondary }}><span style={{ fontWeight: 800, color: C.primary, fontSize: mobile ? 12 : 14 }}>{stats.total}</span> graded</span>
-          <span style={{ fontFamily: MONO, fontSize: mobile ? 10 : 12, color: C.secondary }}><span style={{ fontWeight: 800, color: C.green, fontSize: mobile ? 12 : 14 }}>{stats.won}</span> won</span>
-          <span style={{ fontFamily: MONO, fontSize: mobile ? 10 : 12, color: C.secondary }}><span style={{ fontWeight: 800, color: C.red, fontSize: mobile ? 12 : 14 }}>{stats.lost}</span> lost</span>
+          <span style={{ fontFamily: MONO, fontSize: mobile ? 10 : 12, color: C.secondary }}><span style={{ fontWeight: 800, color: C.green, fontSize: mobile ? 12 : 14 }}>{stats.won}</span> decisive</span>
           <span style={{ fontFamily: MONO, fontSize: mobile ? 10 : 12, color: C.secondary }}><span style={{ fontWeight: 800, color: C.gold, fontSize: mobile ? 12 : 14 }}>{stats.even}</span> even</span>
+          {stats.ungraded > 0 && <span style={{ fontFamily: MONO, fontSize: mobile ? 10 : 12, color: C.secondary }}><span style={{ fontWeight: 800, color: C.dim, fontSize: mobile ? 12 : 14 }}>{stats.ungraded}</span> ungraded</span>}
         </div>
       </div>
 
