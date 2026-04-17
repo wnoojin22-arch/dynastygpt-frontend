@@ -1032,6 +1032,7 @@ export default function TradeBuilderUnified() {
           </div>
 
           {/* DynastyGPT Trade Advisor card — landing page only */}
+          <style>{`@keyframes advisor-pulse{0%,100%{box-shadow:0 0 20px rgba(245,162,35,0.3),0 0 40px rgba(245,162,35,0.15)}50%{box-shadow:0 0 28px rgba(245,162,35,0.5),0 0 56px rgba(245,162,35,0.25)}}`}</style>
           <div
             onClick={() => setChatOpen(true)}
             style={{
@@ -1040,11 +1041,21 @@ export default function TradeBuilderUnified() {
               borderRadius: 10,
               border: "2px solid rgba(245,162,35,0.6)",
               background: "rgba(245,162,35,0.06)",
-              boxShadow: "0 0 20px rgba(245,162,35,0.3), 0 0 40px rgba(245,162,35,0.15)",
+              animation: "advisor-pulse 2.5s ease-in-out infinite",
               cursor: "pointer",
               display: "flex", alignItems: "center", gap: 14,
+              position: "relative",
             }}
           >
+            {/* NEW badge */}
+            <div style={{
+              position: "absolute", top: -8, right: 12,
+              fontFamily: MONO, fontSize: 9, fontWeight: 900, letterSpacing: "0.10em",
+              color: "#000", background: C.gold,
+              padding: "2px 8px", borderRadius: 4,
+            }}>
+              NEW
+            </div>
             <div style={{
               width: 40, height: 40, borderRadius: "50%", flexShrink: 0,
               display: "flex", alignItems: "center", justifyContent: "center",
@@ -1057,8 +1068,8 @@ export default function TradeBuilderUnified() {
               <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", color: C.gold }}>
                 DYNASTYGPT TRADE ADVISOR
               </div>
-              <div style={{ fontFamily: SANS, fontSize: 12, color: C.dim, marginTop: 2 }}>
-                Ask anything about your roster, trades, or league
+              <div style={{ fontFamily: SANS, fontSize: 12, color: C.dim, marginTop: 4 }}>
+                Start a chat with DynastyGPT Trade Advisor — ask anything about your roster, trades, or league
               </div>
             </div>
           </div>
