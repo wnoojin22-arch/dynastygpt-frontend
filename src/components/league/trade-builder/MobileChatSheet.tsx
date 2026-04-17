@@ -1,27 +1,33 @@
 "use client";
 
 /**
- * MobileChatSheet — full-screen bottom sheet for the DynastyGPT Trade Advisor.
- * Consumes useChatAdvisor hook (shared with desktop ChatPanel).
- * Portal-rendered, slides up from bottom with spring animation.
- * Premium mobile-first UX: safe-area-inset, gold design, streaming cursor.
+ * MobileChatSheet — Robinhood-grade AI trade advisor.
+ * Full-screen bottom sheet. Fintech aesthetic: clean typography,
+ * micro-animations, glass surfaces, gold accent system.
  */
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useChatAdvisor } from "@/hooks/useChatAdvisor";
 import { C, SANS, MONO } from "../tokens";
 
-function formatContent(text: string) {
+/* ── Markdown-lite renderer ─────────────────────────────────────────── */
+
+function FormatContent({ text }: { text: string }) {
   if (!text) return null;
   const lines = text.split("\n").filter((l) => l.trim());
   if (lines.length <= 1) return <span>{text}</span>;
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
       {lines.map((line, i) => {
         const isBullet = /^[•\-–]/.test(line.trim());
         return (
-          <div key={i} style={{ paddingLeft: isBullet ? 4 : 0, fontWeight: i === 0 && !isBullet ? 600 : 400, lineHeight: 1.6 }}>
+          <div key={i} style={{
+            paddingLeft: isBullet ? 8 : 0,
+            fontWeight: i === 0 && !isBullet ? 600 : 400,
+            lineHeight: 1.55,
+            color: i === 0 && !isBullet ? C.primary : C.secondary,
+          }}>
             {line}
           </div>
         );
@@ -29,6 +35,25 @@ function formatContent(text: string) {
     </div>
   );
 }
+
+/* ── Typing indicator ───────────────────────────────────────────────── */
+
+function TypingDots() {
+  return (
+    <div style={{ display: "flex", gap: 4, alignItems: "center", padding: "4px 0" }}>
+      {[0, 1, 2].map((i) => (
+        <motion.div
+          key={i}
+          animate={{ opacity: [0.3, 1, 0.3], scale: [0.85, 1, 0.85] }}
+          transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.15 }}
+          style={{ width: 5, height: 5, borderRadius: "50%", background: C.gold }}
+        />
+      ))}
+    </div>
+  );
+}
+
+/* ── Main component ─────────────────────────────────────────────────── */
 
 interface MobileChatSheetProps {
   isOpen: boolean;
@@ -42,16 +67,11 @@ interface MobileChatSheetProps {
 }
 
 export default function MobileChatSheet({
-  isOpen,
-  onClose,
-  leagueId,
-  owner,
-  ownerId,
-  activeTrade,
-  suggestedPackages,
-  quickPrompts,
+  isOpen, onClose, leagueId, owner, ownerId,
+  activeTrade, suggestedPackages, quickPrompts,
 }: MobileChatSheetProps) {
   const chat = useChatAdvisor({ leagueId, owner, ownerId, activeTrade, suggestedPackages });
+  const [inputFocused, setInputFocused] = useState(false);
 
   useEffect(() => {
     if (isOpen) document.body.style.overflow = "hidden";
@@ -63,93 +83,115 @@ export default function MobileChatSheet({
   }, [chat.messages]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (isOpen) setTimeout(() => chat.inputRef.current?.focus(), 200);
+    if (isOpen) setTimeout(() => chat.inputRef.current?.focus(), 250);
   }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const showPrompts = chat.messages.length === 0 && !chat.streaming;
+  const hasMessages = chat.messages.length > 0;
 
   const sheet = (
     <AnimatePresence>
       {isOpen && (
         <>
-          {/* Backdrop */}
+          {/* ── Backdrop ── */}
           <motion.div
             key="chat-backdrop"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
+            transition={{ duration: 0.2 }}
             onClick={onClose}
             style={{
               position: "fixed", inset: 0, zIndex: 10000,
-              background: "rgba(0,0,0,0.75)",
-              backdropFilter: "blur(4px)",
-              WebkitBackdropFilter: "blur(4px)",
+              background: "rgba(0,0,0,0.8)",
+              backdropFilter: "blur(8px)",
+              WebkitBackdropFilter: "blur(8px)",
             }}
           />
 
-          {/* Sheet */}
+          {/* ── Sheet ── */}
           <motion.div
             key="chat-sheet"
             initial={{ y: "100%" }}
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
-            transition={{ type: "spring", damping: 30, stiffness: 350 }}
+            transition={{ type: "spring", damping: 28, stiffness: 300 }}
             style={{
               position: "fixed", bottom: 0, left: 0, right: 0,
-              height: "92dvh", zIndex: 10001,
-              background: C.bg,
-              borderRadius: "16px 16px 0 0",
+              height: "94dvh", zIndex: 10001,
+              background: "#080b14",
+              borderRadius: "20px 20px 0 0",
               display: "flex", flexDirection: "column",
               overflow: "hidden",
+              boxShadow: "0 -8px 40px rgba(0,0,0,0.6), 0 -2px 20px rgba(212,165,50,0.08)",
             }}
           >
-            {/* ── Gold accent line at top ── */}
-            <div style={{
-              height: 2, width: "100%", flexShrink: 0,
-              background: `linear-gradient(90deg, transparent 5%, ${C.gold} 30%, ${C.gold} 70%, transparent 95%)`,
-              opacity: 0.6,
-            }} />
+            {/* ── Top accent ── */}
+            <div style={{ display: "flex", justifyContent: "center", padding: "10px 0 0", flexShrink: 0 }}>
+              <div style={{
+                width: 36, height: 4, borderRadius: 2,
+                background: `linear-gradient(90deg, ${C.gold}60, ${C.gold}, ${C.gold}60)`,
+              }} />
+            </div>
 
             {/* ── Header ── */}
             <div style={{
               display: "flex", alignItems: "center", justifyContent: "space-between",
-              padding: "12px 16px",
-              borderBottom: `1px solid ${C.gold}20`,
-              background: `linear-gradient(135deg, rgba(16,19,29,0.95), rgba(23,27,40,0.95))`,
+              padding: "10px 18px 14px",
               flexShrink: 0,
             }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                {/* AI orb */}
                 <div style={{
-                  width: 28, height: 28, borderRadius: "50%",
+                  width: 32, height: 32, borderRadius: "50%", position: "relative",
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  background: `${C.gold}15`, border: `1px solid ${C.gold}40`,
-                  boxShadow: `0 0 16px ${C.gold}20`,
-                  animation: chat.streaming ? "pulse-gold 1.5s ease infinite" : "none",
+                  background: `linear-gradient(135deg, ${C.goldDark}, ${C.gold})`,
+                  boxShadow: chat.streaming
+                    ? `0 0 20px ${C.gold}50, 0 0 40px ${C.gold}20`
+                    : `0 0 12px ${C.gold}25`,
+                  transition: "box-shadow 0.5s",
                 }}>
-                  <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 900, color: C.gold }}>AI</span>
+                  <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: "#000", letterSpacing: "-0.5px" }}>AI</span>
+                  {/* Status ring */}
+                  {chat.streaming && (
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                      style={{
+                        position: "absolute", inset: -3,
+                        borderRadius: "50%",
+                        border: `2px solid transparent`,
+                        borderTopColor: C.gold,
+                        borderRightColor: `${C.gold}40`,
+                      }}
+                    />
+                  )}
                 </div>
-                <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.gold, letterSpacing: "0.06em" }}>
-                  DYNASTYGPT ADVISOR
-                </span>
-                {/* Alive dot when streaming */}
-                {chat.streaming && (
+                <div>
                   <div style={{
-                    width: 6, height: 6, borderRadius: "50%",
-                    background: C.gold,
-                    boxShadow: `0 0 8px ${C.gold}`,
-                    animation: "pulse-gold 1.5s ease infinite",
-                  }} />
-                )}
+                    fontFamily: MONO, fontSize: 11, fontWeight: 800,
+                    color: C.gold, letterSpacing: "0.1em", lineHeight: 1,
+                  }}>
+                    DYNASTYGPT
+                  </div>
+                  <div style={{
+                    fontFamily: SANS, fontSize: 11, fontWeight: 500,
+                    color: C.dim, marginTop: 2, lineHeight: 1,
+                  }}>
+                    {chat.streaming ? "Analyzing..." : "Trade Advisor"}
+                  </div>
+                </div>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                {chat.messages.length > 0 && (
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                {hasMessages && (
                   <button
                     onClick={chat.clearMessages}
                     style={{
-                      background: "none", border: "none", color: C.dim,
-                      fontFamily: MONO, fontSize: 10, fontWeight: 700,
-                      cursor: "pointer", padding: "4px 6px",
+                      background: `${C.red}12`, border: `1px solid ${C.red}25`,
+                      borderRadius: 6, color: C.red, padding: "5px 10px",
+                      fontFamily: MONO, fontSize: 9, fontWeight: 700,
+                      cursor: "pointer", letterSpacing: "0.06em",
+                      transition: "background 0.15s",
                     }}
                   >
                     CLEAR
@@ -158,9 +200,12 @@ export default function MobileChatSheet({
                 <button
                   onClick={onClose}
                   style={{
+                    width: 32, height: 32, borderRadius: 8,
                     background: C.elevated, border: `1px solid ${C.border}`,
-                    borderRadius: 8, color: C.dim, fontSize: 16,
-                    cursor: "pointer", padding: "4px 10px", lineHeight: 1,
+                    color: C.dim, fontSize: 15, lineHeight: 1,
+                    cursor: "pointer",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    transition: "background 0.15s",
                   }}
                 >
                   &#x2715;
@@ -168,163 +213,254 @@ export default function MobileChatSheet({
               </div>
             </div>
 
-            {/* ── Messages area ── */}
+            {/* ── Divider ── */}
             <div style={{
-              flex: 1, overflowY: "auto", padding: "12px 14px",
-              display: "flex", flexDirection: "column", gap: 10,
+              height: 1, flexShrink: 0, margin: "0 18px",
+              background: `linear-gradient(90deg, transparent, ${C.border}, transparent)`,
+            }} />
+
+            {/* ═══════════════════════════════════════════════════════
+                MESSAGE AREA
+                ═══════════════════════════════════════════════════════ */}
+            <div style={{
+              flex: 1, overflowY: "auto", padding: "16px 16px 8px",
+              display: "flex", flexDirection: "column", gap: 12,
               WebkitOverflowScrolling: "touch",
               minHeight: 0,
             }}>
-              <style>{`
-                @keyframes pulse-gold{0%,100%{opacity:1}50%{opacity:.4}}
-                @keyframes cursor-blink{0%,100%{opacity:1}50%{opacity:0}}
-              `}</style>
 
-              {/* Empty state */}
-              {chat.messages.length === 0 && !chat.streaming && (
+              {/* ── Empty state — hero ── */}
+              {!hasMessages && !chat.streaming && (
                 <div style={{
-                  textAlign: "center", padding: "24px 12px",
-                  background: `radial-gradient(ellipse at center, ${C.gold}06 0%, transparent 70%)`,
-                  borderRadius: 12,
+                  display: "flex", flexDirection: "column", alignItems: "center",
+                  padding: "32px 20px 20px", gap: 16,
                 }}>
+                  {/* Glow orb */}
                   <div style={{
-                    fontFamily: MONO, fontSize: 12, fontWeight: 800,
-                    color: C.gold, letterSpacing: "0.08em", marginBottom: 8,
+                    width: 56, height: 56, borderRadius: "50%",
+                    background: `linear-gradient(135deg, ${C.goldDark}, ${C.gold})`,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    boxShadow: `0 0 30px ${C.gold}30, 0 0 60px ${C.gold}10`,
                   }}>
-                    DYNASTYGPT TRADE ADVISOR
+                    <span style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: "#000" }}>AI</span>
                   </div>
-                  <div style={{ fontFamily: SANS, fontSize: 13, color: C.dim, lineHeight: 1.5 }}>
-                    Ask anything about your roster, trades, or league strategy.
+                  <div style={{ textAlign: "center" }}>
+                    <div style={{
+                      fontFamily: SANS, fontSize: 18, fontWeight: 700,
+                      color: C.primary, letterSpacing: "-0.01em", marginBottom: 6,
+                    }}>
+                      What can I help you with?
+                    </div>
+                    <div style={{
+                      fontFamily: SANS, fontSize: 13, color: C.dim, lineHeight: 1.5,
+                      maxWidth: 280, margin: "0 auto",
+                    }}>
+                      I know every roster, trade history, and owner tendency in your league.
+                    </div>
                   </div>
                 </div>
               )}
 
-              {/* Quick prompts */}
+              {/* ── Quick prompts — pill grid ── */}
               {showPrompts && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 4 }}>
+                <div style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 8,
+                  padding: "0 2px",
+                }}>
                   {quickPrompts.map((p, i) => (
-                    <button
+                    <motion.button
                       key={i}
+                      whileTap={{ scale: 0.97 }}
                       onClick={() => chat.sendMessage(p)}
                       style={{
-                        fontFamily: SANS, fontSize: 13, color: C.goldBright,
-                        padding: "11px 14px", borderRadius: 10,
-                        background: "rgba(212,165,50,0.06)",
-                        border: "1px solid rgba(212,165,50,0.18)",
-                        borderLeft: `3px solid ${C.gold}40`,
+                        fontFamily: SANS, fontSize: 12, fontWeight: 500,
+                        color: C.primary,
+                        padding: "14px 12px",
+                        borderRadius: 12,
+                        background: C.elevated,
+                        border: `1px solid ${C.border}`,
                         cursor: "pointer", textAlign: "left",
-                        display: "flex", alignItems: "center", justifyContent: "space-between",
-                        transition: "background 0.15s, border-color 0.15s",
+                        lineHeight: 1.35,
+                        transition: "border-color 0.2s, background 0.2s",
+                        display: "flex", alignItems: "flex-start",
                       }}
                     >
-                      <span>{p}</span>
-                      <span style={{ color: `${C.gold}50`, fontSize: 14, marginLeft: 8 }}>&rsaquo;</span>
-                    </button>
+                      <span style={{
+                        display: "inline-block", width: 4, height: 4,
+                        borderRadius: "50%", background: C.gold,
+                        marginTop: 5, marginRight: 8, flexShrink: 0,
+                      }} />
+                      {p}
+                    </motion.button>
                   ))}
                 </div>
               )}
 
-              {/* Message bubbles */}
+              {/* ── Messages ── */}
               {chat.messages.map((msg, i) => {
                 const isUser = msg.role === "user";
                 const isLast = i === chat.messages.length - 1;
                 const isStreamingMsg = !isUser && isLast && chat.streaming;
+
+                if (isUser) {
+                  return (
+                    <motion.div
+                      key={i}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.2 }}
+                      style={{
+                        alignSelf: "flex-end",
+                        maxWidth: "82%",
+                        padding: "10px 14px",
+                        borderRadius: "16px 16px 4px 16px",
+                        background: `linear-gradient(135deg, ${C.goldDark}, ${C.gold})`,
+                        fontFamily: SANS, fontSize: 13.5, fontWeight: 500,
+                        color: "#000", lineHeight: 1.5,
+                      }}
+                    >
+                      {msg.content}
+                    </motion.div>
+                  );
+                }
+
+                // Assistant message
                 return (
-                  <div
+                  <motion.div
                     key={i}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.25 }}
                     style={{
-                      alignSelf: isUser ? "flex-end" : "flex-start",
-                      maxWidth: "88%",
-                      padding: "10px 14px",
-                      borderRadius: isUser ? "14px 14px 4px 14px" : "14px 14px 14px 4px",
-                      background: isUser
-                        ? `linear-gradient(135deg, ${C.goldDark}, ${C.gold})`
-                        : C.elevated,
-                      border: isUser ? "none" : `1px solid ${isStreamingMsg ? `${C.gold}30` : C.border}`,
-                      borderLeft: !isUser ? `2px solid ${isStreamingMsg ? C.gold : `${C.gold}40`}` : undefined,
-                      fontFamily: SANS,
-                      fontSize: 13,
-                      color: isUser ? "#000" : C.primary,
-                      lineHeight: 1.5,
-                      transition: "border-color 0.3s",
+                      alignSelf: "flex-start",
+                      maxWidth: "90%",
+                      display: "flex", gap: 10, alignItems: "flex-start",
                     }}
                   >
-                    {isUser ? msg.content : formatContent(msg.content)}
-                    {/* Streaming cursor */}
-                    {isStreamingMsg && msg.content && (
-                      <span style={{
-                        display: "inline-block", width: 2, height: 14,
-                        background: C.gold, marginLeft: 2, verticalAlign: "text-bottom",
-                        animation: "cursor-blink 0.8s ease infinite",
-                      }} />
-                    )}
-                    {/* Thinking state */}
-                    {isStreamingMsg && !msg.content && (
-                      <span style={{ color: C.gold, fontFamily: MONO, fontSize: 12 }}>
-                        <span style={{ animation: "pulse-gold 1s ease infinite" }}>&#x25CF;</span> thinking...
-                      </span>
-                    )}
-                  </div>
+                    {/* Mini orb */}
+                    <div style={{
+                      width: 22, height: 22, borderRadius: "50%", flexShrink: 0, marginTop: 2,
+                      background: `${C.gold}18`, border: `1px solid ${C.gold}30`,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                    }}>
+                      <span style={{ fontFamily: MONO, fontSize: 7, fontWeight: 900, color: C.gold }}>AI</span>
+                    </div>
+                    <div style={{
+                      padding: "10px 14px",
+                      borderRadius: "4px 16px 16px 16px",
+                      background: C.elevated,
+                      border: `1px solid ${isStreamingMsg ? `${C.gold}25` : C.border}`,
+                      fontFamily: SANS, fontSize: 13.5,
+                      color: C.primary, lineHeight: 1.55,
+                      flex: 1, minWidth: 0,
+                      transition: "border-color 0.3s",
+                    }}>
+                      {msg.content ? (
+                        <FormatContent text={msg.content} />
+                      ) : (
+                        isStreamingMsg && <TypingDots />
+                      )}
+                      {/* Streaming cursor */}
+                      {isStreamingMsg && msg.content && (
+                        <motion.span
+                          animate={{ opacity: [1, 0, 1] }}
+                          transition={{ duration: 0.8, repeat: Infinity }}
+                          style={{
+                            display: "inline-block", width: 2, height: 14,
+                            background: C.gold, marginLeft: 2, verticalAlign: "text-bottom",
+                            borderRadius: 1,
+                          }}
+                        />
+                      )}
+                    </div>
+                  </motion.div>
                 );
               })}
               <div ref={chat.messagesEndRef} />
             </div>
 
-            {/* ── Input bar ── */}
-            <form
-              onSubmit={chat.handleSubmit}
-              style={{
-                display: "flex", gap: 8, alignItems: "center",
-                padding: "10px 14px",
-                paddingBottom: "calc(10px + env(safe-area-inset-bottom, 0px))",
-                borderTop: `1px solid ${C.border}`,
-                background: C.panel,
-                flexShrink: 0,
-              }}
-            >
-              <input
-                ref={chat.inputRef}
-                type="text"
-                value={chat.input}
-                onChange={(e) => chat.setInput(e.target.value)}
-                placeholder={chat.streaming ? "Generating..." : "Ask anything..."}
-                disabled={chat.streaming}
+            {/* ═══════════════════════════════════════════════════════
+                INPUT BAR
+                ═══════════════════════════════════════════════════════ */}
+            <div style={{
+              flexShrink: 0,
+              borderTop: `1px solid ${inputFocused ? `${C.gold}30` : C.border}`,
+              background: "#0a0d16",
+              transition: "border-color 0.2s",
+            }}>
+              <form
+                onSubmit={chat.handleSubmit}
                 style={{
-                  flex: 1, minWidth: 0,
-                  padding: "12px 14px", borderRadius: 10,
-                  background: C.elevated,
-                  border: `1px solid ${C.border}`,
-                  fontFamily: SANS, fontSize: 14, color: C.primary,
-                  outline: "none",
-                  transition: "border-color 0.2s, box-shadow 0.2s",
-                }}
-                onFocus={(e) => {
-                  e.currentTarget.style.borderColor = `${C.gold}60`;
-                  e.currentTarget.style.boxShadow = `0 0 8px ${C.gold}15`;
-                }}
-                onBlur={(e) => {
-                  e.currentTarget.style.borderColor = C.border;
-                  e.currentTarget.style.boxShadow = "none";
-                }}
-              />
-              <button
-                type="submit"
-                disabled={chat.streaming || !chat.input.trim()}
-                style={{
-                  padding: "12px 18px", borderRadius: 10, border: "none",
-                  flexShrink: 0,
-                  background: chat.input.trim() && !chat.streaming
-                    ? `linear-gradient(135deg, ${C.goldDark}, ${C.gold})`
-                    : C.elevated,
-                  color: chat.input.trim() && !chat.streaming ? "#000" : C.dim,
-                  fontFamily: MONO, fontSize: 11, fontWeight: 800,
-                  cursor: chat.streaming ? "wait" : "pointer",
-                  transition: "background 0.15s, color 0.15s",
+                  display: "flex", gap: 10, alignItems: "center",
+                  padding: "12px 16px",
+                  paddingBottom: "calc(12px + env(safe-area-inset-bottom, 0px))",
                 }}
               >
-                {chat.streaming ? "..." : "SEND"}
-              </button>
-            </form>
+                <div style={{
+                  flex: 1, minWidth: 0, position: "relative",
+                  borderRadius: 12,
+                  background: C.elevated,
+                  border: `1.5px solid ${inputFocused ? `${C.gold}50` : C.border}`,
+                  transition: "border-color 0.2s, box-shadow 0.2s",
+                  boxShadow: inputFocused ? `0 0 12px ${C.gold}10` : "none",
+                }}>
+                  <input
+                    ref={chat.inputRef}
+                    type="text"
+                    value={chat.input}
+                    onChange={(e) => chat.setInput(e.target.value)}
+                    placeholder={chat.streaming ? "Thinking..." : "Ask about trades, strategy..."}
+                    disabled={chat.streaming}
+                    onFocus={() => setInputFocused(true)}
+                    onBlur={() => setInputFocused(false)}
+                    style={{
+                      width: "100%", padding: "13px 16px",
+                      background: "transparent", border: "none",
+                      fontFamily: SANS, fontSize: 15, color: C.primary,
+                      outline: "none",
+                    }}
+                  />
+                </div>
+                <motion.button
+                  type="submit"
+                  disabled={chat.streaming || !chat.input.trim()}
+                  whileTap={{ scale: 0.93 }}
+                  style={{
+                    width: 44, height: 44, borderRadius: 12, border: "none",
+                    flexShrink: 0,
+                    background: chat.input.trim() && !chat.streaming
+                      ? `linear-gradient(135deg, ${C.goldDark}, ${C.gold})`
+                      : C.elevated,
+                    color: chat.input.trim() && !chat.streaming ? "#000" : C.dim,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    cursor: chat.streaming ? "wait" : "pointer",
+                    transition: "background 0.15s",
+                    boxShadow: chat.input.trim() && !chat.streaming
+                      ? `0 0 16px ${C.gold}25`
+                      : "none",
+                  }}
+                >
+                  {chat.streaming ? (
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 1.2, repeat: Infinity, ease: "linear" }}
+                      style={{
+                        width: 16, height: 16, borderRadius: "50%",
+                        border: "2px solid transparent",
+                        borderTopColor: C.gold, borderRightColor: `${C.gold}40`,
+                      }}
+                    />
+                  ) : (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="22" y1="2" x2="11" y2="13" />
+                      <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                    </svg>
+                  )}
+                </motion.button>
+              </form>
+            </div>
           </motion.div>
         </>
       )}
