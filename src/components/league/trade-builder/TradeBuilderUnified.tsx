@@ -14,6 +14,7 @@ import { useLeagueStore } from "@/lib/stores/league-store";
 import { useTradeBuilderStore } from "@/lib/stores/trade-builder-store";
 import { getAllRosters } from "@/lib/api";
 import AnalyzeModal from "./AnalyzeModal";
+import AnalyzeLoadingModal from "./AnalyzeLoadingModal";
 import SuggestLoadingModal from "./SuggestLoadingModal";
 import { C, SANS, MONO, DISPLAY, fmt, posColor } from "../tokens";
 import { HowItWorksButton } from "./HowItWorksModal";
@@ -715,47 +716,7 @@ function BuilderLayer({ tb, ctx, owners, giveAssets, getAssets, sendTotal, getTo
         background: "rgba(6,8,13,0.95)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
         borderTop: `1px solid rgba(212,165,50,0.15)`,
       }}>
-        {(() => {
-          // Detect "What Would It Take?" state: partner + GET filled + SEND empty → ACQUIRE mode
-          const isWWIT = !!tb.partner && tb.receiveNames.length > 0 && tb.giveNames.length === 0;
-          const label = tb.suggestLoading
-            ? `FINDING TRADES… ${tb.suggestElapsedSec}s`
-            : isWWIT ? "WHAT WOULD IT TAKE?" : "SUGGEST";
-          return (
-            <button
-              onClick={async () => {
-                try {
-                  track("trade_suggest_clicked", {
-                    league_id: trackedLeagueId,
-                    partner: tb.partner || null,
-                    mode: isWWIT ? "wwit" : "suggest",
-                  });
-                  const body: Record<string, unknown> = {};
-                  if (tb.partner) body.partner = tb.partner;
-                  if (tb.giveNames.length) body.sell_asset = tb.giveNames[0];
-                  if (tb.receiveNames.length) body.i_receive = tb.receiveNames;
-                  // ACQUIRE mode: target_asset triggers backend's "what would it take" flow
-                  if (isWWIT) body.target_asset = tb.receiveNames[0];
-                  const queryLabel = isWWIT ? `What would it take for ${tb.receiveNames[0]}` : suggestContext;
-                  await tb.fireSuggest(body, queryLabel);
-                } catch (e) {
-                  tb.setError(e instanceof Error ? e.message : "Suggest failed");
-                }
-              }}
-              disabled={tb.suggestLoading}
-              style={{
-                flex: 1, padding: "12px 0", borderRadius: 10, border: "none",
-                background: `linear-gradient(135deg, ${C.goldDark}, ${C.gold})`,
-                fontFamily: MONO, fontSize: isWWIT ? 10 : 11, fontWeight: 800, letterSpacing: "0.06em",
-                color: C.bg, cursor: "pointer", minHeight: 44,
-                boxShadow: "0 0 16px rgba(212,165,50,0.12)",
-              }}
-            >
-              {label}
-            </button>
-          );
-        })()}
-        {/* Gap label between buttons */}
+        {/* Gap label */}
         {(sendTotal > 0 || getTotal > 0) && (
           <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 900, color: barColor, flexShrink: 0 }}>
             {gapPct >= 0 ? "+" : ""}{gapPct.toFixed(0)}%
@@ -772,16 +733,17 @@ function BuilderLayer({ tb, ctx, owners, giveAssets, getAssets, sendTotal, getTo
             await tb.handleAnalyze();
             ctx.openAnalyze();
           }}
-          disabled={!canAnalyze}
+          disabled={!canAnalyze || tb.analyzing}
           style={{
-            flex: 1, padding: "12px 0", borderRadius: 10,
-            background: "rgba(255,255,255,0.04)", border: `1px solid rgba(255,255,255,0.12)`,
-            fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.06em",
-            color: canAnalyze ? C.primary : C.dim, cursor: canAnalyze ? "pointer" : "default",
-            minHeight: 44, opacity: canAnalyze ? 1 : 0.4,
+            flex: 1, padding: "14px 0", borderRadius: 10, border: "none",
+            background: canAnalyze ? `linear-gradient(135deg, ${C.goldDark}, ${C.gold})` : C.elevated,
+            fontFamily: MONO, fontSize: 13, fontWeight: 800, letterSpacing: "0.08em",
+            color: canAnalyze ? C.bg : C.dim, cursor: canAnalyze ? "pointer" : "default",
+            minHeight: 48, opacity: canAnalyze ? 1 : 0.4,
+            boxShadow: canAnalyze ? "0 0 16px rgba(212,165,50,0.12)" : "none",
           }}
         >
-          {tb.analyzing ? "..." : "🔍 ANALYZE"}
+          ANALYZE TRADE
         </button>
       </div>
     </>
@@ -1098,6 +1060,7 @@ export default function TradeBuilderUnified() {
       {tb.suggestLoading && (
         <SuggestLoadingModal elapsedSec={tb.suggestElapsedSec} query={tb.suggestQuery} />
       )}
+      {tb.analyzing && <AnalyzeLoadingModal />}
       <AnalyzeModal
         isOpen={ui.showAnalyzeModal}
         onClose={ctx.closeAnalyze}
