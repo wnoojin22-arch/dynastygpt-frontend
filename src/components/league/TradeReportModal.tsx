@@ -771,10 +771,9 @@ export default function TradeReportModal({ leagueId, tradeId, onClose }: {
         position:'relative',paddingBottom:mobile?'calc(16px + env(safe-area-inset-bottom, 0px))':0,
         overscrollBehavior:'contain',WebkitOverflowScrolling:'touch',
       }}>
-        {/* Close handle — mobile: sticky bar with drag handle + X so user can always exit */}
-        {mobile&&<div style={{position:'sticky',top:0,zIndex:20,background:C.bg,display:'flex',alignItems:'center',justifyContent:'center',paddingTop:8,paddingBottom:4,borderBottom:`1px solid ${C.border}`}}>
+        {/* Close handle — mobile: drag handle only, × is in FullReport header (top-left) */}
+        {mobile&&<div style={{display:'flex',alignItems:'center',justifyContent:'center',paddingTop:8,paddingBottom:4}}>
           <div style={{width:36,height:4,borderRadius:2,background:C.borderLt}}/>
-          <div onClick={onClose} style={{position:'absolute',right:12,top:6,width:32,height:32,borderRadius:16,background:C.elevated,border:`1px solid ${C.border}`,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',fontSize:16,color:C.primary,fontFamily:MONO,fontWeight:700}}>×</div>
         </div>}
         {/* Powered by — desktop only */}
         {!mobile&&<div style={{position:'absolute',top:10,right:16,zIndex:10}}><div style={{display:'flex',alignItems:'center',gap:4,paddingTop:3,paddingBottom:3,paddingLeft:10,paddingRight:10,borderRadius:12,background:'rgba(212,165,50,0.06)',border:'1px solid rgba(212,165,50,0.22)'}}><span style={{fontFamily:SANS,fontSize:9,fontWeight:600,color:'#d4a532'}}>powered by</span><span style={{fontFamily:SANS,fontSize:10,fontWeight:900,color:'#eeeef2'}}>DynastyGPT<span style={{color:'#d4a532'}}>.com</span></span></div></div>}
