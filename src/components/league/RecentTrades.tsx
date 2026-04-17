@@ -100,7 +100,7 @@ export default function RecentTrades({ trades, basePath, leagueId, limit = 7 }: 
                   {vs && <span style={{ fontSize: 8, fontWeight: 800, letterSpacing: "0.06em", color: vs.color, background: vs.bg, padding: "2px 6px", borderRadius: 3, fontFamily: SANS }}>{vs.label}</span>}
                   {hindsightConfirmed && hsStyle
                     ? <span style={{ fontSize: 7, fontWeight: 700, color: hsStyle.color, fontFamily: MONO }}>HINDSIGHT: {hsStyle.label}</span>
-                    : <span style={{ fontSize: 7, fontWeight: 700, color: C.dim, fontFamily: MONO, opacity: 0.5 }}>HINDSIGHT: PENDING</span>
+                    : <span style={{ fontSize: 9, fontWeight: 700, color: C.dim, fontFamily: MONO, opacity: 0.5 }}>HINDSIGHT: PENDING</span>
                   }
                 </div>
               </div>

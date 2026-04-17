@@ -120,7 +120,7 @@ export default function MarketIntelSection({ feed, loading }: { feed: any; loadi
                           <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2, flexWrap: "wrap" }}>
                             <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>{t.days_ago}d ago</span>
                             <span style={{ fontFamily: MONO, fontSize: 9, color: C.secondary }}>{fmtLabel}</span>
-                            {tierTag && <span style={{ fontFamily: MONO, fontSize: 8, color: C.dim, fontStyle: "italic" }}>{tierTag}</span>}
+                            {tierTag && <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim, fontStyle: "italic" }}>{tierTag}</span>}
                             <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: t.was_sold ? C.red : C.green }}>{t.was_sold ? "SOLD" : "ACQUIRED"}</span>
                           </div>
                           <div style={{ display: "flex", gap: 8, fontFamily: SANS, fontSize: 11 }}>

@@ -483,7 +483,7 @@ function TradesTab({ trades, timeline, playerName, pc }: { trades: Array<Record<
                 const pick = isPick(name);
                 return (
                   <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 2 }}>
-                    {pick && <span style={{ fontFamily: MONO, fontSize: 7, fontWeight: 800, color: C.dim, background: C.elevated, padding: "1px 3px", borderRadius: 2 }}>PICK</span>}
+                    {pick && <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.dim, background: C.elevated, padding: "1px 3px", borderRadius: 2 }}>PICK</span>}
                     <span style={{ fontFamily: SANS, fontSize: 12, color: isSubject ? C.gold : pick ? C.dim : C.secondary, fontWeight: isSubject ? 700 : 400 }}>
                       {name.replace(/\s*\([^)]*\)/g, "")}
                     </span>
@@ -899,7 +899,7 @@ function ValueTab({ history, priceHistory }: { history: ValueHistoryPoint[]; pri
 function ValueCard({ label, value, sub, color }: { label: string; value: string; sub: string; color: string }) {
   return (
     <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, padding: "6px 8px", borderTop: `2px solid ${color}30` }}>
-      <div style={{ fontFamily: MONO, fontSize: 8, color: C.dim, letterSpacing: "0.06em", marginBottom: 2 }}>{label}</div>
+      <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, letterSpacing: "0.06em", marginBottom: 2 }}>{label}</div>
       <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 700, color, lineHeight: 1.1 }}>{value}</div>
       {sub && <div style={{ fontFamily: MONO, fontSize: 10, color: C.secondary, marginTop: 2 }}>{sub}</div>}
     </div>

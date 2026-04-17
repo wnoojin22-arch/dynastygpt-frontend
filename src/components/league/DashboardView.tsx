@@ -210,7 +210,7 @@ function MarketIntelSection({ feed, loading }: { feed: any; loading: boolean }) 
                         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
                           <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>{t.days_ago} days ago</span>
                           <span style={{ fontFamily: MONO, fontSize: 9, color: C.secondary }}>{fmtLabel}</span>
-                          {tierTag && <span style={{ fontFamily: MONO, fontSize: 8, color: C.dim, fontStyle: "italic" }}>{tierTag}</span>}
+                          {tierTag && <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim, fontStyle: "italic" }}>{tierTag}</span>}
                           <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: t.was_sold ? C.red : C.green }}>{t.was_sold ? "SOLD" : "ACQUIRED"}</span>
                         </div>
                         <div style={{ display: "flex", gap: 8, fontFamily: SANS, fontSize: 11 }}>
@@ -368,7 +368,7 @@ function DynastyScoreCard({ lid, owner, ownerId }: { lid: string; owner: string;
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, padding: "10px 12px 8px" }}>
           {/* League rank */}
           <div style={{ textAlign: "center", padding: "6px 8px", borderRadius: 6, background: C.elevated, border: `1px solid ${C.border}` }}>
-            <div style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, letterSpacing: "0.10em", color: C.dim, marginBottom: 3 }}>LEAGUE RANK</div>
+            <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: "0.10em", color: C.dim, marginBottom: 3 }}>LEAGUE RANK</div>
             <span style={{ fontFamily: DISPLAY, fontSize: 22, fontWeight: 900, color: C.gold, lineHeight: 1 }}>
               #{leagueRank || "—"}
             </span>
@@ -378,7 +378,7 @@ function DynastyScoreCard({ lid, owner, ownerId }: { lid: string; owner: string;
           </div>
           {/* Global rank */}
           <div style={{ textAlign: "center", padding: "6px 8px", borderRadius: 6, background: C.elevated, border: `1px solid ${C.border}` }}>
-            <div style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, letterSpacing: "0.10em", color: C.dim, marginBottom: 3 }}>GLOBAL RANK</div>
+            <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: "0.10em", color: C.dim, marginBottom: 3 }}>GLOBAL RANK</div>
             <span style={{ fontFamily: DISPLAY, fontSize: 22, fontWeight: 900, color: C.gold, lineHeight: 1 }}>
               #{globalRank?.toLocaleString() || "—"}
             </span>
@@ -441,7 +441,7 @@ function DynastyScoreCard({ lid, owner, ownerId }: { lid: string; owner: string;
                   border: `1.5px solid ${C.goldBorder}`,
                   boxShadow: `0 0 20px rgba(212,165,50,0.08), inset 0 0 30px rgba(212,165,50,0.04)`,
                 }}>
-                  <div style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, letterSpacing: "0.12em", color: C.dim, marginBottom: 2 }}>CHAMPIONSHIPS</div>
+                  <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: "0.12em", color: C.dim, marginBottom: 2 }}>CHAMPIONSHIPS</div>
                   <div style={{ fontFamily: MONO, fontSize: 28, fontWeight: 900, color: C.gold, lineHeight: 1 }}>
                     {parseInt(titles) > 0 ? `${titles}x CHAMPION` : "0 TITLES"}
                   </div>
@@ -458,7 +458,7 @@ function DynastyScoreCard({ lid, owner, ownerId }: { lid: string; owner: string;
                       flex: 1, textAlign: "center", padding: "6px 4px", borderRadius: 6,
                       background: C.elevated, border: `1px solid ${C.border}`,
                     }}>
-                      <div style={{ fontFamily: MONO, fontSize: 7, fontWeight: 700, letterSpacing: "0.08em", color: C.dim, marginBottom: 2 }}>{s.label}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: "0.08em", color: C.dim, marginBottom: 2 }}>{s.label}</div>
                       <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: C.primary, lineHeight: 1 }}>{s.val}</div>
                     </div>
                   ))}

@@ -158,13 +158,13 @@ function WindowRoster({ windowData, positions, rosterData }: {
           {winNow && (
             <div>
               <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 800, color: C.green, lineHeight: 1 }}>#{String(winNow)}</div>
-              <div style={{ fontFamily: MONO, fontSize: 8, color: C.dim, marginTop: 2 }}>WIN-NOW</div>
+              <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, marginTop: 2 }}>WIN-NOW</div>
             </div>
           )}
           {dynasty && (
             <div>
               <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 800, color: "#6bb8e0", lineHeight: 1 }}>#{String(dynasty)}</div>
-              <div style={{ fontFamily: MONO, fontSize: 8, color: C.dim, marginTop: 2 }}>DYNASTY</div>
+              <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, marginTop: 2 }}>DYNASTY</div>
             </div>
           )}
         </div>

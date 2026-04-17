@@ -106,24 +106,24 @@ export default function PickAcquisition({ leagueId, owner, ownerId }: {
                 border: `1px solid ${acqWins ? "rgba(125,211,160,0.25)" : C.border}`,
                 background: acqWins ? "rgba(125,211,160,0.04)" : C.elevated,
               }}>
-                <div style={{ fontFamily: MONO, fontSize: 7, fontWeight: 800, letterSpacing: "0.12em", color: C.dim, marginBottom: 2 }}>ACQUIRED</div>
+                <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.12em", color: C.dim, marginBottom: 2 }}>ACQUIRED</div>
                 <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: acqWins ? C.green : C.primary }}>{d.acquired_hit_rate}%</div>
-                <div style={{ fontFamily: MONO, fontSize: 8, color: C.dim, marginTop: 1 }}>{d.acquired_hits}/{d.acquired_count} hits</div>
+                <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, marginTop: 1 }}>{d.acquired_hits}/{d.acquired_count} hits</div>
               </div>
               <div style={{
                 flex: 1, textAlign: "center", padding: "8px 6px", borderRadius: 6,
                 border: `1px solid ${!acqWins ? "rgba(125,211,160,0.25)" : C.border}`,
                 background: !acqWins ? "rgba(125,211,160,0.04)" : C.elevated,
               }}>
-                <div style={{ fontFamily: MONO, fontSize: 7, fontWeight: 800, letterSpacing: "0.12em", color: C.dim, marginBottom: 2 }}>OWN</div>
+                <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.12em", color: C.dim, marginBottom: 2 }}>OWN</div>
                 <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: !acqWins ? C.green : C.primary }}>{d.own_hit_rate}%</div>
-                <div style={{ fontFamily: MONO, fontSize: 8, color: C.dim, marginTop: 1 }}>{d.own_hits}/{d.own_count} hits</div>
+                <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, marginTop: 1 }}>{d.own_hits}/{d.own_count} hits</div>
               </div>
             </div>
 
             {/* Round breakdown — clickable */}
             <div style={{ marginBottom: 10 }}>
-              <div style={{ fontFamily: MONO, fontSize: 7, fontWeight: 800, letterSpacing: "0.12em", color: C.dim, marginBottom: 6 }}>ACQUIRED BY ROUND</div>
+              <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.12em", color: C.dim, marginBottom: 6 }}>ACQUIRED BY ROUND</div>
               <div style={{ display: "flex", gap: 4 }}>
                 {[1, 2, 3, 4].map((rd) => {
                   const count = rdBreakdown[String(rd)] || 0;
@@ -141,7 +141,7 @@ export default function PickAcquisition({ leagueId, owner, ownerId }: {
                       }}
                     >
                       <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: active ? C.gold : C.dim }}>{count}</div>
-                      <div style={{ fontFamily: MONO, fontSize: 7, color: C.dim }}>R{rd}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>R{rd}</div>
                       {active && <div style={{ fontFamily: MONO, fontSize: 6, color: C.dim, marginTop: 1, opacity: 0.6 }}>tap</div>}
                     </div>
                   );
@@ -156,7 +156,7 @@ export default function PickAcquisition({ leagueId, owner, ownerId }: {
                 if (!roundPicks.length) return null;
                 return (
                   <div style={{ marginTop: 8, borderTop: `1px solid ${C.border}`, paddingTop: 6 }}>
-                    <div style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, color: C.dim, marginBottom: 4, letterSpacing: "0.06em" }}>
+                    <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.dim, marginBottom: 4, letterSpacing: "0.06em" }}>
                       ROUND {expandedRound} ({roundPicks.length} picks)
                     </div>
                     {roundPicks.map((p, j) => {
@@ -168,7 +168,7 @@ export default function PickAcquisition({ leagueId, owner, ownerId }: {
                           display: "flex", alignItems: "center", gap: 6, padding: "4px 0",
                           borderBottom: j < roundPicks.length - 1 ? `1px solid rgba(255,255,255,0.04)` : "none",
                         }}>
-                          <span style={{ fontFamily: MONO, fontSize: 8, color: C.dim, width: 18, flexShrink: 0 }}>
+                          <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim, width: 18, flexShrink: 0 }}>
                             {String(p.season).slice(2)}&apos;
                           </span>
                           <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.dim, width: 22, flexShrink: 0 }}>
@@ -238,7 +238,7 @@ export default function PickAcquisition({ leagueId, owner, ownerId }: {
               <div style={{ flex: 1, height: 2, borderRadius: 1, background: C.elevated, overflow: "hidden" }}>
                 <div style={{ height: "100%", borderRadius: 1, background: `${C.gold}80`, width: `${d.acquired_pct}%` }} />
               </div>
-              <span style={{ fontFamily: MONO, fontSize: 8, color: C.dim }}>{d.acquired_pct}% via trade</span>
+              <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>{d.acquired_pct}% via trade</span>
             </div>
           </>
         )}

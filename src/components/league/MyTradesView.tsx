@@ -407,16 +407,16 @@ export default function MyTradesView({ leagueId, owner: ownerProp, ownerId }: { 
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '10px 4px' }}>
                       {recordData?.hindsight && recordData.hindsight.decided > 0 ? (<>
                         <div style={{ fontFamily: DISPLAY, fontSize: 22, fontWeight: 900, color: avgScore >= 80 ? C.green : C.red, lineHeight: 1 }}>{avgLetter}</div>
-                        <div style={{ fontFamily: MONO, fontSize: 8, color: C.dim, marginTop: 3 }}>{avgScore}/100</div>
-                        <div style={{ fontFamily: MONO, fontSize: 7, color: C.dim, marginTop: 6, letterSpacing: '0.06em' }}>WIN RATE</div>
+                        <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, marginTop: 3 }}>{avgScore}/100</div>
+                        <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, marginTop: 6, letterSpacing: '0.06em' }}>WIN RATE</div>
                         <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: recordData.hindsight.win_rate >= 0.5 ? C.green : C.red }}>{Math.round(recordData.hindsight.win_rate * 100)}%</div>
-                        <div style={{ fontFamily: MONO, fontSize: 7, color: C.dim, marginTop: 2 }}>{recordData.hindsight.won}W-{recordData.hindsight.lost}L-{recordData.hindsight.even}E</div>
-                      </>) : (<div style={{ fontFamily: MONO, fontSize: 8, color: C.dim }}>TBD</div>)}
+                        <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, marginTop: 2 }}>{recordData.hindsight.won}W-{recordData.hindsight.lost}L-{recordData.hindsight.even}E</div>
+                      </>) : (<div style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>TBD</div>)}
                     </div>
                   </div>
                   <div style={{ flex: 1, background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, overflow: 'hidden' }}>
                     <div style={{ padding: '3px 6px', background: C.elevated, borderBottom: `1px solid ${C.border}` }}>
-                      <span style={{ fontFamily: MONO, fontSize: 7, fontWeight: 800, letterSpacing: '0.06em', color: C.dim }}>TRADE DAY RECORD</span>
+                      <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: '0.06em', color: C.dim }}>TRADE DAY RECORD</span>
                     </div>
                     <div style={{ padding: '8px 10px' }}>
                       <div style={{ display: 'flex', justifyContent: 'center', gap: 14, marginBottom: 6 }}>
@@ -534,7 +534,7 @@ export default function MyTradesView({ leagueId, owner: ownerProp, ownerId }: { 
                                 const tdc = td ? verdictColor(td) : C.dim;
                                 return (
                                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-                                    <span style={{ fontFamily: MONO, fontSize: 7, fontWeight: 700, letterSpacing: '0.06em', color: C.dim }}>TRADE DAY</span>
+                                    <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', color: C.dim }}>TRADE DAY</span>
                                     <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: tdc, padding: '3px 10px', borderRadius: 4, background: td ? `${tdc}15` : C.elevated, border: `1px solid ${td ? `${tdc}30` : C.border}`, lineHeight: 1 }}>{td || '—'}</span>
                                   </div>
                                 );
@@ -547,7 +547,7 @@ export default function MyTradesView({ leagueId, owner: ownerProp, ownerId }: { 
                                 const isPending = !isConfirmed || !hv;
                                 return (
                                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-                                    <span style={{ fontFamily: MONO, fontSize: 7, fontWeight: 700, letterSpacing: '0.06em', color: isPending ? C.dim : hc }}>HINDSIGHT</span>
+                                    <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', color: isPending ? C.dim : hc }}>HINDSIGHT</span>
                                     <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: isPending ? C.dim : hc, padding: '3px 10px', borderRadius: 4, background: isPending ? C.elevated : `${hc}15`, border: `1px solid ${isPending ? C.border : `${hc}30`}`, lineHeight: 1 }}>{label}</span>
                                   </div>
                                 );
@@ -599,7 +599,7 @@ export default function MyTradesView({ leagueId, owner: ownerProp, ownerId }: { 
                               const tdc = td ? verdictColor(td) : C.dim;
                               return (
                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, minWidth: 62 }}>
-                                  <span style={{ fontFamily: MONO, fontSize: 7, fontWeight: 700, letterSpacing: '0.06em', color: C.dim }}>TRADE DAY</span>
+                                  <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', color: C.dim }}>TRADE DAY</span>
                                   <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: tdc, padding: '2px 8px', borderRadius: 3, background: td ? `${tdc}15` : C.elevated, border: `1px solid ${td ? `${tdc}30` : C.border}`, lineHeight: 1 }}>{td || '—'}</span>
                                 </div>
                               );
@@ -612,7 +612,7 @@ export default function MyTradesView({ leagueId, owner: ownerProp, ownerId }: { 
                               const isPending = !isConfirmed || !hv;
                               return (
                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, minWidth: 62 }}>
-                                  <span style={{ fontFamily: MONO, fontSize: 7, fontWeight: 700, letterSpacing: '0.06em', color: isPending ? C.dim : hc }}>HINDSIGHT</span>
+                                  <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', color: isPending ? C.dim : hc }}>HINDSIGHT</span>
                                   <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: isPending ? C.dim : hc, padding: '2px 8px', borderRadius: 3, background: isPending ? C.elevated : `${hc}15`, border: `1px solid ${isPending ? C.border : `${hc}30`}`, lineHeight: 1 }}>{label}</span>
                                 </div>
                               );
@@ -680,7 +680,7 @@ export default function MyTradesView({ leagueId, owner: ownerProp, ownerId }: { 
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.green, letterSpacing: '0.1em' }}>🏆 BEST TRADE</span>
                       <span style={{ fontFamily: MONO, fontSize: 9, color: C.secondary }}>vs <span onClick={(e) => { e.stopPropagation(); onOwnerClick(bestTrade.partner); }} style={{ cursor: 'pointer', borderBottom: `1px dotted ${C.border}` }}>{bestTrade.partner}</span></span>
-                      {bestTrade.date && <span style={{ fontFamily: MONO, fontSize: 8, color: C.dim }}>· {fmtDate(bestTrade.date)}</span>}
+                      {bestTrade.date && <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>· {fmtDate(bestTrade.date)}</span>}
                     </div>
                     <span style={{ fontFamily: MONO, fontSize: 9, color: C.green, fontWeight: 700 }}>{bestTrade.letter} ({bestTrade.score})</span>
                   </div>
@@ -705,7 +705,7 @@ export default function MyTradesView({ leagueId, owner: ownerProp, ownerId }: { 
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.red, letterSpacing: '0.1em' }}>💀 WORST TRADE</span>
                       <span style={{ fontFamily: MONO, fontSize: 9, color: C.secondary }}>vs <span onClick={(e) => { e.stopPropagation(); onOwnerClick(worstTrade.partner); }} style={{ cursor: 'pointer', borderBottom: `1px dotted ${C.border}` }}>{worstTrade.partner}</span></span>
-                      {worstTrade.date && <span style={{ fontFamily: MONO, fontSize: 8, color: C.dim }}>· {fmtDate(worstTrade.date)}</span>}
+                      {worstTrade.date && <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>· {fmtDate(worstTrade.date)}</span>}
                     </div>
                     <span style={{ fontFamily: MONO, fontSize: 9, color: C.red, fontWeight: 700 }}>{worstTrade.letter} ({worstTrade.score})</span>
                   </div>

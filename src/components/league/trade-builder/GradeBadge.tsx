@@ -29,7 +29,7 @@ export default function GradeBadge({ grade, score, verdict, large, secondaryLabe
         <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.06em", color, textAlign: "center" }}>{verdict}</span>
       )}
       {secondaryLabel && (
-        <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 600, letterSpacing: "0.04em", color: C.dim, textAlign: "center" }}>{secondaryLabel}</span>
+        <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 600, letterSpacing: "0.04em", color: C.dim, textAlign: "center" }}>{secondaryLabel}</span>
       )}
     </div>
   );

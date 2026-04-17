@@ -273,7 +273,7 @@ export default function LeagueTradesView({ leagueId }: { leagueId: string }) {
                       const isPending = h.color === C.dim;
                       return (
                         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
-                          <span style={{ fontFamily: MONO, fontSize: 7, fontWeight: 700, letterSpacing: "0.06em", color: isPending ? C.dim : h.color }}>HINDSIGHT</span>
+                          <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: "0.06em", color: isPending ? C.dim : h.color }}>HINDSIGHT</span>
                           <span style={{ fontFamily: MONO, fontSize: mobile ? 9 : 10, fontWeight: 800, color: h.color, padding: "2px 8px", borderRadius: 3, background: isPending ? C.elevated : `${h.color}15`, border: `1px solid ${isPending ? C.border : `${h.color}30`}`, lineHeight: 1 }}>{h.label}</span>
                         </div>
                       );
@@ -284,12 +284,12 @@ export default function LeagueTradesView({ leagueId }: { leagueId: string }) {
                 {/* Row 2: Assets exchanged */}
                 <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: mobile ? 6 : 10, alignItems: "start" }}>
                   <div>
-                    <div style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, color: C.dim, letterSpacing: "0.06em", marginBottom: 2 }}>{t.owner.split(" ")[0].toUpperCase()} GAVE</div>
+                    <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.dim, letterSpacing: "0.06em", marginBottom: 2 }}>{t.owner.split(" ")[0].toUpperCase()} GAVE</div>
                     <div style={{ fontFamily: SANS, fontSize: mobile ? 10 : 11, color: C.secondary, lineHeight: 1.5 }}><InlineAssets players={t.players_sent} picks={t.picks_sent} /></div>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", paddingTop: 12 }}><span style={{ fontFamily: MONO, fontSize: 12, color: `${C.gold}40` }}>⇄</span></div>
                   <div>
-                    <div style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, color: C.dim, letterSpacing: "0.06em", marginBottom: 2 }}>{t.counter_party.split(" ")[0].toUpperCase()} GAVE</div>
+                    <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.dim, letterSpacing: "0.06em", marginBottom: 2 }}>{t.counter_party.split(" ")[0].toUpperCase()} GAVE</div>
                     <div style={{ fontFamily: SANS, fontSize: mobile ? 10 : 11, color: C.secondary, lineHeight: 1.5 }}><InlineAssets players={t.players_received} picks={t.picks_received} /></div>
                   </div>
                 </div>

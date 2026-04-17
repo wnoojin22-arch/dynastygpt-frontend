@@ -109,7 +109,7 @@ function Spot({ r, label, lc, isNem }: { r: MappedRival | null; label: string; l
             { l: "TRADES", v: String(r.wins + r.losses), c: C.primary },
             { l: "NET VALUE", v: `${r.avgMargin > 0 ? "+" : ""}${fmt(r.avgMargin)}`, c: r.avgMargin >= 0 ? C.green : C.red },
           ].map((s, i) => (
-            <div key={i}><div style={{ fontFamily: MONO, fontSize: 8, color: C.dim, letterSpacing: "0.06em" }}>{s.l}</div><div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 800, color: s.c }}>{s.v}</div></div>
+            <div key={i}><div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, letterSpacing: "0.06em" }}>{s.l}</div><div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 800, color: s.c }}>{s.v}</div></div>
           ))}
         </div>
       </div>
@@ -179,7 +179,7 @@ export default function RivalsView({ leagueId, owner, ownerId }: {
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden", marginBottom: 10 }}>
         <div style={{ padding: "6px 12px", background: C.goldDim, borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between" }}>
           <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.12em", color: C.gold }}>ALL OPPONENTS</span>
-          <span style={{ fontFamily: MONO, fontSize: 8, color: C.dim }}>CLICK TO EXPAND</span>
+          <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>CLICK TO EXPAND</span>
         </div>
         {rivals.map((r, i) => {
           const pct = r.wins / Math.max(r.wins + r.losses, 1);
@@ -219,7 +219,7 @@ export default function RivalsView({ leagueId, owner, ownerId }: {
                         ].map((s, j) => (
                           <div key={j} style={{ textAlign: "center", padding: 8, borderRadius: 5, background: C.card }}>
                             <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 800, color: s.c }}>{s.v}</div>
-                            <div style={{ fontFamily: MONO, fontSize: 8, color: C.dim, letterSpacing: "0.06em" }}>{s.l}</div>
+                            <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, letterSpacing: "0.06em" }}>{s.l}</div>
                           </div>
                         ))}
                       </div>
@@ -261,7 +261,7 @@ export default function RivalsView({ leagueId, owner, ownerId }: {
               <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0", borderBottom: i < 3 ? `1px solid ${C.white08}` : "none" }}>
                 <span style={{ fontSize: 18, width: 28, textAlign: "center" }}>{s.emoji}</span>
                 <div>
-                  <div style={{ fontFamily: MONO, fontSize: 8, color: C.dim, letterSpacing: "0.04em" }}>{s.label}</div>
+                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, letterSpacing: "0.04em" }}>{s.label}</div>
                   <div style={{ fontFamily: SANS, fontSize: 13, fontWeight: 700, color: C.primary }}>{s.value}</div>
                 </div>
               </div>

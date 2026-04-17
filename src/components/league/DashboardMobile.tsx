@@ -145,7 +145,7 @@ function StatBox({ label, value, mono = true }: { label: string; value: string; 
       flex: 1, textAlign: "center", padding: "8px 6px",
       borderRadius: 8, background: C.elevated, border: `1px solid ${C.border}`,
     }}>
-      <div style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, letterSpacing: "0.10em", color: C.dim, textTransform: "uppercase", marginBottom: 3 }}>{label}</div>
+      <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: "0.10em", color: C.dim, textTransform: "uppercase", marginBottom: 3 }}>{label}</div>
       <div style={{ fontFamily: mono ? MONO : SANS, fontSize: 15, fontWeight: 800, color: C.primary }}>{value}</div>
     </div>
   );
@@ -296,7 +296,7 @@ export default function DashboardMobile({ lid, owner, ownerId }: { lid: string; 
                   <span style={{ fontFamily: MONO, fontSize: 8, color: C.gold, letterSpacing: "0.04em" }}>{t.label}</span>
                 ) : (
                   <>
-                    <span style={{ fontFamily: MONO, fontSize: 8, color: C.dim, letterSpacing: "0.04em" }}>{t.label}</span>
+                    <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim, letterSpacing: "0.04em" }}>{t.label}</span>
                     <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: t.color || C.primary }}>{t.value}</span>
                   </>
                 )}
@@ -362,7 +362,7 @@ export default function DashboardMobile({ lid, owner, ownerId }: { lid: string; 
             >
               <Icon size={14} style={{ color: btn.color }} />
               <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, letterSpacing: "0.08em", color: btn.color }}>{btn.label}</span>
-              <span style={{ fontFamily: SANS, fontSize: 7, color: C.dim }}>{btn.sub}</span>
+              <span style={{ fontFamily: SANS, fontSize: 9, color: C.dim }}>{btn.sub}</span>
             </button>
           );
         })}
@@ -605,12 +605,12 @@ function RealTradesPill({ marketFeed, loading, nav, sleeperIdMap }: { marketFeed
               {/* Recent trades */}
               {trades.length > 0 && (
                 <div>
-                  <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, letterSpacing: "0.10em", color: C.dim }}>RECENT TRADES ACROSS THE PLATFORM</span>
+                  <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: "0.10em", color: C.dim }}>RECENT TRADES ACROSS THE PLATFORM</span>
                   <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 8 }}>
                     {trades.map((t: any, i: number) => (
                       <div key={t.trade_id || i} style={{ padding: "10px 12px", borderRadius: 8, background: C.elevated, border: `1px solid ${C.border}` }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                          <span style={{ fontFamily: MONO, fontSize: 8, color: C.dim }}>{t.format || ""} · {t.days_ago ?? "?"}d ago</span>
+                          <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>{t.format || ""} · {t.days_ago ?? "?"}d ago</span>
                           {t.grade && (
                             <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: t.grade.startsWith("A") ? C.green : t.grade.startsWith("B") ? C.blue : t.grade.startsWith("C") ? C.gold : C.red }}>{t.grade}</span>
                           )}

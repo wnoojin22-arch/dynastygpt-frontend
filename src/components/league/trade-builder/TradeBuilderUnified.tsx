@@ -491,7 +491,7 @@ function BuilderLayer({ tb, ctx, owners, giveAssets, getAssets, sendTotal, getTo
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px 4px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, color: C.dim, letterSpacing: "0.1em", marginBottom: 1 }}>TRADE WITH</div>
+              <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.dim, letterSpacing: "0.1em", marginBottom: 1 }}>TRADE WITH</div>
               <select
                 value={tb.partner}
                 onChange={(e) => ctx.selectPartner(e.target.value)}
@@ -525,7 +525,7 @@ function BuilderLayer({ tb, ctx, owners, giveAssets, getAssets, sendTotal, getTo
               >
                 {acceptance}%
               </motion.div>
-              <div style={{ fontFamily: MONO, fontSize: 7, fontWeight: 700, color: `${C.dim}80`, letterSpacing: "0.06em" }}>LIKELY TO ACCEPT</div>
+              <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.dim, letterSpacing: "0.06em" }}>LIKELY TO ACCEPT</div>
             </div>
           )}
         </div>
@@ -559,7 +559,7 @@ function BuilderLayer({ tb, ctx, owners, giveAssets, getAssets, sendTotal, getTo
                       <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, color: posColor(p.position) }}>{p.position}</span>
                       <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, color: C.primary }}>{p.name}</span>
                       <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.gold }}>{fmt(p.sha_value)}</span>
-                      <span style={{ color: `${C.dim}60`, fontSize: 11, lineHeight: 1, marginLeft: 1 }}>✕</span>
+                      <span style={{ color: C.dim, fontSize: 11, lineHeight: 1, marginLeft: 1 }}>✕</span>
                     </motion.span>
                   ))
                 )}
@@ -628,7 +628,7 @@ function BuilderLayer({ tb, ctx, owners, giveAssets, getAssets, sendTotal, getTo
                       <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, color: posColor(p.position) }}>{p.position}</span>
                       <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, color: C.primary }}>{p.name}</span>
                       <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.gold }}>{fmt(p.sha_value)}</span>
-                      <span style={{ color: `${C.dim}60`, fontSize: 11, lineHeight: 1, marginLeft: 1 }}>✕</span>
+                      <span style={{ color: C.dim, fontSize: 11, lineHeight: 1, marginLeft: 1 }}>✕</span>
                     </motion.span>
                   ))
                 )}
@@ -684,7 +684,7 @@ function BuilderLayer({ tb, ctx, owners, giveAssets, getAssets, sendTotal, getTo
                     background: C.elevated, borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`,
                   }}>
                     <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: posColor(pos), letterSpacing: "0.08em" }}>{pos}</span>
-                    <span style={{ fontFamily: MONO, fontSize: 9, color: `${C.dim}60` }}>{group.length}</span>
+                    <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>{group.length}</span>
                   </div>
                   {group.map((p) => (
                     <PlayerRow key={p.name} name={p.name} position={p.position} value={p.sha_value}

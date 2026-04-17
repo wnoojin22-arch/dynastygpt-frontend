@@ -174,7 +174,7 @@ function PickIntel({ cc }: { cc: Record<string, unknown> }) {
       {/* Desktop only: hit rate by round bars */}
       {Object.keys(roundHR).length > 0 && (
         <div className="hidden md:block" style={{ padding: "6px 10px", borderBottom: `1px solid ${C.white04}` }}>
-          <div style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, color: C.dim, letterSpacing: "0.1em", marginBottom: 4 }}>HIT RATE BY ROUND</div>
+          <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.dim, letterSpacing: "0.1em", marginBottom: 4 }}>HIT RATE BY ROUND</div>
           <div style={{ display: "flex", gap: 6 }}>
             {[1, 2, 3, 4].map((rd) => {
               const rh = roundHR[rd];
@@ -376,7 +376,7 @@ function TradePartners({ data }: { data: Record<string, unknown> | null }) {
               display: "flex", alignItems: "center", gap: 6, padding: "5px 0",
               borderBottom: i < top.length - 1 ? `1px solid ${C.white04}` : "none",
             }}>
-              <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: `${C.dim}40`, width: 14, textAlign: "center" }}>{i + 1}</span>
+              <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: C.dim, width: 14, textAlign: "center" }}>{i + 1}</span>
               <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 600, color: C.primary, flex: 1 }}>{String(p.owner)}</span>
               {badge && (
                 <span style={{ fontFamily: SANS, fontSize: 9, fontWeight: 700, color: bc, background: `${bc}12`, padding: "2px 6px", borderRadius: 10, border: `1px solid ${bc}25` }}>{badge}</span>

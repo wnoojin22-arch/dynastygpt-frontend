@@ -17,7 +17,7 @@ export function AssetBadge({ name, type }: { name: string; type: "player" | "pic
         fontFamily: SANS, fontSize: 11, fontWeight: 600,
         color: C.secondary, whiteSpace: "nowrap",
       }}>
-        <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, letterSpacing: "0.02em", color: C.dim, background: C.white08, padding: "0px 3px", borderRadius: 2 }}>PICK</span>
+        <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.02em", color: C.dim, background: C.white08, padding: "0px 3px", borderRadius: 2 }}>PICK</span>
         {name.replace(/\s*\([^)]*\)/g, "")}
       </span>
     );
