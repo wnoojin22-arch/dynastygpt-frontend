@@ -1063,7 +1063,16 @@ export default function TradeBuilderUnified() {
                 position: "relative",
               }}
             >
-              {/* NEW badge */}
+              {/* BETA badge — left */}
+              <div style={{
+                position: "absolute", top: -7, left: 8,
+                fontFamily: MONO, fontSize: 7, fontWeight: 900, letterSpacing: "0.10em",
+                color: "#fff", background: C.red,
+                padding: "1px 6px", borderRadius: 3,
+              }}>
+                BETA
+              </div>
+              {/* NEW badge — right */}
               <div style={{
                 position: "absolute", top: -7, right: 8,
                 fontFamily: MONO, fontSize: 7, fontWeight: 900, letterSpacing: "0.10em",
@@ -1173,22 +1182,24 @@ export default function TradeBuilderUnified() {
 
       {/* Floating Chat FAB — builder only (landing page has the card instead) */}
       {showBuilder && !chatOpen && (
-        <button
-          onClick={() => setChatOpen(true)}
-          style={{
-            position: "fixed", bottom: 160, right: 16, zIndex: 9990,
-            borderRadius: 28,
-            background: `linear-gradient(135deg, ${C.goldDark}, ${C.gold})`,
-            border: "none", cursor: "pointer",
-            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-            padding: "8px 18px",
-            boxShadow: `0 4px 20px ${C.gold}40, 0 0 40px ${C.gold}15`,
-            gap: 1,
-          }}
-        >
-          <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, letterSpacing: "0.08em", color: "rgba(0,0,0,0.6)", lineHeight: 1 }}>CHAT WITH</span>
-          <span style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: "#000", lineHeight: 1 }}>AI</span>
-        </button>
+        <div style={{ position: "fixed", bottom: 160, right: 16, zIndex: 9990, display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+          <button
+            onClick={() => setChatOpen(true)}
+            style={{
+              borderRadius: 28,
+              background: `linear-gradient(135deg, ${C.goldDark}, ${C.gold})`,
+              border: "none", cursor: "pointer",
+              display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+              padding: "8px 18px",
+              boxShadow: `0 4px 20px ${C.gold}40, 0 0 40px ${C.gold}15`,
+              gap: 1,
+            }}
+          >
+            <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, letterSpacing: "0.08em", color: "rgba(0,0,0,0.6)", lineHeight: 1 }}>CHAT WITH</span>
+            <span style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: "#000", lineHeight: 1 }}>AI</span>
+          </button>
+          <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.06em", color: C.red }}>BETA</span>
+        </div>
       )}
 
       {/* Mobile Chat Sheet */}
