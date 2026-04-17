@@ -1070,7 +1070,7 @@ export default function TradeBuilderUnified() {
                 color: "#fff", background: C.red,
                 padding: "1px 6px", borderRadius: 3,
               }}>
-                BETA
+                BETA — Improving Daily
               </div>
               {/* NEW badge — right */}
               <div style={{
