@@ -126,7 +126,7 @@ export const getAllRosters = (id: string) => get<{ rosters: Array<{ owner: strin
 export const getOwners = (id: string) => get<{ owners: OwnerListItem[] }>(`${L(id)}/owners`);
 
 // ── Roster ───────────────────────────────────────────────────────────────
-export const getRoster = (id: string, owner: string, userId?: string | null) => get<RosterResponse>(`${L(id)}/roster/${O(owner, userId)}`);
+export const getRoster = (id: string, owner: string, userId?: string | null) => get<RosterResponse>(`${L(id)}/roster/${E(owner)}${userId ? `?owner_id=${E(userId)}` : ''}`);
 export const getIdealLineupSHA = (id: string, owner: string, userId?: string | null) => get<unknown>(`${L(id)}/roster/${O(owner, userId)}/ideal-lineup`);
 
 // ── Picks ────────────────────────────────────────────────────────────────
