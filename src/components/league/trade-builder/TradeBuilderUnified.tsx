@@ -513,19 +513,21 @@ function BuilderLayer({ tb, ctx, owners, giveAssets, getAssets, sendTotal, getTo
               {win.label}
             </span>
           </div>
-          {/* Acceptance % */}
-          <div style={{ textAlign: "right", flexShrink: 0, marginLeft: 8 }}>
-            <motion.div
-              key={acceptance}
-              initial={{ opacity: 0, y: -4 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.2 }}
-              style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: accClr, lineHeight: 1 }}
-            >
-              {acceptance}%
-            </motion.div>
-            <div style={{ fontFamily: MONO, fontSize: 7, fontWeight: 700, color: `${C.dim}80`, letterSpacing: "0.06em" }}>LIKELY TO ACCEPT</div>
-          </div>
+          {/* Acceptance % — only show when assets exist on at least one side */}
+          {(giveAssets.length > 0 || getAssets.length > 0) && (
+            <div style={{ textAlign: "right", flexShrink: 0, marginLeft: 8 }}>
+              <motion.div
+                key={acceptance}
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.2 }}
+                style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: accClr, lineHeight: 1 }}
+              >
+                {acceptance}%
+              </motion.div>
+              <div style={{ fontFamily: MONO, fontSize: 7, fontWeight: 700, color: `${C.dim}80`, letterSpacing: "0.06em" }}>LIKELY TO ACCEPT</div>
+            </div>
+          )}
         </div>
 
         {/* ── SEND row ── */}
