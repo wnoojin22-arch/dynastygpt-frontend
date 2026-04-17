@@ -92,8 +92,8 @@ function AIInsightCard({ text }: { text: string | null | undefined }) {
   const isBulletFormat = bulletCount >= 2 && bulletCount >= lines.length * 0.6;
 
   if (isBulletFormat) {
-    const visibleLines = expanded ? lines : lines.slice(0, 2);
-    const hasMore = lines.length > 2;
+    const visibleLines = expanded ? lines : lines.slice(0, 1);
+    const hasMore = lines.length > 1;
     return (
       <div style={cardStyle}>
         <div style={labelStyle}>DYNASTYGPT INSIGHTS</div>
@@ -104,7 +104,7 @@ function AIInsightCard({ text }: { text: string | null | undefined }) {
           <div style={toggleLinkStyle} onClick={() => setExpanded((e) => !e)}>
             {expanded
               ? "TAP TO COLLAPSE ▲"
-              : `TAP TO EXPAND (+${lines.length - 2} MORE) ▼`}
+              : `TAP TO EXPAND (+${lines.length - 1} MORE) ▼`}
           </div>
         )}
       </div>
@@ -465,6 +465,24 @@ export default function AnalyzeModal({ isOpen, onClose, evaluation, partner, own
               {/* ── 2c. AI INSIGHT — dual-section GM verdict ── */}
               <AIInsightCard text={ev?.ai_insight} />
 
+              {/* ── 2d. Grade + Acceptance — right below insights ── */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 32, marginBottom: 8 }}>
+                <GradeBadge grade={grade} delay={0.2} />
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                  <CircularGauge value={acc} size={110} delay={0.4} />
+                </div>
+              </div>
+              <div style={{ textAlign: "center", marginBottom: 20 }}>
+                <div style={{ fontFamily: SANS, fontSize: 11, color: C.dim, lineHeight: 1.4 }}>
+                  Based on roster fit, trade history, and behavioral patterns.
+                </div>
+                {h2h && h2h.total_trades > 0 && (
+                  <div style={{ fontFamily: MONO, fontSize: 10, color: C.secondary, marginTop: 4 }}>
+                    {h2h.total_trades} trade{h2h.total_trades === 1 ? "" : "s"} with {partner} · won {h2h.wins}
+                  </div>
+                )}
+              </div>
+
               {/* ── 3. Trade Card ── */}
               <div style={{
                 background: M.card, borderRadius: 10,
@@ -529,25 +547,6 @@ export default function AnalyzeModal({ isOpen, onClose, evaluation, partner, own
                 </div>
               </div>
 
-              {/* ── 4. Grade + Acceptance side by side ── */}
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 32, marginBottom: 8 }}>
-                <GradeBadge grade={grade} delay={0.2} />
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-                  <CircularGauge value={acc} size={110} delay={0.4} />
-                </div>
-              </div>
-              {/* Acceptance explanation + H2H history line */}
-              <div style={{ textAlign: "center", marginBottom: 20 }}>
-                <div style={{ fontFamily: SANS, fontSize: 11, color: C.dim, lineHeight: 1.4 }}>
-                  Based on roster fit, trade history, and behavioral patterns.
-                </div>
-                {h2h && h2h.total_trades > 0 && (
-                  <div style={{ fontFamily: MONO, fontSize: 10, color: C.secondary, marginTop: 4 }}>
-                    {h2h.total_trades} trade{h2h.total_trades === 1 ? "" : "s"} with {partner} · won {h2h.wins}
-                  </div>
-                )}
-              </div>
-
               {/* ── 5. Acceptance factors ── */}
               {factors.length > 0 && (
                 <div style={{ marginBottom: 20 }}>
@@ -606,10 +605,30 @@ export default function AnalyzeModal({ isOpen, onClose, evaluation, partner, own
                 </div>
               )}
 
-              {/* ── 7. Positional Impact ── */}
+              {/* ── 7. Personal Insights ── */}
+              {((ev?.personal_insights?.length ?? 0) > 0) && (
+                <div style={{ marginBottom: 20 }}>
+                  <SectionLabel text="INSIGHTS" />
+                  <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                    {(ev?.personal_insights || []).map((pi, i) => {
+                      const tc = pi.tone === "positive" ? C.green : pi.tone === "warning" ? C.red : C.dim;
+                      return (
+                        <div key={i} style={{
+                          padding: "8px 10px", borderRadius: 5,
+                          background: `${tc}0a`, borderLeft: `3px solid ${tc}`,
+                          fontFamily: SANS, fontSize: 13, color: C.primary, lineHeight: 1.45,
+                        }}>
+                          {pi.text}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* ── 8. Positional Impact ── */}
               {(() => {
                 if (!impact) return null;
-                // Only show positions actually in the trade (players sent or received)
                 const tradedPositions = new Set<string>();
                 [...giveAssets, ...getAssets].forEach(a => {
                   if (a.position && ["QB", "RB", "WR", "TE"].includes(a.position)) {
@@ -665,27 +684,6 @@ export default function AnalyzeModal({ isOpen, onClose, evaluation, partner, own
                   </div>
                 );
               })()}
-
-              {/* ── 8. Personal Insights — owner's trade data scoped to this deal ── */}
-              {((ev?.personal_insights?.length ?? 0) > 0) && (
-                <div style={{ marginBottom: 20 }}>
-                  <SectionLabel text="INSIGHTS" />
-                  <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                    {(ev?.personal_insights || []).map((pi, i) => {
-                      const tc = pi.tone === "positive" ? C.green : pi.tone === "warning" ? C.red : C.dim;
-                      return (
-                        <div key={i} style={{
-                          padding: "8px 10px", borderRadius: 5,
-                          background: `${tc}0a`, borderLeft: `3px solid ${tc}`,
-                          fontFamily: SANS, fontSize: 13, color: C.primary, lineHeight: 1.45,
-                        }}>
-                          {pi.text}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
 
               {/* AI Insight moved to top of modal (see AIInsightCard above) */}
 
