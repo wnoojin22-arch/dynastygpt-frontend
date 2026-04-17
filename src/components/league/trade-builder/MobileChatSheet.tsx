@@ -126,14 +126,6 @@ export default function MobileChatSheet({
               boxShadow: "0 -8px 40px rgba(0,0,0,0.6), 0 -2px 20px rgba(212,165,50,0.08)",
             }}
           >
-            {/* ── Top accent ── */}
-            <div style={{ display: "flex", justifyContent: "center", padding: "10px 0 0", flexShrink: 0 }}>
-              <div style={{
-                width: 36, height: 4, borderRadius: 2,
-                background: `linear-gradient(90deg, ${C.gold}60, ${C.gold}, ${C.gold}60)`,
-              }} />
-            </div>
-
             {/* ── Header ── */}
             <div style={{
               display: "flex", alignItems: "center", justifyContent: "space-between",
@@ -261,11 +253,10 @@ export default function MobileChatSheet({
                 </div>
               )}
 
-              {/* ── Quick prompts — pill grid ── */}
+              {/* ── Quick prompts ── */}
               {showPrompts && (
                 <div style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
+                  display: "flex", flexDirection: "column",
                   gap: 8,
                   padding: "0 2px",
                 }}>
