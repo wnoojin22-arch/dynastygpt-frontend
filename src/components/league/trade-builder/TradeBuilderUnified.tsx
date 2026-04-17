@@ -1177,14 +1177,17 @@ export default function TradeBuilderUnified() {
           onClick={() => setChatOpen(true)}
           style={{
             position: "fixed", bottom: 160, right: 16, zIndex: 9990,
-            width: 56, height: 56, borderRadius: "50%",
+            borderRadius: 28,
             background: `linear-gradient(135deg, ${C.goldDark}, ${C.gold})`,
             border: "none", cursor: "pointer",
-            display: "flex", alignItems: "center", justifyContent: "center",
+            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+            padding: "8px 18px",
             boxShadow: `0 4px 20px ${C.gold}40, 0 0 40px ${C.gold}15`,
+            gap: 1,
           }}
         >
-          <span style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: "#000" }}>AI</span>
+          <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, letterSpacing: "0.08em", color: "rgba(0,0,0,0.6)", lineHeight: 1 }}>CHAT WITH</span>
+          <span style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: "#000", lineHeight: 1 }}>AI</span>
         </button>
       )}
 
