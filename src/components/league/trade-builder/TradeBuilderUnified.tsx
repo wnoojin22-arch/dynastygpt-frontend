@@ -1063,12 +1063,12 @@ export default function TradeBuilderUnified() {
                 position: "relative",
               }}
             >
-              {/* BETA badge — left */}
+              {/* BETA badge — centered bottom */}
               <div style={{
-                position: "absolute", top: -7, left: 8,
+                position: "absolute", bottom: -7, left: "50%", transform: "translateX(-50%)",
                 fontFamily: MONO, fontSize: 7, fontWeight: 900, letterSpacing: "0.10em",
                 color: "#fff", background: C.red,
-                padding: "1px 6px", borderRadius: 3,
+                padding: "1px 6px", borderRadius: 3, whiteSpace: "nowrap",
               }}>
                 BETA — Improving Daily
               </div>
