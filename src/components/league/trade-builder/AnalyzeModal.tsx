@@ -432,7 +432,7 @@ export default function AnalyzeModal({ isOpen, onClose, evaluation, partner, own
             <div ref={contentRef} style={{
               flex: 1, overflowY: "auto", overflowX: "hidden",
               WebkitOverflowScrolling: "touch", padding: "0 20px 20px",
-              background: M.bg,
+              background: M.bg, overscrollBehavior: "contain",
             }}>
               {/* ── 1. Gold bar ── */}
               <div style={{
