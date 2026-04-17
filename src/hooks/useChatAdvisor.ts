@@ -11,6 +11,7 @@ export interface ChatMessage {
 interface UseChatAdvisorProps {
   leagueId: string;
   owner: string;
+  ownerId?: string | null;
   activeTrade: unknown | null;
   suggestedPackages: unknown[] | null;
 }
@@ -18,6 +19,7 @@ interface UseChatAdvisorProps {
 export function useChatAdvisor({
   leagueId,
   owner,
+  ownerId,
   activeTrade,
   suggestedPackages,
 }: UseChatAdvisorProps) {
@@ -70,6 +72,7 @@ export function useChatAdvisor({
             headers: hdrs,
             body: JSON.stringify({
               owner,
+              owner_id: ownerId || undefined,
               message: cleanText,
               conversation_history: messages.map((m) => ({
                 role: m.role,

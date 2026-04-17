@@ -76,6 +76,7 @@ function formatAssistantContent(text: string) {
 interface ChatPanelProps {
   leagueId: string;
   owner: string;
+  ownerId?: string | null;
   activeTrade: any | null;
   suggestedPackages: any[] | null;
   partner: string;
@@ -84,8 +85,8 @@ interface ChatPanelProps {
   injectedMessage?: string | null;
 }
 
-export default function ChatPanel({ leagueId, owner, activeTrade, suggestedPackages, partner, collapsed, onToggle, injectedMessage }: ChatPanelProps) {
-  const chat = useChatAdvisor({ leagueId, owner, activeTrade, suggestedPackages });
+export default function ChatPanel({ leagueId, owner, ownerId, activeTrade, suggestedPackages, partner, collapsed, onToggle, injectedMessage }: ChatPanelProps) {
+  const chat = useChatAdvisor({ leagueId, owner, ownerId, activeTrade, suggestedPackages });
   const { messages, input, streaming, messagesEndRef, inputRef, sendMessage, setInput } = chat;
   const handleSubmit = chat.handleSubmit;
   const track = useTrack();

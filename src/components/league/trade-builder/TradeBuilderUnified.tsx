@@ -819,6 +819,7 @@ export default function TradeBuilderUnified() {
     ? ["Is this trade fair?", "How can I improve this?", "Will they accept?", "What should I add?"]
     : ["What are my biggest needs?", "Who should I target?", "Best trade I can make?", "Who overpays in my league?"];
   const currentOwner = useLeagueStore.getState().currentOwner || "";
+  const currentOwnerId = useLeagueStore.getState().currentOwnerId || null;
   const leagueId = useLeagueStore.getState().currentLeagueId || "";
 
   // Build owner window map from league intel
@@ -1199,6 +1200,7 @@ export default function TradeBuilderUnified() {
         onClose={() => setChatOpen(false)}
         leagueId={leagueId}
         owner={currentOwner}
+        ownerId={currentOwnerId}
         activeTrade={tb.evaluation}
         suggestedPackages={tb.suggestedPkgs.length > 0 ? tb.suggestedPkgs : null}
         quickPrompts={chatQuickPrompts}

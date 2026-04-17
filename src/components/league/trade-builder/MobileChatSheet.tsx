@@ -34,6 +34,7 @@ interface MobileChatSheetProps {
   onClose: () => void;
   leagueId: string;
   owner: string;
+  ownerId?: string | null;
   activeTrade: unknown | null;
   suggestedPackages: unknown[] | null;
   quickPrompts: string[];
@@ -44,11 +45,12 @@ export default function MobileChatSheet({
   onClose,
   leagueId,
   owner,
+  ownerId,
   activeTrade,
   suggestedPackages,
   quickPrompts,
 }: MobileChatSheetProps) {
-  const chat = useChatAdvisor({ leagueId, owner, activeTrade, suggestedPackages });
+  const chat = useChatAdvisor({ leagueId, owner, ownerId, activeTrade, suggestedPackages });
 
   useEffect(() => {
     if (isOpen) document.body.style.overflow = "hidden";
