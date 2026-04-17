@@ -547,24 +547,28 @@ export default function AnalyzeModal({ isOpen, onClose, evaluation, partner, own
                 </div>
               </div>
 
-              {/* ── 5. Acceptance factors ── */}
-              {factors.length > 0 && (
+              {/* ── 5. Personal Insights ── */}
+              {((ev?.personal_insights?.length ?? 0) > 0) && (
                 <div style={{ marginBottom: 20 }}>
-                  <SectionLabel text="WHY THEY ACCEPT" />
-                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                    {factors.slice(0, 3).map((f, i) => (
-                      <div key={i} style={{
-                        fontFamily: SANS, fontSize: 12, color: C.secondary,
-                        paddingLeft: 12, borderLeft: `2px solid ${C.green}30`,
-                      }}>
-                        {f}
-                      </div>
-                    ))}
+                  <SectionLabel text="INSIGHTS" />
+                  <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                    {(ev?.personal_insights || []).map((pi, i) => {
+                      const tc = pi.tone === "positive" ? C.green : pi.tone === "warning" ? C.red : C.dim;
+                      return (
+                        <div key={i} style={{
+                          padding: "8px 10px", borderRadius: 5,
+                          background: `${tc}0a`, borderLeft: `3px solid ${tc}`,
+                          fontFamily: SANS, fontSize: 13, color: C.primary, lineHeight: 1.45,
+                        }}>
+                          {pi.text}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
 
-              {/* ── 6. Market Analysis ── */}
+              {/* ── 6. Value Analysis ── */}
               {giveTotal > 0 && getTotal > 0 && (
                 <div style={{ marginBottom: 20 }}>
                   <SectionLabel text="VALUE ANALYSIS" />
@@ -605,28 +609,7 @@ export default function AnalyzeModal({ isOpen, onClose, evaluation, partner, own
                 </div>
               )}
 
-              {/* ── 7. Personal Insights ── */}
-              {((ev?.personal_insights?.length ?? 0) > 0) && (
-                <div style={{ marginBottom: 20 }}>
-                  <SectionLabel text="INSIGHTS" />
-                  <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                    {(ev?.personal_insights || []).map((pi, i) => {
-                      const tc = pi.tone === "positive" ? C.green : pi.tone === "warning" ? C.red : C.dim;
-                      return (
-                        <div key={i} style={{
-                          padding: "8px 10px", borderRadius: 5,
-                          background: `${tc}0a`, borderLeft: `3px solid ${tc}`,
-                          fontFamily: SANS, fontSize: 13, color: C.primary, lineHeight: 1.45,
-                        }}>
-                          {pi.text}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* ── 8. Positional Impact ── */}
+              {/* ── 7. Positional Impact ── */}
               {(() => {
                 if (!impact) return null;
                 const tradedPositions = new Set<string>();
