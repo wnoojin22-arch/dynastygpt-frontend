@@ -158,7 +158,7 @@ export default function FeedbackWidget() {
 
   // Submit feedback (Feedback tab)
   const handleSubmit = useCallback(async () => {
-    if (!type || !message.trim()) return;
+    if (!message.trim()) return;
     setSubmitting(true);
     try {
       const mobile = /iPhone|iPad|Android|Mobile/i.test(navigator.userAgent);
@@ -167,7 +167,7 @@ export default function FeedbackWidget() {
         method: "POST",
         headers: hdrs,
         body: JSON.stringify({
-          feedback_type: type,
+          feedback_type: type || "general",
           message: message.trim(),
           image_urls: images.map((i) => i.url),
           page_url: window.location.href,
@@ -430,8 +430,8 @@ export default function FeedbackWidget() {
                     {/* Submit */}
                     <button
                       onClick={handleSubmit}
-                      disabled={!type || !message.trim() || submitting}
-                      className={`w-full py-3 rounded-lg border-none font-mono text-[13px] font-extrabold tracking-wide transition-all ${!type || !message.trim() ? "bg-[#171b28] text-[#9596a5] cursor-not-allowed" : "bg-[#d4a532] text-[#06080d] cursor-pointer hover:brightness-110"}`}
+                      disabled={!message.trim() || submitting}
+                      className={`w-full py-3 rounded-lg border-none font-mono text-[13px] font-extrabold tracking-wide transition-all ${!message.trim() ? "bg-[#171b28] text-[#9596a5] cursor-not-allowed" : "bg-[#d4a532] text-[#06080d] cursor-pointer hover:brightness-110"}`}
                     >
                       {submitting ? "SENDING..." : "SEND FEEDBACK"}
                     </button>
