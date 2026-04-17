@@ -1176,7 +1176,7 @@ export default function TradeBuilderUnified() {
         <button
           onClick={() => setChatOpen(true)}
           style={{
-            position: "fixed", bottom: 80, right: 16, zIndex: 9990,
+            position: "fixed", bottom: 160, right: 16, zIndex: 9990,
             width: 56, height: 56, borderRadius: "50%",
             background: `linear-gradient(135deg, ${C.goldDark}, ${C.gold})`,
             border: "none", cursor: "pointer",
