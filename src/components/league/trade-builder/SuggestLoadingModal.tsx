@@ -21,9 +21,11 @@ const STAGES: Array<{ upTo: number; label: string; sub: string }> = [
 export default function SuggestLoadingModal({
   elapsedSec,
   query,
+  onCancel,
 }: {
   elapsedSec: number;
   query?: string;
+  onCancel?: () => void;
 }) {
   const ETA = 90;
   // Cap visual progress at 95% so the bar keeps moving past the ETA without
@@ -138,6 +140,21 @@ export default function SuggestLoadingModal({
           <span>{elapsedSec}s elapsed</span>
           <span>~{ETA}s typical</span>
         </div>
+        {elapsedSec >= 10 && onCancel && (
+          <button
+            onClick={onCancel}
+            style={{
+              marginTop: 16, width: "100%", padding: "10px 0",
+              borderRadius: 8, border: `1px solid ${C.border}`,
+              background: "transparent", color: C.dim,
+              fontFamily: MONO, fontSize: 11, fontWeight: 700,
+              letterSpacing: "0.06em", cursor: "pointer",
+              transition: "color 0.15s, border-color 0.15s",
+            }}
+          >
+            CANCEL
+          </button>
+        )}
       </div>
     </div>
   );

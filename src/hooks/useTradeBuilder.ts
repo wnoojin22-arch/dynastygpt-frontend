@@ -74,6 +74,7 @@ export interface UseTradeBuilderReturn {
   buildPackage: (pkg: SuggestedPackage) => void;
   handleClear: () => void;
   fireSuggest: (body: Record<string, unknown>, query: string) => Promise<void>;
+  cancelSuggest: () => void;
 }
 
 const toBackend = (w: string) => (w === "WIN-NOW" ? "CONTENDER" : w);
@@ -153,6 +154,7 @@ export function useTradeBuilder({
   const [suggestLoading, setSuggestLoading] = useState(false);
   const [suggestElapsedSec, setSuggestElapsedSec] = useState(0);
   const [suggestQuery, setSuggestQuery] = useState("");
+  const suggestAbortRef = useRef(false);
   const [activeSellAsset, setActiveSellAsset] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [chatCollapsed, setChatCollapsed] = useState(false);
@@ -357,6 +359,7 @@ export function useTradeBuilder({
   // Suggest — calls V2 trade engine
   const fireSuggest = useCallback(
     async (body: Record<string, unknown>, query: string) => {
+      suggestAbortRef.current = false;
       setSuggestLoading(true);
       setSuggestElapsedSec(0);
       setSuggestedPkgs([]);
@@ -405,7 +408,9 @@ export function useTradeBuilder({
         // (60s backoff) doesn't push us past the ceiling.
         let data: Record<string, unknown> | null = null;
         for (let attempt = 0; attempt < 90; attempt++) {
+          if (suggestAbortRef.current) { setSuggestLoading(false); return; }
           await new Promise((r) => setTimeout(r, 2000));
+          if (suggestAbortRef.current) { setSuggestLoading(false); return; }
           const freshHdrs = await getHdrs(); // refresh token each poll — Clerk JWTs expire ~60s
           const pollRes = await fetch(`${API}/api/league/${leagueId}/v2/trade-engine/status/${job_id}`, { cache: "no-store", headers: freshHdrs });
           if (!pollRes.ok) {
@@ -673,5 +678,9 @@ export function useTradeBuilder({
     buildPackage,
     handleClear,
     fireSuggest,
+    cancelSuggest: useCallback(() => {
+      suggestAbortRef.current = true;
+      setSuggestLoading(false);
+    }, []),
   };
 }
