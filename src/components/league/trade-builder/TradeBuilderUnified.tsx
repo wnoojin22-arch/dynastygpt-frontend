@@ -723,29 +723,66 @@ function BuilderLayer({ tb, ctx, owners, giveAssets, getAssets, sendTotal, getTo
             {gapPct >= 0 ? "+" : ""}{gapPct.toFixed(0)}%
           </span>
         )}
+        {/* SUGGEST TRADES — always visible when assets selected */}
         <button
           onClick={async () => {
-            track("trade_evaluated", {
-              league_id: trackedLeagueId,
-              partner: tb.partner || null,
-              give: tb.giveNames,
-              receive: tb.receiveNames,
-            });
-            await tb.handleAnalyze();
-            ctx.openAnalyze();
+            try {
+              const body: Record<string, unknown> = {};
+              if (tb.partner) body.partner = tb.partner;
+              if (tb.giveNames.length) body.sell_asset = tb.giveNames[0];
+              if (tb.receiveNames.length) { body.i_receive = tb.receiveNames; body.target_asset = tb.receiveNames[0]; }
+              const label = tb.giveNames.length > 0
+                ? `Selling ${tb.giveNames[0]}`
+                : tb.receiveNames.length > 0
+                  ? `What would it take for ${tb.receiveNames[0]}`
+                  : "Coach mode";
+              track("trade_suggest_clicked", { league_id: trackedLeagueId, mode: suggestContext });
+              await tb.fireSuggest(body, label);
+            } catch (e) {
+              tb.setError(e instanceof Error ? e.message : "Suggest failed");
+            }
           }}
-          disabled={!canAnalyze || tb.analyzing}
+          disabled={tb.suggestLoading}
           style={{
-            flex: 1, padding: "14px 0", borderRadius: 10, border: "none",
-            background: canAnalyze ? `linear-gradient(135deg, ${C.goldDark}, ${C.gold})` : C.elevated,
-            fontFamily: MONO, fontSize: 13, fontWeight: 800, letterSpacing: "0.08em",
-            color: canAnalyze ? C.bg : C.dim, cursor: canAnalyze ? "pointer" : "default",
-            minHeight: 48, opacity: canAnalyze ? 1 : 0.4,
-            boxShadow: canAnalyze ? "0 0 16px rgba(212,165,50,0.12)" : "none",
+            flex: canAnalyze ? "0 0 auto" : 1,
+            padding: canAnalyze ? "12px 16px" : "14px 0",
+            borderRadius: 10,
+            border: canAnalyze ? `1px solid rgba(255,255,255,0.12)` : "none",
+            background: canAnalyze ? "rgba(255,255,255,0.04)" : `linear-gradient(135deg, ${C.goldDark}, ${C.gold})`,
+            fontFamily: MONO, fontSize: canAnalyze ? 11 : 13, fontWeight: 800, letterSpacing: "0.08em",
+            color: canAnalyze ? C.primary : C.bg,
+            cursor: "pointer", minHeight: canAnalyze ? 44 : 48,
+            boxShadow: canAnalyze ? "none" : "0 0 16px rgba(212,165,50,0.12)",
           }}
         >
-          ANALYZE TRADE
+          {tb.suggestLoading ? `FINDING...` : "SUGGEST TRADES"}
         </button>
+        {/* ANALYZE TRADE — visible when both sides filled */}
+        {canAnalyze && (
+          <button
+            onClick={async () => {
+              track("trade_evaluated", {
+                league_id: trackedLeagueId,
+                partner: tb.partner || null,
+                give: tb.giveNames,
+                receive: tb.receiveNames,
+              });
+              await tb.handleAnalyze();
+              ctx.openAnalyze();
+            }}
+            disabled={tb.analyzing}
+            style={{
+              flex: 1, padding: "14px 0", borderRadius: 10, border: "none",
+              background: `linear-gradient(135deg, ${C.goldDark}, ${C.gold})`,
+              fontFamily: MONO, fontSize: 13, fontWeight: 800, letterSpacing: "0.08em",
+              color: C.bg, cursor: "pointer",
+              minHeight: 48,
+              boxShadow: "0 0 16px rgba(212,165,50,0.12)",
+            }}
+          >
+            ANALYZE TRADE
+          </button>
+        )}
       </div>
     </>
   );
