@@ -168,6 +168,25 @@ function AssetCard({asset,allAssets,gradeFactors,allTrades,sideOwner,pickSlotMap
       </div>
     )}
 
+    {/* Resolved player breakdown — "what it became" */}
+    {isPick&&asset.resolved_player&&asset.resolved_player!=='Not yet drafted'&&(
+      <div style={{marginTop:4,paddingTop:6,borderTop:`1px dashed ${C.border}`,display:'flex',flexDirection:'column',gap:3}}>
+        <div style={{display:'flex',alignItems:'center',gap:5}}>
+          {asset.resolved_position&&<span style={{fontFamily:MONO,fontSize:8,fontWeight:800,color:posColor(asset.resolved_position),padding:'1px 4px',borderRadius:3,background:`${posColor(asset.resolved_position)}15`,border:`1px solid ${posColor(asset.resolved_position)}25`}}>{asset.resolved_position}</span>}
+          <PlayerName name={asset.resolved_player} style={{fontFamily:SANS,fontSize:13,fontWeight:700,color:C.primary,cursor:'pointer'}}/>
+          {asset.resolved_age&&<span style={{fontFamily:MONO,fontSize:10,color:C.dim}}>({Math.round(asset.resolved_age)})</span>}
+        </div>
+        <div style={{display:'flex',alignItems:'center',gap:8,paddingLeft:2}}>
+          {vNow>0&&<span style={{fontFamily:MONO,fontSize:11,fontWeight:800,color:C.gold}}>{fmt(vNow)}</span>}
+          {vDelta&&typeof vDelta.pct==='number'&&Math.abs(vDelta.pct)>=1&&(
+            <span style={{fontFamily:MONO,fontSize:10,fontWeight:700,color:vDelta.pct>=0?C.green:C.red,padding:'1px 6px',borderRadius:3,background:vDelta.pct>=0?'rgba(125,211,160,0.12)':'rgba(228,114,114,0.12)'}}>
+              {vDelta.pct>=0?'+':''}{Math.round(vDelta.pct)}% since trade
+            </span>
+          )}
+        </div>
+      </div>
+    )}
+
     {/* Production pills — three distinct PPG metrics + position impact */}
     {hasProd&&(!isPick||asset.resolved_player)&&(()=>{
       const careerPpg=showProd.career_ppg||0;
