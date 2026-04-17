@@ -20,6 +20,7 @@ import { C, SANS, MONO, DISPLAY, fmt, posColor } from "../tokens";
 import { HowItWorksButton } from "./HowItWorksModal";
 import SwipeStack from "./SwipeStack";
 import { useTrack } from "@/hooks/useTrack";
+import MobileChatSheet from "./MobileChatSheet";
 
 // ── Position badge ───────────────────────────────────────────────────────
 
@@ -768,10 +769,16 @@ export default function TradeBuilderUnified() {
   // ── "What Would It Take?" state ──
   const [wwitLoading, setWwitLoading] = useState(false);
 
+  const [chatOpen, setChatOpen] = useState(false);
+
   const owners = tb.otherOwners || [];
   const hasPartner = !!tb.partner;
   const hasAssets = tb.giveNames.length > 0 || tb.receiveNames.length > 0;
   const showBuilder = hasPartner || hasAssets;
+
+  const chatQuickPrompts = showBuilder
+    ? ["Is this trade fair?", "How can I improve this?", "Will they accept?", "What should I add?"]
+    : ["What are my biggest needs?", "Who should I target?", "Best trade I can make?", "Who overpays in my league?"];
   const currentOwner = useLeagueStore.getState().currentOwner || "";
   const leagueId = useLeagueStore.getState().currentLeagueId || "";
 
@@ -1024,6 +1031,38 @@ export default function TradeBuilderUnified() {
             </div>
           </div>
 
+          {/* DynastyGPT Trade Advisor card — landing page only */}
+          <div
+            onClick={() => setChatOpen(true)}
+            style={{
+              marginTop: 12,
+              padding: 16,
+              borderRadius: 10,
+              border: "2px solid rgba(245,162,35,0.6)",
+              background: "rgba(245,162,35,0.06)",
+              boxShadow: "0 0 20px rgba(245,162,35,0.3), 0 0 40px rgba(245,162,35,0.15)",
+              cursor: "pointer",
+              display: "flex", alignItems: "center", gap: 14,
+            }}
+          >
+            <div style={{
+              width: 40, height: 40, borderRadius: "50%", flexShrink: 0,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              background: `linear-gradient(135deg, ${C.goldDark}, ${C.gold})`,
+              boxShadow: `0 0 16px ${C.gold}30`,
+            }}>
+              <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: "#000" }}>AI</span>
+            </div>
+            <div>
+              <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", color: C.gold }}>
+                DYNASTYGPT TRADE ADVISOR
+              </div>
+              <div style={{ fontFamily: SANS, fontSize: 12, color: C.dim, marginTop: 2 }}>
+                Ask anything about your roster, trades, or league
+              </div>
+            </div>
+          </div>
+
         </div>
       )}
 
@@ -1082,6 +1121,34 @@ export default function TradeBuilderUnified() {
           ctx.closeAnalyze();
           tb.setEvaluation(null);
         }}
+      />
+
+      {/* Floating Chat FAB — builder only (landing page has the card instead) */}
+      {showBuilder && !chatOpen && (
+        <button
+          onClick={() => setChatOpen(true)}
+          style={{
+            position: "fixed", bottom: 80, right: 16, zIndex: 9990,
+            width: 56, height: 56, borderRadius: "50%",
+            background: `linear-gradient(135deg, ${C.goldDark}, ${C.gold})`,
+            border: "none", cursor: "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            boxShadow: `0 4px 20px ${C.gold}40, 0 0 40px ${C.gold}15`,
+          }}
+        >
+          <span style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: "#000" }}>AI</span>
+        </button>
+      )}
+
+      {/* Mobile Chat Sheet */}
+      <MobileChatSheet
+        isOpen={chatOpen}
+        onClose={() => setChatOpen(false)}
+        leagueId={leagueId}
+        owner={currentOwner}
+        activeTrade={tb.evaluation}
+        suggestedPackages={tb.suggestedPkgs.length > 0 ? tb.suggestedPkgs : null}
+        quickPrompts={chatQuickPrompts}
       />
     </div>
   );

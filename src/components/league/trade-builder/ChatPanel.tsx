@@ -4,8 +4,9 @@
  * Ported 1:1 from Shadynasty. Persistent right column with glass morphism, streaming.
  * Enhanced with DynastyGPT context (cross-league comps, partner history, behavioral data).
  */
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useRef, useEffect } from "react";
 import { useTrack } from "@/hooks/useTrack";
+import { useChatAdvisor } from "@/hooks/useChatAdvisor";
 
 const C = {
   bg: '#06080d', panel: '#0a0d15', card: '#10131d', elevated: '#171b28',
@@ -21,9 +22,7 @@ const DISPLAY = "'Archivo Black',sans-serif";
 const SERIF = "'Playfair Display',Georgia,serif";
 const SANS = "-apple-system,'Inter',system-ui,sans-serif";
 
-const API = "";
-
-interface Message { role: 'user' | 'assistant'; content: string; }
+// Message type comes from useChatAdvisor hook
 
 /**
  * Format assistant message for display:
@@ -86,15 +85,12 @@ interface ChatPanelProps {
 }
 
 export default function ChatPanel({ leagueId, owner, activeTrade, suggestedPackages, partner, collapsed, onToggle, injectedMessage }: ChatPanelProps) {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState('');
-  const [streaming, setStreaming] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const lastInjectedRef = useRef<string | null>(null);
+  const chat = useChatAdvisor({ leagueId, owner, activeTrade, suggestedPackages });
+  const { messages, input, streaming, messagesEndRef, inputRef, sendMessage, setInput } = chat;
+  const handleSubmit = chat.handleSubmit;
   const track = useTrack();
 
-  // Fire trade_advisor_opened when user expands the panel (not on initial mount if already open)
+  // Desktop-specific: track panel open
   const prevCollapsedRef = useRef<boolean>(collapsed);
   useEffect(() => {
     if (prevCollapsedRef.current === true && collapsed === false) {
@@ -106,84 +102,8 @@ export default function ChatPanel({ leagueId, owner, activeTrade, suggestedPacka
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
   useEffect(() => { if (!collapsed) setTimeout(() => inputRef.current?.focus(), 100); }, [collapsed]);
 
-  // Auto-inject analysis message when trade is analyzed
-  useEffect(() => {
-    if (injectedMessage && injectedMessage !== lastInjectedRef.current) {
-      lastInjectedRef.current = injectedMessage;
-      const clean = injectedMessage.replace(/\n\d{13}$/, '').replace(/\*\*/g, '');
-      setMessages(prev => [...prev, { role: 'assistant', content: clean }]);
-    }
-  }, [injectedMessage]);
-
-  const sendMessage = useCallback(async (text: string) => {
-    if (!text.trim() || streaming) return;
-    const cleanText = text.trim();
-    track("trade_advisor_message_sent", {
-      league_id: leagueId,
-      message: cleanText.slice(0, 500),
-      msg_length: cleanText.length,
-      has_active_trade: !!activeTrade,
-      conversation_turn: messages.length,
-    });
-    setMessages(prev => [...prev, { role: 'user', content: cleanText }]);
-    setInput('');
-    setStreaming(true);
-    setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
-
-    try {
-      const { authHeaders } = await import("@/lib/api");
-      const hdrs = await authHeaders();
-      const res = await fetch(`${API}/api/league/${leagueId}/trade-builder/chat`, {
-        method: 'POST',
-        headers: hdrs,
-        body: JSON.stringify({
-          owner, message: text.trim(),
-          conversation_history: messages.map(m => ({ role: m.role, content: m.content })),
-          active_trade: activeTrade,
-          suggested_packages: suggestedPackages,
-        }),
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: 'Failed' }));
-        setMessages(prev => { const u = [...prev]; u[u.length - 1] = { role: 'assistant', content: `Error: ${err.error || err.detail || 'Request failed'}` }; return u; });
-        setStreaming(false); return;
-      }
-
-      const reader = res.body?.getReader();
-      if (!reader) { setStreaming(false); return; }
-      const decoder = new TextDecoder();
-      let buffer = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          const data = line.slice(6);
-          if (data === '[DONE]') continue;
-          try {
-            const parsed = JSON.parse(data);
-            if (parsed.text) {
-              const clean = parsed.text.replace(/\*\*/g, '');
-              setMessages(prev => {
-                const u = [...prev];
-                u[u.length - 1] = { ...u[u.length - 1], content: u[u.length - 1].content + clean };
-                return u;
-              });
-            }
-          } catch {}
-        }
-      }
-    } catch (e: any) {
-      setMessages(prev => { const u = [...prev]; u[u.length - 1] = { role: 'assistant', content: `Error: ${e.message}` }; return u; });
-    } finally { setStreaming(false); }
-  }, [leagueId, owner, messages, activeTrade, suggestedPackages, streaming]);
-
-  const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); sendMessage(input); };
+  // Auto-inject analysis message
+  useEffect(() => { chat.injectMessage(injectedMessage); }, [injectedMessage]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const quickPrompts = messages.length === 0 ? (
     activeTrade ? ["Is this a good trade?", "How do I improve it?", "Better partner?", "Negotiation strategy?"]
@@ -249,7 +169,7 @@ export default function ChatPanel({ leagueId, owner, activeTrade, suggestedPacka
           <span style={{ fontFamily: SERIF, fontSize: 14, fontWeight: 700, fontStyle: 'italic', color: C.goldBright, letterSpacing: '0.03em' }}>TRADE ADVISOR</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          {messages.length > 0 && <button onClick={() => { setMessages([]); lastInjectedRef.current = null; }} title="Clear chat" style={{
+          {messages.length > 0 && <button onClick={chat.clearMessages} title="Clear chat" style={{
             background: 'none', border: 'none', color: C.dim, cursor: 'pointer', fontFamily: MONO, fontSize: 11, lineHeight: 1,
             transition: 'color 0.15s', padding: '2px',
           }}
