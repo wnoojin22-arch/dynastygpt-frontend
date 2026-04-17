@@ -1018,28 +1018,68 @@ export default function TradeBuilderUnified() {
             )}
           </div>
 
-          {/* SUGGEST TRADES button */}
-          <button
-            onClick={async () => {
-              try {
-                track("trade_suggest_clicked", { league_id: leagueId, mode: "coach" });
-                await tb.fireSuggest({}, "Coach mode");
-              } catch (e) {
-                tb.setError(e instanceof Error ? e.message : "Suggest failed");
-              }
-            }}
-            disabled={tb.suggestLoading}
-            style={{
-              width: "100%", padding: "16px 0", borderRadius: 10, border: "none",
-              background: `linear-gradient(135deg, ${C.goldDark}, ${C.gold})`,
-              fontFamily: MONO, fontSize: 13, fontWeight: 800, letterSpacing: "0.08em",
-              color: C.bg, cursor: tb.suggestLoading ? "wait" : "pointer",
-              marginBottom: 20, minHeight: 52,
-              boxShadow: `0 0 20px rgba(212,165,50,0.15)`,
-            }}
-          >
-            {tb.suggestLoading ? `FINDING TRADES… ${tb.suggestElapsedSec}s` : "SUGGEST TRADES"}
-          </button>
+          {/* ── SUGGEST TRADES + START A CHAT — side by side ── */}
+          <style>{`@keyframes advisor-glow{0%,100%{box-shadow:0 0 12px rgba(212,165,50,0.25),0 0 24px rgba(212,165,50,0.1)}50%{box-shadow:0 0 18px rgba(212,165,50,0.45),0 0 36px rgba(212,165,50,0.2)}}`}</style>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
+            {/* Suggest Trades pill */}
+            <button
+              onClick={async () => {
+                try {
+                  track("trade_suggest_clicked", { league_id: leagueId, mode: "coach" });
+                  await tb.fireSuggest({}, "Coach mode");
+                } catch (e) {
+                  tb.setError(e instanceof Error ? e.message : "Suggest failed");
+                }
+              }}
+              disabled={tb.suggestLoading}
+              style={{
+                padding: "14px 10px", borderRadius: 12, border: "none",
+                background: `linear-gradient(135deg, ${C.goldDark}, ${C.gold})`,
+                cursor: tb.suggestLoading ? "wait" : "pointer",
+                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                gap: 4, minHeight: 72,
+                boxShadow: `0 0 16px rgba(212,165,50,0.12)`,
+              }}
+            >
+              <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", color: C.bg, lineHeight: 1 }}>
+                {tb.suggestLoading ? `FINDING… ${tb.suggestElapsedSec}s` : "SUGGEST TRADES"}
+              </span>
+              <span style={{ fontFamily: SANS, fontSize: 10, color: "rgba(0,0,0,0.55)", lineHeight: 1.2 }}>
+                AI-powered trade ideas
+              </span>
+            </button>
+
+            {/* Start a Chat pill */}
+            <button
+              onClick={() => setChatOpen(true)}
+              style={{
+                padding: "14px 10px", borderRadius: 12,
+                border: `1.5px solid ${C.gold}60`,
+                background: `${C.gold}08`,
+                animation: "advisor-glow 2.5s ease-in-out infinite",
+                cursor: "pointer",
+                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                gap: 4, minHeight: 72,
+                position: "relative",
+              }}
+            >
+              {/* NEW badge */}
+              <div style={{
+                position: "absolute", top: -7, right: 8,
+                fontFamily: MONO, fontSize: 7, fontWeight: 900, letterSpacing: "0.10em",
+                color: "#000", background: C.gold,
+                padding: "1px 6px", borderRadius: 3,
+              }}>
+                NEW
+              </div>
+              <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", color: C.gold, lineHeight: 1 }}>
+                START A CHAT
+              </span>
+              <span style={{ fontFamily: SANS, fontSize: 10, color: C.dim, lineHeight: 1.2, textAlign: "center" }}>
+                Ask DynastyGPT about your roster, trades, or league
+              </span>
+            </button>
+          </div>
 
           {/* Error display */}
           {tb.error && (
@@ -1068,49 +1108,6 @@ export default function TradeBuilderUnified() {
                   onClick={() => ctx.selectPartner(o.name)}
                 />
               ))}
-            </div>
-          </div>
-
-          {/* DynastyGPT Trade Advisor card — landing page only */}
-          <style>{`@keyframes advisor-pulse{0%,100%{box-shadow:0 0 20px rgba(245,162,35,0.3),0 0 40px rgba(245,162,35,0.15)}50%{box-shadow:0 0 28px rgba(245,162,35,0.5),0 0 56px rgba(245,162,35,0.25)}}`}</style>
-          <div
-            onClick={() => setChatOpen(true)}
-            style={{
-              marginTop: 12,
-              padding: 16,
-              borderRadius: 10,
-              border: "2px solid rgba(245,162,35,0.6)",
-              background: "rgba(245,162,35,0.06)",
-              animation: "advisor-pulse 2.5s ease-in-out infinite",
-              cursor: "pointer",
-              display: "flex", alignItems: "center", gap: 14,
-              position: "relative",
-            }}
-          >
-            {/* NEW badge */}
-            <div style={{
-              position: "absolute", top: -8, right: 12,
-              fontFamily: MONO, fontSize: 9, fontWeight: 900, letterSpacing: "0.10em",
-              color: "#000", background: C.gold,
-              padding: "2px 8px", borderRadius: 4,
-            }}>
-              NEW
-            </div>
-            <div style={{
-              width: 40, height: 40, borderRadius: "50%", flexShrink: 0,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              background: `linear-gradient(135deg, ${C.goldDark}, ${C.gold})`,
-              boxShadow: `0 0 16px ${C.gold}30`,
-            }}>
-              <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: "#000" }}>AI</span>
-            </div>
-            <div>
-              <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", color: C.gold }}>
-                START A CHAT WITH DYNASTYGPT
-              </div>
-              <div style={{ fontFamily: SANS, fontSize: 12, color: C.dim, marginTop: 4 }}>
-                Ask anything about your roster, trades, or league
-              </div>
             </div>
           </div>
 
