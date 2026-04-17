@@ -5,7 +5,7 @@ import { useLeagueStore } from "@/lib/stores/league-store";
 import { useQuery } from "@tanstack/react-query";
 import { getOverview } from "@/lib/api";
 import DashboardView from "@/components/league/DashboardView";
-import SurveyModal from "@/components/survey/SurveyModal";
+// import SurveyModal from "@/components/survey/SurveyModal"; // PAUSED — re-enable after beta stabilizes
 import { useTrack } from "@/hooks/useTrack";
 
 export default function DashboardPage() {
@@ -31,7 +31,7 @@ export default function DashboardPage() {
   return (
     <>
       <DashboardView lid={lid} owner={owner} ownerId={ownerId} />
-      <SurveyModal />
+      {/* <SurveyModal /> — PAUSED during beta updates */}
     </>
   );
 }
