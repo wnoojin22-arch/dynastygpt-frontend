@@ -193,6 +193,7 @@ export default function AnalysisModal({ evaluation, owner, partner, onClose }: {
       <div onClick={(e) => e.stopPropagation()} style={{
         width: "94vw", maxWidth: 800, maxHeight: "92vh", overflowY: "auto",
         background: C.bg, border: `1px solid ${C.border}`, borderRadius: 12,
+        overscrollBehavior: "contain", WebkitOverflowScrolling: "touch",
       }}>
         {/* Header */}
         <div style={{ padding: "16px 20px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 12 }}>
