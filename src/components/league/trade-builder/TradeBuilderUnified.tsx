@@ -1066,10 +1066,10 @@ export default function TradeBuilderUnified() {
             </div>
             <div>
               <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", color: C.gold }}>
-                DYNASTYGPT TRADE ADVISOR
+                START A CHAT WITH DYNASTYGPT
               </div>
               <div style={{ fontFamily: SANS, fontSize: 12, color: C.dim, marginTop: 4 }}>
-                Start a chat with DynastyGPT Trade Advisor — ask anything about your roster, trades, or league
+                Ask anything about your roster, trades, or league
               </div>
             </div>
           </div>
