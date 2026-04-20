@@ -344,6 +344,7 @@ export default function DashboardMobile({ lid, owner, ownerId }: { lid: string; 
           { label: "BUILD TRADE", sub: "Find your next move", icon: Plus, color: C.gold, route: "trades" },
           { label: "FRANCHISE", sub: "Where you stand", icon: Activity, color: C.green, route: "intel?tab=my-franchise" },
           { label: "SCOUTING", sub: "Scout opponents", icon: Search, color: C.blue, route: "intel?tab=opponents" },
+          { label: "MOCK DRAFT", sub: "Simulate your draft", icon: FileText, color: C.orange, route: "mock-draft" },
           { label: "DRAFT ROOM", sub: "Picks & grades", icon: FileText, color: "#b39ddb", route: "draft" },
           { label: "RANKINGS", sub: "Full league", icon: BarChart3, color: C.orange, route: "rankings" },
           { label: "YOUR ROSTER", sub: "Players & values", icon: Users, color: C.blue, route: "__roster" },

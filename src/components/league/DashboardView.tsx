@@ -805,7 +805,7 @@ function DashboardView({ lid, owner, ownerId }: { lid: string; owner: string; ow
           ══════════════════════════════════════════════════════════ */}
       <div className="mobile-stack" style={{ display: "grid", gridTemplateColumns: "55fr 45fr", gap: 10, alignItems: "stretch" }}>
         <DynastyScoreCard lid={lid} owner={owner} ownerId={ownerId} />
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, alignItems: "stretch" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 10, alignItems: "stretch" }}>
           {/* BUILD TRADE */}
           <div
             onClick={() => router.push(`/l/${currentLeagueSlug}/trades`)}
@@ -856,6 +856,23 @@ function DashboardView({ lid, owner, ownerId }: { lid: string; owner: string; ow
           >
             <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.green, letterSpacing: "0.10em", textAlign: "center" }}>SCOUTING REPORTS</span>
             <span style={{ fontFamily: SANS, fontSize: 9, color: C.dim, textAlign: "center", lineHeight: 1.3 }}>Know your league before you trade</span>
+          </div>
+          {/* MOCK DRAFT */}
+          <div
+            onClick={() => router.push(`/l/${currentLeagueSlug}/mock-draft`)}
+            className="cursor-pointer transition-all duration-200 hover:scale-[1.03]"
+            style={{
+              background: `linear-gradient(135deg, ${C.card} 0%, rgba(224,156,107,0.06) 100%)`,
+              border: `1px solid rgba(224,156,107,0.20)`,
+              borderTop: `2px solid ${C.orange}`,
+              borderRadius: 8,
+              padding: "12px 16px",
+              display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3,
+              boxShadow: `0 4px 24px rgba(224,156,107,0.06), inset 0 1px 0 rgba(224,156,107,0.08)`,
+            }}
+          >
+            <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.orange, letterSpacing: "0.10em", textAlign: "center" }}>MOCK DRAFT</span>
+            <span style={{ fontFamily: SANS, fontSize: 9, color: C.dim, textAlign: "center", lineHeight: 1.3 }}>Simulate your rookie draft</span>
           </div>
         </div>
       </div>
