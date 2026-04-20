@@ -80,10 +80,14 @@ function AIInsightCard({ text }: { text: string | null | undefined }) {
     color: "#ffffff", lineHeight: 1.45,
   };
   const toggleLinkStyle: React.CSSProperties = {
-    fontFamily: MONO, fontSize: 10, fontWeight: 700,
+    fontFamily: MONO, fontSize: 10, fontWeight: 800,
     letterSpacing: "0.08em", color: "#f5a223",
     marginTop: 6, cursor: "pointer", userSelect: "none",
-    padding: "4px 0",  // larger touch target on mobile
+    padding: "6px 12px", borderRadius: 6,
+    background: "rgba(245,162,35,0.08)",
+    border: "1px solid rgba(245,162,35,0.25)",
+    transition: "background 0.15s",
+    display: "inline-block",
   };
 
   // Detect bullet format (Haiku v2): lines starting with • or -
@@ -694,7 +698,10 @@ export default function AnalyzeModal({ isOpen, onClose, evaluation, partner, own
                   background: C.elevated, border: `1px solid ${C.border}`,
                   fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.06em",
                   color: C.secondary, cursor: "pointer",
+                  transition: "opacity 0.1s",
                 }}
+                onMouseDown={(e) => { (e.currentTarget as HTMLElement).style.opacity = "0.7"; }}
+                onMouseUp={(e) => { (e.currentTarget as HTMLElement).style.opacity = "1"; }}
               >
                 BACK
               </button>
@@ -706,9 +713,12 @@ export default function AnalyzeModal({ isOpen, onClose, evaluation, partner, own
                     background: C.elevated, border: `1px solid ${C.blue}40`,
                     fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.06em",
                     color: C.blue, cursor: "pointer",
+                    transition: "opacity 0.1s",
                   }}
+                  onMouseDown={(e) => { (e.currentTarget as HTMLElement).style.opacity = "0.7"; }}
+                  onMouseUp={(e) => { (e.currentTarget as HTMLElement).style.opacity = "1"; }}
                 >
-                  ↩ COUNTER
+                  COUNTER
                 </button>
               )}
               <button
@@ -721,7 +731,10 @@ export default function AnalyzeModal({ isOpen, onClose, evaluation, partner, own
                   fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.06em",
                   color: M.bg, cursor: sharing ? "wait" : "pointer",
                   opacity: sharing ? 0.6 : 1,
+                  transition: "opacity 0.1s",
                 }}
+                onMouseDown={(e) => { if (!sharing) (e.currentTarget as HTMLElement).style.opacity = "0.7"; }}
+                onMouseUp={(e) => { if (!sharing) (e.currentTarget as HTMLElement).style.opacity = "1"; }}
               >
                 {sharing ? "..." : "SHARE ↗"}
               </button>

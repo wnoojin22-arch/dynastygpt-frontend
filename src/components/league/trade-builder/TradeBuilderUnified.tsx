@@ -747,14 +747,15 @@ function BuilderLayer({ tb, ctx, owners, giveAssets, getAssets, sendTotal, getTo
           disabled={tb.suggestLoading}
           style={{
             flex: canAnalyze ? "0 0 auto" : 1,
-            padding: canAnalyze ? "12px 16px" : "14px 0",
-            borderRadius: 10,
-            border: canAnalyze ? `1px solid rgba(255,255,255,0.12)` : "none",
-            background: canAnalyze ? "rgba(255,255,255,0.04)" : `linear-gradient(135deg, ${C.goldDark}, ${C.gold})`,
+            padding: canAnalyze ? "12px 16px" : "16px 0",
+            borderRadius: 12,
+            border: canAnalyze ? `1px solid rgba(255,255,255,0.15)` : "2px solid rgba(212,165,50,0.4)",
+            background: canAnalyze ? "rgba(255,255,255,0.06)" : `linear-gradient(135deg, ${C.goldDark}, ${C.gold})`,
             fontFamily: MONO, fontSize: canAnalyze ? 11 : 13, fontWeight: 800, letterSpacing: "0.08em",
             color: canAnalyze ? C.primary : C.bg,
-            cursor: "pointer", minHeight: canAnalyze ? 44 : 48,
-            boxShadow: canAnalyze ? "none" : "0 0 16px rgba(212,165,50,0.12)",
+            cursor: "pointer", minHeight: canAnalyze ? 44 : 52,
+            boxShadow: canAnalyze ? "none" : "0 4px 20px rgba(212,165,50,0.25), 0 0 40px rgba(212,165,50,0.1)",
+            transition: "transform 0.1s",
           }}
         >
           {tb.suggestLoading ? `FINDING...` : "SUGGEST TRADES"}
@@ -774,13 +775,17 @@ function BuilderLayer({ tb, ctx, owners, giveAssets, getAssets, sendTotal, getTo
             }}
             disabled={tb.analyzing}
             style={{
-              flex: 1, padding: "14px 0", borderRadius: 10, border: "none",
+              flex: 1, padding: "16px 0", borderRadius: 12,
+              border: "2px solid rgba(212,165,50,0.4)",
               background: `linear-gradient(135deg, ${C.goldDark}, ${C.gold})`,
-              fontFamily: MONO, fontSize: 13, fontWeight: 800, letterSpacing: "0.08em",
+              fontFamily: MONO, fontSize: 14, fontWeight: 900, letterSpacing: "0.10em",
               color: C.bg, cursor: "pointer",
-              minHeight: 48,
-              boxShadow: "0 0 16px rgba(212,165,50,0.12)",
+              minHeight: 52,
+              boxShadow: "0 4px 20px rgba(212,165,50,0.25), 0 0 40px rgba(212,165,50,0.1)",
+              transition: "transform 0.1s, box-shadow 0.1s",
             }}
+            onMouseDown={(e) => { (e.currentTarget as HTMLElement).style.transform = "scale(0.97)"; (e.currentTarget as HTMLElement).style.boxShadow = "0 2px 10px rgba(212,165,50,0.15)"; }}
+            onMouseUp={(e) => { (e.currentTarget as HTMLElement).style.transform = "scale(1)"; (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 20px rgba(212,165,50,0.25), 0 0 40px rgba(212,165,50,0.1)"; }}
           >
             ANALYZE TRADE
           </button>
@@ -1183,19 +1188,21 @@ export default function TradeBuilderUnified() {
       {/* Floating Chat FAB — builder only (landing page has the card instead) */}
       {showBuilder && !chatOpen && (
         <div style={{ position: "fixed", bottom: 160, right: 16, zIndex: 9990, display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+          <style>{`@keyframes fabPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}`}</style>
           <button
             onClick={() => setChatOpen(true)}
             style={{
               borderRadius: 28,
               background: `linear-gradient(135deg, ${C.goldDark}, ${C.gold})`,
-              border: "none", cursor: "pointer",
+              border: `2px solid rgba(212,165,50,0.3)`, cursor: "pointer",
               display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
               padding: "8px 18px",
               boxShadow: `0 4px 20px ${C.gold}40, 0 0 40px ${C.gold}15`,
               gap: 1,
+              animation: "fabPulse 2s ease-in-out infinite",
             }}
           >
-            <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, letterSpacing: "0.08em", color: "rgba(0,0,0,0.6)", lineHeight: 1 }}>CHAT WITH</span>
+            <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.08em", color: "rgba(0,0,0,0.6)", lineHeight: 1 }}>CHAT WITH</span>
             <span style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: "#000", lineHeight: 1 }}>AI</span>
           </button>
           <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.06em", color: C.red }}>BETA</span>
