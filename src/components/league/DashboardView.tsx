@@ -573,7 +573,7 @@ function DashboardView({ lid, owner, ownerId }: { lid: string; owner: string; ow
   // ── New queries for enhanced dashboard ──
   const { data: tendencies } = useQuery({ queryKey: ["tendencies", lid, owner], queryFn: () => getOwnerTendencies(lid, owner, ownerId), enabled: !!lid && !!owner, staleTime: 600000 });
   const { data: franchiseIntel } = useQuery({ queryKey: ["franchise-intel", lid, owner], queryFn: () => getFranchiseIntel(lid, owner, ownerId), enabled: !!lid && !!owner, staleTime: 600000 });
-  const { data: marketFeed, isLoading: loadingMarket } = useQuery({ queryKey: ["market-feed", lid, owner], queryFn: () => getMarketFeed(lid, owner, ownerId, 120), enabled: !!lid && !!owner, staleTime: 1800000 });
+  const { data: marketFeed, isLoading: loadingMarket } = useQuery({ queryKey: ["market-feed", lid, owner], queryFn: () => getMarketFeed(lid, owner, ownerId, 60), enabled: !!lid && !!owner, staleTime: 1800000 });
   const { data: coachesCorner } = useQuery({ queryKey: ["coaches-corner", lid, owner], queryFn: () => getCoachesCorner(lid, owner, ownerId), enabled: !!lid && !!owner, staleTime: 600000 });
 
   // Match owner in rankings — exact first, then startsWith fallback for disambiguated names like "I am Sam (#1)"
