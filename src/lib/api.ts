@@ -146,6 +146,10 @@ export const getTradeHindsight = (id: string, tradeId: string) => get<unknown>(`
 export const getVerdictCache = (id: string) => get<{ verdicts: Record<string, unknown> }>(`${L(id)}/verdict-cache`);
 export const getTradeRecord = (id: string, owner: string, userId?: string | null) => get<{ hindsight: { won: number; lost: number; even: number; decided: number; win_rate: number; pending_count: number; total_displayable: number }; trade_day: { won: number; lost: number; even: number; decided: number; win_rate: number } }>(`${L(id)}/trades/record?owner=${E(owner)}${userId ? `&owner_user_id=${E(userId)}` : ''}`);
 
+// ── Mock Draft ──────────────────────────────────────────────────────────
+export const simulateMockDraft = (id: string, body: { user_owner?: string; user_owner_id?: string }) => post<unknown>(`${L(id)}/draft/mock-draft/simulate`, body);
+export const mockDraftPick = (id: string, body: { slot: string; prospect_name: string; prior_picks: Record<string, string>; user_owner?: string; user_owner_id?: string }) => post<unknown>(`${L(id)}/draft/mock-draft/pick`, body);
+
 // ── Trade Builder ────────────────────────────────────────────────────────
 export const getTradeBuilderSuggestions = (id: string, owner: string, userId?: string | null) => get<unknown>(`${L(id)}/trade-builder/${O(owner, userId)}`);
 export const getTradeBuilderTargets = (id: string, owner: string, userId?: string | null) => get<unknown>(`${L(id)}/trade-builder/${O(owner, userId)}/targets`);
