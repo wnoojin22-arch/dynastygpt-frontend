@@ -818,9 +818,9 @@ export default function TradeBuilderUnified() {
   const chatQuickPrompts = showBuilder
     ? ["Is this trade fair?", "How can I improve this?", "Will they accept?", "What should I add?"]
     : ["What's the best trade I can make?", "Who overpays for picks?", "Who should I sell?", "What moves should I make before the draft?", "Who is my best trade partner?"];
-  const currentOwner = useLeagueStore.getState().currentOwner || "";
-  const currentOwnerId = useLeagueStore.getState().currentOwnerId || null;
-  const leagueId = useLeagueStore.getState().currentLeagueId || "";
+  const currentOwner = useLeagueStore((s) => s.currentOwner) || "";
+  const currentOwnerId = useLeagueStore((s) => s.currentOwnerId) || null;
+  const leagueId = useLeagueStore((s) => s.currentLeagueId) || "";
 
   // Build owner window map from league intel
   const ownerWindows: Record<string, string> = {};

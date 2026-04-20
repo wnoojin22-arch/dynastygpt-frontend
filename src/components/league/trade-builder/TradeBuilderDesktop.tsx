@@ -477,7 +477,7 @@ export default function TradeBuilderDesktop({
       </div>
 
       {/* ── CHAT PANEL ── */}
-      <ChatPanel leagueId={leagueId} owner={owner} activeTrade={evaluation} suggestedPackages={suggestedPkgs.length > 0 ? suggestedPkgs : null} partner={partner} collapsed={chatCollapsed} onToggle={() => setChatCollapsed((c) => !c)} injectedMessage={chatInjection} />
+      <ChatPanel leagueId={leagueId} owner={owner} ownerId={tb.ownerId} activeTrade={evaluation} suggestedPackages={suggestedPkgs.length > 0 ? suggestedPkgs : null} partner={partner} collapsed={chatCollapsed} onToggle={() => setChatCollapsed((c) => !c)} injectedMessage={chatInjection} />
     </div>
   );
 }

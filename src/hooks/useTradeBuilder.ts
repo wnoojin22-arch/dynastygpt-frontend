@@ -682,5 +682,6 @@ export function useTradeBuilder({
       suggestAbortRef.current = true;
       setSuggestLoading(false);
     }, []),
+    ownerId: ownerId || null,
   };
 }
