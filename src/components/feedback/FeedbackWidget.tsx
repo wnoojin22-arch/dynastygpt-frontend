@@ -67,12 +67,14 @@ export default function FeedbackWidget() {
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [pulse, setPulse] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
   const [threadData, setThreadData] = useState<ThreadData | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const [replyText, setReplyText] = useState("");
   const [sendingReply, setSendingReply] = useState(false);
+  const [replyError, setReplyError] = useState<string | null>(null);
   const [chatImages, setChatImages] = useState<{ url: string; name: string }[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
   const chatFileRef = useRef<HTMLInputElement>(null);
@@ -163,7 +165,7 @@ export default function FeedbackWidget() {
     try {
       const mobile = /iPhone|iPad|Android|Mobile/i.test(navigator.userAgent);
       const hdrs = await authHeaders();
-      await fetch("/api/user/feedback/thread/message", {
+      const res = await fetch("/api/user/feedback/thread/message", {
         method: "POST",
         headers: hdrs,
         body: JSON.stringify({
@@ -178,14 +180,21 @@ export default function FeedbackWidget() {
           owner_name: currentOwner,
         }),
       });
+      if (!res.ok) {
+        setError(`Failed to send (${res.status}). Try again.`);
+        return;
+      }
       setSubmitted(true);
       setTimeout(() => {
         setSubmitted(false);
         setType(null);
         setMessage("");
         setImages([]);
+        setError(null);
       }, 2000);
-    } catch { /* silent */ }
+    } catch {
+      setError("Failed to send. Check your connection and try again.");
+    }
     finally { setSubmitting(false); }
   }, [type, message, images, user, currentLeagueId, currentOwner]);
 
@@ -231,7 +240,7 @@ export default function FeedbackWidget() {
     setSendingReply(true);
     try {
       const hdrs = await authHeaders();
-      await fetch("/api/user/feedback/thread/message", {
+      const res = await fetch("/api/user/feedback/thread/message", {
         method: "POST",
         headers: hdrs,
         body: JSON.stringify({
@@ -244,10 +253,17 @@ export default function FeedbackWidget() {
           owner_name: currentOwner,
         }),
       });
+      if (!res.ok) {
+        setReplyError(`Failed to send (${res.status})`);
+        return;
+      }
       setReplyText("");
       setChatImages([]);
+      setReplyError(null);
       loadThread();
-    } catch { /* silent */ }
+    } catch {
+      setReplyError("Failed to send. Check your connection.");
+    }
     finally { setSendingReply(false); }
   }, [replyText, chatImages, user, currentLeagueId, currentOwner, loadThread]);
 
@@ -421,11 +437,18 @@ export default function FeedbackWidget() {
                     {/* Message */}
                     <textarea
                       value={message}
-                      onChange={(e) => setMessage(e.target.value)}
+                      onChange={(e) => { setMessage(e.target.value); if (error) setError(null); }}
                       placeholder="What's on your mind?"
                       rows={4}
                       className="w-full p-3 rounded-lg bg-[#06080d] border border-[#1a1e30] text-[#eeeef2] font-sans text-sm resize-y outline-none mb-3 focus:border-[#d4a532] transition-colors"
                     />
+
+                    {/* Error */}
+                    {error && (
+                      <div className="px-3 py-2 rounded-lg bg-[rgba(228,114,114,0.1)] border border-[rgba(228,114,114,0.3)] font-sans text-[12px] text-[#e47272] mb-2">
+                        {error}
+                      </div>
+                    )}
 
                     {/* Submit */}
                     <button
@@ -491,6 +514,11 @@ export default function FeedbackWidget() {
 
                 {/* Reply input with image upload */}
                 <div className="border-t border-[#1a1e30]">
+                  {replyError && (
+                    <div className="mx-3 mt-2 px-3 py-1.5 rounded-lg bg-[rgba(228,114,114,0.1)] border border-[rgba(228,114,114,0.3)] font-sans text-[11px] text-[#e47272]">
+                      {replyError}
+                    </div>
+                  )}
                   {/* Staged images */}
                   {chatImages.length > 0 && (
                     <div className="px-3 pt-2 flex gap-1.5 flex-wrap">
