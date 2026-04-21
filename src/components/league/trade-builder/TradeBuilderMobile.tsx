@@ -432,6 +432,9 @@ export default function TradeBuilderMobile({
           owner={owner}
           ownerId={ownerId}
           ownerRoster={tb.myRoster}
+          mode={tb.mode}
+          myWindow={tb.myWindow}
+          theirWindow={tb.theirWindow}
           onSave={handleSaveBuild}
           onBack={handleBackToStack}
         />

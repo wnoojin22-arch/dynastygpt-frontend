@@ -80,6 +80,94 @@ export interface UseTradeBuilderReturn {
 const toBackend = (w: string) => (w === "WIN-NOW" ? "CONTENDER" : w);
 const toDisplay = (w: string) => (w === "CONTENDER" ? "WIN-NOW" : w);
 
+// Debounced backend call to /trade-builder/evaluate, returns just the
+// acceptance %. Single source of truth shared between TradeBuilderUnified
+// (BuilderLayer header) and TapToBuild (mobile quick-build header) so both
+// surfaces show the SAME number as AnalysisModal — no client-side estimator
+// divergence. Honesty over responsiveness: stale value clears immediately on
+// any input change, "—%" renders during debounce + in-flight.
+export function useAcceptancePreview(opts: {
+  leagueId: string;
+  owner: string;
+  ownerId?: string | null;
+  partner: string;
+  giveNames: string[];
+  receiveNames: string[];
+  mode: string;
+  myWindow: string | null;
+  theirWindow: string | null;
+}): { value: number | null; loading: boolean } {
+  const { leagueId, owner, ownerId, partner, giveNames, receiveNames, mode, myWindow, theirWindow } = opts;
+  const [value, setValue] = useState<number | null>(null);
+  const [loading, setLoading] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
+
+  // Stable signature — re-fires on actual content change, not array identity.
+  const sig = `${giveNames.join("|")}>${receiveNames.join("|")}|${partner}|${mode}|${myWindow}|${theirWindow}`;
+
+  useEffect(() => {
+    abortRef.current?.abort();
+    if (!partner || giveNames.length === 0 || receiveNames.length === 0) {
+      setValue(null);
+      setLoading(false);
+      return;
+    }
+    setValue(null);
+    setLoading(true);
+
+    const ac = new AbortController();
+    abortRef.current = ac;
+
+    const timer = setTimeout(async () => {
+      try {
+        const { authHeaders } = await import("@/lib/api");
+        const hdrs = await authHeaders();
+        const res = await fetch(
+          `${API}/api/league/${leagueId}/trade-builder/evaluate`,
+          {
+            method: "POST",
+            headers: hdrs,
+            signal: ac.signal,
+            body: JSON.stringify({
+              owner,
+              partner,
+              i_give: giveNames,
+              i_receive: receiveNames,
+              mode,
+              window_override: myWindow ? toBackend(myWindow) : null,
+              partner_window_override: theirWindow ? toBackend(theirWindow) : null,
+              user_id: ownerId || undefined,
+            }),
+          },
+        );
+        if (ac.signal.aborted) return;
+        if (!res.ok) {
+          setValue(null);
+          setLoading(false);
+          return;
+        }
+        const data = (await res.json()) as { acceptance?: { acceptance_likelihood?: number } };
+        if (ac.signal.aborted) return;
+        const al = data.acceptance?.acceptance_likelihood;
+        setValue(typeof al === "number" ? al : null);
+        setLoading(false);
+      } catch (e) {
+        if ((e as { name?: string })?.name === "AbortError") return;
+        setValue(null);
+        setLoading(false);
+      }
+    }, 300);
+
+    return () => {
+      clearTimeout(timer);
+      ac.abort();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [leagueId, owner, ownerId, sig]);
+
+  return { value, loading };
+}
+
 function buildRoster(data: unknown, picksData?: unknown): RosterPlayer[] {
   const all: RosterPlayer[] = [];
   if (data) {

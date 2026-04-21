@@ -5,11 +5,12 @@
  * Arrives pre-loaded from a swipe suggestion or empty from partner select.
  * Feels like a live negotiation — balance, acceptance, and chips animate in real-time.
  */
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
 import { getRoster, getPicks } from "@/lib/api";
+import { useAcceptancePreview } from "@/hooks/useTradeBuilder";
 import type { SuggestedPackage, RosterPlayer } from "./types";
 
 /* ── helpers ── */
@@ -77,21 +78,6 @@ function buildRoster(data: unknown, picksData?: unknown): RosterPlayer[] {
   return all;
 }
 
-function estimateAcceptance(giveTotal: number, recvTotal: number, giveCount: number, recvCount: number): number {
-  if (giveTotal <= 0 || recvTotal <= 0) return 25;
-  const gapPct = Math.abs(recvTotal - giveTotal) / Math.max(giveTotal, recvTotal) * 100;
-  let fairness = 50;
-  if (gapPct > 40) fairness = 10;
-  else if (gapPct > 25) fairness = 20;
-  else if (gapPct > 15) fairness = 30;
-  else if (gapPct > 5) fairness = 40;
-  if (giveTotal > recvTotal) fairness = Math.min(fairness + 10, 50);
-  let consolPenalty = 0;
-  if (giveCount >= 3 && recvCount === 1) consolPenalty = 15;
-  else if (giveCount >= 2 && recvCount === 1) consolPenalty = 8;
-  return Math.max(10, Math.min(90, fairness - consolPenalty + 20));
-}
-
 const FILTERS = ["ALL", "QB", "RB", "WR", "TE", "PICK"] as const;
 
 /* ── Animated chip (appears in SEND/GET rows) ── */
@@ -155,6 +141,9 @@ export default function TapToBuild({
   ownerId,
   ownerRoster: ownerRosterProp,
   partnerWindow,
+  mode,
+  myWindow,
+  theirWindow,
   onSave,
   onSuggest,
   onAnalyze,
@@ -166,6 +155,9 @@ export default function TapToBuild({
   ownerId?: string | null;
   ownerRoster: RosterPlayer[];
   partnerWindow?: string;
+  mode: string;
+  myWindow: string | null;
+  theirWindow: string | null;
   onSave: (giveNames: string[], receiveNames: string[], partnerName: string) => void;
   onSuggest?: () => void;
   onAnalyze?: () => void;
@@ -223,11 +215,19 @@ export default function TapToBuild({
   const gapPct = giveTotal > 0 ? ((recvTotal - giveTotal) / giveTotal) * 100 : 0;
   const barColor = recvTotal > giveTotal ? "#7dd3a0" : recvTotal < giveTotal ? "#e47272" : "#d4a532";
 
-  const acceptance = useMemo(
-    () => estimateAcceptance(giveTotal, recvTotal, giveNames.length, receiveNames.length),
-    [giveTotal, recvTotal, giveNames.length, receiveNames.length],
-  );
-  const accClr = acceptColor(acceptance);
+  const acceptanceP = useAcceptancePreview({
+    leagueId,
+    owner,
+    ownerId,
+    partner: partnerName,
+    giveNames,
+    receiveNames,
+    mode,
+    myWindow,
+    theirWindow,
+  });
+  const acceptance = acceptanceP.value;
+  const accClr = acceptance != null ? acceptColor(acceptance) : "#9596a580";
 
   const toggleAsset = useCallback((name: string) => {
     if (activeTab === "yours") {
@@ -264,14 +264,14 @@ export default function TapToBuild({
           {/* Acceptance */}
           <div className="text-right shrink-0 ml-2">
             <motion.span
-              key={acceptance}
+              key={acceptance ?? "loading"}
               initial={{ opacity: 0, y: -4 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.2 }}
               className="font-mono text-xl font-black block leading-none"
               style={{ color: accClr }}
             >
-              {acceptance}%
+              {acceptance != null ? `${acceptance}%` : "—%"}
             </motion.span>
             <span className="font-mono text-[7px] font-bold text-[#9596a580] tracking-wide">LIKELY TO ACCEPT</span>
           </div>

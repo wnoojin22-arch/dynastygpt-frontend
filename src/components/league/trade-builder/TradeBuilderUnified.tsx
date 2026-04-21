@@ -10,6 +10,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { useTradeBuilderContext } from "./TradeBuilderProvider";
+import { useAcceptancePreview } from "@/hooks/useTradeBuilder";
 import { useLeagueStore } from "@/lib/stores/league-store";
 import { useTradeBuilderStore } from "@/lib/stores/trade-builder-store";
 import { getAllRosters } from "@/lib/api";
@@ -416,23 +417,6 @@ function SwipeModal({ tb, ctx, leagueId }: { tb: ReturnType<typeof useTradeBuild
   );
 }
 
-// ── Acceptance estimator (client-side, instant feedback) ─────────────────
-
-function estimateAcceptance(giveTotal: number, recvTotal: number, giveCount: number, recvCount: number): number {
-  if (giveTotal <= 0 || recvTotal <= 0) return 25;
-  const gapPct = Math.abs(recvTotal - giveTotal) / Math.max(giveTotal, recvTotal) * 100;
-  let fairness = 50;
-  if (gapPct > 40) fairness = 10;
-  else if (gapPct > 25) fairness = 20;
-  else if (gapPct > 15) fairness = 30;
-  else if (gapPct > 5) fairness = 40;
-  if (giveTotal > recvTotal) fairness = Math.min(fairness + 10, 50);
-  let consolPenalty = 0;
-  if (giveCount >= 3 && recvCount === 1) consolPenalty = 15;
-  else if (giveCount >= 2 && recvCount === 1) consolPenalty = 8;
-  return Math.max(10, Math.min(90, fairness - consolPenalty + 20));
-}
-
 function acceptColor(s: number) {
   if (s >= 70) return "#7dd3a0";
   if (s >= 50) return "#d4a532";
@@ -450,7 +434,7 @@ function windowBadge(w: string | undefined) {
 
 // ── Builder Layer (mobile trade builder — live negotiation feel) ─────────
 
-function BuilderLayer({ tb, ctx, owners, giveAssets, getAssets, sendTotal, getTotal, balance, balancePct, balanceColor, canAnalyze, suggestContext, activeTab, setActiveTab, posFilter, setPosFilter, roster, filtered, selectedNames, toggleFn, partnerWindow }: {
+function BuilderLayer({ tb, ctx, owners, giveAssets, getAssets, sendTotal, getTotal, balance, balancePct, balanceColor, canAnalyze, suggestContext, activeTab, setActiveTab, posFilter, setPosFilter, roster, filtered, selectedNames, toggleFn, partnerWindow, acceptancePreview }: {
   tb: ReturnType<typeof useTradeBuilderContext>["tb"];
   ctx: ReturnType<typeof useTradeBuilderContext>;
   owners: Array<{ name: string }>;
@@ -464,13 +448,14 @@ function BuilderLayer({ tb, ctx, owners, giveAssets, getAssets, sendTotal, getTo
   filtered: Array<{ name: string; position: string; sha_value: number; sha_pos_rank: string; age: number | null }>;
   selectedNames: string[]; toggleFn: (name: string) => void;
   partnerWindow?: string;
+  acceptancePreview: number | null;
 }) {
   const win = windowBadge(partnerWindow);
   const maxBar = Math.max(sendTotal, getTotal, 1);
   const barColor = getTotal > sendTotal ? "#7dd3a0" : getTotal < sendTotal ? "#e47272" : "#d4a532";
   const gapPct = sendTotal > 0 ? ((getTotal - sendTotal) / sendTotal) * 100 : 0;
-  const acceptance = estimateAcceptance(sendTotal, getTotal, giveAssets.length, getAssets.length);
-  const accClr = acceptColor(acceptance);
+  const acceptance = acceptancePreview;
+  const accClr = acceptance != null ? acceptColor(acceptance) : C.dim;
 
   const track = useTrack();
   const trackedLeagueId = useLeagueStore.getState().currentLeagueId || "";
@@ -517,13 +502,13 @@ function BuilderLayer({ tb, ctx, owners, giveAssets, getAssets, sendTotal, getTo
           {(giveAssets.length > 0 || getAssets.length > 0) && (
             <div style={{ textAlign: "right", flexShrink: 0, marginLeft: 8 }}>
               <motion.div
-                key={acceptance}
+                key={acceptance ?? "loading"}
                 initial={{ opacity: 0, y: -4 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.2 }}
                 style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: accClr, lineHeight: 1 }}
               >
-                {acceptance}%
+                {acceptance != null ? `${acceptance}%` : "—%"}
               </motion.div>
               <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.dim, letterSpacing: "0.06em" }}>LIKELY TO ACCEPT</div>
             </div>
@@ -826,6 +811,18 @@ export default function TradeBuilderUnified() {
   const currentOwner = useLeagueStore((s) => s.currentOwner) || "";
   const currentOwnerId = useLeagueStore((s) => s.currentOwnerId) || null;
   const leagueId = useLeagueStore((s) => s.currentLeagueId) || "";
+
+  const acceptanceP = useAcceptancePreview({
+    leagueId,
+    owner: currentOwner,
+    ownerId: currentOwnerId,
+    partner: tb.partner,
+    giveNames: tb.giveNames,
+    receiveNames: tb.receiveNames,
+    mode: tb.mode,
+    myWindow: tb.myWindow,
+    theirWindow: tb.theirWindow,
+  });
 
   // Build owner window map from league intel
   const ownerWindows: Record<string, string> = {};
@@ -1142,6 +1139,7 @@ export default function TradeBuilderUnified() {
           roster={roster} filtered={filtered}
           selectedNames={selectedNames} toggleFn={toggleFn}
           partnerWindow={ownerWindows[tb.partner] || "BALANCED"}
+          acceptancePreview={acceptanceP.value}
         />
       )}
 
