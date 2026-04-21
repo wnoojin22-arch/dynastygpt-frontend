@@ -75,6 +75,8 @@ export default function MockDraftPage() {
 
   // Pre-draft data (used in both landing AND live draft sections)
   const myPicks = (pd?.user_picks || []) as Array<{ slot: string; round: number; picks_before: number }>;
+  const grades = (pd?.positional_grades || {}) as Record<string, string>;
+  const needs = (pd?.needs || []) as string[];
 
   // ── Start draft: load sim then begin live reveal ──
   const handleStart = useCallback(async () => {
@@ -211,8 +213,13 @@ export default function MockDraftPage() {
           {revealed.map((pick, i) => {
             const isUser = pick.owner.toLowerCase() === owner.toLowerCase();
             const wasUserPick = !!userPicks[pick.slot];
-            const pc = POS_COLOR[pick.prospect_position] || C.dim;
             const displayName = wasUserPick ? userPicks[pick.slot] : pick.prospect_name;
+            // Resolve position from consensus board when user picked someone different
+            const actualProspect = wasUserPick
+              ? (consensusBoard.find((c) => c.name === userPicks[pick.slot]))
+              : null;
+            const displayPos = actualProspect ? actualProspect.position : pick.prospect_position;
+            const pc = POS_COLOR[displayPos] || C.dim;
             const probs = pickProbs[pick.slot] || [];
             const topProb = probs[0]?.pct || 0;
             const isExpanded = activeDetailSlot === pick.slot;
@@ -234,7 +241,7 @@ export default function MockDraftPage() {
                   <span className="text-xs font-black w-9 flex-shrink-0" style={{ fontFamily: MONO, color: isUser ? C.gold : C.dim }}>{pick.slot}</span>
                   <span className={`text-xs font-bold flex-shrink-0 ${mobile ? "w-20" : "w-32"} truncate`} style={{ fontFamily: SANS, color: isUser ? C.gold : C.secondary }}>{pick.owner}</span>
                   <span className="text-[10px] flex-shrink-0" style={{ color: C.dim }}>→</span>
-                  <span className="text-[9px] font-black tracking-wider px-1.5 py-0.5 rounded flex-shrink-0" style={{ fontFamily: MONO, color: pc, background: `${pc}18`, border: `1px solid ${pc}25` }}>{pick.prospect_position}</span>
+                  <span className="text-[9px] font-black tracking-wider px-1.5 py-0.5 rounded flex-shrink-0" style={{ fontFamily: MONO, color: pc, background: `${pc}18`, border: `1px solid ${pc}25` }}>{displayPos}</span>
                   <span className="text-sm font-bold truncate flex-1" style={{ fontFamily: SANS, color: isUser ? C.gold : C.primary }}>{displayName}</span>
                   <span className="text-[10px] font-bold flex-shrink-0" style={{ fontFamily: MONO, color: topProb >= 60 ? C.green : topProb >= 35 ? C.gold : C.dim }}>{topProb}%</span>
                   {tf && <span className="text-[8px] font-bold px-1 py-0.5 rounded" style={{ fontFamily: MONO, color: C.gold, background: `${C.gold}12` }}>TRADE</span>}
@@ -256,11 +263,55 @@ export default function MockDraftPage() {
                         <span className="text-[9px]" style={{ fontFamily: MONO, color: C.dim }}>Consensus #{pick.board_position}</span>
                       </div>
 
+                      {/* WHY THIS PICK — narrative from available data */}
+                      {(() => {
+                        // Use trade flag data for this slot — it has owner_grade_at_bpa
+                        const pickTf = tf;
+                        const posGrade = pickTf ? (pickTf as any).owner_grade_at_bpa : null;
+                        const reasons: string[] = [];
+
+                        // Need-based reason
+                        if (posGrade === "CRITICAL") reasons.push(`${pick.owner} has a CRITICAL ${pick.prospect_position} need — this is their biggest roster hole`);
+                        else if (posGrade === "WEAK") reasons.push(`${pick.prospect_position} is a WEAK spot on ${pick.owner}'s roster`);
+                        else if (posGrade === "ELITE" || posGrade === "STRONG") reasons.push(`${pick.owner} is already ${posGrade} at ${pick.prospect_position} — this is a BPA pick over need`);
+                        else if (posGrade) reasons.push(`${pick.prospect_position} is ${posGrade} for ${pick.owner}`);
+
+                        // BPA reason
+                        if (pick.board_position <= 3) reasons.push(`Consensus top 3 prospect (#${pick.board_position} overall) — too good to pass up`);
+                        else if (pick.board_position <= 8) reasons.push(`Top 8 on the board (#${pick.board_position}) — strong value here`);
+                        else if (pick.board_position <= 15) reasons.push(`Ranked #${pick.board_position} on the consensus board`);
+
+                        // Probability
+                        if (topProb >= 70) reasons.push(`${topProb}% of simulations predicted this exact pick`);
+                        else if (topProb >= 40) reasons.push(`Most likely pick at ${topProb}% — but ${100 - topProb}% chance of going another direction`);
+                        else reasons.push(`Only ${topProb}% likely — this pick is unpredictable`);
+
+                        // Window reason
+                        if (pick.window === "REBUILDER") reasons.push("Rebuilder prioritizing future upside over win-now production");
+                        else if (pick.window === "CONTENDER") reasons.push("Contender looking for an immediate roster contributor");
+
+                        // Tier/boom-bust
+                        if (pick.prospect_tier <= 2) reasons.push(`Tier ${pick.prospect_tier} prospect — elite talent level`);
+                        if (pick.prospect_boom_bust === "SAFE") reasons.push("High-floor prospect with strong consensus — safe selection");
+                        else if (pick.prospect_boom_bust === "BOOM/BUST") reasons.push("Volatile prospect — wide range of expert opinions. High ceiling, low floor.");
+
+                        return (
+                          <div className="mb-2 rounded-lg px-3 py-2" style={{ background: "rgba(212,165,50,0.03)", border: "1px solid rgba(212,165,50,0.08)" }}>
+                            <div className="text-[9px] font-bold tracking-widest mb-1" style={{ fontFamily: MONO, color: C.gold }}>WHY THIS PICK</div>
+                            {reasons.slice(0, 4).map((r, ri) => (
+                              <div key={ri} className="text-[10px] leading-relaxed" style={{ fontFamily: SANS, color: C.secondary }}>
+                                • {r}
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
+
                       {/* Probability breakdown */}
                       {probs.length > 1 && (
                         <div className="mb-2">
                           <div className="text-[9px] font-bold tracking-widest mb-1" style={{ fontFamily: MONO, color: C.dim }}>WHO ELSE COULD GO HERE</div>
-                          {probs.slice(0, 4).map((p, j) => (
+                          {probs.filter((p) => p.prospect !== pick.prospect_name).slice(0, 4).map((p, j) => (
                             <div key={j} className="flex items-center gap-2 py-0.5">
                               <span className="text-[9px] font-black px-1 py-0.5 rounded" style={{ fontFamily: MONO, color: POS_COLOR[p.position] || C.dim, background: `${POS_COLOR[p.position] || C.dim}15` }}>{p.position}</span>
                               <span className="text-xs font-semibold flex-1" style={{ fontFamily: SANS, color: j === 0 ? C.primary : C.secondary }}>{p.prospect}</span>
@@ -436,7 +487,10 @@ export default function MockDraftPage() {
                   {consensusBoard
                     .filter((p) => {
                       // Only available prospects (not already picked in revealed picks)
-                      const pickedNames = new Set(revealed.map((r) => r.prospect_name));
+                      const pickedNames = new Set([
+                        ...revealed.map((r) => r.prospect_name),
+                        ...Object.values(userPicks),
+                      ]);
                       if (pickedNames.has(p.name)) return false;
                       if (pickPosFilter !== "ALL" && p.position !== pickPosFilter) return false;
                       if (pickSearch && !p.name.toLowerCase().includes(pickSearch.toLowerCase())) return false;
@@ -600,8 +654,6 @@ export default function MockDraftPage() {
   // ═══════════════════════════════════════════════════════════
   // LANDING — WAR ROOM HERO
   // ═══════════════════════════════════════════════════════════
-  const grades = (pd?.positional_grades || {}) as Record<string, string>;
-  const needs = (pd?.needs || []) as string[];
   const topProspects = (pd?.top_prospects || []) as Array<{
     name: string; position: string; rank: number; tier: number; boom_bust: string; fills_need: boolean;
   }>;
