@@ -30,6 +30,7 @@ import type {
   TradeBuyer,
 } from "./contracts";
 import { pickNumFromSlot } from "./helpers";
+import SelectionTray from "./SelectionTray";
 
 // ─── Tokens — mirrored from WarRoomLanding so F1/F2 feel like one surface ─
 const PS = {
@@ -229,7 +230,10 @@ export default function PickScreen({
   }, [available, search, posFilter]);
 
   return (
-    <div className="min-h-screen" style={{ background: PS.bg, fontFamily: SANS, color: C.primary }}>
+    <div
+      className="min-h-screen pb-[96px] md:pb-6 md:pr-[340px]"
+      style={{ background: PS.bg, fontFamily: SANS, color: C.primary }}
+    >
       <style>{`
         .ps-tabular { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
         .ps-flash { animation: ps-flash 1.6s ease-out 1; }
@@ -489,6 +493,8 @@ export default function PickScreen({
           )}
         </div>
       </section>
+
+      <SelectionTray consensusBoard={simSnapshot.consensus_board} />
     </div>
   );
 }
