@@ -55,9 +55,9 @@ describe("activeDrafters", () => {
 // ─── threatsAheadOfUser ──────────────────────────────────────────────────
 describe("threatsAheadOfUser", () => {
   const OWNER_META = [
-    { owner: "Alpha", owner_user_id: "a1", draft_identity: "GAMBLER" as const, hit_rate: 0.58, round1_position_distribution: { QB: 3, WR: 1 } },
-    { owner: "Bravo", owner_user_id: "b1", draft_identity: "DEVELOPER" as const, hit_rate: 0.62, round1_position_distribution: { WR: 4 } },
-    { owner: "Charlie", owner_user_id: "c1", draft_identity: "BALANCED" as const, hit_rate: 0.48, round1_position_distribution: { RB: 2, WR: 2 } },
+    { owner: "Alpha", owner_user_id: "a1", draft_identity: "GAMBLER" as const, hit_rate: 58, round1_position_distribution: { QB: 3, WR: 1 } },
+    { owner: "Bravo", owner_user_id: "b1", draft_identity: "DEVELOPER" as const, hit_rate: 62, round1_position_distribution: { WR: 4 } },
+    { owner: "Charlie", owner_user_id: "c1", draft_identity: "BALANCED" as const, hit_rate: 48, round1_position_distribution: { RB: 2, WR: 2 } },
   ];
 
   test("returns picks in user's round with pickNum < user, sorted by pickNum asc", () => {
@@ -88,7 +88,7 @@ describe("threatsAheadOfUser", () => {
     const availability: Record<string, AvailabilityEntry[]> = {
       // Alpha picks at 1.01 (pickNum 1). before = 0, after = user's pickNum (4).
       // Test needs before at pickNum=0 (pickNum - 1). Use 1.05 → pickNum 5, user at 1.06 → pickNum 6.
-      B1: [{ slot: "1.01", pct_available: 0.80 }, { slot: "1.04", pct_available: 0.00 }],
+      B1: [{ slot: "1.01", pct_available: 80 }, { slot: "1.04", pct_available: 0 }],
     };
     // Re-run with user at 1.04 so boundary maps correctly (before = pickNum 1, after = pickNum 4).
     // Helper looks up before = pickNumFromSlot(...) === pickNum - 1 = 0 (no 0), so no shift.
@@ -97,8 +97,8 @@ describe("threatsAheadOfUser", () => {
     // we need an entry at slot-with-pickNum=1 AND at user pickNum 4.
     const avail2: Record<string, AvailabilityEntry[]> = {
       B1: [
-        { slot: "1.01", pct_available: 0.80 }, // pickNum 1  (before)
-        { slot: "1.04", pct_available: 0.10 }, // pickNum 4  (after / user)
+        { slot: "1.01", pct_available: 80 }, // pickNum 1  (before)
+        { slot: "1.04", pct_available: 10 }, // pickNum 4  (after / user)
       ],
     };
     const out = threatsAheadOfUser({
@@ -110,7 +110,7 @@ describe("threatsAheadOfUser", () => {
       availability: avail2,
     });
     const bravo = out.find((t) => t.owner === "Bravo");
-    expect(bravo?.availability_shift).toEqual({ prospect: "B1", before: 0.80, after: 0.10 });
+    expect(bravo?.availability_shift).toEqual({ prospect: "B1", before: 80, after: 10 });
   });
 
   test("excludes picks in later rounds even if pickNum < userPickNum somehow", () => {
@@ -150,16 +150,16 @@ describe("prospectsAtRisk", () => {
 
   test("returns top-N prospects with pct_available below threshold, lowest first", () => {
     const avail: Record<string, AvailabilityEntry[]> = {
-      P1: [{ slot: "1.07", pct_available: 0.00 }],
-      P2: [{ slot: "1.07", pct_available: 0.10 }],
-      P3: [{ slot: "1.07", pct_available: 0.65 }], // above threshold, excluded
-      P4: [{ slot: "1.07", pct_available: 0.35 }],
+      P1: [{ slot: "1.07", pct_available: 0 }],
+      P2: [{ slot: "1.07", pct_available: 10 }],
+      P3: [{ slot: "1.07", pct_available: 65 }], // above threshold, excluded
+      P4: [{ slot: "1.07", pct_available: 35 }],
     };
     const out = prospectsAtRisk({
       consensusBoard: BOARD,
       availability: avail,
       userFirstSlot: "1.07",
-      threshold: 0.5,
+      threshold: 50,
     });
     expect(out.map((p) => p.name)).toEqual(["P1", "P2", "P4"]);
     expect(out[0].pct_available).toBe(0);
@@ -167,21 +167,21 @@ describe("prospectsAtRisk", () => {
 
   test("threshold is strict (>= threshold is excluded)", () => {
     const avail: Record<string, AvailabilityEntry[]> = {
-      P1: [{ slot: "1.07", pct_available: 0.50 }], // exactly at threshold → excluded
-      P2: [{ slot: "1.07", pct_available: 0.49 }], // just under → included
+      P1: [{ slot: "1.07", pct_available: 50 }], // exactly at threshold → excluded
+      P2: [{ slot: "1.07", pct_available: 49 }], // just under → included
     };
     const out = prospectsAtRisk({
       consensusBoard: BOARD,
       availability: avail,
       userFirstSlot: "1.07",
-      threshold: 0.5,
+      threshold: 50,
     });
     expect(out.map((p) => p.name)).toEqual(["P2"]);
   });
 
   test("skips prospects missing from availability map", () => {
     const avail: Record<string, AvailabilityEntry[]> = {
-      P1: [{ slot: "1.07", pct_available: 0.20 }],
+      P1: [{ slot: "1.07", pct_available: 20 }],
       // P2-P5 absent
     };
     const out = prospectsAtRisk({
@@ -194,8 +194,8 @@ describe("prospectsAtRisk", () => {
 
   test("topN clamps the consensus slice", () => {
     const avail: Record<string, AvailabilityEntry[]> = {
-      P1: [{ slot: "1.07", pct_available: 0.10 }],
-      P5: [{ slot: "1.07", pct_available: 0.05 }], // outside topN=3
+      P1: [{ slot: "1.07", pct_available: 10 }],
+      P5: [{ slot: "1.07", pct_available: 5 }], // outside topN=3
     };
     const out = prospectsAtRisk({
       consensusBoard: BOARD,

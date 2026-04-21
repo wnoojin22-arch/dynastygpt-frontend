@@ -38,6 +38,17 @@ const MD = {
   cardGlow: "0 0 30px rgba(212,165,50,0.08), inset 0 1px 0 rgba(255,255,255,0.05)",
 };
 const POS_COLOR: Record<string, string> = { QB: "#e47272", RB: "#6bb8e0", WR: "#7dd3a0", TE: "#e09c6b" };
+const WINDOW_TOOLTIP: Record<string, string> = {
+  REBUILDER: "Rebuilder — targeting future seasons, collecting assets",
+  CONTENDER: "Contender — competing now, values immediate impact",
+  BALANCED: "Balanced — neither fully rebuilding nor all-in",
+};
+const BOOMBUST_TOOLTIP: Record<string, string> = {
+  SAFE: "Safe pick — reliable floor, low bust risk",
+  MODERATE: "Moderate — balanced upside and risk",
+  POLARIZING: "Polarizing — analysts disagree, wide range of outcomes",
+  "BOOM/BUST": "Boom/Bust — high upside, high bust risk",
+};
 const GRADE_BAR: Record<string, { color: string; width: string; pulse: boolean }> = {
   CRITICAL: { color: "#e47272", width: "95%", pulse: true },
   WEAK: { color: "#e09c6b", width: "75%", pulse: false },
@@ -328,11 +339,11 @@ export default function MockDraftPage() {
                   <span
                     className="text-[10px] font-bold flex-shrink-0"
                     style={{ fontFamily: MONO, color: topProb >= 60 ? C.green : topProb >= 35 ? C.gold : C.dim }}
-                    title={`Chalk confidence — ${topProb}% of simulations predicted this pick`}
+                    title={`${topProb}% of simulations predicted this exact pick`}
                   >
-                    {topProb}% chalk
+                    {topProb}% chance
                   </span>
-                  {tf && <span className="text-[8px] font-bold px-1 py-0.5 rounded" style={{ fontFamily: MONO, color: C.gold, background: `${C.gold}12` }}>TRADE</span>}
+                  {tf && <span className="text-[8px] font-bold px-1 py-0.5 rounded" style={{ fontFamily: MONO, color: C.gold, background: `${C.gold}12` }} title="This owner is a likely trade partner at this slot">TRADE INTEREST</span>}
                   <span className="text-[10px]" style={{ color: C.dim }}>{isExpanded ? "▲" : "▼"}</span>
                 </div>
 
@@ -344,11 +355,17 @@ export default function MockDraftPage() {
 
                       {/* Owner context */}
                       <div className="flex items-center gap-2 mb-2">
-                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{
-                          fontFamily: MONO, color: pick.window === "CONTENDER" ? C.green : pick.window === "REBUILDER" ? C.red : C.secondary,
-                          background: pick.window === "CONTENDER" ? "rgba(125,211,160,0.12)" : pick.window === "REBUILDER" ? "rgba(228,114,114,0.12)" : "rgba(176,178,200,0.08)",
-                        }}>{pick.window}</span>
-                        <span className="text-[9px]" style={{ fontFamily: MONO, color: C.dim }}>Consensus #{pick.board_position}</span>
+                        <span
+                          className="text-[9px] font-bold px-1.5 py-0.5 rounded"
+                          style={{
+                            fontFamily: MONO, color: pick.window === "CONTENDER" ? C.green : pick.window === "REBUILDER" ? C.red : C.secondary,
+                            background: pick.window === "CONTENDER" ? "rgba(125,211,160,0.12)" : pick.window === "REBUILDER" ? "rgba(228,114,114,0.12)" : "rgba(176,178,200,0.08)",
+                          }}
+                          title={WINDOW_TOOLTIP[pick.window] ?? ""}
+                        >
+                          {pick.window}
+                        </span>
+                        <span className="text-[9px]" style={{ fontFamily: MONO, color: C.dim }} title={`Ranked #${pick.board_position} on the consensus board`}>Consensus rank #{pick.board_position}</span>
                       </div>
 
                       {/* WHY THIS PICK — narrative from available data */}
@@ -398,14 +415,14 @@ export default function MockDraftPage() {
                       {/* Probability breakdown */}
                       {probs.length > 1 && (
                         <div className="mb-2">
-                          <div className="text-[9px] font-bold tracking-widest mb-1" style={{ fontFamily: MONO, color: C.dim }}>WHO ELSE COULD GO HERE</div>
+                          <div className="text-[9px] font-bold tracking-widest mb-1" style={{ fontFamily: MONO, color: C.dim }}>OTHER POSSIBLE PICKS · % CHANCE SELECTED</div>
                           {probs.filter((p) => p.prospect !== pick.prospect_name).slice(0, 4).map((p, j) => (
                             <div key={j} className="flex items-center gap-2 py-0.5">
                               <span className="text-[9px] font-black px-1 py-0.5 rounded" style={{ fontFamily: MONO, color: POS_COLOR[p.position] || C.dim, background: `${POS_COLOR[p.position] || C.dim}15` }}>{p.position}</span>
                               <span className="text-xs font-semibold flex-1" style={{ fontFamily: SANS, color: j === 0 ? C.primary : C.secondary }}>{p.prospect}</span>
-                              <div className="flex items-center gap-1">
+                              <div className="flex items-center gap-1" title={`${p.pct}% of simulations had ${pick.owner} take ${p.prospect} at ${pick.slot}`}>
                                 <div className="h-1.5 rounded-full" style={{ width: Math.max(8, p.pct * 0.8), background: j === 0 ? C.gold : C.dim }} />
-                                <span className="text-[10px] font-bold w-8 text-right" style={{ fontFamily: MONO, color: j === 0 ? C.gold : C.dim }}>{p.pct}%</span>
+                                <span className="text-[10px] font-bold w-12 text-right" style={{ fontFamily: MONO, color: j === 0 ? C.gold : C.dim }}>{p.pct}% chance</span>
                               </div>
                             </div>
                           ))}
@@ -415,8 +432,12 @@ export default function MockDraftPage() {
                       {/* Trade intel */}
                       {tf && (
                         <div className="rounded-lg px-3 py-2 mt-1" style={{ background: "rgba(212,165,50,0.04)", border: "1px dashed rgba(212,165,50,0.15)" }}>
-                          <div className="text-[9px] font-bold tracking-widest mb-1" style={{ fontFamily: MONO, color: C.gold }}>
-                            TRADE CANDIDATE — {(tf as any).trade_probability}%
+                          <div
+                            className="text-[9px] font-bold tracking-widest mb-1"
+                            style={{ fontFamily: MONO, color: C.gold }}
+                            title={`${(tf as any).trade_probability}% of simulations show this pick as a live trade offer`}
+                          >
+                            TRADE CANDIDATE · {(tf as any).trade_probability}% CHANCE OF LIVE OFFER
                           </div>
                           <div className="text-[10px] leading-relaxed" style={{ fontFamily: SANS, color: C.secondary }}>
                             {(tf as any).reason}
@@ -472,13 +493,33 @@ export default function MockDraftPage() {
                     }}>
                       <span className="text-[9px] font-black px-1.5 py-0.5 rounded" style={{ fontFamily: MONO, color: pc, background: `${pc}18` }}>{la.position as string}</span>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-sm font-bold truncate" style={{ fontFamily: SANS, color: C.primary }}>{la.prospect as string}</span>
-                          {la.fills_need && <span className="text-[8px] font-bold px-1.5 py-0.5 rounded" style={{ fontFamily: MONO, color: C.green, background: "rgba(125,211,160,0.12)" }}>FILLS NEED</span>}
-                          {i === 0 && <span className="text-[8px] font-bold px-1.5 py-0.5 rounded" style={{ fontFamily: MONO, color: C.gold, background: `${C.gold}12` }}>BPA</span>}
+                          {la.fills_need && (
+                            <span
+                              className="text-[8px] font-bold px-1.5 py-0.5 rounded"
+                              style={{ fontFamily: MONO, color: C.green, background: "rgba(125,211,160,0.12)" }}
+                              title={`Fills your ${la.position as string} gap — currently graded ${la.your_grade_at_position as string}`}
+                            >
+                              FILLS NEED
+                            </span>
+                          )}
+                          {i === 0 && (
+                            <span
+                              className="text-[8px] font-bold px-1.5 py-0.5 rounded"
+                              style={{ fontFamily: MONO, color: C.gold, background: `${C.gold}12` }}
+                              title="Best Player Available — highest-ranked prospect on the board regardless of positional need"
+                            >
+                              BEST AVAILABLE
+                            </span>
+                          )}
                         </div>
                         <div className="text-[9px] mt-0.5" style={{ fontFamily: MONO, color: C.dim }}>
-                          #{la.board_position as number} overall · Tier {la.tier as number} · {la.boom_bust as string} · Your {la.position as string}: {la.your_grade_at_position as string} · {availAtPick}% available
+                          #{la.board_position as number} overall · Tier {la.tier as number} ·{" "}
+                          <span title={BOOMBUST_TOOLTIP[la.boom_bust as string] ?? ""}>{la.boom_bust as string}</span>
+                        </div>
+                        <div className="text-[9px] mt-0.5" style={{ fontFamily: MONO, color: C.secondary }}>
+                          Your {la.position as string} grade: {la.your_grade_at_position as string} · {availAtPick}% available at this pick
                         </div>
                       </div>
                       <button onClick={() => handleUserDraft(currentPick.slot, la.prospect as string)}
@@ -522,10 +563,16 @@ export default function MockDraftPage() {
                         <div className="flex items-center gap-2 mb-1">
                           <span className="text-[9px] font-bold" style={{ fontFamily: MONO, color: C.gold }}>LIKELY BUYER</span>
                           <span className="text-xs font-bold" style={{ fontFamily: SANS, color: C.primary }}>{tb.name as string}</span>
-                          <span className="text-[9px] font-bold px-1 py-0.5 rounded" style={{
-                            fontFamily: MONO, color: (tb.window as string) === "CONTENDER" ? C.green : (tb.window as string) === "REBUILDER" ? C.red : C.secondary,
-                            background: (tb.window as string) === "CONTENDER" ? "rgba(125,211,160,0.12)" : (tb.window as string) === "REBUILDER" ? "rgba(228,114,114,0.12)" : "rgba(176,178,200,0.08)",
-                          }}>{tb.window as string}</span>
+                          <span
+                            className="text-[9px] font-bold px-1 py-0.5 rounded"
+                            style={{
+                              fontFamily: MONO, color: (tb.window as string) === "CONTENDER" ? C.green : (tb.window as string) === "REBUILDER" ? C.red : C.secondary,
+                              background: (tb.window as string) === "CONTENDER" ? "rgba(125,211,160,0.12)" : (tb.window as string) === "REBUILDER" ? "rgba(228,114,114,0.12)" : "rgba(176,178,200,0.08)",
+                            }}
+                            title={WINDOW_TOOLTIP[tb.window as string] ?? ""}
+                          >
+                            {tb.window as string}
+                          </span>
                         </div>
                         <div className="text-[10px] leading-relaxed" style={{ fontFamily: SANS, color: C.secondary }}>
                           {tb.reason as string}
@@ -555,7 +602,7 @@ export default function MockDraftPage() {
 
               {/* Full prospect board */}
               <div className="px-4 py-3">
-                <div className="text-[9px] font-bold tracking-widest mb-2" style={{ fontFamily: MONO, color: C.dim }}>ALL AVAILABLE PROSPECTS</div>
+                <div className="text-[9px] font-bold tracking-widest mb-2" style={{ fontFamily: MONO, color: C.dim }}>ALL AVAILABLE PROSPECTS · % HERE = CHANCE STILL ON THE BOARD</div>
                 {/* Search + filter */}
                 <div className="flex gap-2 mb-2 sticky top-0 z-10 py-1" style={{ background: "rgba(6,8,13,0.95)" }}>
                   <input type="text" placeholder="Search..." value={pickSearch} onChange={(e) => setPickSearch(e.target.value)}
@@ -601,24 +648,24 @@ export default function MockDraftPage() {
                         <div key={i} className="flex items-center gap-2 py-2 border-b" style={{
                           borderColor: "rgba(255,255,255,0.03)",
                         }}>
-                          <span className="text-[10px] font-bold w-6 text-right" style={{ fontFamily: MONO, color: C.dim }}>#{p.rank}</span>
+                          <span className="text-[10px] font-bold w-6 text-right" style={{ fontFamily: MONO, color: C.dim }} title={`Consensus rank #${p.rank}`}>#{p.rank}</span>
                           <span className="text-[9px] font-black px-1.5 py-0.5 rounded" style={{ fontFamily: MONO, color: pc, background: `${pc}15` }}>{p.position}</span>
                           <span className="text-xs font-semibold flex-1 truncate" style={{ fontFamily: SANS, color: C.primary }}>{p.name}</span>
-                          <span className="text-[9px]" style={{ fontFamily: MONO, color: C.dim }}>T{p.tier}</span>
+                          <span className="text-[9px]" style={{ fontFamily: MONO, color: C.dim }} title={`Tier ${p.tier} prospect`}>Tier {p.tier}</span>
                           <span
                             className="text-[9px] font-bold"
                             style={{ fontFamily: MONO, color: availHere >= 80 ? C.green : availHere >= 40 ? C.gold : C.red }}
-                            title={`${availHere}% of simulations have this prospect available at your pick (${currentPick.slot})`}
+                            title={`${availHere}% of simulations have ${p.name} available at your current pick (${currentPick.slot})`}
                           >
-                            {availHere}% avail
+                            {availHere}% here
                           </span>
                           {atRisk && (
                             <span
                               className="text-[8px] font-bold"
                               style={{ fontFamily: MONO, color: C.orange }}
-                              title={`${availAtNext}% chance still on the board at your next pick (${nextUserPick?.slot ?? ""})`}
+                              title={`${availAtNext}% chance ${p.name} is still on the board at your next pick (${nextUserPick?.slot ?? ""})`}
                             >
-                              {availAtNext}% at next
+                              {availAtNext}% at next pick
                             </span>
                           )}
                           <button onClick={() => handleUserDraft(currentPick.slot, p.name)}

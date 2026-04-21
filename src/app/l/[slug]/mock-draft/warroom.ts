@@ -190,7 +190,7 @@ export function prospectsAtRisk(params: {
   threshold?: number;
   topN?: number;
 }): ProspectAtRisk[] {
-  const { consensusBoard, availability, userFirstSlot, threshold = 0.5, topN = 10 } = params;
+  const { consensusBoard, availability, userFirstSlot, threshold = 50, topN = 10 } = params;
   const top = consensusBoard.slice(0, topN);
   const risks: ProspectAtRisk[] = [];
 

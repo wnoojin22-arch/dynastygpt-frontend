@@ -213,16 +213,14 @@ export default function DraftRecap({
               <div className="text-[9px] font-bold tracking-[0.26em] uppercase" style={{ color: C.gold }}>
                 Biggest steal
               </div>
-              <div className="mt-1.5 flex items-baseline gap-3 flex-wrap">
-                <span className="font-semibold" style={{ fontFamily: DISPLAY, fontSize: 26, color: C.primary, letterSpacing: "-0.02em" }}>
-                  {steal.name}
-                </span>
-                <span className="text-[12px]" style={{ color: C.dim, fontFamily: MONO, letterSpacing: "0.06em" }}>
-                  fell <span style={{ color: C.gold, fontWeight: 700 }}>+{steal.delta}</span> past ADP
-                </span>
+              <div className="mt-1.5 text-[15px] md:text-[16px] leading-snug" style={{ color: C.primary }}>
+                <span className="font-semibold" style={{ fontFamily: DISPLAY, letterSpacing: "-0.01em" }}>{steal.name}</span>{" "}
+                <span style={{ color: C.secondary }}>fell</span>{" "}
+                <span style={{ color: C.gold, fontWeight: 700 }}>{steal.delta} {steal.delta === 1 ? "spot" : "spots"}</span>{" "}
+                <span style={{ color: C.secondary }}>past consensus rank</span>
               </div>
               <div className="mt-1 text-[11px]" style={{ color: C.secondary, fontFamily: MONO, letterSpacing: "0.08em" }}>
-                {steal.position} · consensus #{steal.rank} · taken {steal.slot}
+                {steal.position} · consensus #{steal.rank} · taken at {steal.slot}
               </div>
             </div>
           </section>
@@ -231,7 +229,7 @@ export default function DraftRecap({
         {/* ═ POSITION IMPACT (null-safe — omit when postDraftGrades missing) ═ */}
         {postDraftGrades && (
           <section className="mt-6">
-            <SectionHeader eyebrow="Impact" title="Position strength" meta="before → after" />
+            <SectionHeader eyebrow="Impact" title="Position strength" meta="before draft → after draft" />
             <div className="mt-3 grid grid-cols-4 gap-2 md:gap-3">
               {(["QB", "RB", "WR", "TE"] as Position[]).map((pos) => {
                 const d = postDraftGrades[pos];
@@ -245,24 +243,31 @@ export default function DraftRecap({
                     style={{ background: RC.card, border: `1px solid ${RC.cardHair}` }}
                   >
                     <div className="text-[10px] font-bold tracking-[0.14em]" style={{ color: C.dim }}>{pos}</div>
-                    <div className="mt-1.5 flex items-baseline gap-1.5">
-                      <span style={{ fontFamily: DISPLAY, fontSize: 16, color: toneBefore, opacity: 0.55 }}>
-                        {GRADE_LETTER[d.before]}
-                      </span>
-                      <span className="text-[10px]" style={{ color: C.dim }}>→</span>
-                      <span style={{ fontFamily: DISPLAY, fontSize: 22, color: toneAfter, letterSpacing: "-0.02em" }}>
-                        {GRADE_LETTER[d.after]}
-                      </span>
+                    <div className="mt-2 flex items-baseline gap-3">
+                      <div className="flex flex-col items-start">
+                        <span className="text-[7px] tracking-[0.14em] uppercase" style={{ color: C.dim }}>Before</span>
+                        <span style={{ fontFamily: DISPLAY, fontSize: 16, color: toneBefore, opacity: 0.7 }}>
+                          {GRADE_LETTER[d.before]}
+                        </span>
+                      </div>
+                      <span className="text-[12px]" style={{ color: C.dim }}>→</span>
+                      <div className="flex flex-col items-start">
+                        <span className="text-[7px] tracking-[0.14em] uppercase" style={{ color: C.dim }}>After</span>
+                        <span style={{ fontFamily: DISPLAY, fontSize: 22, color: toneAfter, letterSpacing: "-0.02em" }}>
+                          {GRADE_LETTER[d.after]}
+                        </span>
+                      </div>
                     </div>
                     <div
                       className="mt-1.5 text-[10px] font-bold"
                       style={{
                         fontFamily: MONO,
                         color: d.delta > 0 ? "#7dd3a0" : d.delta < 0 ? "#e47272" : C.dim,
-                        letterSpacing: "0.06em",
+                        letterSpacing: "0.04em",
                       }}
+                      title={`Positional grade changed by ${d.delta > 0 ? "+" : ""}${d.delta} ${Math.abs(d.delta) === 1 ? "tier" : "tiers"}`}
                     >
-                      {d.delta > 0 ? `+${d.delta}` : d.delta === 0 ? "—" : d.delta}
+                      {d.delta > 0 ? `+${d.delta} ${d.delta === 1 ? "grade" : "grades"}` : d.delta < 0 ? `${d.delta} ${Math.abs(d.delta) === 1 ? "grade" : "grades"}` : "No change"}
                     </div>
                   </div>
                 );
@@ -322,7 +327,7 @@ export default function DraftRecap({
 
         {/* ═ FOOTER META ═ */}
         <div className="mt-8 text-[10px] text-center" style={{ color: C.dim, fontFamily: MONO, letterSpacing: "0.14em" }}>
-          {simulationsRun ?? 100} simulations · {consensusBoard.length} prospects
+          Based on {simulationsRun ?? 100} simulations across {consensusBoard.length} prospects
         </div>
       </div>
 
@@ -542,14 +547,20 @@ function PickRow({
       )}
       {typeof fit === "number" && (
         <span
-          className="text-[10px] font-bold flex-shrink-0"
-          style={{
-            fontFamily: MONO,
-            color: fit >= 80 ? C.gold : fit >= 60 ? "#7dd3a0" : fit >= 45 ? "#e88560" : C.dim,
-            minWidth: 30, textAlign: "right",
-          }}
+          className="flex items-baseline gap-1 flex-shrink-0"
+          style={{ fontFamily: MONO }}
+          title={`Fit score: ${fit}/100 for your roster at ${slot}`}
         >
-          {fit}
+          <span
+            className="text-[10px] font-bold"
+            style={{
+              color: fit >= 80 ? C.gold : fit >= 60 ? "#7dd3a0" : fit >= 45 ? "#e88560" : C.dim,
+              minWidth: 22, textAlign: "right",
+            }}
+          >
+            {fit}
+          </span>
+          <span className="text-[8px] tracking-[0.14em] uppercase" style={{ color: C.dim }}>fit</span>
         </span>
       )}
       {vvs && (

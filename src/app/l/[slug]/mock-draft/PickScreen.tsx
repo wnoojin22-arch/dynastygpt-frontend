@@ -49,6 +49,18 @@ const POS_MUTED: Record<Position | string, string> = {
   QB: "#8a4a4a", RB: "#4a7a98", WR: "#5c9477", TE: "#98724f",
 };
 
+const WINDOW_TOOLTIP: Record<string, string> = {
+  REBUILDER: "Rebuilder — targeting future seasons, collecting assets",
+  CONTENDER: "Contender — competing now, values immediate impact",
+  BALANCED: "Balanced — neither fully rebuilding nor all-in",
+};
+const BOOMBUST_TOOLTIP: Record<string, string> = {
+  SAFE: "Safe pick — reliable floor, low bust risk",
+  MODERATE: "Moderate — balanced upside and risk",
+  POLARIZING: "Polarizing — analysts disagree, wide range of outcomes",
+  "BOOM/BUST": "Boom/Bust — high upside, high bust risk",
+};
+
 // ─── Props ───────────────────────────────────────────────────────────────
 export interface PickScreenProps {
   preDraft: PreDraftResponse;
@@ -99,11 +111,11 @@ export default function PickScreen({
         );
         return {
           ...p,
-          avail_here: slot?.pct_available ?? 1,
+          avail_here: slot?.pct_available ?? 100,
           fills_need: needs.includes(p.position),
         };
       })
-      .filter((p) => p.avail_here >= 0.02);
+      .filter((p) => p.avail_here >= 2);
   }, [simSnapshot.consensus_board, simSnapshot.prospect_availability, pickedSet, currentSlot, needs]);
 
   // ── Top 3 DRAFT recommendations by fit_score ──
@@ -184,7 +196,7 @@ export default function PickScreen({
           const nextAvail = simSnapshot.prospect_availability[p.name]?.find(
             (a) => a.slot === nextUserSlot,
           );
-          return (nextAvail?.pct_available ?? 1) < 0.3;
+          return (nextAvail?.pct_available ?? 100) < 30;
         });
         if (anyAtRisk) {
           cliffs.push({
@@ -292,16 +304,25 @@ export default function PickScreen({
             border: `1px solid ${tierCliffs.length > 0 ? "rgba(228,114,114,0.24)" : PS.cardHair}`,
           }}
         >
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
             <span
               className="text-[9px] font-bold tracking-[0.22em] uppercase"
-              style={{ color: tierCliffs.length > 0 ? "#e47272" : C.dim }}
+              style={{ color: tierCliffs.length > 0 ? "#e47272" : C.green }}
+              title={tierCliffs.length > 0
+                ? "A tier cliff means the next tier drop at a position you care about is imminent"
+                : "No tier drops at your target positions before your next pick"}
             >
-              {tierCliffs.length > 0 ? `Tier cliff · ${tierCliffs.length}` : "Board stable"}
+              {tierCliffs.length > 0
+                ? `Tier cliff: ${tierCliffs.length} ${tierCliffs.length === 1 ? "position" : "positions"}`
+                : "No tier cliff — depth at your positions"}
             </span>
             {tradeFlag && (
-              <span className="text-[9px] ps-tabular" style={{ color: C.gold, fontFamily: MONO }}>
-                Trade prob · {Math.round(tradeFlag.trade_probability * 100)}%
+              <span
+                className="text-[10px] ps-tabular"
+                style={{ color: C.gold, fontFamily: MONO }}
+                title={`${tradeFlag.trade_probability}% of simulations show an owner offering for this pick`}
+              >
+                Trade interest: {tradeFlag.trade_probability}% chance an owner offers for your pick
               </span>
             )}
           </div>
@@ -328,7 +349,7 @@ export default function PickScreen({
       <section className="mx-auto max-w-[1280px] px-4 md:px-6 pt-4 md:pt-5 grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-5">
         {/* 3a · DRAFT */}
         <Panel>
-          <PanelHeader eyebrow="Draft" title="Recommended picks" meta={`${top3.length} ready`} />
+          <PanelHeader eyebrow="Draft" title="Recommended picks" meta={`${top3.length} picks recommended`} />
           <div className="mt-3 flex flex-col gap-2 ps-rise">
             {top3.map((p, i) => (
               <DraftRow key={p.name} prospect={p} isTop={i === 0} onDraft={() => onDraft(p.name)} />
@@ -346,7 +367,7 @@ export default function PickScreen({
           <PanelHeader
             eyebrow="Trade"
             title="Buyers on the line"
-            meta={tradeFlag ? `${Math.round(tradeFlag.trade_probability * 100)}% live` : "None"}
+            meta={tradeFlag ? `${tradeFlag.trade_probability}% chance of live offer` : "No live offers"}
           />
           <div className="mt-3 flex flex-col gap-2 ps-rise">
             {tradeFlag?.top_buyer && (
@@ -557,7 +578,11 @@ function DraftRow({
           )}
         </div>
         <div className="mt-0.5 text-[10px] ps-tabular" style={{ color: C.dim, fontFamily: MONO }}>
-          #{prospect.rank} · Tier {prospect.tier} · {prospect.boom_bust}
+          <span title={`Consensus rank #${prospect.rank} overall`}>#{prospect.rank}</span>
+          {" · "}
+          <span title={`Tier ${prospect.tier} prospect`}>Tier {prospect.tier}</span>
+          {" · "}
+          <span title={BOOMBUST_TOOLTIP[prospect.boom_bust] ?? ""}>{prospect.boom_bust}</span>
         </div>
         {prospect.fit_reasons && prospect.fit_reasons.length > 0 && (
           <ul className="mt-1.5 flex flex-col gap-0.5">
@@ -642,6 +667,7 @@ function TradeCard({
           <span
             className="text-[8px] font-bold tracking-[0.14em] uppercase px-1.5 py-0.5 rounded"
             style={{ color: windowTone, background: windowBg }}
+            title={WINDOW_TOOLTIP[buyer.window] ?? ""}
           >
             {buyer.window}
           </span>
@@ -652,19 +678,24 @@ function TradeCard({
       </div>
 
       {/* Cost string — primary in the card body */}
-      <div
-        className="mt-2 text-[13px] md:text-[14px] font-semibold"
-        style={{
-          color: C.primary,
-          fontFamily: MONO,
-          letterSpacing: "-0.01em",
-        }}
-      >
-        {buyer.estimated_cost}
+      <div className="mt-2">
+        <div className="text-[8px] font-bold tracking-[0.18em] uppercase" style={{ color: C.dim }}>
+          Cost to move up
+        </div>
+        <div
+          className="text-[13px] md:text-[14px] font-semibold mt-0.5"
+          style={{
+            color: C.primary,
+            fontFamily: MONO,
+            letterSpacing: "-0.01em",
+          }}
+        >
+          {buyer.estimated_cost}
+        </div>
       </div>
 
-      {/* Value delta — secondary accent chip */}
-      <div className="mt-1.5 flex items-center gap-2 flex-wrap">
+      {/* Value delta + context */}
+      <div className="mt-2 flex items-center gap-2 flex-wrap">
         <span
           className="ps-tabular text-[10px] font-bold tracking-[0.04em] px-1.5 py-0.5 rounded"
           style={{
@@ -673,16 +704,19 @@ function TradeCard({
             border: `1px solid ${chipBorder}`,
             fontFamily: MONO,
           }}
+          title={`Value change if you accept: ${positive ? "+" : ""}${delta} KTC points (${buyer.pick_value_source})`}
         >
           {positive ? "↑ +" : "↓ "}{delta} value
         </span>
         <span className="text-[9px] tracking-[0.12em]" style={{ color: C.dim, fontFamily: MONO }}>
           {buyer.pick_value_source}
         </span>
-        <span className="text-[9px] ps-tabular ml-auto" style={{ color: C.dim, fontFamily: MONO }}>
-          {buyer.picks_2026}·26 / {buyer.picks_2027}·27
-          {buyer.h2h_trades > 0 && ` · ${buyer.h2h_trades} h2h`}
-        </span>
+      </div>
+
+      {/* Buyer's draft capital — verbose */}
+      <div className="mt-1 text-[10px] ps-tabular" style={{ color: C.dim, fontFamily: MONO }}>
+        {buyer.picks_2026} picks in 2026 · {buyer.picks_2027} picks in 2027
+        {buyer.h2h_trades > 0 && ` · ${buyer.h2h_trades} past ${buyer.h2h_trades === 1 ? "trade" : "trades"} with you`}
       </div>
 
       {/* Reason */}
@@ -741,17 +775,31 @@ function BoardRow({
           Need
         </span>
       )}
-      <span className="text-[10px] ps-tabular flex-shrink-0" style={{ color: C.dim, fontFamily: MONO, minWidth: 26, textAlign: "right" }}>
+      <span
+        className="text-[10px] ps-tabular flex-shrink-0"
+        style={{ color: C.dim, fontFamily: MONO, minWidth: 26, textAlign: "right" }}
+        title={`Consensus rank #${prospect.rank}`}
+      >
         #{prospect.rank}
       </span>
-      <span className="text-[10px] ps-tabular flex-shrink-0" style={{ color: C.dim, fontFamily: MONO, minWidth: 20, textAlign: "right" }}>
-        T{prospect.tier}
+      <span
+        className="text-[10px] ps-tabular flex-shrink-0"
+        style={{ color: C.dim, fontFamily: MONO, minWidth: 34, textAlign: "right" }}
+        title={`Tier ${prospect.tier} prospect`}
+      >
+        Tier {prospect.tier}
       </span>
       <span
-        className="ps-tabular font-semibold flex-shrink-0"
-        style={{ color: tone, fontSize: 13, minWidth: 28, textAlign: "right", letterSpacing: "-0.01em" }}
+        className="flex items-baseline gap-1 flex-shrink-0"
+        title={`Fit score: ${fit}/100 for your roster at this slot`}
       >
-        {fit}
+        <span
+          className="ps-tabular font-semibold"
+          style={{ color: tone, fontSize: 13, letterSpacing: "-0.01em", minWidth: 22, textAlign: "right" }}
+        >
+          {fit}
+        </span>
+        <span className="text-[8px] tracking-[0.14em] uppercase" style={{ color: C.dim }}>fit</span>
       </span>
       <button
         onClick={onDraft}

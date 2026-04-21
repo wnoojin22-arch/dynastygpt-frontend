@@ -54,12 +54,30 @@ const IDENTITY_LABEL: Record<OwnerProfile["draft_identity"], string> = {
   INEFFICIENT: "Inefficient",
   BALANCED: "Balanced",
 };
+const IDENTITY_TOOLTIP: Record<OwnerProfile["draft_identity"], string> = {
+  GAMBLER: "Gambler — swings for upside, leans boom/bust prospects",
+  DEVELOPER: "Developer — drafts raw talent, patient with development",
+  "PIPELINE BUILDER": "Pipeline — accumulates picks, builds long-term via draft capital",
+  INEFFICIENT: "Inefficient — historically reaches or misses value",
+  BALANCED: "Balanced — mixes safe picks with upside swings",
+};
 const IDENTITY_TONE: Record<OwnerProfile["draft_identity"], string> = {
   GAMBLER: "#e47272",
   DEVELOPER: "#7dd3a0",
   "PIPELINE BUILDER": "#d4a532",
   INEFFICIENT: "#b0b2c8",
   BALANCED: "#6bb8e0",
+};
+const WINDOW_TOOLTIP: Record<string, string> = {
+  REBUILDER: "Rebuilder — targeting future seasons, collecting assets",
+  CONTENDER: "Contender — competing now, values immediate impact",
+  BALANCED: "Balanced — neither fully rebuilding nor all-in",
+};
+const BOOMBUST_TOOLTIP: Record<string, string> = {
+  SAFE: "Safe pick — reliable floor, low bust risk",
+  MODERATE: "Moderate — balanced upside and risk",
+  POLARIZING: "Polarizing — analysts disagree, wide range of outcomes",
+  "BOOM/BUST": "Boom/Bust — high upside, high bust risk",
 };
 
 // Positional grade → letter
@@ -141,7 +159,7 @@ export default function WarRoomLanding({
       consensusBoard: simSnapshot.consensus_board,
       availability: simSnapshot.prospect_availability,
       userFirstSlot,
-      threshold: 0.5,
+      threshold: 50,
       topN: 10,
     }),
     [simSnapshot.consensus_board, simSnapshot.prospect_availability, userFirstSlot],
@@ -162,7 +180,7 @@ export default function WarRoomLanding({
           fills_need: needs.includes(p.position),
         };
       })
-      .filter((p) => p.availability_at_user === null || p.availability_at_user >= 0.02)
+      .filter((p) => p.availability_at_user === null || p.availability_at_user >= 2)
       .slice(0, 10);
   }, [simSnapshot.consensus_board, simSnapshot.prospect_availability, userFirstSlot, needs]);
 
@@ -247,13 +265,20 @@ export default function WarRoomLanding({
                     background: `${IDENTITY_TONE[userIdentity.draft_identity]}12`,
                     border: `1px solid ${IDENTITY_TONE[userIdentity.draft_identity]}30`,
                   }}
+                  title={IDENTITY_TOOLTIP[userIdentity.draft_identity]}
                 >
                   {IDENTITY_LABEL[userIdentity.draft_identity]}
                 </span>
               )}
             </span>
             <span style={{ width: 1, height: 14, background: WR.hair }} />
-            <span className="text-[10px] tracking-[0.14em] uppercase" style={{ color: C.dim }}>{userWindow}</span>
+            <span
+              className="text-[10px] tracking-[0.14em] uppercase"
+              style={{ color: C.dim }}
+              title={WINDOW_TOOLTIP[userWindow] ?? ""}
+            >
+              {userWindow}
+            </span>
           </div>
           {/* Mobile: compact right side */}
           <div className="flex md:hidden items-center gap-2 text-[11px]">
@@ -284,7 +309,7 @@ export default function WarRoomLanding({
                 const avail = simSnapshot.prospect_availability[c.name]?.find((a) => a.slot === pick.slot);
                 return avail ? { name: c.name, position: c.position, pct: avail.pct_available, rank: c.rank } : null;
               })
-              .filter((t): t is NonNullable<typeof t> => !!t && t.pct >= 0.3)
+              .filter((t): t is NonNullable<typeof t> => !!t && t.pct >= 30)
               .slice(0, 3);
             return (
               <article
@@ -316,19 +341,30 @@ export default function WarRoomLanding({
                   {pick.slot}
                 </div>
                 <div
-                  className="mt-4 pt-3 flex flex-col gap-1.5"
+                  className="mt-4 pt-3"
                   style={{ borderTop: `1px solid ${WR.hair}` }}
                 >
                   {targets.length > 0 ? (
-                    targets.map((t) => (
-                      <div key={t.name} className="flex items-center gap-2 text-[11px]">
-                        <PosDot pos={t.position} />
-                        <span className="truncate flex-1" style={{ color: C.secondary }}>{t.name}</span>
-                        <span className="wr-tabular text-[10px] font-semibold" style={{ color: t.pct > 0.6 ? C.green : t.pct > 0.3 ? C.gold : C.dim }}>
-                          {Math.round(t.pct * 100)}%
-                        </span>
+                    <>
+                      <div className="text-[8px] tracking-[0.18em] uppercase mb-1.5" style={{ color: C.dim }}>
+                        Likely available at {pick.slot}
                       </div>
-                    ))
+                      <div className="flex flex-col gap-1.5">
+                        {targets.map((t) => (
+                          <div key={t.name} className="flex items-center gap-2 text-[11px]">
+                            <PosDot pos={t.position} />
+                            <span className="truncate flex-1" style={{ color: C.secondary }}>{t.name}</span>
+                            <span
+                              className="wr-tabular text-[10px] font-semibold"
+                              style={{ color: t.pct > 60 ? C.green : t.pct > 30 ? C.gold : C.dim }}
+                              title={`${t.pct}% of simulations have ${t.name} still on the board at ${pick.slot}`}
+                            >
+                              {t.pct}% avail
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </>
                   ) : (
                     <div className="text-[10px] tracking-[0.12em]" style={{ color: C.dim }}>
                       Board opens up — run sim for targets
@@ -408,28 +444,43 @@ export default function WarRoomLanding({
         <PanelCard>
           <SectionHeader eyebrow="Intel" title="Hit rates · vs global" />
           <HitRateMatrix hitRates={hitRates} />
-          <div className="mt-3 pt-3 flex items-center justify-between text-[10px]" style={{ borderTop: `1px solid ${WR.hair}` }}>
-            <span className="tracking-[0.14em] uppercase" style={{ color: C.dim }}>Overall</span>
-            <div className="flex items-baseline gap-3 wr-tabular">
-              <span className="text-[18px] font-semibold" style={{ color: C.gold, letterSpacing: "-0.02em" }}>
-                {Math.round(hitRates.league.overall_hit_pct * 100)}%
-              </span>
-              <span className="text-[10px]" style={{ color: C.dim }}>
-                vs {Math.round(hitRates.global.overall_hit_pct * 100)}% ·
-                <span
-                  style={{ color: hitRates.league.overall_hit_pct > hitRates.global.overall_hit_pct ? C.green : C.red, marginLeft: 4 }}
-                >
-                  {hitRates.league.overall_hit_pct > hitRates.global.overall_hit_pct ? "+" : ""}
-                  {Math.round((hitRates.league.overall_hit_pct - hitRates.global.overall_hit_pct) * 100)}pp
-                </span>
-              </span>
-            </div>
-          </div>
+          {(() => {
+            const leagueOverall = hitRates.league.overall_hit_pct;
+            const globalOverall = hitRates.global.overall_hit_pct;
+            const delta = leagueOverall - globalOverall;
+            const above = delta > 0;
+            return (
+              <div className="mt-3 pt-3" style={{ borderTop: `1px solid ${WR.hair}` }}>
+                <div className="text-[9px] font-bold tracking-[0.22em] uppercase mb-1" style={{ color: C.dim }}>
+                  Overall
+                </div>
+                <div className="flex items-baseline gap-2 wr-tabular flex-wrap text-[11px]">
+                  <span style={{ color: C.secondary }}>
+                    Your league: <span className="font-semibold" style={{ color: C.gold }}>{leagueOverall}%</span>
+                  </span>
+                  <span style={{ color: C.dim }}>·</span>
+                  <span style={{ color: C.secondary }}>
+                    Global: <span className="font-semibold" style={{ color: C.primary }}>{globalOverall}%</span>
+                  </span>
+                  <span style={{ color: C.dim }}>·</span>
+                  <span
+                    className="font-semibold"
+                    style={{ color: above ? C.green : delta < 0 ? C.red : C.dim }}
+                  >
+                    {above ? "+" : ""}{delta}pp {above ? "above" : delta < 0 ? "below" : "equal to"} average
+                  </span>
+                </div>
+              </div>
+            );
+          })()}
         </PanelCard>
 
-        {/* ── 3c. Threat Radar ── */}
+        {/* ── 3c. Picks Before You ── */}
         <PanelCard>
-          <SectionHeader eyebrow="Recon" title="Threats ahead" meta={`${threats.length} before ${userFirstSlot}`} />
+          <SectionHeader eyebrow="Recon" title="Picks before you" meta={`${threats.length} before ${userFirstSlot}`} />
+          <div className="text-[10px] mt-1 tracking-[0.08em]" style={{ color: C.dim }}>
+            Owners drafting ahead of your {userFirstSlot}
+          </div>
           <div className="mt-3 flex flex-col gap-2 wr-stagger">
             {threats.map((t) => (
               <ThreatRow key={t.slot} threat={t} numTeams={num_teams} userPickNum={userFirstPickNum} avatarId={avatarByOwner.get(t.owner.toLowerCase())} />
@@ -606,7 +657,7 @@ function HitRateMatrix({ hitRates }: { hitRates: HitRatesResponse }) {
 
   return (
     <div className="mt-3">
-      {/* Column headers */}
+      {/* Round header row (R1 R2 R3 R4) */}
       <div className="flex items-center gap-[2px]">
         <div style={{ width: 22, flexShrink: 0 }} />
         {rounds.map((r) => (
@@ -619,7 +670,29 @@ function HitRateMatrix({ hitRates }: { hitRates: HitRatesResponse }) {
           </div>
         ))}
       </div>
-      {/* Rows */}
+      {/* Sub-header row (YOU / GLOB under each round) */}
+      <div className="flex items-center gap-[2px] mt-0.5">
+        <div style={{ width: 22, flexShrink: 0 }} />
+        {rounds.map((r) => (
+          <div key={r} className="flex" style={{ flex: "1 1 0", minWidth: 0 }}>
+            <div
+              className="flex-1 text-center text-[7px] tracking-[0.12em] uppercase"
+              style={{ color: C.gold, opacity: 0.7 }}
+              title="Your league's hit rate for this position and round"
+            >
+              You
+            </div>
+            <div
+              className="flex-1 text-center text-[7px] tracking-[0.12em] uppercase"
+              style={{ color: C.dim }}
+              title="Global average hit rate across all leagues"
+            >
+              Glob
+            </div>
+          </div>
+        ))}
+      </div>
+      {/* Position rows */}
       <div className="mt-1 flex flex-col gap-[2px]">
         {positions.map((pos) => (
           <div key={pos} className="flex items-stretch gap-[2px]">
@@ -642,12 +715,12 @@ function HitRateMatrix({ hitRates }: { hitRates: HitRatesResponse }) {
                 );
               }
               const delta = league.hit_pct - global.hit_pct;
-              const above = delta > 0.03;
-              const below = delta < -0.08;
+              const above = delta > 3;
+              const below = delta < -8;
               return (
                 <div
                   key={r}
-                  className="py-1.5 rounded flex flex-col items-center justify-center"
+                  className="py-1.5 rounded flex items-center"
                   style={{
                     background: above
                       ? "rgba(212,165,50,0.10)"
@@ -663,21 +736,36 @@ function HitRateMatrix({ hitRates }: { hitRates: HitRatesResponse }) {
                     flex: "1 1 0",
                     minWidth: 0,
                   }}
+                  title={`${pos} · R${r}: your league hits ${league.hit_pct}% vs global ${global.hit_pct}% (${delta >= 0 ? "+" : ""}${delta}pp)`}
                 >
                   <span
-                    className="wr-tabular text-[12px] font-semibold leading-none"
+                    className="flex-1 text-center wr-tabular text-[11px] font-semibold leading-none"
                     style={{ color: above ? C.gold : below ? "#e47272" : C.primary, letterSpacing: "-0.01em" }}
                   >
-                    {Math.round(league.hit_pct * 100)}
+                    {league.hit_pct}%
                   </span>
-                  <span className="wr-tabular text-[8px] mt-0.5" style={{ color: C.dim }}>
-                    {Math.round(global.hit_pct * 100)}
+                  <span
+                    className="flex-1 text-center wr-tabular text-[10px]"
+                    style={{ color: C.dim }}
+                  >
+                    {global.hit_pct}%
                   </span>
                 </div>
               );
             })}
           </div>
         ))}
+      </div>
+      {/* Legend */}
+      <div className="mt-2 flex items-center justify-center gap-3 text-[8px] tracking-[0.12em] uppercase" style={{ color: C.dim }}>
+        <span className="flex items-center gap-1">
+          <span style={{ width: 8, height: 8, borderRadius: 2, background: "rgba(212,165,50,0.35)", border: "1px solid rgba(212,165,50,0.5)" }} />
+          Above global
+        </span>
+        <span className="flex items-center gap-1">
+          <span style={{ width: 8, height: 8, borderRadius: 2, background: "rgba(228,114,114,0.25)", border: "1px solid rgba(228,114,114,0.4)" }} />
+          Below global
+        </span>
       </div>
     </div>
   );
@@ -699,40 +787,52 @@ function ThreatRow({
   const tone = IDENTITY_TONE[threat.draft_identity];
   return (
     <div
-      className="wr-row-tap flex items-center gap-3 py-2.5 px-1"
+      className="wr-row-tap flex items-start gap-3 py-2.5 px-1"
       style={{ borderBottom: `1px solid ${WR.hair}` }}
     >
       <Avatar avatarId={avatarId} name={threat.owner} tone={tone} />
       <div className="min-w-0 flex-1">
-        <div className="flex items-baseline gap-2">
+        {/* Header: owner + identity + slot + picks-away */}
+        <div className="flex items-baseline gap-2 flex-wrap">
           <span className="text-[12px] font-semibold truncate" style={{ color: C.primary }}>{threat.owner}</span>
           <span
             className="text-[8px] font-semibold tracking-[0.12em] uppercase px-1 py-[1px] rounded-full whitespace-nowrap"
             style={{ color: tone, background: `${tone}12`, border: `1px solid ${tone}30` }}
+            title={IDENTITY_TOOLTIP[threat.draft_identity]}
           >
             {IDENTITY_LABEL[threat.draft_identity]}
           </span>
+          <span className="text-[10px] wr-tabular ml-auto whitespace-nowrap" style={{ color: C.dim }}>
+            Pick {threat.slot} · {picksAway} {picksAway === 1 ? "pick" : "picks"} away
+          </span>
         </div>
-        <div className="text-[10px] mt-0.5 flex items-center gap-1.5">
-          <span className="wr-tabular" style={{ color: C.dim }}>{threat.slot}</span>
-          <span style={{ color: C.dim }}>·</span>
-          <span style={{ color: C.secondary }}>{threat.likely_pick_name ?? "—"}</span>
-          {threat.likely_pick_position && <PosDot pos={threat.likely_pick_position} />}
-        </div>
-        {threat.availability_shift && (
-          <div className="text-[10px] mt-1 wr-tabular" style={{ color: C.dim }}>
-            {threat.availability_shift.prospect}:{" "}
-            <span style={{ color: C.secondary }}>{Math.round(threat.availability_shift.before * 100)}%</span>
-            <span style={{ color: C.dim, margin: "0 4px" }}>→</span>
-            <span style={{ color: "#e47272" }}>{Math.round(threat.availability_shift.after * 100)}%</span>
+        {/* Likely action + impact on user */}
+        {threat.likely_pick_name && (
+          <div className="text-[10px] mt-1 flex items-start gap-1.5 leading-snug">
+            {threat.likely_pick_position && <span className="mt-1"><PosDot pos={threat.likely_pick_position} /></span>}
+            <span style={{ color: C.secondary }}>
+              Will take <span style={{ color: C.primary, fontWeight: 600 }}>{threat.likely_pick_name}</span>
+              {threat.availability_shift && (
+                <>
+                  {" "}
+                  — availability{" "}
+                  <span className="wr-tabular" style={{ color: C.secondary }}>{threat.availability_shift.before}%</span>
+                  <span style={{ color: C.dim, margin: "0 4px" }}>→</span>
+                  <span className="wr-tabular" style={{ color: "#e47272" }}>{threat.availability_shift.after}%</span>
+                  {" "}at your pick
+                </>
+              )}
+            </span>
           </div>
         )}
-      </div>
-      <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
-        <span className="text-[9px] tracking-[0.14em] uppercase" style={{ color: C.dim }}>{picksAway} away</span>
-        <span className="wr-tabular text-[10px] font-semibold" style={{ color: threat.hit_rate > 0.5 ? C.gold : C.dim }}>
-          {Math.round(threat.hit_rate * 100)}% hits
-        </span>
+        {/* Track record */}
+        <div
+          className="text-[10px] mt-1 wr-tabular"
+          style={{ color: threat.hit_rate > 50 ? C.gold : C.dim }}
+          title={`${threat.owner} hits on ${threat.hit_rate}% of first-round picks historically`}
+        >
+          Hits on {threat.hit_rate}% of R1 picks
+        </div>
       </div>
     </div>
   );
@@ -825,13 +925,13 @@ function ProspectCard({ prospect: p, isAtRisk }: { prospect: EnrichedProspect; i
           <div className="flex flex-col items-end">
             <span className="text-[8px] font-bold tracking-[0.24em] uppercase" style={{ color: C.dim }}>Avail</span>
             <span className="wr-tabular text-[13px] font-semibold mt-0.5" style={{ color: isAtRisk ? "#e47272" : C.secondary }}>
-              {Math.round((p.availability_at_user ?? 0) * 100)}%
+              {p.availability_at_user ?? 0}%
             </span>
             <div className="mt-1 h-[2px] w-[60px] rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
               <div
                 className="h-full wr-bar-fill"
                 style={{
-                  width: `${Math.max((p.availability_at_user ?? 0) * 100, 2)}%`,
+                  width: `${Math.max(p.availability_at_user ?? 0, 2)}%`,
                   background: isAtRisk ? "#e47272" : C.secondary,
                 }}
               />
@@ -870,12 +970,19 @@ function ProspectRow({ prospect: p, isFirst, isAtRisk }: { prospect: EnrichedPro
         </div>
       </div>
       <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
-        <span className="wr-tabular font-semibold leading-none" style={{ fontSize: 20, color: fitColor, letterSpacing: "-0.02em" }}>
-          {p.fit_score}
-        </span>
+        <div className="flex items-baseline gap-1" title={`Fit score: ${p.fit_score}/100`}>
+          <span className="wr-tabular font-semibold leading-none" style={{ fontSize: 20, color: fitColor, letterSpacing: "-0.02em" }}>
+            {p.fit_score}
+          </span>
+          <span className="text-[8px] tracking-[0.14em] uppercase" style={{ color: C.dim }}>fit</span>
+        </div>
         {p.availability_at_user !== null && (
-          <span className="wr-tabular text-[10px]" style={{ color: isAtRisk ? "#e47272" : C.dim }}>
-            {Math.round((p.availability_at_user ?? 0) * 100)}%
+          <span
+            className="wr-tabular text-[10px]"
+            style={{ color: isAtRisk ? "#e47272" : C.dim }}
+            title={`${p.availability_at_user}% of simulations have ${p.name} available at your pick`}
+          >
+            {p.availability_at_user ?? 0}% avail
           </span>
         )}
       </div>
@@ -887,7 +994,11 @@ function BoomBustIcon({ value }: { value: string }) {
   const tone = value === "SAFE" ? C.green : value === "BOOM/BUST" ? "#e47272" : value === "POLARIZING" ? "#e09c6b" : C.dim;
   const label = value === "SAFE" ? "Safe" : value === "BOOM/BUST" ? "Boom/bust" : value === "POLARIZING" ? "Polarizing" : "Moderate";
   return (
-    <span className="flex items-center gap-1 text-[9px] tracking-[0.10em]" style={{ color: tone }}>
+    <span
+      className="flex items-center gap-1 text-[9px] tracking-[0.10em]"
+      style={{ color: tone }}
+      title={BOOMBUST_TOOLTIP[value] ?? ""}
+    >
       <span style={{ width: 4, height: 4, borderRadius: "50%", background: tone, display: "inline-block" }} />
       {label}
     </span>
