@@ -10,7 +10,16 @@ import PickDetailSheet from "@/components/league/mock-draft/PickDetailSheet";
 import { C, MONO, SANS, DISPLAY } from "@/components/league/tokens";
 import { countDraftedAtPosition } from "./aggregator";
 import WarRoomLanding from "./WarRoomLanding";
+import DraftRecap from "./DraftRecap";
 import { mockPreDraft, mockHitRates, mockOwnerProfiles, mockSimSnapshot } from "./mocks";
+import type {
+  ConsensusBoardEntry,
+  DraftIdentity,
+  MissedOpportunity,
+  PostDraftPositionalGrades,
+  PreDraftResponse,
+  TradeFlag,
+} from "./contracts";
 
 /* ═══ WAR ROOM TOKENS ═══ */
 const MD = {
@@ -541,109 +550,19 @@ export default function MockDraftPage() {
           <div ref={boardBottomRef} />
 
           {/* ═══ POST-DRAFT RECAP ═══ */}
-          {draftComplete && Object.keys(userPicks).length > 0 && (
-            <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}
-              className="rounded-2xl my-4 overflow-hidden" style={{
-                border: "2px solid rgba(212,165,50,0.3)",
-                background: "linear-gradient(135deg, rgba(212,165,50,0.04), rgba(6,8,13,0.98))",
-                boxShadow: "0 0 60px rgba(212,165,50,0.1)",
-              }}>
-              {/* Header */}
-              <div className="px-5 py-4 border-b text-center" style={{ borderColor: "rgba(212,165,50,0.15)" }}>
-                <div className="flex items-center justify-center gap-1.5 mb-2">
-                  <span className="text-[9px] font-semibold" style={{ color: "#d4a532" }}>powered by</span>
-                  <span className="text-[10px] font-black" style={{ color: "#eeeef2" }}>DynastyGPT<span style={{ color: "#d4a532" }}>.com</span></span>
-                </div>
-                <div className="text-xl font-black tracking-wider" style={{ fontFamily: "'Archivo Black', sans-serif", color: C.gold }}>
-                  YOUR DRAFT RECAP
-                </div>
-                <div className="text-xs mt-1" style={{ fontFamily: SANS, color: C.secondary }}>{owner}</div>
-              </div>
-
-              {/* Roster needs before/after */}
-              <div className="px-5 py-3 border-b" style={{ borderColor: "rgba(255,255,255,0.04)" }}>
-                <div className="text-[9px] font-bold tracking-widest mb-2" style={{ fontFamily: MONO, color: C.dim }}>ROSTER IMPACT</div>
-                <div className="flex flex-col gap-1.5">
-                  {(["QB", "RB", "WR", "TE"] as const).map((pos) => {
-                    const grade = grades[pos] || "AVERAGE";
-                    const pc = POS_COLOR[pos] || C.dim;
-                    const draftedNames = countDraftedAtPosition(userPicks, consensusBoard, pos);
-                    return (
-                      <div key={pos} className="flex items-center gap-3">
-                        <span className="text-sm font-black w-8" style={{ fontFamily: "'Archivo Black', sans-serif", color: pc }}>{pos}</span>
-                        <span className="text-[10px] font-bold w-16" style={{ fontFamily: MONO, color: GRADE_BAR[grade]?.color || C.dim }}>{grade}</span>
-                        <span className="text-[10px] flex-1" style={{ fontFamily: SANS, color: C.dim }}>
-                          {draftedNames.length > 0
-                            ? `+${draftedNames.length} drafted: ${draftedNames.join(", ")}`
-                            : "No picks used here"}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Each pick graded */}
-              <div className="px-5 py-3 border-b" style={{ borderColor: "rgba(255,255,255,0.04)" }}>
-                <div className="text-[9px] font-bold tracking-widest mb-2" style={{ fontFamily: MONO, color: C.gold }}>YOUR PICKS</div>
-                {Object.entries(userPicks).map(([slot, prospectName]) => {
-                  const prospect = consensusBoard.find((p) => p.name === prospectName);
-                  const pos = prospect?.position ?? "?";
-                  const pc = POS_COLOR[pos] || C.dim;
-                  const rank = prospect?.rank ?? "?";
-                  const tier = prospect?.tier ?? "?";
-                  const grade_at_pos = grades[pos] || "AVERAGE";
-                  const fills = grade_at_pos === "CRITICAL" || grade_at_pos === "WEAK";
-                  const pickNum = parseInt(slot.split(".")[0], 10) * 100 + parseInt(slot.split(".")[1], 10);
-                  const isReach = typeof rank === "number" && rank > pickNum + 5;
-
-                  return (
-                    <div key={slot} className="flex items-center gap-3 py-2 border-b" style={{ borderColor: "rgba(255,255,255,0.03)" }}>
-                      <span className="text-xs font-black w-9" style={{ fontFamily: MONO, color: C.gold }}>{slot}</span>
-                      <span className="text-[9px] font-black px-1.5 py-0.5 rounded" style={{ fontFamily: MONO, color: pc, background: `${pc}18` }}>{pos}</span>
-                      <span className="text-sm font-bold flex-1" style={{ fontFamily: SANS, color: C.primary }}>{prospectName}</span>
-                      <div className="flex items-center gap-1.5">
-                        {fills && <span className="text-[8px] font-bold px-1.5 py-0.5 rounded" style={{ fontFamily: MONO, color: C.green, background: "rgba(125,211,160,0.12)" }}>NEED</span>}
-                        {isReach && <span className="text-[8px] font-bold px-1.5 py-0.5 rounded" style={{ fontFamily: MONO, color: C.orange, background: "rgba(224,156,107,0.12)" }}>REACH</span>}
-                        <span className="text-[9px]" style={{ fontFamily: MONO, color: C.dim }}>#{rank} · T{tier}</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Draft day trade suggestions */}
-              {(() => {
-                const userSlots = Object.keys(userPicks);
-                const userTradeFlags = tradeFlags.filter((t) => userSlots.includes((t as any).slot)) as Array<Record<string, unknown>>;
-                if (userTradeFlags.length === 0) return null;
-                return (
-                  <div className="px-5 py-3 border-b" style={{ borderColor: "rgba(255,255,255,0.04)" }}>
-                    <div className="text-[9px] font-bold tracking-widest mb-2" style={{ fontFamily: MONO, color: C.orange }}>DRAFT DAY TRADE IDEAS</div>
-                    {userTradeFlags.slice(0, 3).map((tf, i) => {
-                      const tb = tf.top_buyer as Record<string, unknown> | undefined;
-                      if (!tb) return null;
-                      return (
-                        <div key={i} className="text-[10px] leading-relaxed mb-2 px-3 py-2 rounded-lg" style={{
-                          fontFamily: SANS, color: C.secondary,
-                          background: "rgba(224,156,107,0.04)", border: "1px solid rgba(224,156,107,0.12)",
-                        }}>
-                          <strong style={{ color: C.primary }}>Pick {tf.slot as string}:</strong> {tb.name as string} wants to trade up ({tb.reason as string}).
-                          {tb.estimated_cost && <span style={{ color: C.gold, fontFamily: MONO }}> Est. cost: {tb.estimated_cost as string}</span>}
-                        </div>
-                      );
-                    })}
-                  </div>
-                );
-              })()}
-
-              {/* Footer branding */}
-              <div className="px-5 py-3 text-center">
-                <div className="text-[9px] tracking-wider" style={{ fontFamily: MONO, color: C.dim }}>
-                  {(simulation?.simulations_run as number) || 100} simulations · {((simulation?.consensus_board as unknown[]) || []).length} prospects analyzed
-                </div>
-              </div>
-            </motion.div>
+          {draftComplete && Object.keys(userPicks).length > 0 && pd && (
+            <DraftRecap
+              preDraft={pd as unknown as PreDraftResponse}
+              consensusBoard={consensusBoard as unknown as ReadonlyArray<ConsensusBoardEntry>}
+              userPicks={userPicks}
+              tradeFlags={tradeFlags as unknown as ReadonlyArray<TradeFlag>}
+              postDraftGrades={(simulation.post_draft_positional_grades as PostDraftPositionalGrades | undefined) ?? null}
+              missedOpportunities={(simulation.user_missed_opportunities as ReadonlyArray<MissedOpportunity> | undefined) ?? null}
+              identity={(pd.draft_identity as DraftIdentity | undefined) ?? null}
+              avatarId={(pd.owner_avatar_id as string | undefined) ?? null}
+              alternateSimulateAvailable={!!simulation.sim_id}
+              simulationsRun={(simulation.simulations_run as number | undefined) ?? 100}
+            />
           )}
 
           <div ref={boardBottomRef} />
