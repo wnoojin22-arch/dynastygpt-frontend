@@ -1,10 +1,16 @@
 "use client";
 
-import React, { useState, useCallback, useEffect, useRef } from "react";
+import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLeagueStore } from "@/lib/stores/league-store";
-import { getMockDraftPreDraft, simulateMockDraft } from "@/lib/api";
+import {
+  getMockDraftPreDraft,
+  simulateMockDraft,
+  getDraftHitRates,
+  getDraftOwnerProfiles,
+} from "@/lib/api";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import PickDetailSheet from "@/components/league/mock-draft/PickDetailSheet";
 import { C, MONO, SANS, DISPLAY } from "@/components/league/tokens";
@@ -15,9 +21,12 @@ import { mockPreDraft, mockHitRates, mockOwnerProfiles, mockSimSnapshot } from "
 import type {
   ConsensusBoardEntry,
   DraftIdentity,
+  HitRatesResponse,
   MissedOpportunity,
+  OwnerProfile,
   PostDraftPositionalGrades,
   PreDraftResponse,
+  SimulateResponse,
   TradeFlag,
 } from "./contracts";
 
@@ -55,6 +64,8 @@ export default function MockDraftPage() {
   const owner = useLeagueStore((s) => s.currentOwner) || "";
   const ownerId = useLeagueStore((s) => s.currentOwnerId) || "";
   const mobile = useIsMobile();
+  const searchParams = useSearchParams();
+  const useMocks = searchParams?.get("mock") === "1";
 
   const [phase, setPhase] = useState<Phase>("landing");
   const [simulation, setSimulation] = useState<Record<string, unknown> | null>(null);
@@ -70,14 +81,52 @@ export default function MockDraftPage() {
   const boardBottomRef = useRef<HTMLDivElement>(null);
   const userPickRef = useRef<HTMLDivElement>(null);
 
-  // Pre-draft data
-  const { data: preDraft } = useQuery({
+  // ── Landing data (skip in mock mode) ──────────────────────────────────
+  const { data: preDraftData, isLoading: preDraftLoading, error: preDraftError, refetch: refetchPreDraft } = useQuery({
     queryKey: ["mock-draft-pre", leagueId, owner],
     queryFn: () => getMockDraftPreDraft(leagueId, owner, ownerId),
-    enabled: !!leagueId,
-    staleTime: 300000,
+    enabled: !!leagueId && !useMocks,
+    staleTime: 300_000,
   });
-  const pd = preDraft as Record<string, unknown> | undefined;
+  const { data: hitRatesData, isLoading: hitRatesLoading, error: hitRatesError, refetch: refetchHitRates } = useQuery({
+    queryKey: ["draft-hit-rates", leagueId],
+    queryFn: () => getDraftHitRates(leagueId),
+    enabled: !!leagueId && !useMocks,
+    staleTime: 300_000,
+  });
+  const { data: ownerProfilesData, isLoading: ownerProfilesLoading, error: ownerProfilesError, refetch: refetchOwnerProfiles } = useQuery({
+    queryKey: ["draft-owner-profiles", leagueId],
+    queryFn: () => getDraftOwnerProfiles(leagueId),
+    enabled: !!leagueId && !useMocks,
+    staleTime: 300_000,
+  });
+  // Prefetch simulate in background once pre-draft + owner resolve, so clicking
+  // "Run Simulation" is instant. Cached by sim_id for 1h on the backend (Redis).
+  const { data: prefetchedSim, isFetching: simPrefetching, error: simPrefetchError, refetch: refetchSim } = useQuery({
+    queryKey: ["mock-draft-sim", leagueId, owner, ownerId],
+    queryFn: () => simulateMockDraft(leagueId, { user_owner: owner, user_owner_id: ownerId }),
+    enabled: !!leagueId && !!owner && !useMocks,
+    staleTime: 60 * 60 * 1000, // backend sim_id TTL
+    gcTime: 60 * 60 * 1000,
+    retry: 1,
+  });
+
+  // Resolve effective data — mocks override when ?mock=1
+  const preDraft = (useMocks ? mockPreDraft : preDraftData) as PreDraftResponse | undefined;
+  const hitRates = (useMocks ? mockHitRates : hitRatesData) as HitRatesResponse | undefined;
+  const ownerProfilesResp = useMocks
+    ? mockOwnerProfiles
+    : (ownerProfilesData as { profiles: OwnerProfile[] } | undefined);
+  const ownerProfiles = useMemo(() => ownerProfilesResp?.profiles ?? [], [ownerProfilesResp]);
+  const landingSim = (useMocks
+    ? mockSimSnapshot
+    : (prefetchedSim ?? simulation ?? undefined)) as SimulateResponse | undefined;
+
+  const landingLoading = !useMocks && (preDraftLoading || hitRatesLoading || ownerProfilesLoading);
+  const landingError = !useMocks && (preDraftError || hitRatesError || ownerProfilesError);
+  const simReady = !!landingSim;
+
+  const pd = preDraft as unknown as Record<string, unknown> | undefined;
 
   // All chalk picks from simulation
   const chalk = (simulation?.chalk || []) as ChalkPick[];
@@ -90,8 +139,25 @@ export default function MockDraftPage() {
   const grades = (pd?.positional_grades || {}) as Record<string, string>;
   const needs = (pd?.needs || []) as string[];
 
-  // ── Start draft: load sim then begin live reveal ──
+  // ── Start draft: reuse prefetched sim if present, else fetch ──
   const handleStart = useCallback(async () => {
+    // Mock-mode: skip the network, use the fixture so the reveal still works.
+    if (useMocks) {
+      setSimulation(mockSimSnapshot as unknown as Record<string, unknown>);
+      setRevealedCount(0);
+      setPaused(false);
+      setUserPicks({});
+      setPhase("live");
+      return;
+    }
+    if (prefetchedSim) {
+      setSimulation(prefetchedSim as Record<string, unknown>);
+      setRevealedCount(0);
+      setPaused(false);
+      setUserPicks({});
+      setPhase("live");
+      return;
+    }
     setPhase("loading");
     try {
       const data = await simulateMockDraft(leagueId, { user_owner: owner, user_owner_id: ownerId });
@@ -103,7 +169,7 @@ export default function MockDraftPage() {
     } catch {
       setPhase("landing");
     }
-  }, [leagueId, owner, ownerId]);
+  }, [leagueId, owner, ownerId, prefetchedSim, useMocks]);
 
   // ── Live reveal timer ──
   useEffect(() => {
@@ -259,7 +325,13 @@ export default function MockDraftPage() {
                   <span className="text-[10px] flex-shrink-0" style={{ color: C.dim }}>→</span>
                   <span className="text-[9px] font-black tracking-wider px-1.5 py-0.5 rounded flex-shrink-0" style={{ fontFamily: MONO, color: pc, background: `${pc}18`, border: `1px solid ${pc}25` }}>{displayPos}</span>
                   <span className="text-sm font-bold truncate flex-1" style={{ fontFamily: SANS, color: isUser ? C.gold : C.primary }}>{displayName}</span>
-                  <span className="text-[10px] font-bold flex-shrink-0" style={{ fontFamily: MONO, color: topProb >= 60 ? C.green : topProb >= 35 ? C.gold : C.dim }}>{topProb}%</span>
+                  <span
+                    className="text-[10px] font-bold flex-shrink-0"
+                    style={{ fontFamily: MONO, color: topProb >= 60 ? C.green : topProb >= 35 ? C.gold : C.dim }}
+                    title={`Chalk confidence — ${topProb}% of simulations predicted this pick`}
+                  >
+                    {topProb}% chalk
+                  </span>
                   {tf && <span className="text-[8px] font-bold px-1 py-0.5 rounded" style={{ fontFamily: MONO, color: C.gold, background: `${C.gold}12` }}>TRADE</span>}
                   <span className="text-[10px]" style={{ color: C.dim }}>{isExpanded ? "▲" : "▼"}</span>
                 </div>
@@ -533,8 +605,22 @@ export default function MockDraftPage() {
                           <span className="text-[9px] font-black px-1.5 py-0.5 rounded" style={{ fontFamily: MONO, color: pc, background: `${pc}15` }}>{p.position}</span>
                           <span className="text-xs font-semibold flex-1 truncate" style={{ fontFamily: SANS, color: C.primary }}>{p.name}</span>
                           <span className="text-[9px]" style={{ fontFamily: MONO, color: C.dim }}>T{p.tier}</span>
-                          <span className="text-[9px] font-bold" style={{ fontFamily: MONO, color: availHere >= 80 ? C.green : availHere >= 40 ? C.gold : C.red }}>{availHere}%</span>
-                          {atRisk && <span className="text-[8px] font-bold" style={{ fontFamily: MONO, color: C.orange }}>{availAtNext}% next</span>}
+                          <span
+                            className="text-[9px] font-bold"
+                            style={{ fontFamily: MONO, color: availHere >= 80 ? C.green : availHere >= 40 ? C.gold : C.red }}
+                            title={`${availHere}% of simulations have this prospect available at your pick (${currentPick.slot})`}
+                          >
+                            {availHere}% avail
+                          </span>
+                          {atRisk && (
+                            <span
+                              className="text-[8px] font-bold"
+                              style={{ fontFamily: MONO, color: C.orange }}
+                              title={`${availAtNext}% chance still on the board at your next pick (${nextUserPick?.slot ?? ""})`}
+                            >
+                              {availAtNext}% at next
+                            </span>
+                          )}
                           <button onClick={() => handleUserDraft(currentPick.slot, p.name)}
                             className="text-[8px] font-black px-2 py-1 rounded" style={{
                               fontFamily: MONO, color: "#06080d", background: `linear-gradient(135deg, ${C.goldDark}, ${C.gold})`, border: "none", cursor: "pointer", minHeight: 28,
@@ -572,15 +658,215 @@ export default function MockDraftPage() {
   }
 
   // ═══════════════════════════════════════════════════════════
-  // LANDING — WAR ROOM (mocks-driven; F4 swaps to real endpoints)
+  // LANDING — WAR ROOM (real endpoints, ?mock=1 falls back to fixtures)
   // ═══════════════════════════════════════════════════════════
+
+  // Full-screen error — pre-draft / hit-rates / owner-profiles failed
+  if (landingError) {
+    const refetchAll = () => {
+      refetchPreDraft();
+      refetchHitRates();
+      refetchOwnerProfiles();
+      refetchSim();
+    };
+    return <LandingErrorState onRetry={refetchAll} />;
+  }
+
+  // Skeleton — waiting on pre-draft / hit-rates / owner-profiles
+  if (landingLoading || !preDraft || !hitRates) {
+    return <LandingSkeleton />;
+  }
+
+  // Simulate prefetch failed (landing core data is fine — fall back to a
+  // minimal sim-free landing via the mock sim, so the shell still renders).
+  // "Run Simulation" will try again via handleStart.
+  const effectiveSim = simReady
+    ? landingSim!
+    : (mockSimSnapshot as unknown as SimulateResponse);
+
   return (
-    <WarRoomLanding
-      preDraft={mockPreDraft}
-      hitRates={mockHitRates}
-      ownerProfiles={mockOwnerProfiles.profiles}
-      simSnapshot={mockSimSnapshot}
-      onStartSim={handleStart}
-    />
+    <>
+      {simPrefetching && !simReady && <SimPrefetchBanner />}
+      {simPrefetchError && !simReady && <SimPrefetchErrorBanner onRetry={() => refetchSim()} />}
+      <WarRoomLanding
+        preDraft={preDraft}
+        hitRates={hitRates}
+        ownerProfiles={ownerProfiles}
+        simSnapshot={effectiveSim}
+        onStartSim={handleStart}
+      />
+    </>
+  );
+}
+
+// ─── Landing shell states ────────────────────────────────────────────────
+
+function LandingSkeleton() {
+  return (
+    <div
+      className="min-h-screen overflow-x-hidden"
+      style={{
+        background:
+          "radial-gradient(ellipse 80% 40% at 50% -10%, rgba(212,165,50,0.055) 0%, transparent 60%), #07090f",
+        fontFamily: SANS,
+        color: C.primary,
+      }}
+    >
+      <style>{`
+        @keyframes md-shimmer { 0% { background-position: -300px 0 } 100% { background-position: 300px 0 } }
+        .md-skel {
+          background: linear-gradient(90deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.06) 50%, rgba(255,255,255,0.03) 100%);
+          background-size: 600px 100%;
+          animation: md-shimmer 1.4s ease-in-out infinite;
+          border-radius: 6px;
+        }
+      `}</style>
+
+      {/* Header strip */}
+      <header className="sticky top-0 z-20 backdrop-blur" style={{ borderBottom: `1px solid rgba(255,255,255,0.055)`, background: "rgba(7, 9, 15, 0.82)" }}>
+        <div className="mx-auto max-w-[1280px] px-4 md:px-6 py-3 md:py-3.5 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="md-skel" style={{ width: 140, height: 12 }} />
+            <div className="md-skel" style={{ width: 72, height: 18 }} />
+          </div>
+          <div className="hidden md:flex items-center gap-3">
+            <div className="md-skel" style={{ width: 60, height: 12 }} />
+            <div className="md-skel" style={{ width: 90, height: 12 }} />
+          </div>
+        </div>
+      </header>
+
+      {/* Your capital rail */}
+      <section className="mx-auto max-w-[1280px] px-4 md:px-6 pt-5 md:pt-6">
+        <div className="flex items-baseline justify-between">
+          <div className="md-skel" style={{ width: 180, height: 14 }} />
+          <div className="md-skel" style={{ width: 120, height: 10 }} />
+        </div>
+        <div className="mt-4 flex gap-3 overflow-x-hidden">
+          {[0, 1, 2, 3].map((i) => (
+            <div
+              key={i}
+              className="flex-shrink-0 rounded-xl p-4 md:p-5"
+              style={{ width: 236, border: `1px solid rgba(255,255,255,0.06)`, background: "rgba(255,255,255,0.018)" }}
+            >
+              <div className="md-skel" style={{ width: 72, height: 10 }} />
+              <div className="md-skel mt-3" style={{ width: 110, height: 40 }} />
+              <div className="mt-4 flex flex-col gap-2" style={{ borderTop: `1px solid rgba(255,255,255,0.055)`, paddingTop: 12 }}>
+                <div className="md-skel" style={{ width: "100%", height: 10 }} />
+                <div className="md-skel" style={{ width: "86%", height: 10 }} />
+                <div className="md-skel" style={{ width: "60%", height: 10 }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Three-col row */}
+      <section className="mx-auto max-w-[1280px] px-4 md:px-6 pt-7 md:pt-8 grid grid-cols-1 gap-4 md:gap-5 lg:grid-cols-3">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="rounded-xl p-3 md:p-5" style={{ border: `1px solid rgba(255,255,255,0.06)`, background: "rgba(255,255,255,0.018)" }}>
+            <div className="md-skel" style={{ width: 160, height: 14 }} />
+            <div className="mt-4 flex flex-col gap-2.5">
+              <div className="md-skel" style={{ width: "100%", height: 28 }} />
+              <div className="md-skel" style={{ width: "92%", height: 28 }} />
+              <div className="md-skel" style={{ width: "80%", height: 28 }} />
+              <div className="md-skel" style={{ width: "70%", height: 28 }} />
+            </div>
+          </div>
+        ))}
+      </section>
+
+      <div className="mt-10 mx-auto text-center" style={{ color: C.dim, fontFamily: MONO, fontSize: 11, letterSpacing: "0.14em" }}>
+        LOADING WAR ROOM…
+      </div>
+    </div>
+  );
+}
+
+function LandingErrorState({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div
+      className="min-h-screen flex items-center justify-center px-6"
+      style={{
+        background:
+          "radial-gradient(ellipse 80% 40% at 50% -10%, rgba(212,165,50,0.055) 0%, transparent 60%), #07090f",
+        fontFamily: SANS,
+        color: C.primary,
+      }}
+    >
+      <div
+        className="max-w-[420px] w-full text-center rounded-2xl px-6 py-8"
+        style={{
+          border: `1px solid rgba(255,255,255,0.06)`,
+          background: "rgba(255,255,255,0.018)",
+          boxShadow: `inset 0 1px 0 rgba(255,255,255,0.035)`,
+        }}
+      >
+        <div className="text-[9px] font-bold tracking-[0.26em] uppercase" style={{ color: "#e47272" }}>
+          War room unavailable
+        </div>
+        <div className="mt-2 font-semibold" style={{ fontFamily: DISPLAY, fontSize: 22, letterSpacing: "-0.01em" }}>
+          Couldn&apos;t load your draft intel
+        </div>
+        <div className="mt-2 text-[12px] leading-relaxed" style={{ color: C.secondary }}>
+          The server didn&apos;t answer. No data is missing — we just need to try again.
+        </div>
+        <button
+          onClick={onRetry}
+          className="mt-5 rounded-lg px-5 py-2.5 text-[12px] font-bold uppercase tracking-[0.08em] cursor-pointer"
+          style={{
+            color: "#1a1204",
+            background: `linear-gradient(180deg, ${C.gold} 0%, #b88a26 100%)`,
+            border: "none",
+            boxShadow: "0 6px 20px rgba(212,165,50,0.18), inset 0 1px 0 rgba(255,255,255,0.22)",
+          }}
+        >
+          Retry
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function SimPrefetchBanner() {
+  return (
+    <div
+      className="w-full px-4 py-2 text-center"
+      style={{
+        background: "rgba(212,165,50,0.06)",
+        borderBottom: `1px solid rgba(212,165,50,0.18)`,
+        color: C.gold,
+        fontFamily: MONO,
+        fontSize: 10,
+        letterSpacing: "0.14em",
+      }}
+    >
+      RUNNING 100 SIMULATIONS · THREAT RADAR + TOP BOARD UPDATING…
+    </div>
+  );
+}
+
+function SimPrefetchErrorBanner({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div
+      className="w-full px-4 py-2 flex items-center justify-center gap-3"
+      style={{
+        background: "rgba(228,114,114,0.06)",
+        borderBottom: `1px solid rgba(228,114,114,0.18)`,
+        color: "#e47272",
+        fontFamily: MONO,
+        fontSize: 10,
+        letterSpacing: "0.14em",
+      }}
+    >
+      <span>SIMULATION INTEL UNAVAILABLE · THREATS + BOARD MAY BE STALE</span>
+      <button
+        onClick={onRetry}
+        className="rounded px-2 py-0.5 cursor-pointer"
+        style={{ border: `1px solid rgba(228,114,114,0.4)`, color: "#e47272", background: "transparent", fontFamily: MONO, fontSize: 10 }}
+      >
+        RETRY
+      </button>
+    </div>
   );
 }

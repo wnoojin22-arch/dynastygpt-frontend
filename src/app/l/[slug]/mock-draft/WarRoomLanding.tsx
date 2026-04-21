@@ -503,7 +503,7 @@ export default function WarRoomLanding({
               Based on your <span style={{ color: C.primary }}>{userFirstSlot}</span> slot and league tendencies
             </span>
             <span className="text-[10px] md:text-[11px] tracking-[0.12em] wr-tabular" style={{ color: C.dim }}>
-              <span style={{ color: C.secondary }}>100</span> simulations · <span style={{ color: C.secondary }}>{num_teams}</span> owner profiles · <span style={{ color: C.secondary }}>{simSnapshot.consensus_board.length}</span> prospects
+              <span style={{ color: C.secondary }}>{simSnapshot.simulations_run}</span> simulations · <span style={{ color: C.secondary }}>{num_teams}</span> owner profiles · <span style={{ color: C.secondary }}>{simSnapshot.consensus_board.length}</span> prospects
             </span>
           </div>
           <button
