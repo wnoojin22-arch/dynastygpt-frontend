@@ -8,6 +8,7 @@ import { getMockDraftPreDraft, simulateMockDraft } from "@/lib/api";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import PickDetailSheet from "@/components/league/mock-draft/PickDetailSheet";
 import { C, MONO, SANS, DISPLAY } from "@/components/league/tokens";
+import { countDraftedAtPosition } from "./aggregator";
 
 /* ═══ WAR ROOM TOKENS ═══ */
 const MD = {
@@ -213,12 +214,16 @@ export default function MockDraftPage() {
           {revealed.map((pick, i) => {
             const isUser = pick.owner.toLowerCase() === owner.toLowerCase();
             const wasUserPick = !!userPicks[pick.slot];
-            const displayName = wasUserPick ? userPicks[pick.slot] : pick.prospect_name;
-            // Resolve position from consensus board when user picked someone different
-            const actualProspect = wasUserPick
-              ? (consensusBoard.find((c) => c.name === userPicks[pick.slot]))
+            const userPickedName = wasUserPick ? userPicks[pick.slot] : null;
+            const userPickedProspect = userPickedName
+              ? consensusBoard.find((c) => c.name === userPickedName)
               : null;
-            const displayPos = actualProspect ? actualProspect.position : pick.prospect_position;
+            const displayName = userPickedName ?? pick.prospect_name;
+            // Source of truth = consensus_board.position for the player actually drafted.
+            // Never fall back to pick.prospect_position when the user overrode — that's the AI's predicted (different) player.
+            const displayPos = userPickedName
+              ? (userPickedProspect?.position ?? "?")
+              : pick.prospect_position;
             const pc = POS_COLOR[displayPos] || C.dim;
             const probs = pickProbs[pick.slot] || [];
             const topProb = probs[0]?.pct || 0;
@@ -560,19 +565,14 @@ export default function MockDraftPage() {
                   {(["QB", "RB", "WR", "TE"] as const).map((pos) => {
                     const grade = grades[pos] || "AVERAGE";
                     const pc = POS_COLOR[pos] || C.dim;
-                    const draftedAtPos = Object.entries(userPicks).filter(([slot, name]) => {
-                      const chalkPick = chalk.find((c) => c.slot === slot);
-                      // If user picked someone different, check consensus board
-                      const prospect = (simulation?.consensus_board as Array<Record<string, unknown>> || []).find((p) => p.name === name);
-                      return prospect?.position === pos || chalkPick?.prospect_position === pos;
-                    });
+                    const draftedNames = countDraftedAtPosition(userPicks, consensusBoard, pos);
                     return (
                       <div key={pos} className="flex items-center gap-3">
                         <span className="text-sm font-black w-8" style={{ fontFamily: "'Archivo Black', sans-serif", color: pc }}>{pos}</span>
                         <span className="text-[10px] font-bold w-16" style={{ fontFamily: MONO, color: GRADE_BAR[grade]?.color || C.dim }}>{grade}</span>
                         <span className="text-[10px] flex-1" style={{ fontFamily: SANS, color: C.dim }}>
-                          {draftedAtPos.length > 0
-                            ? `+${draftedAtPos.length} drafted: ${draftedAtPos.map(([, n]) => n).join(", ")}`
+                          {draftedNames.length > 0
+                            ? `+${draftedNames.length} drafted: ${draftedNames.join(", ")}`
                             : "No picks used here"}
                         </span>
                       </div>
@@ -585,16 +585,15 @@ export default function MockDraftPage() {
               <div className="px-5 py-3 border-b" style={{ borderColor: "rgba(255,255,255,0.04)" }}>
                 <div className="text-[9px] font-bold tracking-widest mb-2" style={{ fontFamily: MONO, color: C.gold }}>YOUR PICKS</div>
                 {Object.entries(userPicks).map(([slot, prospectName]) => {
-                  const prospect = (simulation?.consensus_board as Array<Record<string, unknown>> || []).find((p) => p.name === prospectName);
-                  const chalkPick = chalk.find((c) => c.slot === slot);
-                  const pos = (prospect?.position || chalkPick?.prospect_position || "?") as string;
+                  const prospect = consensusBoard.find((p) => p.name === prospectName);
+                  const pos = prospect?.position ?? "?";
                   const pc = POS_COLOR[pos] || C.dim;
-                  const rank = (prospect?.rank || chalkPick?.board_position || "?") as number;
-                  const tier = (prospect?.tier || chalkPick?.prospect_tier || "?") as number;
+                  const rank = prospect?.rank ?? "?";
+                  const tier = prospect?.tier ?? "?";
                   const grade_at_pos = grades[pos] || "AVERAGE";
                   const fills = grade_at_pos === "CRITICAL" || grade_at_pos === "WEAK";
                   const pickNum = parseInt(slot.split(".")[0], 10) * 100 + parseInt(slot.split(".")[1], 10);
-                  const isReach = rank > pickNum + 5;
+                  const isReach = typeof rank === "number" && rank > pickNum + 5;
 
                   return (
                     <div key={slot} className="flex items-center gap-3 py-2 border-b" style={{ borderColor: "rgba(255,255,255,0.03)" }}>
