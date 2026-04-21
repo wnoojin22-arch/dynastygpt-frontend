@@ -9,6 +9,8 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 import PickDetailSheet from "@/components/league/mock-draft/PickDetailSheet";
 import { C, MONO, SANS, DISPLAY } from "@/components/league/tokens";
 import { countDraftedAtPosition } from "./aggregator";
+import WarRoomLanding from "./WarRoomLanding";
+import { mockPreDraft, mockHitRates, mockOwnerProfiles, mockSimSnapshot } from "./mocks";
 
 /* ═══ WAR ROOM TOKENS ═══ */
 const MD = {
@@ -651,167 +653,15 @@ export default function MockDraftPage() {
   }
 
   // ═══════════════════════════════════════════════════════════
-  // LANDING — WAR ROOM HERO
+  // LANDING — WAR ROOM (mocks-driven; F4 swaps to real endpoints)
   // ═══════════════════════════════════════════════════════════
-  const topProspects = (pd?.top_prospects || []) as Array<{
-    name: string; position: string; rank: number; tier: number; boom_bust: string; fills_need: boolean;
-  }>;
-  const leagueName = (pd?.league_name as string) || "";
-  const format = (pd?.format as string) || "SF";
-  const tep = (pd?.te_premium as boolean) || false;
-  const numTeams = (pd?.num_teams as number) || 12;
-
   return (
-    <div className="min-h-screen" style={{ background: MD.bg }}>
-      <style>{`
-        @keyframes md-btn-pulse{0%,100%{box-shadow:0 4px 30px rgba(212,165,50,0.25),0 0 60px rgba(212,165,50,0.1)}50%{box-shadow:0 4px 40px rgba(212,165,50,0.4),0 0 80px rgba(212,165,50,0.2)}}
-        @keyframes md-border-glow{0%,100%{border-color:rgba(212,165,50,0.15)}50%{border-color:rgba(212,165,50,0.35)}}
-        @keyframes md-need-pulse{0%,100%{opacity:0.8}50%{opacity:1}}
-        .md-glass{background:${MD.glass};border:1px solid ${MD.glassBorder};backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
-      `}</style>
-
-      {/* ═══ HERO ═══ */}
-      <div className="relative flex flex-col items-center justify-center text-center px-6" style={{ minHeight: mobile ? "80vh" : "65vh" }}>
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none overflow-hidden">
-          <span className="text-[180px] md:text-[280px] font-black leading-none" style={{
-            fontFamily: "'Archivo Black', sans-serif", color: "transparent",
-            WebkitTextStroke: "1px rgba(212,165,50,0.05)", letterSpacing: "-0.04em",
-          }}>2026</span>
-        </div>
-
-        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-          className="mb-5 flex items-center gap-1.5 px-3 py-1 rounded-full"
-          style={{ background: "rgba(212,165,50,0.08)", border: "1px solid rgba(212,165,50,0.25)" }}>
-          <span className="text-[9px] font-semibold" style={{ color: "#d4a532" }}>powered by</span>
-          <span className="text-[11px] font-black" style={{ color: "#eeeef2" }}>DynastyGPT<span style={{ color: "#d4a532" }}>.com</span></span>
-        </motion.div>
-
-        <motion.h1 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-          className="text-[48px] md:text-[72px] font-black tracking-[-0.03em] leading-[0.9]" style={{
-            fontFamily: "'Archivo Black', sans-serif", color: C.gold,
-            textShadow: "0 0 60px rgba(212,165,50,0.25), 0 4px 20px rgba(0,0,0,0.5)",
-          }}>MOCK DRAFT</motion.h1>
-
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}
-          className="mt-3 flex flex-wrap items-center justify-center gap-2">
-          <span className="text-sm font-semibold" style={{ fontFamily: SANS, color: C.secondary }}>{leagueName}</span>
-          <span className="text-[9px] font-extrabold tracking-wider px-2 py-0.5 rounded" style={{
-            fontFamily: MONO, background: `${C.gold}12`, border: `1px solid ${C.gold}30`, color: C.gold,
-          }}>{format}{tep ? " · TEP" : ""}</span>
-        </motion.div>
-
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
-          className="mt-1 text-xs tracking-widest uppercase" style={{ fontFamily: MONO, color: C.dim }}>
-          {pd?.owner as string || owner}
-        </motion.div>
-
-        <motion.button
-          initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}
-          whileTap={{ scale: 0.96 }}
-          onClick={handleStart}
-          className="mt-10 w-full max-w-sm rounded-2xl border-2 cursor-pointer"
-          style={{
-            padding: mobile ? "20px 0" : "22px 0",
-            background: `linear-gradient(135deg, ${C.goldDark}, ${C.gold})`,
-            borderColor: "rgba(212,165,50,0.5)",
-            fontFamily: "'Archivo Black', sans-serif", fontSize: mobile ? 16 : 18,
-            fontWeight: 900, letterSpacing: "0.14em", color: "#06080d",
-            animation: "md-btn-pulse 3s ease-in-out infinite",
-          }}>START MOCK DRAFT</motion.button>
-
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }}
-          className="mt-4 text-[10px] tracking-wider" style={{ fontFamily: MONO, color: `${C.dim}80` }}>
-          100 simulations · {numTeams} owner profiles · {topProspects.length}+ prospects
-        </motion.div>
-      </div>
-
-      {/* ═══ INTEL CARDS ═══ */}
-      <div className={`px-4 md:px-8 pb-12 max-w-4xl mx-auto ${mobile ? "flex flex-col gap-4" : "grid grid-cols-2 gap-5"}`}>
-        <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
-          className="md-glass rounded-2xl p-5" style={{ boxShadow: MD.cardGlow }}>
-          <h2 className="text-xs font-black tracking-[0.2em] mb-4" style={{ fontFamily: "'Archivo Black', sans-serif", color: C.gold }}>
-            YOUR DRAFT CAPITAL
-          </h2>
-          <div className="flex flex-wrap gap-2.5">
-            {myPicks.map((p) => (
-              <div key={p.slot} className="flex flex-col items-center rounded-xl px-4 py-3"
-                style={{ background: "rgba(212,165,50,0.06)", border: "1px solid rgba(212,165,50,0.2)", animation: "md-border-glow 4s ease-in-out infinite" }}>
-                <span className="text-xl font-black" style={{ fontFamily: "'Archivo Black', sans-serif", color: C.gold }}>{p.slot}</span>
-                <span className="text-[9px] mt-0.5" style={{ fontFamily: MONO, color: C.dim }}>{p.picks_before} before you</span>
-              </div>
-            ))}
-          </div>
-        </motion.div>
-
-        <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.1 }}
-          className="md-glass rounded-2xl p-5" style={{ boxShadow: MD.cardGlow }}>
-          <h2 className="text-xs font-black tracking-[0.2em] mb-4" style={{ fontFamily: "'Archivo Black', sans-serif", color: C.gold }}>
-            ROSTER NEEDS
-          </h2>
-          <div className="flex flex-col gap-3">
-            {(["QB", "RB", "WR", "TE"] as const).map((pos) => {
-              const grade = grades[pos] || "AVERAGE";
-              const bar = GRADE_BAR[grade] || GRADE_BAR.AVERAGE;
-              return (
-                <div key={pos} className="flex items-center gap-3">
-                  <span className="text-sm font-black w-8" style={{ fontFamily: "'Archivo Black', sans-serif", color: POS_COLOR[pos] }}>{pos}</span>
-                  <div className="flex-1 h-2.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.04)" }}>
-                    <div className="h-full rounded-full transition-all duration-700" style={{
-                      width: bar.width, background: bar.color, boxShadow: `0 0 12px ${bar.color}40`,
-                      animation: bar.pulse ? "md-need-pulse 1.5s ease-in-out infinite" : "none",
-                    }} />
-                  </div>
-                  <span className="text-[10px] font-bold w-16 text-right" style={{ fontFamily: MONO, color: bar.color }}>{grade}</span>
-                </div>
-              );
-            })}
-          </div>
-        </motion.div>
-      </div>
-
-      {/* ═══ PROSPECT CAROUSEL ═══ */}
-      <div className="px-4 md:px-8 pb-20 max-w-4xl mx-auto">
-        <div className="flex items-center gap-3 mb-4">
-          <h2 className="text-xs font-black tracking-[0.2em]" style={{ fontFamily: "'Archivo Black', sans-serif", color: C.gold }}>TOP PROSPECTS</h2>
-          <span className="text-[9px] font-bold tracking-wider px-1.5 py-0.5 rounded" style={{
-            fontFamily: MONO, background: `${C.gold}10`, border: `1px solid ${C.gold}20`, color: C.gold,
-          }}>{format}</span>
-        </div>
-        <div className={mobile ? "flex gap-3 overflow-x-auto pb-4 snap-x snap-mandatory" : "grid grid-cols-2 md:grid-cols-4 gap-3"}>
-          {topProspects.slice(0, 8).map((p, i) => {
-            const pc = POS_COLOR[p.position] || C.dim;
-            return (
-              <motion.div key={i} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
-                transition={{ delay: i * 0.05 }}
-                className={`md-glass rounded-xl p-4 snap-center ${mobile ? "flex-shrink-0" : ""}`}
-                style={{
-                  minWidth: mobile ? 150 : undefined,
-                  border: p.fills_need ? `1px solid ${pc}30` : `1px solid ${MD.glassBorder}`,
-                  boxShadow: p.fills_need ? `0 0 20px ${pc}15` : MD.cardGlow,
-                }}>
-                <div className="text-3xl font-black leading-none mb-1" style={{
-                  fontFamily: "'Archivo Black', sans-serif", color: "rgba(255,255,255,0.06)",
-                }}>{p.rank}</div>
-                <span className="inline-block text-[10px] font-black tracking-wider px-2 py-0.5 rounded mb-2" style={{
-                  fontFamily: MONO, color: pc, background: `${pc}18`, border: `1px solid ${pc}25`,
-                }}>{p.position}</span>
-                <div className="text-sm font-bold leading-tight" style={{ fontFamily: SANS, color: C.primary }}>{p.name}</div>
-                <div className="flex items-center gap-2 mt-2">
-                  <span className="text-[9px]" style={{ fontFamily: MONO, color: C.dim }}>Tier {p.tier}</span>
-                  <span className="text-[9px]" style={{ fontFamily: MONO, color: p.boom_bust === "SAFE" ? C.green : p.boom_bust === "BOOM/BUST" ? C.red : C.dim }}>
-                    {p.boom_bust === "SAFE" ? "🛡" : p.boom_bust === "BOOM/BUST" ? "🔥" : "◆"} {p.boom_bust}
-                  </span>
-                </div>
-                {p.fills_need && (
-                  <div className="mt-2 text-[9px] font-bold tracking-wider px-2 py-0.5 rounded-full inline-block" style={{
-                    fontFamily: MONO, color: C.green, background: "rgba(125,211,160,0.12)", border: "1px solid rgba(125,211,160,0.25)",
-                  }}>FILLS NEED</div>
-                )}
-              </motion.div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
+    <WarRoomLanding
+      preDraft={mockPreDraft}
+      hitRates={mockHitRates}
+      ownerProfiles={mockOwnerProfiles.profiles}
+      simSnapshot={mockSimSnapshot}
+      onStartSim={handleStart}
+    />
   );
 }
