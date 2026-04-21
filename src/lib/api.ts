@@ -147,7 +147,7 @@ export const getVerdictCache = (id: string) => get<{ verdicts: Record<string, un
 export const getTradeRecord = (id: string, owner: string, userId?: string | null) => get<{ hindsight: { won: number; lost: number; even: number; decided: number; win_rate: number; pending_count: number; total_displayable: number }; trade_day: { won: number; lost: number; even: number; decided: number; win_rate: number } }>(`${L(id)}/trades/record?owner=${E(owner)}${userId ? `&owner_user_id=${E(userId)}` : ''}`);
 
 // ── Mock Draft ──────────────────────────────────────────────────────────
-export const getMockDraftPreDraft = (id: string, owner?: string, ownerId?: string) => get<unknown>(`${L(id)}/draft/mock-draft/pre-draft?${ownerId ? `owner_id=${E(ownerId)}` : `owner=${E(owner || '')}`}`);
+export const getMockDraftPreDraft = (id: string, owner?: string, ownerId?: string) => get<unknown>(`${L(id)}/draft/mock-draft/pre-draft?owner=${E(owner || '')}${ownerId ? `&owner_id=${E(ownerId)}` : ''}`);
 export const simulateMockDraft = (id: string, body: { user_owner?: string; user_owner_id?: string }) => post<unknown>(`${L(id)}/draft/mock-draft/simulate`, body);
 export const mockDraftPick = (id: string, body: { slot: string; prospect_name: string; prior_picks: Record<string, string>; user_owner?: string; user_owner_id?: string }) => post<unknown>(`${L(id)}/draft/mock-draft/pick`, body);
 
