@@ -151,6 +151,35 @@ export const getMockDraftPreDraft = (id: string, owner?: string, ownerId?: strin
 export const simulateMockDraft = (id: string, body: { user_owner?: string; user_owner_id?: string }) => post<unknown>(`${L(id)}/draft/mock-draft/simulate`, body);
 export const mockDraftPick = (id: string, body: { slot: string; prospect_name: string; prior_picks: Record<string, string>; user_owner?: string; user_owner_id?: string }) => post<unknown>(`${L(id)}/draft/mock-draft/pick`, body);
 
+/**
+ * Re-run the sim from a hypothetical state — user locked-in picks, known
+ * other-owner picks, and post-trade ownership overrides. Returns the same
+ * shape as /simulate, with a fresh sim_id the trade-preview endpoints can
+ * reference. Empty body works too; no locked picks → behaves like /simulate.
+ */
+export const simulateMockDraftFromState = (
+  id: string,
+  body: {
+    user_owner?: string;
+    user_owner_id?: string;
+    user_picks?: Record<string, string>;
+    locked_picks?: Record<string, string>;
+    pick_ownership_overrides?: Record<string, string>;
+  },
+) => post<unknown>(`${L(id)}/draft/mock-draft/simulate-from-state`, body);
+
+/** Trade-up preview — user gives picks to move up to target_slot. */
+export const mockDraftTradeUpPreview = (
+  id: string,
+  body: { sim_id: string; target_slot: string; user_owner?: string; user_owner_id?: string },
+) => post<unknown>(`${L(id)}/draft/mock-draft/trade-up-preview`, body);
+
+/** Trade-back preview — user moves down, partner moves up, user gets fillers. */
+export const mockDraftTradeBackPreview = (
+  id: string,
+  body: { sim_id: string; target_slot: string; user_owner?: string; user_owner_id?: string },
+) => post<unknown>(`${L(id)}/draft/mock-draft/trade-back-preview`, body);
+
 // ── Trade Builder ────────────────────────────────────────────────────────
 export const getTradeBuilderSuggestions = (id: string, owner: string, userId?: string | null) => get<unknown>(`${L(id)}/trade-builder/${O(owner, userId)}`);
 export const getTradeBuilderTargets = (id: string, owner: string, userId?: string | null) => get<unknown>(`${L(id)}/trade-builder/${O(owner, userId)}/targets`);

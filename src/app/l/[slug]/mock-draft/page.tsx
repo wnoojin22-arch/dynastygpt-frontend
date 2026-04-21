@@ -8,9 +8,11 @@ import { useLeagueStore } from "@/lib/stores/league-store";
 import {
   getMockDraftPreDraft,
   simulateMockDraft,
+  simulateMockDraftFromState,
   getDraftHitRates,
   getDraftOwnerProfiles,
 } from "@/lib/api";
+import { useMockDraftStore } from "@/lib/stores/mock-draft-store";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import PickDetailSheet from "@/components/league/mock-draft/PickDetailSheet";
 import { C, MONO, SANS, DISPLAY } from "@/components/league/tokens";
@@ -95,11 +97,20 @@ export default function MockDraftPage() {
   const useMocks = searchParams?.get("mock") === "1";
 
   const [phase, setPhase] = useState<Phase>("landing");
-  const [simulation, setSimulation] = useState<Record<string, unknown> | null>(null);
 
-  // Live draft state
-  const [revealedCount, setRevealedCount] = useState(0);
-  const [userPicks, setUserPicks] = useState<Record<string, string>>({});
+  // Live draft state — single source of truth in the Zustand store so
+  // the SelectionTray, TradeModal, and page share the same maps.
+  const simulation = useMockDraftStore((s) => s.sim);
+  const revealedCount = useMockDraftStore((s) => s.revealedCount);
+  const userPicks = useMockDraftStore((s) => s.userPicks);
+  const ownerOverrides = useMockDraftStore((s) => s.ownerOverrides);
+  const lockedPicks = useMockDraftStore((s) => s.lockedPicks);
+  const setSim = useMockDraftStore((s) => s.setSim);
+  const advanceRevealedTo = useMockDraftStore((s) => s.advanceRevealedTo);
+  const lockPick = useMockDraftStore((s) => s.lockPick);
+  const resetDraft = useMockDraftStore((s) => s.resetDraft);
+
+  // UI-only state stays local.
   const [pickSearch, setPickSearch] = useState("");
   const [pickPosFilter, setPickPosFilter] = useState("ALL");
   const [activeDetailSlot, setActiveDetailSlot] = useState<string | null>(null);
@@ -144,7 +155,7 @@ export default function MockDraftPage() {
   const ownerProfiles = useMemo(() => ownerProfilesResp?.profiles ?? [], [ownerProfilesResp]);
   const landingSim = (useMocks
     ? mockSimSnapshot
-    : (prefetchedSim ?? simulation ?? undefined)) as SimulateResponse | undefined;
+    : (simulation ?? prefetchedSim ?? undefined)) as SimulateResponse | undefined;
 
   const landingLoading = !useMocks && (preDraftLoading || hitRatesLoading || ownerProfilesLoading);
   const landingError = !useMocks && (preDraftError || hitRatesError || ownerProfilesError);
@@ -155,8 +166,8 @@ export default function MockDraftPage() {
   // All chalk picks from simulation
   const chalk = (simulation?.chalk || []) as ChalkPick[];
   const pickProbs = (simulation?.pick_probabilities || {}) as Record<string, Array<{ prospect: string; position: string; pct: number }>>;
-  const tradeFlags = (simulation?.trade_flags || []) as Array<Record<string, unknown>>;
-  const userAnalysis = (simulation?.user_pick_analysis || []) as Array<Record<string, unknown>>;
+  const tradeFlags = (simulation?.trade_flags ?? []) as unknown as Array<Record<string, unknown>>;
+  const userAnalysis = (simulation?.user_pick_analysis ?? []) as unknown as Array<Record<string, unknown>>;
 
   // Pre-draft data (used in both landing AND live draft sections)
   const myPicks = (pd?.user_picks || []) as Array<{ slot: string; round: number; picks_before: number }>;
@@ -166,35 +177,52 @@ export default function MockDraftPage() {
   // ── Start draft: reuse prefetched sim if present, else fetch.
   //    Instant resolution — fast-forward to the user's first pick on mount;
   //    no ticker, no artificial reveal delay. All prior picks render above
-  //    as scrollback history.
+  //    as scrollback history. A fresh start wipes any hypothetical state
+  //    (resetCursor:true). Post-trade re-sims reuse the store's state +
+  //    call simulate-from-state instead (see re-sim paths in step 4).
   const startWith = useCallback(
-    (data: Record<string, unknown>) => {
-      const nextChalk = ((data.chalk || []) as Array<{ slot: string; owner: string }>);
-      setSimulation(data);
-      setUserPicks({});
-      setRevealedCount(fastForwardIdx(nextChalk, owner, {}, 0));
+    (data: SimulateResponse) => {
+      const nextChalk = data.chalk ?? [];
+      setSim(data, { resetCursor: true });
+      advanceRevealedTo(fastForwardIdx(nextChalk, owner, {}, 0));
       setPhase("live");
     },
-    [owner],
+    [owner, setSim, advanceRevealedTo],
   );
 
   const handleStart = useCallback(async () => {
     if (useMocks) {
-      startWith(mockSimSnapshot as unknown as Record<string, unknown>);
+      startWith(mockSimSnapshot as unknown as SimulateResponse);
       return;
     }
-    if (prefetchedSim) {
-      startWith(prefetchedSim as Record<string, unknown>);
+    // If the user has locked picks or post-trade overrides in the store,
+    // kick off a hypothetical-aware sim. On first click this will almost
+    // always be empty and we fall through to the prefetched /simulate.
+    const hasHypotheticals =
+      Object.keys(userPicks).length > 0 ||
+      Object.keys(lockedPicks).length > 0 ||
+      Object.keys(ownerOverrides).length > 0;
+
+    if (!hasHypotheticals && prefetchedSim) {
+      startWith(prefetchedSim as SimulateResponse);
       return;
     }
     setPhase("loading");
     try {
-      const data = await simulateMockDraft(leagueId, { user_owner: owner, user_owner_id: ownerId });
-      startWith(data as Record<string, unknown>);
+      const data = hasHypotheticals
+        ? await simulateMockDraftFromState(leagueId, {
+            user_owner: owner,
+            user_owner_id: ownerId,
+            user_picks: userPicks,
+            locked_picks: lockedPicks,
+            pick_ownership_overrides: ownerOverrides,
+          })
+        : await simulateMockDraft(leagueId, { user_owner: owner, user_owner_id: ownerId });
+      startWith(data as SimulateResponse);
     } catch {
       setPhase("landing");
     }
-  }, [leagueId, owner, ownerId, prefetchedSim, useMocks, startWith]);
+  }, [leagueId, owner, ownerId, prefetchedSim, useMocks, startWith, userPicks, lockedPicks, ownerOverrides]);
 
   // Scroll to the user pick card any time a new user-turn is reached.
   useEffect(() => {
@@ -210,14 +238,14 @@ export default function MockDraftPage() {
   // user pick (or end). No ticker in between.
   const handleUserDraft = useCallback(
     (slot: string, prospectName: string) => {
+      lockPick(slot, prospectName, "user");
       const nextUserPicks = { ...userPicks, [slot]: prospectName };
-      setUserPicks(nextUserPicks);
-      const nextChalk = ((simulation?.chalk || []) as Array<{ slot: string; owner: string }>);
+      const nextChalk = simulation?.chalk ?? [];
       const slotIdx = nextChalk.findIndex((c) => c.slot === slot);
       const from = slotIdx >= 0 ? slotIdx + 1 : revealedCount + 1;
-      setRevealedCount(fastForwardIdx(nextChalk, owner, nextUserPicks, from));
+      advanceRevealedTo(fastForwardIdx(nextChalk, owner, nextUserPicks, from));
     },
-    [userPicks, simulation, owner, revealedCount],
+    [userPicks, simulation, owner, revealedCount, lockPick, advanceRevealedTo],
   );
 
   // ═══════════════════════════════════════════════════════════
