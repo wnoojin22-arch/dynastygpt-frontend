@@ -131,7 +131,7 @@ export default function OwnerDetailPage({ params }: { params: Promise<{ owner: s
             {[
               { label: "TRADES/YR", value: t?.trades_per_year ? String(t.trades_per_year) : "—", color: C.primary },
               { label: "WIN RATE", value: t?.trade_win_rate ? `${(Number(t.trade_win_rate) * 100).toFixed(0)}%` : "—", color: Number(t?.trade_win_rate || 0) >= 0.5 ? C.green : C.red },
-              { label: "TOTAL TRADES", value: String(profile?.trade_count || 0), color: C.primary },
+              { label: "TOTAL TRADES", value: String(t?.total_trades || 0), color: C.primary },
               { label: "RECORD", value: record ? `${record.all_time_wins}W-${record.all_time_losses}L` : "—", color: C.primary },
               { label: "TITLES", value: champs ? String(champs.championships) : "0", color: C.gold },
             ].map((s) => (
