@@ -124,7 +124,7 @@ function Skel({ h = 20, w = "100%" }: { h?: number; w?: string | number }) {
 function MarketIntelSection({ feed, loading }: { feed: any; loading: boolean }) {
   const [expanded, setExpanded] = useState<string | null>(null);
   const items = (feed?.market_feed || []) as any[];
-  const totalTrades = items.reduce((s: number, i: any) => s + (i.recent_trades || 0), 0);
+  const totalTrades = items.reduce((s: number, i: any) => s + (i.recent_trades || i.trades_90d || 0), 0);
   const SANS = "-apple-system, 'Inter', system-ui, sans-serif";
 
   if (loading) {
@@ -184,10 +184,10 @@ function MarketIntelSection({ feed, loading }: { feed: any; loading: boolean }) 
                 <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.gold }}>{item.pos_rank || ""}</span>
                 <span style={{
                   fontFamily: MONO, fontSize: 9, fontWeight: 800, padding: "2px 6px", borderRadius: 3,
-                  color: item.recent_trades >= 5 ? C.green : item.recent_trades >= 3 ? C.gold : C.secondary,
-                  background: item.recent_trades >= 5 ? "rgba(125,211,160,0.12)" : item.recent_trades >= 3 ? C.goldDim : C.white08,
+                  color: (item.recent_trades || item.trades_90d || 0) >= 5 ? C.green : (item.recent_trades || item.trades_90d || 0) >= 3 ? C.gold : C.secondary,
+                  background: (item.recent_trades || item.trades_90d || 0) >= 5 ? "rgba(125,211,160,0.12)" : (item.recent_trades || item.trades_90d || 0) >= 3 ? C.goldDim : C.white08,
                 }}>
-                  {item.recent_trades} trades
+                  {item.recent_trades || item.trades_90d || 0} trades
                 </span>
                 <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim, transition: "transform 0.15s", transform: isExpanded ? "rotate(90deg)" : "rotate(0)" }}>▸</span>
               </div>
