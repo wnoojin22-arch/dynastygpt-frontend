@@ -169,63 +169,65 @@ export const mockHitRates: HitRatesResponse = {
   },
 };
 
-// ─── Consensus board (top 24 — full fit payloads on top 10, bare on rest) ─
+// ─── Consensus board (top 24 — full fit payload on top 20, bare on 21-24) ─
 //
-// SLOT-AWARE FIT SCORE FORMULA (applied here for Duke @ pickNum=12):
-// ---------------------------------------------------------------------
-// Fit score = weighted sum of 5 sub-scores (value, need, tendency, window, boom)
-// Weights are DYNAMIC based on the value-vs-slot gap, not static. The static
-// weights in the original Phase 2A contract (35 need / 30 value) are WRONG:
-// at 1.01 BPA dominates; at 1.12 fit-vs-BPA tension is smaller; by late rounds
-// need dominates because talent is flat. Formula implements that principle.
+// SLOT-AWARE FIT SCORE — canonical implementation in the backend at
+// app/services/mock_draft_fit.py. Duke @ pickNum=12 Big Jer context.
 //
-//   delta = consensus_rank - pickNum   (negative = BPA sitting there)
+//   delta = pick_num - consensus_rank   (positive = prospect fell past ADP)
 //
-//   STEAL   (delta <= -5):  value 65 | need 20 | tendency 10 | window 3 | boom 2
-//   FAIR    (|delta| <  5): value 30 | need 35 | tendency 20 | window 10 | boom 5
-//   REACH   (delta >=  5):  value 15 | need 50 | tendency 25 | window 7  | boom 3
+//   STEAL   (delta >= 5):  value 65 | need 20 | tendency 10 | window 3 | boom 2
+//   FAIR    (|delta| < 5): value 30 | need 35 | tendency 20 | window 10 | boom 5
+//   REACH   (delta <= -5): value 15 | need 50 | tendency 25 | window 7  | boom 3
 //
-// Implications:
-//  - A generational prospect who falls (top-5 at 1.12) hits 95+ regardless of
-//    positional redundancy — STEAL weighting makes need nearly irrelevant.
-//  - Prospects at their expected draft range (FAIR) are scored on need first.
-//  - Reaches justify themselves only when filling a real need.
+// Plus grand-slam bonuses:
+//   BPA_bonus = max(0, 8 - consensus_rank) * clamp((delta - 5) / 10, 0, 1)
+//   NEED_FIT_bonus = +8 when STEAL band AND grade ∈ (CRITICAL, WEAK, AVG)
 //
-// This supersedes the static-weight version of the Bug 6 / Phase 2A contract.
-// See: dynastygpt-api KNOWN_BUGS.md — "Fit score formula must be slot-aware".
+// A MEGA STEAL (delta ≥ 10) on a top-5 prospect hits ≈ 75-90 even against
+// an ELITE room (Love). A reach for a real need (Nussmeier, QB in SF)
+// still clears 50. Redundant picks at ADP (Price, RB ELITE) sit near 47.
+// Fit scores below are produced by the B1 slot-aware fit_score formula
+// (app/services/mock_draft_fit.py) using Duke Nukem's live context at 1.12:
+// RB/WR ELITE, QB/TE AVERAGE, SF, no TEP, BALANCED window. Reasons are
+// rendered by the same module's template bank — do not hand-edit these
+// strings; regenerate via the formula if the context changes.
 export const mockConsensusBoard: ConsensusBoardEntry[] = [
-  // ── STEAL zone at 1.12 (rank <= 7) — value-dominant. Edge case demonstration:
-  //    these are 0% available at 1.12 in reality, but the score shows what
-  //    would happen if they fell. Love @ 96 ignores RB ELITE redundancy.
-  { rank: 1, name: "Jeremiyah Love", position: "RB", tier: 1, boom_bust: "SAFE", fp_rank: 1, ktc_rank: 1, fit_score: 96, fit_reasons: ["STEAL — generational bell-cow fallen 11 picks", "Value dominates despite RB ELITE stack", "Workhorse profile — 85%+ projected snaps", "Flip or start: can't pass BPA of this magnitude"], fit_negatives: [] },
-  { rank: 2, name: "Fernando Mendoza", position: "QB", tier: 1, boom_bust: "SAFE", fp_rank: 2, ktc_rank: 2, fit_score: 94, fit_reasons: ["STEAL — SF-scoring QB1 at pick 12 is free money", "Fills AVERAGE QB to STRONG in one pick", "Pocket passer with 12+ year runway", "Value + need both reinforce"] },
-  { rank: 3, name: "Carnell Tate", position: "WR", tier: 1, boom_bust: "SAFE", fp_rank: 3, ktc_rank: 3, fit_score: 88, fit_reasons: ["STEAL — tier-1 WR falling past pick 7", "WR ELITE stack makes need flat, value carries", "Ohio State pedigree, clean route tree", "Flip asset if not starting"] },
-  { rank: 4, name: "Makai Lemon", position: "WR", tier: 1, boom_bust: "SAFE", fp_rank: 4, ktc_rank: 4, fit_score: 86, fit_reasons: ["STEAL — top-5 WR at pick 12", "USC target earner, reliable separation", "WR depth redundant but value wins"] },
-  { rank: 5, name: "Jordyn Tyson", position: "WR", tier: 2, boom_bust: "MODERATE", fp_rank: 5, ktc_rank: 5, fit_score: 84, fit_reasons: ["STEAL — alpha WR falling to end of round", "ASU contested-catch upside", "Landing spot swings final value"] },
-  { rank: 6, name: "K.C. Concepcion", position: "WR", tier: 2, boom_bust: "MODERATE", fp_rank: 6, ktc_rank: 6, fit_score: 80, fit_reasons: ["STEAL-boundary — tier-2 WR value", "YAC dynamo, slot floor", "WR redundant but value prevails"] },
-  { rank: 7, name: "Kenyon Sadiq", position: "TE", tier: 2, boom_bust: "MODERATE", fp_rank: 7, ktc_rank: 6, fit_score: 91, fit_reasons: ["STEAL + fills AVERAGE TE position", "Elite athletic profile at TE", "TE-premium scoring boost", "Year-1 receiving usage projected", "Rare overlap of value and need"] },
+  // ── STEAL zone at 1.12 (delta ≥ 5). Value dominant; MEGA at delta ≥ 10.
+  //    These are 0% available at 1.12 in reality; scores show what would
+  //    happen if they fell.
+  { rank: 1, name: "Jeremiyah Love", position: "RB", tier: 1, boom_bust: "SAFE", fp_rank: 1, ktc_rank: 1, fit_score: 75, fit_reasons: ["MEGA STEAL — fell 11 picks past ADP at #1 overall", "Redundant — RB room already ELITE", "Week-1 floor, no bust risk"], fit_negatives: ["Redundant — RB room already ELITE"] },
+  { rank: 2, name: "Fernando Mendoza", position: "QB", tier: 1, boom_bust: "SAFE", fp_rank: 2, ktc_rank: 2, fit_score: 90, fit_reasons: ["MEGA STEAL — fell 10 picks past ADP at #2 overall", "Plugs a real need at QB in Superflex", "Week-1 floor, no bust risk"], fit_negatives: [] },
+  { rank: 3, name: "Carnell Tate", position: "WR", tier: 1, boom_bust: "SAFE", fp_rank: 3, ktc_rank: 3, fit_score: 70, fit_reasons: ["STEAL — fell 9 picks past ADP at #3", "Consensus top-3 still on the board", "Redundant — WR room already ELITE", "Week-1 floor, no bust risk"], fit_negatives: ["Redundant — WR room already ELITE"] },
+  { rank: 4, name: "Makai Lemon", position: "WR", tier: 1, boom_bust: "SAFE", fp_rank: 4, ktc_rank: 4, fit_score: 68, fit_reasons: ["STEAL — fell 8 picks past ADP at #4", "Consensus top-4 still on the board", "Redundant — WR room already ELITE", "Week-1 floor, no bust risk"], fit_negatives: ["Redundant — WR room already ELITE"] },
+  { rank: 5, name: "Jordyn Tyson", position: "WR", tier: 2, boom_bust: "MODERATE", fp_rank: 5, ktc_rank: 5, fit_score: 66, fit_reasons: ["STEAL — fell 7 picks past ADP at #5", "Consensus top-5 still on the board", "Redundant — WR room already ELITE"], fit_negatives: ["Redundant — WR room already ELITE"] },
+  { rank: 6, name: "K.C. Concepcion", position: "WR", tier: 2, boom_bust: "MODERATE", fp_rank: 6, ktc_rank: 6, fit_score: 64, fit_reasons: ["STEAL — fell 6 picks past ADP at #6", "Consensus top-6 still on the board", "Redundant — WR room already ELITE"], fit_negatives: ["Redundant — WR room already ELITE"] },
+  { rank: 7, name: "Kenyon Sadiq", position: "TE", tier: 2, boom_bust: "MODERATE", fp_rank: 7, ktc_rank: 6, fit_score: 79, fit_reasons: ["STEAL — fell 5 picks past ADP at #7", "Plugs a real need at TE"], fit_negatives: [] },
 
-  // ── FAIR zone at 1.12 (rank 8-16) — need dominant, scored on roster context.
-  //    Rank 10-11 (Price/Simpson) show the "minor steal" signal at top of FAIR.
-  { rank: 8, name: "Omar Cooper Jr.", position: "WR", tier: 3, boom_bust: "MODERATE", fp_rank: 8, ktc_rank: 7, fit_score: 58, fit_reasons: ["FAIR — value aligns with slot", "WR ELITE stack makes another WR redundant", "Indiana production scaled up"] },
-  { rank: 9, name: "Denzel Boston", position: "WR", tier: 3, boom_bust: "POLARIZING", fp_rank: 9, ktc_rank: 8, fit_score: 54, fit_reasons: ["FAIR — slot-aligned value", "Big-body X profile, polarizing projection", "WR depth redundant"] },
-  { rank: 10, name: "Jadarian Price", position: "RB", tier: 3, boom_bust: "MODERATE", fp_rank: 11, ktc_rank: 10, fit_score: 62, fit_reasons: ["Minor steal — falling 2 past ADP", "Notre Dame pedigree, three-down upside", "RB ELITE makes him redundant for starts", "Flip-value more than start-value"], fit_negatives: ["Committee concerns"] },
-  { rank: 11, name: "Ty Simpson", position: "QB", tier: 3, boom_bust: "POLARIZING", fp_rank: 12, ktc_rank: 9, fit_score: 78, fit_reasons: ["Minor steal at pick 12", "SF scoring amplifies QB2 value", "Fills AVERAGE QB depth", "Polarizing projection"] },
-  { rank: 12, name: "Eli Stowers", position: "TE", tier: 3, boom_bust: "MODERATE", fp_rank: 10, ktc_rank: 12, fit_score: 74, fit_reasons: ["FAIR @ slot — perfect value/need balance", "Fills AVERAGE TE need", "TE-premium scoring boost", "Day-1 receiving role likely"] },
-  { rank: 13, name: "Jonah Coleman", position: "RB", tier: 3, boom_bust: "MODERATE", fp_rank: 13, ktc_rank: 11, fit_score: 56, fit_reasons: ["FAIR value at slot", "RB ELITE stack redundant", "Depth flier at best"] },
-  { rank: 14, name: "Mike Washington Jr.", position: "RB", tier: 3, boom_bust: "POLARIZING", fp_rank: 14, ktc_rank: 15, fit_score: 58, fit_reasons: ["BPA at slot — consensus 14 matches pick", "RB ELITE = redundant need", "Chalk pick by value alone"] },
-  { rank: 15, name: "Elijah Sarratt", position: "WR", tier: 3, boom_bust: "MODERATE", fp_rank: 16, ktc_rank: 14, fit_score: 54, fit_reasons: ["FAIR-boundary value", "WR ELITE makes redundant", "Mid-round target"] },
-  { rank: 16, name: "Nicholas Singleton", position: "RB", tier: 4, boom_bust: "MODERATE", fp_rank: 17, ktc_rank: 13, fit_score: 52, fit_reasons: ["FAIR-boundary value", "Penn State pedigree", "RB stack redundant for starts"] },
+  // ── FAIR zone at 1.12 (-4 ≤ delta ≤ 4). Need dominant. Tweak 3: FAIR +
+  //    redundant at ELITE position renders as 2 bullets (no archetype).
+  { rank: 8, name: "Omar Cooper Jr.", position: "WR", tier: 3, boom_bust: "MODERATE", fp_rank: 8, ktc_rank: 7, fit_score: 48, fit_reasons: ["Fair value at WR #8, right where he's going", "Redundant — WR room already ELITE"], fit_negatives: ["Redundant — WR room already ELITE"] },
+  { rank: 9, name: "Denzel Boston", position: "WR", tier: 3, boom_bust: "POLARIZING", fp_rank: 9, ktc_rank: 8, fit_score: 46, fit_reasons: ["Fair value at WR #9, right where he's going", "Redundant — WR room already ELITE"], fit_negatives: ["Redundant — WR room already ELITE"] },
+  { rank: 10, name: "Jadarian Price", position: "RB", tier: 3, boom_bust: "MODERATE", fp_rank: 11, ktc_rank: 10, fit_score: 47, fit_reasons: ["Fair value at RB #10, right where he's going", "Redundant — RB room already ELITE"], fit_negatives: ["Redundant — RB room already ELITE"] },
+  { rank: 11, name: "Ty Simpson", position: "QB", tier: 3, boom_bust: "POLARIZING", fp_rank: 12, ktc_rank: 9, fit_score: 62, fit_reasons: ["Plugs a real need at QB in Superflex", "Fair value at QB #11, right where he's going", "Board is split — love him or pass"], fit_negatives: ["Board is split — love him or pass"] },
+  { rank: 12, name: "Eli Stowers", position: "TE", tier: 3, boom_bust: "MODERATE", fp_rank: 10, ktc_rank: 12, fit_score: 60, fit_reasons: ["Plugs a real need at TE", "Fair value at TE #12, right where he's going"], fit_negatives: [] },
+  { rank: 13, name: "Jonah Coleman", position: "RB", tier: 3, boom_bust: "MODERATE", fp_rank: 13, ktc_rank: 11, fit_score: 44, fit_reasons: ["Fair value at RB #13, right where he's going", "Redundant — RB room already ELITE"], fit_negatives: ["Redundant — RB room already ELITE"] },
+  { rank: 14, name: "Mike Washington Jr.", position: "RB", tier: 3, boom_bust: "POLARIZING", fp_rank: 14, ktc_rank: 15, fit_score: 42, fit_reasons: ["Fair value at RB #14, right where he's going", "Redundant — RB room already ELITE"], fit_negatives: ["Redundant — RB room already ELITE"] },
+  { rank: 15, name: "Elijah Sarratt", position: "WR", tier: 3, boom_bust: "MODERATE", fp_rank: 16, ktc_rank: 14, fit_score: 41, fit_reasons: ["Fair value at WR #15, right where he's going", "Redundant — WR room already ELITE"], fit_negatives: ["Redundant — WR room already ELITE"] },
+  { rank: 16, name: "Nicholas Singleton", position: "RB", tier: 4, boom_bust: "MODERATE", fp_rank: 17, ktc_rank: 13, fit_score: 40, fit_reasons: ["Fair value at RB #16, right where he's going", "Redundant — RB room already ELITE"], fit_negatives: ["Redundant — RB room already ELITE"] },
 
-  // ── REACH zone at 1.12 (rank >= 17) — need-dominant; only QB/TE justify here.
-  { rank: 17, name: "Emmett Johnson", position: "RB", tier: 3, boom_bust: "POLARIZING", fp_rank: 15, ktc_rank: 16, fit_score: 48, fit_reasons: ["REACH — 5+ picks past ADP", "RB redundant, no need to reach"], fit_negatives: ["Reach with no need justification"] },
-  { rank: 18, name: "Chris Brazzell II", position: "WR", tier: 4, boom_bust: "POLARIZING", fp_rank: 18, ktc_rank: 17, fit_score: 44 },
-  { rank: 19, name: "Chris Bell", position: "WR", tier: 4, boom_bust: "BOOM/BUST", fp_rank: 20, ktc_rank: 20, fit_score: 40 },
-  { rank: 20, name: "Kaytron Allen", position: "RB", tier: 4, boom_bust: "POLARIZING", fp_rank: 19, ktc_rank: 22, fit_score: 42 },
-  { rank: 21, name: "Garrett Nussmeier", position: "QB", tier: 4, boom_bust: "BOOM/BUST", fp_rank: 22, ktc_rank: 19, fit_score: 64, fit_reasons: ["REACH justified by QB AVERAGE need", "SF-scoring floor", "Boom/bust — volatile outcome"], fit_negatives: ["Big reach for tier-4 QB"] },
-  { rank: 22, name: "Zachariah Branch", position: "WR", tier: 4, boom_bust: "BOOM/BUST", fp_rank: 23, ktc_rank: 18, fit_score: 36 },
-  { rank: 23, name: "Germie Bernard", position: "WR", tier: 4, boom_bust: "POLARIZING", fp_rank: 21, ktc_rank: 24, fit_score: 35 },
-  { rank: 24, name: "Ja'Kobi Lane", position: "WR", tier: 5, boom_bust: "POLARIZING", fp_rank: 25, ktc_rank: 23, fit_score: 33 },
+  // ── REACH zone at 1.12 (delta ≤ -5). Need dominant. Tweak 4: REACH +
+  //    need-fill (Nussmeier) leads with need line, not reach.
+  { rank: 17, name: "Emmett Johnson", position: "RB", tier: 3, boom_bust: "POLARIZING", fp_rank: 15, ktc_rank: 16, fit_score: 32, fit_reasons: ["Reach — 5 picks ahead of ADP at #17", "Redundant — RB room already ELITE", "Board is split — love him or pass"], fit_negatives: ["Reach — 5 picks ahead of ADP at #17", "Redundant — RB room already ELITE", "Board is split — love him or pass"] },
+  { rank: 18, name: "Chris Brazzell II", position: "WR", tier: 4, boom_bust: "POLARIZING", fp_rank: 18, ktc_rank: 17, fit_score: 32, fit_reasons: ["Reach — 6 picks ahead of ADP at #18", "Redundant — WR room already ELITE", "Board is split — love him or pass"], fit_negatives: ["Reach — 6 picks ahead of ADP at #18", "Redundant — WR room already ELITE", "Board is split — love him or pass"] },
+  { rank: 19, name: "Chris Bell", position: "WR", tier: 4, boom_bust: "BOOM/BUST", fp_rank: 20, ktc_rank: 20, fit_score: 30, fit_reasons: ["Reach — 7 picks ahead of ADP at #19", "Redundant — WR room already ELITE", "High-variance swing — hit or miss"], fit_negatives: ["Reach — 7 picks ahead of ADP at #19", "Redundant — WR room already ELITE", "High-variance swing — hit or miss"] },
+  { rank: 20, name: "Kaytron Allen", position: "RB", tier: 4, boom_bust: "POLARIZING", fp_rank: 19, ktc_rank: 22, fit_score: 30, fit_reasons: ["Reach — 8 picks ahead of ADP at #20", "Redundant — RB room already ELITE", "Board is split — love him or pass"], fit_negatives: ["Reach — 8 picks ahead of ADP at #20", "Redundant — RB room already ELITE", "Board is split — love him or pass"] },
+
+  // ── Rank 21-24: bare fit_score only (top 20 own the full payload).
+  { rank: 21, name: "Garrett Nussmeier", position: "QB", tier: 4, boom_bust: "BOOM/BUST", fp_rank: 22, ktc_rank: 19, fit_score: 53 },
+  { rank: 22, name: "Zachariah Branch", position: "WR", tier: 4, boom_bust: "BOOM/BUST", fp_rank: 23, ktc_rank: 18, fit_score: 28 },
+  { rank: 23, name: "Germie Bernard", position: "WR", tier: 4, boom_bust: "POLARIZING", fp_rank: 21, ktc_rank: 24, fit_score: 28 },
+  { rank: 24, name: "Ja'Kobi Lane", position: "WR", tier: 5, boom_bust: "POLARIZING", fp_rank: 25, ktc_rank: 23, fit_score: 27 },
 ];
 
 // ─── Chalk picks (48 = 12 teams × 4 rounds) ──────────────────────────────

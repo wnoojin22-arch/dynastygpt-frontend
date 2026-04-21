@@ -25,30 +25,26 @@ export type PickValueSource = "KTC" | "SHA" | "FP_CONSENSUS";
 // Full payload rides on every LikelyAvailableEntry and on the top 20 of
 // consensus_board. Remaining consensus entries carry only bare fit_score.
 //
-// SLOT-AWARE FIT SCORE FORMULA (supersedes the static-weight version of
-// the original Bug 6 / Phase 2A contract):
+// SLOT-AWARE FIT SCORE — canonical implementation lives at
+// dynastygpt-api app/services/mock_draft_fit.py.
 //
-// fit_score = weighted sum of 5 sub-scores in [0, 100]:
-//   value, need, tendency, window, boom
+// fit_score = weighted sum of 5 sub-scores in [0, 100] (value, need,
+// tendency, window, boom) plus grand-slam bonuses. Weights flex by the
+// value-vs-slot gap:
 //
-// Weights are DYNAMIC based on value-vs-slot gap, not static:
+//   delta = pick_num - consensus_rank   (positive = prospect fell past ADP)
 //
-//   delta = consensus_rank - pickNum   (negative = BPA sitting there)
-//
-//   STEAL   (delta <= -5):  value 65 | need 20 | tendency 10 | window 3 | boom 2
+//   STEAL   (delta >=  5): value 65 | need 20 | tendency 10 | window 3 | boom 2
 //   FAIR    (|delta| <  5): value 30 | need 35 | tendency 20 | window 10 | boom 5
-//   REACH   (delta >=  5):  value 15 | need 50 | tendency 25 | window 7  | boom 3
+//   REACH   (delta <= -5): value 15 | need 50 | tendency 25 | window 7  | boom 3
 //
-// Rationale: at pick 1.01 BPA dominates (STEAL weighting); by late rounds
-// talent is flat and need dominates (REACH weighting pushes need-fillers up).
-// Mid-board picks like 1.12 where value and need roughly align (FAIR) use
-// need as the primary tiebreak between comparable prospects. A generational
-// prospect falling past ADP (STEAL) scores 95+ regardless of roster fit;
-// a same-rank prospect at expected slot (FAIR) scores in the 55-75 band.
+// Bonuses:
+//   BPA_bonus      = max(0, 8 - consensus_rank) * clamp((delta - 5) / 10, 0, 1)
+//   NEED_FIT_bonus = +8 when STEAL band AND grade ∈ (CRITICAL, WEAK, AVG)
 //
-// Backend implementation contract (Phase 2A / Bug 6): compute each sub-score
-// in [0, 100], select the weight vector by delta bucket, then sum and clamp.
-// See dynastygpt-api KNOWN_BUGS.md for the backend work item.
+// fit_reasons carry the product narrative — see the mock_draft_fit template
+// bank for the approved bullet catalog (MEGA STEAL lead-in, need-first
+// ordering on REACH+need-fill, two-bullet render on FAIR+redundant, etc).
 export interface FitPayload {
   fit_score: number;          // integer 0..100
   fit_reasons: string[];      // 3-5 bullets, <= 90 chars each
