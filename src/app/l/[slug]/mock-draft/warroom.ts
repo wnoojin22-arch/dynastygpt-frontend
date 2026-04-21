@@ -8,6 +8,7 @@ import type {
   ConsensusBoardEntry,
   OwnerProfile,
   AvailabilityEntry,
+  PickProbability,
 } from "./contracts";
 import { pickNumFromSlot } from "./helpers";
 
@@ -92,9 +93,24 @@ export interface ThreatAhead {
   top_position: string | null;
   top_position_count: number;
   avatar_id?: string;
-  likely_pick_name?: string;
-  likely_pick_position?: string;
-  availability_shift?: { prospect: string; before: number; after: number };
+  /** Most likely pick at this slot, with the probability across all sims. */
+  most_likely?: { prospect: string; position: string; pct: number };
+  /**
+   * Effect of THIS specific pick on the user's top target making it to the
+   * user's slot. Independent-survival approximation:
+   *   before = after + pct_threat_takes_target
+   *   (when threats are independent, arrival probability drops by exactly
+   *    the P(this owner takes target) delivered by pick_probabilities.)
+   * Only populated when the threat has a non-zero probability of taking
+   * the user's chosen target — otherwise the "shift" would be 0% and not
+   * worth rendering.
+   */
+  target_impact?: {
+    prospect: string;
+    position: string;
+    before: number;
+    after: number;
+  };
 }
 
 interface ThreatOwnerMeta {
@@ -113,8 +129,23 @@ export function threatsAheadOfUser(params: {
   chalk: ReadonlyArray<ChalkPick>;
   ownerMeta: ReadonlyArray<ThreatOwnerMeta>;
   availability?: Readonly<Record<string, ReadonlyArray<AvailabilityEntry>>>;
+  /** Per-slot pick probability distribution — powers "most likely". */
+  pickProbabilities?: Readonly<Record<string, ReadonlyArray<PickProbability>>>;
+  /**
+   * Ordered list of prospect names the user is targeting (best fit first).
+   * The first target with non-zero P(threat takes it) becomes the
+   * target_impact for each threat. Left empty = no target impact
+   * computed; renderer falls back to the "most_likely" line alone.
+   */
+  userTargets?: ReadonlyArray<string>;
+  /**
+   * User-slot availability for each target prospect (0..100). Used as the
+   * "after" baseline in target_impact before/after math.
+   */
+  userTargetAvailability?: Readonly<Record<string, number>>;
+  userTargetPositions?: Readonly<Record<string, string>>;
 }): ThreatAhead[] {
-  const { userOwner, userFirstSlot, numTeams, chalk, ownerMeta, availability } = params;
+  const { userOwner, userFirstSlot, numTeams, chalk, ownerMeta, pickProbabilities, userTargets, userTargetAvailability, userTargetPositions } = params;
   const userPickNum = pickNumFromSlot(userFirstSlot, numTeams);
   if (!Number.isFinite(userPickNum)) return [];
 
@@ -139,13 +170,27 @@ export function threatsAheadOfUser(params: {
       .sort((a, b) => b[1] - a[1])[0];
     const [topPos, topCount] = topEntry ?? [null, 0];
 
-    let availability_shift: ThreatAhead["availability_shift"];
-    if (availability) {
-      const prospectEntries = availability[pick.prospect_name];
-      const before = prospectEntries?.find((e) => pickNumFromSlot(e.slot, numTeams) === pickNum - 1)?.pct_available;
-      const after = prospectEntries?.find((e) => pickNumFromSlot(e.slot, numTeams) === userPickNum)?.pct_available;
-      if (typeof before === "number" && typeof after === "number") {
-        availability_shift = { prospect: pick.prospect_name, before, after };
+    // Most likely pick — top of pick_probabilities for this slot, falling
+    // back to chalk (100% confidence) if probabilities aren't provided.
+    const probs = pickProbabilities?.[pick.slot] ?? [];
+    const topProb = [...probs].sort((a, b) => b.pct - a.pct)[0];
+    const most_likely = topProb
+      ? { prospect: topProb.prospect, position: topProb.position, pct: topProb.pct }
+      : { prospect: pick.prospect_name, position: pick.prospect_position, pct: 100 };
+
+    // Target impact — find the first user target that this threat has a
+    // non-zero probability of taking.
+    let target_impact: ThreatAhead["target_impact"];
+    if (userTargets && userTargets.length > 0) {
+      for (const tName of userTargets) {
+        const p = probs.find((e) => e.prospect === tName)?.pct ?? 0;
+        if (p <= 0) continue;
+        const after = userTargetAvailability?.[tName];
+        if (typeof after !== "number") continue;
+        const before = Math.min(100, Math.round(after + p));
+        const pos = userTargetPositions?.[tName] ?? "";
+        target_impact = { prospect: tName, position: pos, before, after };
+        break;
       }
     }
 
@@ -158,9 +203,8 @@ export function threatsAheadOfUser(params: {
       top_position: topPos,
       top_position_count: topCount,
       avatar_id: meta.avatar_id,
-      likely_pick_name: pick.prospect_name,
-      likely_pick_position: pick.prospect_position,
-      availability_shift,
+      most_likely,
+      target_impact,
     });
   }
 

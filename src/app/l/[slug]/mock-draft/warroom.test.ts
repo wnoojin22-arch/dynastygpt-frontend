@@ -8,6 +8,7 @@ import type {
   AvailabilityEntry,
   ChalkPick,
   ConsensusBoardEntry,
+  PickProbability,
 } from "./contracts";
 
 // ─── Fixtures ────────────────────────────────────────────────────────────
@@ -84,21 +85,35 @@ describe("threatsAheadOfUser", () => {
     expect(out.find((t) => t.owner === "Bravo")?.top_position).toBe("WR");
   });
 
-  test("availability_shift attaches when availability map has both boundary entries", () => {
-    const availability: Record<string, AvailabilityEntry[]> = {
-      // Alpha picks at 1.01 (pickNum 1). before = 0, after = user's pickNum (4).
-      // Test needs before at pickNum=0 (pickNum - 1). Use 1.05 → pickNum 5, user at 1.06 → pickNum 6.
-      B1: [{ slot: "1.01", pct_available: 80 }, { slot: "1.04", pct_available: 0 }],
+  test("most_likely uses top pick_probability and falls back to chalk when missing", () => {
+    const pickProbabilities: Record<string, PickProbability[]> = {
+      "1.01": [
+        { prospect: "A1", position: "RB", pct: 62 },
+        { prospect: "X2", position: "WR", pct: 20 },
+      ],
+      // 1.02 absent — Bravo falls back to chalk @ 100
     };
-    // Re-run with user at 1.04 so boundary maps correctly (before = pickNum 1, after = pickNum 4).
-    // Helper looks up before = pickNumFromSlot(...) === pickNum - 1 = 0 (no 0), so no shift.
-    // Make availability entries keyed to actual pickNums on the helper side.
-    // Helper matches entries by pickNumFromSlot(e.slot) === boundary. For Bravo (1.02, pickNum 2),
-    // we need an entry at slot-with-pickNum=1 AND at user pickNum 4.
-    const avail2: Record<string, AvailabilityEntry[]> = {
-      B1: [
-        { slot: "1.01", pct_available: 80 }, // pickNum 1  (before)
-        { slot: "1.04", pct_available: 10 }, // pickNum 4  (after / user)
+    const out = threatsAheadOfUser({
+      userOwner: "Duke",
+      userFirstSlot: "1.04",
+      numTeams: NUM_TEAMS,
+      chalk: CHALK,
+      ownerMeta: OWNER_META,
+      pickProbabilities,
+    });
+    const alpha = out.find((t) => t.owner === "Alpha");
+    expect(alpha?.most_likely).toEqual({ prospect: "A1", position: "RB", pct: 62 });
+    const bravo = out.find((t) => t.owner === "Bravo");
+    expect(bravo?.most_likely).toEqual({ prospect: "B1", position: "WR", pct: 100 });
+  });
+
+  test("target_impact computes before/after for first user target with non-zero P(take)", () => {
+    // Bravo at 1.02 has 35% chance of taking user's top target T1 (which is
+    // 55% available at user's slot). So before = 55 + 35 = 90, after = 55.
+    const pickProbabilities: Record<string, PickProbability[]> = {
+      "1.02": [
+        { prospect: "B1", position: "WR", pct: 45 },
+        { prospect: "T1", position: "RB", pct: 35 },
       ],
     };
     const out = threatsAheadOfUser({
@@ -107,10 +122,33 @@ describe("threatsAheadOfUser", () => {
       numTeams: NUM_TEAMS,
       chalk: CHALK,
       ownerMeta: OWNER_META,
-      availability: avail2,
+      pickProbabilities,
+      userTargets: ["T1"],
+      userTargetAvailability: { T1: 55 },
+      userTargetPositions: { T1: "RB" },
     });
     const bravo = out.find((t) => t.owner === "Bravo");
-    expect(bravo?.availability_shift).toEqual({ prospect: "B1", before: 80, after: 10 });
+    expect(bravo?.target_impact).toEqual({ prospect: "T1", position: "RB", before: 90, after: 55 });
+    // Alpha at 1.01 has no P(take T1) in its probabilities → no target_impact.
+    const alpha = out.find((t) => t.owner === "Alpha");
+    expect(alpha?.target_impact).toBeUndefined();
+  });
+
+  // keep an availability-related var referenced so the unused type import
+  // isn't treated as dead
+  test("availability map still accepted without breaking sort order", () => {
+    const availability: Record<string, AvailabilityEntry[]> = {
+      B1: [{ slot: "1.02", pct_available: 80 }, { slot: "1.04", pct_available: 10 }],
+    };
+    const out = threatsAheadOfUser({
+      userOwner: "Duke",
+      userFirstSlot: "1.04",
+      numTeams: NUM_TEAMS,
+      chalk: CHALK,
+      ownerMeta: OWNER_META,
+      availability,
+    });
+    expect(out.map((t) => t.slot)).toEqual(["1.01", "1.02", "1.03"]);
   });
 
   test("excludes picks in later rounds even if pickNum < userPickNum somehow", () => {

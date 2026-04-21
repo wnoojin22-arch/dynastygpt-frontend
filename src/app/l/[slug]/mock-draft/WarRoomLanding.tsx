@@ -133,7 +133,30 @@ export default function WarRoomLanding({
     [simSnapshot.chalk, owner, num_teams],
   );
 
-  // Derived: threats ahead of user (uses sim chalk)
+  // User targets for Picks Before You — top-fit prospects still alive at the
+  // user's slot. We pass these in so each threat row can report the shift
+  // *this specific pick* imposes on the user's target (not the tautological
+  // shift for the chalk prospect the owner is taking, which is always 100→0).
+  const userTargetInputs = useMemo(() => {
+    const enriched = simSnapshot.consensus_board
+      .map((p) => ({
+        ...p,
+        avail_at_user: simSnapshot.prospect_availability[p.name]?.find((a) => a.slot === userFirstSlot)?.pct_available,
+      }))
+      .filter((p) => typeof p.avail_at_user === "number" && p.avail_at_user >= 2)
+      .sort((a, b) => (b.fit_score ?? 0) - (a.fit_score ?? 0))
+      .slice(0, 8);
+    const names = enriched.map((p) => p.name);
+    const availability: Record<string, number> = {};
+    const positions: Record<string, string> = {};
+    for (const p of enriched) {
+      availability[p.name] = p.avail_at_user as number;
+      positions[p.name] = p.position;
+    }
+    return { names, availability, positions };
+  }, [simSnapshot.consensus_board, simSnapshot.prospect_availability, userFirstSlot]);
+
+  // Derived: threats ahead of user (uses sim chalk + pick probabilities)
   const threats = useMemo(
     () => threatsAheadOfUser({
       userOwner: owner,
@@ -149,8 +172,12 @@ export default function WarRoomLanding({
         avatar_id: p.avatar_id,
       })),
       availability: simSnapshot.prospect_availability,
+      pickProbabilities: simSnapshot.pick_probabilities,
+      userTargets: userTargetInputs.names,
+      userTargetAvailability: userTargetInputs.availability,
+      userTargetPositions: userTargetInputs.positions,
     }),
-    [owner, userFirstSlot, num_teams, simSnapshot.chalk, simSnapshot.prospect_availability, ownerProfiles],
+    [owner, userFirstSlot, num_teams, simSnapshot.chalk, simSnapshot.prospect_availability, simSnapshot.pick_probabilities, ownerProfiles, userTargetInputs],
   );
 
   // Derived: prospects at risk (won't make it to you)
@@ -806,22 +833,29 @@ function ThreatRow({
             Pick {threat.slot} · {picksAway} {picksAway === 1 ? "pick" : "picks"} away
           </span>
         </div>
-        {/* Likely action + impact on user */}
-        {threat.likely_pick_name && (
+        {/* Most likely prospect with confidence */}
+        {threat.most_likely && (
           <div className="text-[10px] mt-1 flex items-start gap-1.5 leading-snug">
-            {threat.likely_pick_position && <span className="mt-1"><PosDot pos={threat.likely_pick_position} /></span>}
+            {threat.most_likely.position && <span className="mt-1"><PosDot pos={threat.most_likely.position} /></span>}
             <span style={{ color: C.secondary }}>
-              Will take <span style={{ color: C.primary, fontWeight: 600 }}>{threat.likely_pick_name}</span>
-              {threat.availability_shift && (
-                <>
-                  {" "}
-                  — availability{" "}
-                  <span className="wr-tabular" style={{ color: C.secondary }}>{threat.availability_shift.before}%</span>
-                  <span style={{ color: C.dim, margin: "0 4px" }}>→</span>
-                  <span className="wr-tabular" style={{ color: "#e47272" }}>{threat.availability_shift.after}%</span>
-                  {" "}at your pick
-                </>
-              )}
+              Most likely:{" "}
+              <span style={{ color: C.primary, fontWeight: 600 }}>{threat.most_likely.prospect}</span>
+              {" "}
+              <span className="wr-tabular" style={{ color: C.dim }}>({threat.most_likely.pct}% of sims)</span>
+            </span>
+          </div>
+        )}
+        {/* Availability impact on USER's target, if any */}
+        {threat.target_impact && (
+          <div className="text-[10px] mt-0.5 flex items-start gap-1.5 leading-snug">
+            <span className="mt-1"><PosDot pos={threat.target_impact.position} /></span>
+            <span style={{ color: C.secondary }}>
+              Your target{" "}
+              <span style={{ color: C.primary, fontWeight: 600 }}>{threat.target_impact.prospect}</span>:{" "}
+              <span className="wr-tabular" style={{ color: C.secondary }}>{threat.target_impact.before}%</span>
+              <span style={{ color: C.dim, margin: "0 4px" }}>→</span>
+              <span className="wr-tabular" style={{ color: "#e47272" }}>{threat.target_impact.after}%</span>
+              {" "}after this pick
             </span>
           </div>
         )}

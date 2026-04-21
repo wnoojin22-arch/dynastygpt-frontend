@@ -67,8 +67,24 @@ interface ChalkPick {
 
 type Phase = "landing" | "loading" | "live" | "user_pick" | "recap";
 
-/* ═══ PICK SPEED: ms between each pick reveal ═══ */
-const PICK_SPEED = 800;
+/**
+ * fastForwardIdx — resolve all picks instantly from `from` up to the next
+ * user pick the user hasn't made yet. Returns chalk.length when the draft
+ * is complete.
+ */
+function fastForwardIdx(
+  chalk: Array<{ slot: string; owner: string }>,
+  owner: string,
+  userPicks: Record<string, string>,
+  from: number,
+): number {
+  const lower = owner.toLowerCase();
+  for (let i = from; i < chalk.length; i++) {
+    const c = chalk[i];
+    if (c.owner.toLowerCase() === lower && !userPicks[c.slot]) return i;
+  }
+  return chalk.length;
+}
 
 export default function MockDraftPage() {
   const leagueId = useLeagueStore((s) => s.currentLeagueId) || "";
@@ -83,13 +99,10 @@ export default function MockDraftPage() {
 
   // Live draft state
   const [revealedCount, setRevealedCount] = useState(0);
-  const [paused, setPaused] = useState(false);
   const [userPicks, setUserPicks] = useState<Record<string, string>>({});
   const [pickSearch, setPickSearch] = useState("");
   const [pickPosFilter, setPickPosFilter] = useState("ALL");
   const [activeDetailSlot, setActiveDetailSlot] = useState<string | null>(null);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const boardBottomRef = useRef<HTMLDivElement>(null);
   const userPickRef = useRef<HTMLDivElement>(null);
 
   // ── Landing data (skip in mock mode) ──────────────────────────────────
@@ -150,81 +163,62 @@ export default function MockDraftPage() {
   const grades = (pd?.positional_grades || {}) as Record<string, string>;
   const needs = (pd?.needs || []) as string[];
 
-  // ── Start draft: reuse prefetched sim if present, else fetch ──
-  const handleStart = useCallback(async () => {
-    // Mock-mode: skip the network, use the fixture so the reveal still works.
-    if (useMocks) {
-      setSimulation(mockSimSnapshot as unknown as Record<string, unknown>);
-      setRevealedCount(0);
-      setPaused(false);
+  // ── Start draft: reuse prefetched sim if present, else fetch.
+  //    Instant resolution — fast-forward to the user's first pick on mount;
+  //    no ticker, no artificial reveal delay. All prior picks render above
+  //    as scrollback history.
+  const startWith = useCallback(
+    (data: Record<string, unknown>) => {
+      const nextChalk = ((data.chalk || []) as Array<{ slot: string; owner: string }>);
+      setSimulation(data);
       setUserPicks({});
+      setRevealedCount(fastForwardIdx(nextChalk, owner, {}, 0));
       setPhase("live");
+    },
+    [owner],
+  );
+
+  const handleStart = useCallback(async () => {
+    if (useMocks) {
+      startWith(mockSimSnapshot as unknown as Record<string, unknown>);
       return;
     }
     if (prefetchedSim) {
-      setSimulation(prefetchedSim as Record<string, unknown>);
-      setRevealedCount(0);
-      setPaused(false);
-      setUserPicks({});
-      setPhase("live");
+      startWith(prefetchedSim as Record<string, unknown>);
       return;
     }
     setPhase("loading");
     try {
       const data = await simulateMockDraft(leagueId, { user_owner: owner, user_owner_id: ownerId });
-      setSimulation(data as Record<string, unknown>);
-      setRevealedCount(0);
-      setPaused(false);
-      setUserPicks({});
-      setPhase("live");
+      startWith(data as Record<string, unknown>);
     } catch {
       setPhase("landing");
     }
-  }, [leagueId, owner, ownerId, prefetchedSim, useMocks]);
+  }, [leagueId, owner, ownerId, prefetchedSim, useMocks, startWith]);
 
-  // ── Live reveal timer ──
+  // Scroll to the user pick card any time a new user-turn is reached.
   useEffect(() => {
-    if (phase !== "live" || paused || !chalk.length) return;
-
-    timerRef.current = setInterval(() => {
-      setRevealedCount((prev) => {
-        const next = prev + 1;
-        if (next >= chalk.length) {
-          // Draft complete
-          if (timerRef.current) clearInterval(timerRef.current);
-          return chalk.length;
-        }
-        // Check if NEXT pick is the user's — pause before revealing
-        const nextPick = chalk[next];
-        if (nextPick && nextPick.owner.toLowerCase() === owner.toLowerCase() && !userPicks[nextPick.slot]) {
-          setPaused(true);
-          if (timerRef.current) clearInterval(timerRef.current);
-          // Scroll to user pick after a beat
-          setTimeout(() => {
-            userPickRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-          }, 300);
-        }
-        return next;
-      });
-    }, PICK_SPEED);
-
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [phase, paused, chalk, owner, userPicks]);
-
-  // Auto-scroll to latest revealed pick
-  useEffect(() => {
-    if (phase === "live" && !paused) {
-      boardBottomRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    }
-  }, [revealedCount, phase, paused]);
+    if (phase !== "live") return;
+    const t = setTimeout(() => {
+      userPickRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 80);
+    return () => clearTimeout(t);
+  }, [phase, revealedCount]);
 
   // ── User makes a pick ──
-  const handleUserDraft = useCallback((slot: string, prospectName: string) => {
-    setUserPicks((prev) => ({ ...prev, [slot]: prospectName }));
-    // Resume the draft
-    setPaused(false);
-    setRevealedCount((prev) => prev + 1);
-  }, []);
+  // Record the pick, then fast-forward past all chalk picks up to the next
+  // user pick (or end). No ticker in between.
+  const handleUserDraft = useCallback(
+    (slot: string, prospectName: string) => {
+      const nextUserPicks = { ...userPicks, [slot]: prospectName };
+      setUserPicks(nextUserPicks);
+      const nextChalk = ((simulation?.chalk || []) as Array<{ slot: string; owner: string }>);
+      const slotIdx = nextChalk.findIndex((c) => c.slot === slot);
+      const from = slotIdx >= 0 ? slotIdx + 1 : revealedCount + 1;
+      setRevealedCount(fastForwardIdx(nextChalk, owner, nextUserPicks, from));
+    },
+    [userPicks, simulation, owner, revealedCount],
+  );
 
   // ═══════════════════════════════════════════════════════════
   // LOADING
@@ -259,7 +253,7 @@ export default function MockDraftPage() {
     const revealed = chalk.slice(0, revealedCount);
     const currentIdx = revealedCount;
     const currentPick = chalk[currentIdx];
-    const isUserTurn = paused && currentPick && currentPick.owner.toLowerCase() === owner.toLowerCase() && !userPicks[currentPick.slot];
+    const isUserTurn = !!currentPick && currentPick.owner.toLowerCase() === owner.toLowerCase() && !userPicks[currentPick.slot];
     const draftComplete = revealedCount >= chalk.length;
     const prospectAvailability = (simulation.prospect_availability || {}) as Record<string, Array<{ slot: string; pct_available: number }>>;
     const consensusBoard = (simulation.consensus_board || []) as Array<{ rank: number; name: string; position: string; tier: number; boom_bust: string }>;
@@ -343,8 +337,24 @@ export default function MockDraftPage() {
                   >
                     {topProb}% chance
                   </span>
-                  {tf && <span className="text-[8px] font-bold px-1 py-0.5 rounded" style={{ fontFamily: MONO, color: C.gold, background: `${C.gold}12` }} title="This owner is a likely trade partner at this slot">TRADE INTEREST</span>}
-                  <span className="text-[10px]" style={{ color: C.dim }}>{isExpanded ? "▲" : "▼"}</span>
+                  {tf && (
+                    <span
+                      className="text-[9px] font-bold tracking-wider px-1.5 py-0.5 rounded flex-shrink-0 whitespace-nowrap"
+                      style={{ fontFamily: MONO, color: C.gold, background: `${C.gold}12`, border: `1px solid ${C.gold}25` }}
+                      title={`${(tf as any).trade_probability}% chance an owner offers to trade up for ${pick.slot}`}
+                    >
+                      {(tf as any).trade_probability}% offer up for {pick.slot}
+                    </span>
+                  )}
+                  <span
+                    className="flex items-center justify-center flex-shrink-0"
+                    style={{ width: 22, height: 22, color: isExpanded ? C.gold : C.secondary, transform: `rotate(${isExpanded ? 180 : 0}deg)`, transition: "transform 180ms ease, color 180ms ease" }}
+                    aria-label={isExpanded ? "Collapse pick detail" : "Expand pick detail"}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </span>
                 </div>
 
                 {/* Expanded detail — inline below the pick */}
@@ -433,11 +443,11 @@ export default function MockDraftPage() {
                       {tf && (
                         <div className="rounded-lg px-3 py-2 mt-1" style={{ background: "rgba(212,165,50,0.04)", border: "1px dashed rgba(212,165,50,0.15)" }}>
                           <div
-                            className="text-[9px] font-bold tracking-widest mb-1"
-                            style={{ fontFamily: MONO, color: C.gold }}
-                            title={`${(tf as any).trade_probability}% of simulations show this pick as a live trade offer`}
+                            className="text-[10px] font-semibold tracking-wide mb-1"
+                            style={{ fontFamily: SANS, color: C.gold }}
+                            title={`${(tf as any).trade_probability}% chance an owner offers to trade up for ${pick.slot}`}
                           >
-                            TRADE CANDIDATE · {(tf as any).trade_probability}% CHANCE OF LIVE OFFER
+                            {(tf as any).trade_probability}% chance an owner offers to trade up for {pick.slot}
                           </div>
                           <div className="text-[10px] leading-relaxed" style={{ fontFamily: SANS, color: C.secondary }}>
                             {(tf as any).reason}
@@ -479,57 +489,151 @@ export default function MockDraftPage() {
                 <div className="text-xs mt-0.5" style={{ fontFamily: SANS, color: C.secondary }}>{owner}</div>
               </div>
 
-              {/* Recommended picks with reasoning */}
-              <div className="px-4 py-3 border-b" style={{ borderColor: "rgba(255,255,255,0.04)" }}>
-                <div className="text-[9px] font-bold tracking-widest mb-2" style={{ fontFamily: MONO, color: C.gold }}>RECOMMENDED</div>
-                {((currentUserAnalysis?.likely_available || []) as Array<Record<string, unknown>>).slice(0, 5).map((la, i) => {
-                  const pc = POS_COLOR[la.position as string] || C.dim;
-                  const avail = prospectAvailability[la.prospect as string];
-                  const availAtPick = avail?.find((a) => a.slot === currentPick.slot)?.pct_available || 0;
-                  return (
-                    <div key={i} className="flex items-center gap-2 rounded-lg px-3 py-2.5 mb-1 cursor-pointer transition-all" style={{
-                      background: la.fills_need ? "rgba(125,211,160,0.04)" : i === 0 ? "rgba(212,165,50,0.04)" : "rgba(255,255,255,0.02)",
-                      border: la.fills_need ? "1px solid rgba(125,211,160,0.15)" : i === 0 ? "1px solid rgba(212,165,50,0.15)" : "1px solid rgba(255,255,255,0.04)",
-                    }}>
-                      <span className="text-[9px] font-black px-1.5 py-0.5 rounded" style={{ fontFamily: MONO, color: pc, background: `${pc}18` }}>{la.position as string}</span>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-sm font-bold truncate" style={{ fontFamily: SANS, color: C.primary }}>{la.prospect as string}</span>
-                          {la.fills_need && (
-                            <span
-                              className="text-[8px] font-bold px-1.5 py-0.5 rounded"
-                              style={{ fontFamily: MONO, color: C.green, background: "rgba(125,211,160,0.12)" }}
-                              title={`Fills your ${la.position as string} gap — currently graded ${la.your_grade_at_position as string}`}
-                            >
-                              FILLS NEED
+              {/* Recommended picks — sort by fit_score DESC.
+                  Hero = top fit (1 card, prominent, gold DRAFT button).
+                  Other options = next 4 (smaller cards, less visual weight).
+                  Availability % intentionally omitted on recommendations —
+                  if they're on the board they're available; the fact is
+                  tautological. Replaced with need/steal context. */}
+              {(() => {
+                const la = (currentUserAnalysis?.likely_available || []) as Array<Record<string, unknown>>;
+                const sorted = [...la].sort(
+                  (a, b) => ((b.fit_score as number | undefined) ?? 0) - ((a.fit_score as number | undefined) ?? 0),
+                );
+                const hero = sorted[0];
+                const others = sorted.slice(1, 5);
+
+                // Pick number for "Steal at 1.12" context on hero fit line.
+                const [heroRoundStr, heroSlotStr] = currentPick.slot.split(".");
+                const numTeams = (simulation?.num_teams as number | undefined) ?? 12;
+                const heroPickNum = (parseInt(heroRoundStr, 10) - 1) * numTeams + parseInt(heroSlotStr, 10);
+
+                const fitContext = (
+                  entry: Record<string, unknown>,
+                ): string => {
+                  const fs = (entry.fit_score as number | undefined) ?? 0;
+                  const boardPos = (entry.board_position as number | undefined) ?? heroPickNum;
+                  const reasons = (entry.fit_reasons as string[] | undefined) ?? [];
+                  const needed = !!entry.fills_need;
+                  const grade = entry.your_grade_at_position as string | undefined;
+                  if (needed && grade) return `Fills ${entry.position as string} gap — upgrades from ${grade}`;
+                  if (reasons[0]) return reasons[0];
+                  if (boardPos <= heroPickNum - 5) return `Fit ${fs} · Steal at ${currentPick.slot}`;
+                  return `Fit ${fs} · Tier ${entry.tier as number} prospect`;
+                };
+
+                if (!hero) return null;
+                const heroPc = POS_COLOR[hero.position as string] || C.dim;
+
+                return (
+                  <>
+                    {/* Hero — RECOMMENDED PICK */}
+                    <div className="px-4 py-3 border-b" style={{ borderColor: "rgba(255,255,255,0.04)" }}>
+                      <div className="text-[9px] font-bold tracking-widest mb-2" style={{ fontFamily: MONO, color: C.gold }}>RECOMMENDED PICK</div>
+                      <div
+                        className="rounded-xl px-4 py-3.5 flex items-center gap-3"
+                        style={{
+                          background: "linear-gradient(135deg, rgba(212,165,50,0.10), rgba(212,165,50,0.02))",
+                          border: "1.5px solid rgba(212,165,50,0.35)",
+                          boxShadow: "inset 0 1px 0 rgba(255,255,255,0.05), 0 6px 20px rgba(212,165,50,0.08)",
+                        }}
+                      >
+                        <span
+                          className="text-[10px] font-black px-2 py-1 rounded"
+                          style={{ fontFamily: MONO, color: heroPc, background: `${heroPc}20`, border: `1px solid ${heroPc}35` }}
+                        >
+                          {hero.position as string}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-base font-bold truncate" style={{ fontFamily: SANS, color: C.primary, letterSpacing: "-0.01em" }}>
+                              {hero.prospect as string}
                             </span>
-                          )}
-                          {i === 0 && (
-                            <span
-                              className="text-[8px] font-bold px-1.5 py-0.5 rounded"
-                              style={{ fontFamily: MONO, color: C.gold, background: `${C.gold}12` }}
-                              title="Best Player Available — highest-ranked prospect on the board regardless of positional need"
-                            >
-                              BEST AVAILABLE
-                            </span>
-                          )}
+                            {!!hero.fills_need && (
+                              <span
+                                className="text-[8px] font-bold tracking-wider px-1.5 py-0.5 rounded"
+                                style={{ fontFamily: MONO, color: C.green, background: "rgba(125,211,160,0.12)" }}
+                                title={`Fills your ${hero.position as string} gap — currently ${hero.your_grade_at_position as string}`}
+                              >
+                                FILLS NEED
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[10px] mt-0.5" style={{ fontFamily: MONO, color: C.dim }}>
+                            #{hero.board_position as number} overall · Tier {hero.tier as number} ·{" "}
+                            <span title={BOOMBUST_TOOLTIP[hero.boom_bust as string] ?? ""}>{hero.boom_bust as string}</span>
+                          </div>
+                          <div className="text-[11px] mt-1 leading-snug" style={{ fontFamily: SANS, color: C.secondary }}>
+                            {fitContext(hero)}
+                          </div>
                         </div>
-                        <div className="text-[9px] mt-0.5" style={{ fontFamily: MONO, color: C.dim }}>
-                          #{la.board_position as number} overall · Tier {la.tier as number} ·{" "}
-                          <span title={BOOMBUST_TOOLTIP[la.boom_bust as string] ?? ""}>{la.boom_bust as string}</span>
-                        </div>
-                        <div className="text-[9px] mt-0.5" style={{ fontFamily: MONO, color: C.secondary }}>
-                          Your {la.position as string} grade: {la.your_grade_at_position as string} · {availAtPick}% available at this pick
-                        </div>
+                        <button
+                          onClick={() => handleUserDraft(currentPick.slot, hero.prospect as string)}
+                          className="text-[11px] font-black tracking-widest px-4 py-2.5 rounded-lg flex-shrink-0 cursor-pointer"
+                          style={{
+                            fontFamily: MONO,
+                            color: "#1a1204",
+                            background: `linear-gradient(180deg, ${C.gold} 0%, #b88a26 100%)`,
+                            border: "none",
+                            boxShadow: "0 6px 18px rgba(212,165,50,0.30), inset 0 1px 0 rgba(255,255,255,0.30)",
+                            minHeight: 42,
+                          }}
+                        >
+                          DRAFT
+                        </button>
                       </div>
-                      <button onClick={() => handleUserDraft(currentPick.slot, la.prospect as string)}
-                        className="text-[9px] font-black tracking-wider px-3 py-2 rounded-lg flex-shrink-0" style={{
-                          fontFamily: MONO, color: "#06080d", background: `linear-gradient(135deg, ${C.goldDark}, ${C.gold})`, border: "none", cursor: "pointer", minHeight: 36,
-                        }}>DRAFT</button>
                     </div>
-                  );
-                })}
-              </div>
+
+                    {/* Other options (4 smaller cards) */}
+                    {others.length > 0 && (
+                      <div className="px-4 py-3 border-b" style={{ borderColor: "rgba(255,255,255,0.04)" }}>
+                        <div className="text-[9px] font-bold tracking-widest mb-2" style={{ fontFamily: MONO, color: C.dim }}>OTHER OPTIONS</div>
+                        {others.map((o, i) => {
+                          const pc = POS_COLOR[o.position as string] || C.dim;
+                          return (
+                            <div key={i} className="flex items-center gap-2 rounded-lg px-3 py-2 mb-1" style={{
+                              background: "rgba(255,255,255,0.02)",
+                              border: "1px solid rgba(255,255,255,0.04)",
+                            }}>
+                              <span className="text-[9px] font-black px-1.5 py-0.5 rounded" style={{ fontFamily: MONO, color: pc, background: `${pc}15` }}>{o.position as string}</span>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="text-[13px] font-semibold truncate" style={{ fontFamily: SANS, color: C.primary }}>{o.prospect as string}</span>
+                                  {!!o.fills_need && (
+                                    <span
+                                      className="text-[8px] font-bold tracking-wider px-1 py-0.5 rounded"
+                                      style={{ fontFamily: MONO, color: C.green, background: "rgba(125,211,160,0.12)" }}
+                                      title={`Fills your ${o.position as string} gap — currently ${o.your_grade_at_position as string}`}
+                                    >
+                                      NEED
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-[9px] mt-0.5" style={{ fontFamily: MONO, color: C.dim }}>
+                                  #{o.board_position as number} · Tier {o.tier as number} · {fitContext(o)}
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => handleUserDraft(currentPick.slot, o.prospect as string)}
+                                className="text-[9px] font-bold tracking-wider px-2.5 py-1.5 rounded-md flex-shrink-0 cursor-pointer"
+                                style={{
+                                  fontFamily: MONO,
+                                  color: C.primary,
+                                  background: "rgba(255,255,255,0.05)",
+                                  border: "1px solid rgba(255,255,255,0.08)",
+                                  minHeight: 32,
+                                }}
+                              >
+                                DRAFT
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
 
               {/* Trade-up targets */}
               {((currentUserAnalysis?.trade_up_targets || []) as Array<Record<string, unknown>>).length > 0 && (
@@ -552,8 +656,11 @@ export default function MockDraftPage() {
                 const tradeProb = tf.trade_probability as number;
                 return (
                   <div className="px-4 py-3 border-b" style={{ borderColor: "rgba(255,255,255,0.04)" }}>
-                    <div className="text-[9px] font-bold tracking-widest mb-2" style={{ fontFamily: MONO, color: C.gold }}>
+                    <div className="text-[9px] font-bold tracking-widest mb-1" style={{ fontFamily: MONO, color: C.gold }}>
                       {tradeProb >= 50 ? "CONSIDER TRADING BACK" : "TRADE INTEL"}
+                    </div>
+                    <div className="text-[12px] font-semibold mb-1.5" style={{ fontFamily: SANS, color: C.primary }}>
+                      {tradeProb}% chance an owner offers to trade up for your {currentPick.slot}
                     </div>
                     <div className="text-xs leading-relaxed mb-2" style={{ fontFamily: SANS, color: C.secondary }}>
                       {tf.reason as string}
@@ -680,8 +787,6 @@ export default function MockDraftPage() {
             </motion.div>
           )}
 
-          <div ref={boardBottomRef} />
-
           {/* ═══ POST-DRAFT RECAP ═══ */}
           {draftComplete && Object.keys(userPicks).length > 0 && pd && (
             <DraftRecap
@@ -698,7 +803,6 @@ export default function MockDraftPage() {
             />
           )}
 
-          <div ref={boardBottomRef} />
         </div>
       </div>
     );

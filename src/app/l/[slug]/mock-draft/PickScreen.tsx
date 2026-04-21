@@ -24,6 +24,7 @@ import { C, MONO, SANS } from "@/components/league/tokens";
 import type {
   ConsensusBoardEntry,
   Position,
+  PositionalGrade,
   PreDraftResponse,
   SimulateResponse,
   TradeBuyer,
@@ -118,11 +119,14 @@ export default function PickScreen({
       .filter((p) => p.avail_here >= 2);
   }, [simSnapshot.consensus_board, simSnapshot.prospect_availability, pickedSet, currentSlot, needs]);
 
-  // ── Top 3 DRAFT recommendations by fit_score ──
-  const top3 = useMemo(
-    () => [...available].sort((a, b) => (b.fit_score ?? 0) - (a.fit_score ?? 0)).slice(0, 3),
+  // ── Recommendations sorted by fit_score DESC ──
+  //    First = hero "RECOMMENDED PICK". Next 4 = "OTHER OPTIONS".
+  const ranked = useMemo(
+    () => [...available].sort((a, b) => (b.fit_score ?? 0) - (a.fit_score ?? 0)),
     [available],
   );
+  const heroRec = ranked[0];
+  const otherRecs = ranked.slice(1, 5);
 
   // ── Trade offer live at this slot ──
   const tradeFlag = simSnapshot.trade_flags.find((t) => t.slot === currentSlot);
@@ -347,17 +351,40 @@ export default function PickScreen({
           3. DECISION ZONE — DRAFT + TRADE, stacked mobile / split md+
           ═══════════════════════════════════════════════════════════════ */}
       <section className="mx-auto max-w-[1280px] px-4 md:px-6 pt-4 md:pt-5 grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-5">
-        {/* 3a · DRAFT */}
+        {/* 3a · DRAFT — hero recommended pick + 4 smaller other options */}
         <Panel>
-          <PanelHeader eyebrow="Draft" title="Recommended picks" meta={`${top3.length} picks recommended`} />
-          <div className="mt-3 flex flex-col gap-2 ps-rise">
-            {top3.map((p, i) => (
-              <DraftRow key={p.name} prospect={p} isTop={i === 0} onDraft={() => onDraft(p.name)} />
-            ))}
-            {top3.length === 0 && (
+          <PanelHeader eyebrow="Draft" title="Recommended pick" meta={heroRec ? `Top fit ${heroRec.fit_score}` : "—"} />
+          <div className="mt-3 flex flex-col gap-2.5 ps-rise">
+            {heroRec ? (
+              <DraftHero
+                prospect={heroRec}
+                pickNum={pickNum}
+                currentSlot={currentSlot}
+                positionalGrades={preDraft.positional_grades}
+                onDraft={() => onDraft(heroRec.name)}
+              />
+            ) : (
               <div className="text-[11px] py-4 text-center" style={{ color: C.dim }}>
                 No available prospects in fit window.
               </div>
+            )}
+            {otherRecs.length > 0 && (
+              <>
+                <div className="mt-1 text-[9px] font-bold tracking-[0.22em] uppercase" style={{ color: C.dim }}>
+                  Other options
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  {otherRecs.map((p) => (
+                    <DraftRowCompact
+                      key={p.name}
+                      prospect={p}
+                      pickNum={pickNum}
+                      currentSlot={currentSlot}
+                      onDraft={() => onDraft(p.name)}
+                    />
+                  ))}
+                </div>
+              </>
             )}
           </div>
         </Panel>
@@ -534,96 +561,206 @@ function fitTone(fit: number | null | undefined): string {
   return C.dim;
 }
 
-function DraftRow({
+// Build a short, non-tautological context line for a recommended prospect.
+// Priority: fills-gap upgrade → top fit_reason → steal → tier value.
+function fitContext(
+  prospect: AvailableProspect,
+  pickNum: number,
+  currentSlot: string,
+  positionalGrades?: Record<Position, PositionalGrade>,
+): string {
+  const fit = prospect.fit_score ?? 0;
+  const grade = positionalGrades?.[prospect.position as Position];
+  if (prospect.fills_need && grade && (grade === "CRITICAL" || grade === "WEAK" || grade === "AVERAGE")) {
+    const target: PositionalGrade =
+      grade === "CRITICAL" ? "AVERAGE" : grade === "WEAK" ? "AVERAGE" : "STRONG";
+    return `Fills ${prospect.position} gap — upgrades from ${grade} to ${target}`;
+  }
+  if (prospect.fit_reasons && prospect.fit_reasons.length > 0) {
+    return prospect.fit_reasons[0];
+  }
+  const delta = pickNum - prospect.rank;
+  if (delta >= 5) return `Fit ${fit} · Steal at ${currentSlot}`;
+  return `Fit ${fit} · Tier ${prospect.tier} prospect`;
+}
+
+function DraftHero({
   prospect,
-  isTop,
+  pickNum,
+  currentSlot,
+  positionalGrades,
   onDraft,
 }: {
   prospect: AvailableProspect;
-  isTop: boolean;
+  pickNum: number;
+  currentSlot: string;
+  positionalGrades?: Record<Position, PositionalGrade>;
   onDraft: () => void;
 }) {
   const fit = prospect.fit_score ?? 0;
   const tone = fitTone(fit);
+  const context = fitContext(prospect, pickNum, currentSlot, positionalGrades);
+  const extraReasons = (prospect.fit_reasons ?? []).filter((r) => r !== context).slice(0, 2);
   return (
     <div
-      className="rounded-lg p-3 flex items-start gap-3"
+      className="rounded-xl p-3.5 md:p-4"
       style={{
-        background: isTop ? "rgba(212,165,50,0.05)" : "rgba(255,255,255,0.018)",
-        border: `1px solid ${isTop ? PS.goldHair : PS.cardHair}`,
+        background: "linear-gradient(180deg, rgba(212,165,50,0.07) 0%, rgba(212,165,50,0.03) 100%)",
+        border: `1px solid ${PS.goldHair}`,
+        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04), 0 4px 14px rgba(0,0,0,0.22)",
+      }}
+    >
+      <div className="flex items-start gap-3">
+        <PosBadge pos={prospect.position} />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span
+              className="text-[9px] font-bold tracking-[0.22em] uppercase"
+              style={{ color: C.gold }}
+            >
+              Recommended pick
+            </span>
+            {prospect.fills_need && (
+              <span
+                className="text-[8px] font-bold tracking-[0.14em] uppercase px-1.5 py-0.5 rounded"
+                style={{ color: "#051a10", background: "#7dd3a0" }}
+              >
+                Need
+              </span>
+            )}
+          </div>
+          <div
+            className="mt-1 text-[16px] md:text-[17px] font-semibold truncate"
+            style={{ color: C.primary, letterSpacing: "-0.015em" }}
+          >
+            {prospect.name}
+          </div>
+          <div className="mt-0.5 text-[10px] ps-tabular" style={{ color: C.dim, fontFamily: MONO }}>
+            <span title={`Consensus rank #${prospect.rank} overall`}>#{prospect.rank}</span>
+            {" · "}
+            <span title={`Tier ${prospect.tier} prospect`}>Tier {prospect.tier}</span>
+            {" · "}
+            <span title={BOOMBUST_TOOLTIP[prospect.boom_bust] ?? ""}>{prospect.boom_bust}</span>
+          </div>
+        </div>
+
+        <div className="flex flex-col items-end flex-shrink-0">
+          <span
+            className="ps-tabular font-semibold leading-none"
+            style={{ fontSize: 30, color: tone, letterSpacing: "-0.02em" }}
+          >
+            {fit}
+          </span>
+          <span className="text-[9px] tracking-[0.14em] uppercase mt-0.5" style={{ color: C.dim }}>
+            fit
+          </span>
+        </div>
+      </div>
+
+      <div
+        className="mt-2.5 text-[11px] md:text-[12px] leading-snug"
+        style={{ color: C.secondary }}
+      >
+        {context}
+      </div>
+
+      {extraReasons.length > 0 && (
+        <ul className="mt-1.5 flex flex-col gap-0.5">
+          {extraReasons.map((r, i) => (
+            <li key={i} className="text-[10px] leading-snug" style={{ color: C.dim }}>
+              · {r}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <button
+        onClick={onDraft}
+        className="ps-cta mt-3 w-full text-[11px] font-bold tracking-[0.16em] uppercase py-2.5 rounded-md cursor-pointer"
+        style={{
+          fontFamily: MONO,
+          color: "#1a1204",
+          background: `linear-gradient(180deg, ${C.gold} 0%, #b88a26 100%)`,
+          border: "none",
+          boxShadow:
+            "0 4px 14px rgba(212,165,50,0.22), inset 0 1px 0 rgba(255,255,255,0.25)",
+          minHeight: 42,
+        }}
+      >
+        Draft {prospect.name}
+      </button>
+    </div>
+  );
+}
+
+function DraftRowCompact({
+  prospect,
+  pickNum,
+  currentSlot,
+  onDraft,
+}: {
+  prospect: AvailableProspect;
+  pickNum: number;
+  currentSlot: string;
+  onDraft: () => void;
+}) {
+  const fit = prospect.fit_score ?? 0;
+  const tone = fitTone(fit);
+  const context = fitContext(prospect, pickNum, currentSlot);
+  return (
+    <div
+      className="rounded-lg px-2.5 py-2 flex items-center gap-2.5"
+      style={{
+        background: "rgba(255,255,255,0.018)",
+        border: `1px solid ${PS.cardHair}`,
       }}
     >
       <PosBadge pos={prospect.position} />
-
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[13px] font-semibold truncate" style={{ color: C.primary, letterSpacing: "-0.01em" }}>
+        <div className="flex items-center gap-1.5">
+          <span
+            className="text-[12px] font-semibold truncate"
+            style={{ color: C.primary, letterSpacing: "-0.01em" }}
+          >
             {prospect.name}
           </span>
-          {isTop && (
-            <span
-              className="text-[8px] font-bold tracking-[0.14em] uppercase px-1.5 py-0.5 rounded"
-              style={{ color: "#1a1204", background: C.gold }}
-            >
-              Top
-            </span>
-          )}
           {prospect.fills_need && (
             <span
-              className="text-[8px] font-bold tracking-[0.14em] uppercase px-1.5 py-0.5 rounded"
+              className="text-[7px] font-bold tracking-[0.14em] uppercase px-1 py-0.5 rounded flex-shrink-0"
               style={{ color: "#051a10", background: "#7dd3a0" }}
             >
               Need
             </span>
           )}
         </div>
-        <div className="mt-0.5 text-[10px] ps-tabular" style={{ color: C.dim, fontFamily: MONO }}>
-          <span title={`Consensus rank #${prospect.rank} overall`}>#{prospect.rank}</span>
-          {" · "}
-          <span title={`Tier ${prospect.tier} prospect`}>Tier {prospect.tier}</span>
-          {" · "}
-          <span title={BOOMBUST_TOOLTIP[prospect.boom_bust] ?? ""}>{prospect.boom_bust}</span>
+        <div className="text-[10px] leading-snug truncate" style={{ color: C.dim }}>
+          {context}
         </div>
-        {prospect.fit_reasons && prospect.fit_reasons.length > 0 && (
-          <ul className="mt-1.5 flex flex-col gap-0.5">
-            {prospect.fit_reasons.slice(0, 2).map((r, i) => (
-              <li key={i} className="text-[10px] leading-snug" style={{ color: C.secondary }}>
-                · {r}
-              </li>
-            ))}
-          </ul>
-        )}
       </div>
-
-      <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-        <div className="flex items-baseline gap-1">
-          <span
-            className="ps-tabular font-semibold leading-none"
-            style={{ fontSize: 22, color: tone, letterSpacing: "-0.02em" }}
-          >
-            {fit}
-          </span>
-          <span className="text-[9px] tracking-[0.14em] uppercase" style={{ color: C.dim }}>fit</span>
-        </div>
-        <button
-          onClick={onDraft}
-          className="ps-cta text-[10px] font-bold tracking-[0.12em] uppercase px-3 py-1.5 rounded-md cursor-pointer"
-          style={{
-            fontFamily: MONO,
-            color: isTop ? "#1a1204" : C.primary,
-            background: isTop
-              ? `linear-gradient(180deg, ${C.gold} 0%, #b88a26 100%)`
-              : "rgba(255,255,255,0.05)",
-            border: isTop ? "none" : `1px solid ${PS.hair}`,
-            boxShadow: isTop
-              ? "0 3px 10px rgba(212,165,50,0.18), inset 0 1px 0 rgba(255,255,255,0.22)"
-              : "none",
-            minHeight: 32,
-          }}
+      <div className="flex items-baseline gap-1 flex-shrink-0">
+        <span
+          className="ps-tabular font-semibold"
+          style={{ fontSize: 15, color: tone, letterSpacing: "-0.01em", minWidth: 24, textAlign: "right" }}
         >
-          Draft
-        </button>
+          {fit}
+        </span>
+        <span className="text-[8px] tracking-[0.14em] uppercase" style={{ color: C.dim }}>
+          fit
+        </span>
       </div>
+      <button
+        onClick={onDraft}
+        className="ps-cta text-[9px] font-bold tracking-[0.12em] uppercase px-2.5 py-1.5 rounded-md cursor-pointer flex-shrink-0"
+        style={{
+          fontFamily: MONO,
+          color: C.primary,
+          background: "rgba(255,255,255,0.05)",
+          border: `1px solid ${PS.hair}`,
+          minHeight: 30,
+        }}
+      >
+        Draft
+      </button>
     </div>
   );
 }
