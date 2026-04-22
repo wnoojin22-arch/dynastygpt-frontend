@@ -1,5 +1,5 @@
 /**
- * classifyTradeError — pure helper extracted from MockDraftTradeModal so
+ * classifyTradeError — pure helper used by MockDraftTradeExploreModal so
  * vitest can drive it without the framer-motion / zustand import chain.
  *
  * Matches the error surface area produced by the backend: 429/rate_limit,

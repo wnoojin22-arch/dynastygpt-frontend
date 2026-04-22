@@ -13,7 +13,10 @@ import {
   getDraftOwnerProfiles,
 } from "@/lib/api";
 import { useMockDraftStore } from "@/lib/stores/mock-draft-store";
-import MockDraftTradeModal from "./MockDraftTradeModal";
+import TradeUpPanel from "./TradeUpPanel";
+import TradeBackPanel from "./TradeBackPanel";
+import MockDraftTradeExploreModal from "./MockDraftTradeExploreModal";
+import { classifyTradeError } from "./trade-errors";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import PickDetailSheet from "@/components/league/mock-draft/PickDetailSheet";
 import { C, MONO, SANS, DISPLAY } from "@/components/league/tokens";
@@ -22,6 +25,7 @@ import WarRoomLanding from "./WarRoomLanding";
 import DraftRecap from "./DraftRecap";
 import { mockPreDraft, mockHitRates, mockOwnerProfiles, mockSimSnapshot } from "./mocks";
 import type {
+  ChalkPick as ContractChalkPick,
   ConsensusBoardEntry,
   DraftIdentity,
   HitRatesResponse,
@@ -142,13 +146,30 @@ export default function MockDraftPage() {
   const advanceRevealedTo = useMockDraftStore((s) => s.advanceRevealedTo);
   const lockPick = useMockDraftStore((s) => s.lockPick);
   const resetDraft = useMockDraftStore((s) => s.resetDraft);
+  const applyCommitTradeResponse = useMockDraftStore((s) => s.applyCommitTradeResponse);
+  const revertCommitTrade = useMockDraftStore((s) => s.revertCommitTrade);
 
   // UI-only state stays local.
   const [pickSearch, setPickSearch] = useState("");
   const [pickPosFilter, setPickPosFilter] = useState("ALL");
   const [activeDetailSlot, setActiveDetailSlot] = useState<string | null>(null);
-  const [tradeModalDir, setTradeModalDir] = useState<"up" | "back" | null>(null);
+  // Trade flow (Phase 3d): two-layer UX. expandedPanel drives the inline
+  // TradeUp/Back panel inside the YOUR PICK card; activeExploration drives
+  // the explore modal launched from a specific slot row inside that panel.
+  const [expandedPanel, setExpandedPanel] = useState<"up" | "back" | null>(null);
+  const [activeExploration, setActiveExploration] = useState<
+    { direction: "up" | "back"; targetSlot: string; partnerOwner: string } | null
+  >(null);
+  const [reSimming, setReSimming] = useState(false);
+  const [toast, setToast] = useState<{ kind: "ok" | "err"; msg: string } | null>(null);
   const userPickRef = useRef<HTMLDivElement>(null);
+
+  // Toast auto-dismiss.
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 3000);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   // ── Landing data (skip in mock mode) ──────────────────────────────────
   const { data: preDraftData, isLoading: preDraftLoading, error: preDraftError, refetch: refetchPreDraft } = useQuery({
@@ -282,6 +303,47 @@ export default function MockDraftPage() {
     [userPicks, simulation, owner, revealedCount, lockPick, advanceRevealedTo],
   );
 
+  // ── Trade confirm → optimistic apply + re-sim.
+  //    applyCommitTradeResponse merges the server-authoritative overrides
+  //    into the store and returns a pre-commit snapshot. If re-sim fails we
+  //    revert with that snapshot. The explore modal is closed here (not in
+  //    the modal itself) so we stay authoritative over lifecycle.
+  const handleTradeConfirmed = useCallback(
+    async (resp: Parameters<typeof applyCommitTradeResponse>[0]) => {
+      const snapshot = applyCommitTradeResponse(resp);
+      setActiveExploration(null);
+      setExpandedPanel(null);
+      setReSimming(true);
+      try {
+        const data = await simulateMockDraftFromState(leagueId, {
+          user_owner: owner,
+          user_owner_id: ownerId,
+          user_picks: useMockDraftStore.getState().userPicks,
+          locked_picks: useMockDraftStore.getState().lockedPicks,
+          pick_ownership_overrides: useMockDraftStore.getState().ownerOverrides,
+        });
+        const fresh = data as SimulateResponse;
+        setSim(fresh);
+        const nextChalk = (fresh.chalk ?? []) as Array<{ slot: string; owner: string }>;
+        advanceRevealedTo(
+          fastForwardIdx(nextChalk, owner, useMockDraftStore.getState().userPicks, 0),
+        );
+        setToast({ kind: "ok", msg: "Trade committed — sim updated" });
+      } catch (e) {
+        revertCommitTrade(snapshot);
+        const cls = classifyTradeError(e);
+        setToast({ kind: "err", msg: `Re-sim failed — trade reverted (${cls.kind})` });
+      } finally {
+        setReSimming(false);
+      }
+    },
+    [
+      leagueId, owner, ownerId,
+      applyCommitTradeResponse, revertCommitTrade,
+      setSim, advanceRevealedTo,
+    ],
+  );
+
   // ═══════════════════════════════════════════════════════════
   // LOADING
   // ═══════════════════════════════════════════════════════════
@@ -332,6 +394,7 @@ export default function MockDraftPage() {
       <div className="flex flex-col h-screen" style={{ background: "#06080d" }}>
         <style>{`
           @keyframes md-on-clock{0%,100%{box-shadow:0 0 20px rgba(212,165,50,0.3)}50%{box-shadow:0 0 40px rgba(212,165,50,0.5)}}
+          @keyframes md-bar{0%{width:5%}50%{width:90%}100%{width:5%}}
         `}</style>
 
         {/* Draft header */}
@@ -550,9 +613,13 @@ export default function MockDraftPage() {
                 </div>
                 <div className="text-xs mt-0.5" style={{ fontFamily: SANS, color: C.secondary }}>{owner}</div>
 
-                {/* TRADE UP / TRADE BACK triggers. Primary treatment goes to
-                    the direction with a live offer on this slot; otherwise
-                    parity. Both disable gracefully when no target exists. */}
+                {/* TRADE UP / TRADE BACK toggles. Each toggle expands an
+                    inline panel below with the full list of candidate slots
+                    (picksAheadOfSlot / picksBehindSlot). Clicking the active
+                    toggle again collapses. Clicking the other toggle swaps.
+                    "Hot" direction (the one with a top_buyer on this slot in
+                    the trade-flag stream) gets gold treatment when inactive.
+                    Both disable gracefully when no target exists. */}
                 {(() => {
                   const { tradeUp, tradeBack } = pickTradeTargets(
                     chalk as Array<{ slot: string; owner: string }>,
@@ -561,35 +628,80 @@ export default function MockDraftPage() {
                   );
                   const slotTf = tradeFlags.find((t) => (t as any).slot === currentPick.slot);
                   const backPrimary = !!slotTf && ((slotTf as any).top_buyer !== undefined);
-                  const btn = (primary: boolean) =>
-                    primary
-                      ? { fontFamily: MONO, color: "#1a1204", background: `linear-gradient(180deg, ${C.gold} 0%, #b88a26 100%)`, border: "none", boxShadow: "0 4px 14px rgba(212,165,50,0.25)" }
+                  const toggle = (dir: "up" | "back") =>
+                    setExpandedPanel((s) => (s === dir ? null : dir));
+                  const btn = (active: boolean, primary: boolean) =>
+                    active
+                      ? { fontFamily: MONO, color: "#1a1204", background: `linear-gradient(180deg, ${C.gold} 0%, #b88a26 100%)`, border: "none", boxShadow: "0 4px 14px rgba(212,165,50,0.35)" }
+                      : primary
+                      ? { fontFamily: MONO, color: "#1a1204", background: `linear-gradient(180deg, ${C.gold} 0%, #b88a26 100%)`, border: "none", boxShadow: "0 4px 14px rgba(212,165,50,0.25)", opacity: 0.88 }
                       : { fontFamily: MONO, color: C.primary, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.10)" };
                   return (
                     <div className="mt-2.5 flex gap-2">
                       <button
                         type="button"
                         disabled={!tradeUp}
-                        onClick={() => tradeUp && setTradeModalDir("up")}
+                        onClick={() => tradeUp && toggle("up")}
                         className="flex-1 text-[10px] font-black tracking-[0.16em] uppercase px-3 py-2 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                        style={btn(!backPrimary && !!tradeUp)}
-                        title={tradeUp ? `Trade up to ${tradeUp}` : "No earlier slot available"}
+                        style={btn(expandedPanel === "up", !backPrimary && !!tradeUp)}
+                        title={tradeUp ? `Trade up from ${currentPick.slot}` : "No earlier slot available"}
+                        aria-expanded={expandedPanel === "up"}
                       >
-                        Trade up{tradeUp ? ` → ${tradeUp}` : ""}
+                        {expandedPanel === "up" ? "Hide trade up" : "Trade up"}
                       </button>
                       <button
                         type="button"
                         disabled={!tradeBack}
-                        onClick={() => tradeBack && setTradeModalDir("back")}
+                        onClick={() => tradeBack && toggle("back")}
                         className="flex-1 text-[10px] font-black tracking-[0.16em] uppercase px-3 py-2 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                        style={btn(backPrimary && !!tradeBack)}
-                        title={tradeBack ? `Trade back to ${tradeBack}` : "No later slot available"}
+                        style={btn(expandedPanel === "back", backPrimary && !!tradeBack)}
+                        title={tradeBack ? `Trade back from ${currentPick.slot}` : "No later slot available"}
+                        aria-expanded={expandedPanel === "back"}
                       >
-                        Trade back{tradeBack ? ` → ${tradeBack}` : ""}
+                        {expandedPanel === "back" ? "Hide trade back" : "Trade back"}
                       </button>
                     </div>
                   );
                 })()}
+
+                {/* Inline-expanded Trade Up / Trade Back panel. Panels stay
+                    self-contained: they fetch /likely-buyers, render candidate
+                    slot rows, and call onExplore when the user opts into a
+                    specific partner's slot — at which point the explore modal
+                    mounts below. */}
+                {expandedPanel && (
+                  <div className="mt-3">
+                    {expandedPanel === "up" ? (
+                      <TradeUpPanel
+                        open
+                        chalk={chalk as unknown as ContractChalkPick[]}
+                        currentSlot={currentPick.slot}
+                        numTeams={(simulation.num_teams as number | undefined) ?? 12}
+                        leagueId={leagueId}
+                        simId={(simulation.sim_id as string | null | undefined) ?? null}
+                        userOwner={owner}
+                        userOwnerId={ownerId || null}
+                        onExplore={(direction, targetSlot, partnerOwner) =>
+                          setActiveExploration({ direction, targetSlot, partnerOwner })
+                        }
+                      />
+                    ) : (
+                      <TradeBackPanel
+                        open
+                        chalk={chalk as unknown as ContractChalkPick[]}
+                        currentSlot={currentPick.slot}
+                        numTeams={(simulation.num_teams as number | undefined) ?? 12}
+                        leagueId={leagueId}
+                        simId={(simulation.sim_id as string | null | undefined) ?? null}
+                        userOwner={owner}
+                        userOwnerId={ownerId || null}
+                        onExplore={(direction, targetSlot, partnerOwner) =>
+                          setActiveExploration({ direction, targetSlot, partnerOwner })
+                        }
+                      />
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Recommended picks — sort by fit_score DESC.
@@ -908,38 +1020,83 @@ export default function MockDraftPage() {
 
         </div>
 
-        {/* Trade modal — mounted once, driven by tradeModalDir. Closes on
-            commit success (via onCommitted) or cancel/error-dismiss. After
-            commitTrade's swap + simulate-from-state, setSim inside the modal
-            refreshes chalk; we then fast-forward to the user's next pick. */}
-        {tradeModalDir && currentPick && (() => {
-          const { tradeUp, tradeBack } = pickTradeTargets(
-            chalk as Array<{ slot: string; owner: string }>,
-            owner,
-            currentPick.slot,
-          );
-          const target = tradeModalDir === "up" ? tradeUp : tradeBack;
-          if (!target) return null;
-          return (
-            <MockDraftTradeModal
-              open
-              direction={tradeModalDir}
-              currentSlot={currentPick.slot}
-              targetSlot={target}
-              simId={(simulation.sim_id as string | null | undefined) ?? null}
-              leagueId={leagueId}
-              userOwner={owner}
-              userOwnerId={ownerId || null}
-              onClose={() => setTradeModalDir(null)}
-              onCommitted={(data) => {
-                // Re-fast-forward on the fresh chalk so the cursor lands on
-                // the user's next unmade pick under the new ownership map.
-                const newChalk = (data.chalk ?? []) as Array<{ slot: string; owner: string }>;
-                advanceRevealedTo(fastForwardIdx(newChalk, owner, userPicks, 0));
-              }}
-            />
-          );
-        })()}
+        {/* Explore modal — mounted when the user picks a specific slot
+            inside an expanded panel. The modal fires /trade-explore on open
+            and /commit-trade on Confirm; onConfirm hands the response back
+            here where we apply it to the store and re-sim (optimistic). */}
+        {activeExploration && simulation.sim_id && (
+          <MockDraftTradeExploreModal
+            open
+            onClose={() => setActiveExploration(null)}
+            simId={simulation.sim_id as string}
+            leagueId={leagueId}
+            userOwner={owner}
+            userOwnerId={ownerId || null}
+            userSlot={currentPick?.slot ?? ""}
+            targetSlot={activeExploration.targetSlot}
+            partnerOwner={activeExploration.partnerOwner}
+            direction={activeExploration.direction}
+            consensusBoard={consensusBoard as unknown as ReadonlyArray<ConsensusBoardEntry>}
+            onConfirm={handleTradeConfirmed}
+          />
+        )}
+
+        {/* Re-sim skeleton overlay. Keeps the draft header visible so the
+            user still sees they're mid-flight, but dims the pick board and
+            pulses a gold progress bar while /simulate-from-state is in
+            flight. Parked above the scroll area so it doesn't steal scroll
+            position when the new chalk lands. */}
+        {reSimming && (
+          <div
+            className="pointer-events-none fixed inset-x-0 top-[34px] bottom-0 z-40 flex items-center justify-center"
+            style={{ background: "rgba(6,8,13,0.74)", backdropFilter: "blur(2px)" }}
+            aria-live="polite"
+            aria-label="Re-simulating draft with your new trade"
+          >
+            <div className="text-center">
+              <div
+                className="text-[11px] font-black tracking-[0.24em] uppercase"
+                style={{ fontFamily: MONO, color: C.gold }}
+              >
+                Re-running sim
+              </div>
+              <div
+                className="mt-4 mx-auto rounded-full overflow-hidden"
+                style={{ width: 220, height: 4, background: "rgba(255,255,255,0.06)" }}
+              >
+                <div
+                  className="h-full rounded-full"
+                  style={{
+                    background: `linear-gradient(90deg, ${C.goldDark}, ${C.gold}, ${C.goldDark})`,
+                    animation: "md-bar 1.6s ease-in-out infinite",
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Toast — commit ok / revert err, auto-dismiss 3s. */}
+        {toast && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="fixed top-3 right-3 z-50 px-3.5 py-2 rounded-lg text-[11px] font-semibold tracking-[0.06em]"
+            style={{
+              fontFamily: SANS,
+              color: toast.kind === "ok" ? C.gold : "#e47272",
+              background: toast.kind === "ok"
+                ? "rgba(212,165,50,0.10)"
+                : "rgba(228,114,114,0.10)",
+              border: toast.kind === "ok"
+                ? "1px solid rgba(212,165,50,0.35)"
+                : "1px solid rgba(228,114,114,0.35)",
+              boxShadow: "0 6px 22px rgba(0,0,0,0.35)",
+            }}
+          >
+            {toast.msg}
+          </div>
+        )}
       </div>
     );
   }
