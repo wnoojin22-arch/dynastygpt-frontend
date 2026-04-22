@@ -3,6 +3,7 @@ import {
   useMockDraftStore,
   type PendingTrade,
   type TradePreviewResponse,
+  type TradeSnapshot,
 } from "../mock-draft-store";
 import type { SimulateResponse } from "../../../app/l/[slug]/mock-draft/contracts";
 
@@ -236,10 +237,86 @@ describe("commitTrade", () => {
 
   test("commitTrade with no pendingTrade closes the modal and does NOT touch overrides", () => {
     const s = useMockDraftStore.getState();
-    s.commitTrade();
+    const snap = s.commitTrade();
     const after = useMockDraftStore.getState();
+    expect(snap).toBeNull();
     expect(after.ownerOverrides).toEqual({});
     expect(after.tradeModalOpen).toBe(false);
+  });
+
+  test("commitTrade returns a snapshot of pre-commit ownerOverrides + lockedPicks", () => {
+    const s = useMockDraftStore.getState();
+    // Seed prior state — unrelated override + a partner lock.
+    s.lockPick("1.07", "Stale B1", "partner");
+    useMockDraftStore.setState({ ownerOverrides: { "5.01": "Foxtrot" } });
+
+    s.registerTrade({
+      direction: "up",
+      target_slot: "1.02",
+      user_owner: "Duke",
+      preview: makePreview("up", { current: "1.12", target: "1.02", partner: "Bravo" }),
+    });
+    const snap = s.commitTrade();
+    expect(snap).not.toBeNull();
+    // Snapshot captures state BEFORE the trade mutations.
+    expect(snap!.ownerOverrides).toEqual({ "5.01": "Foxtrot" });
+    expect(snap!.lockedPicks).toEqual({ "1.07": "Stale B1" });
+    // And the current state reflects the swap layered over prior overrides.
+    const after = useMockDraftStore.getState();
+    expect(after.ownerOverrides).toEqual({
+      "5.01": "Foxtrot",
+      "1.02": "Duke",
+      "1.12": "Bravo",
+    });
+  });
+});
+
+// ─── revertTrade ─────────────────────────────────────────────────────────
+describe("revertTrade", () => {
+  test("restores ownerOverrides + lockedPicks from snapshot exactly", () => {
+    const s = useMockDraftStore.getState();
+    s.lockPick("1.07", "Original B1", "partner");
+    useMockDraftStore.setState({ ownerOverrides: { "5.01": "Foxtrot" } });
+
+    s.registerTrade({
+      direction: "up",
+      target_slot: "1.02",
+      user_owner: "Duke",
+      preview: makePreview("up", {
+        current: "1.12",
+        target: "1.02",
+        partner: "Bravo",
+        picksGiven: ["3.12"],
+        picksReceived: ["4.02"],
+      }),
+    });
+    const snap = s.commitTrade();
+    expect(snap).not.toBeNull();
+
+    // After commit: 4 swap entries layered on top.
+    expect(Object.keys(useMockDraftStore.getState().ownerOverrides).sort()).toEqual(
+      ["1.02", "1.12", "3.12", "4.02", "5.01"].sort(),
+    );
+
+    // Revert and confirm exact pre-commit state.
+    s.revertTrade(snap as TradeSnapshot);
+    const reverted = useMockDraftStore.getState();
+    expect(reverted.ownerOverrides).toEqual({ "5.01": "Foxtrot" });
+    expect(reverted.lockedPicks).toEqual({ "1.07": "Original B1" });
+  });
+
+  test("revertTrade is idempotent — same snapshot applied twice leaves identical state", () => {
+    const s = useMockDraftStore.getState();
+    const snap: TradeSnapshot = {
+      ownerOverrides: { "2.01": "Zulu" },
+      lockedPicks: { "2.05": "Locked Guy" },
+    };
+    s.revertTrade(snap);
+    const first = useMockDraftStore.getState();
+    s.revertTrade(snap);
+    const second = useMockDraftStore.getState();
+    expect(second.ownerOverrides).toEqual(first.ownerOverrides);
+    expect(second.lockedPicks).toEqual(first.lockedPicks);
   });
 });
 

@@ -50,6 +50,17 @@ export interface PendingTrade {
   preview: TradePreviewResponse;
 }
 
+/**
+ * Snapshot of pre-trade state — returned by commitTrade so the caller can
+ * roll back if the downstream /simulate-from-state call fails. Only the
+ * maps commitTrade touches are snapshotted; sim + revealedCount are not
+ * mutated by commitTrade, so they need no capture.
+ */
+export interface TradeSnapshot {
+  ownerOverrides: SlotOwnerMap;
+  lockedPicks: SlotProspectMap;
+}
+
 // ─── State + actions ──────────────────────────────────────────────────────
 interface MockDraftState {
   sim: SimulateResponse | null;
@@ -74,7 +85,8 @@ interface MockDraftActions {
   unlockPick: (slot: string) => void;
 
   registerTrade: (trade: PendingTrade) => void;
-  commitTrade: () => void;
+  commitTrade: () => TradeSnapshot | null;
+  revertTrade: (snapshot: TradeSnapshot) => void;
   clearTrade: () => void;
 
   advanceRevealedTo: (index: number) => void;
@@ -154,15 +166,22 @@ export const useMockDraftStore = create<MockDraftStore>((set, get) => ({
     const pt = get().pendingTrade;
     if (!pt) {
       set({ tradeModalOpen: false });
-      return;
+      return null;
     }
+    // Snapshot the pre-commit state so the caller can revert if the
+    // downstream /simulate-from-state call fails.
+    const snapshot: TradeSnapshot = {
+      ownerOverrides: { ...get().ownerOverrides },
+      lockedPicks: { ...get().lockedPicks },
+    };
+
     const { target_slot, user_owner, preview } = pt;
     const partner = preview.partner_owner;
     const currentSlotOfUser = preview.current_slot;
     const picksGiven = preview.suggested_cost?.picks_given ?? [];
     const picksReceived = preview.picks_received ?? [];
 
-    const next: SlotOwnerMap = { ...get().ownerOverrides };
+    const next: SlotOwnerMap = { ...snapshot.ownerOverrides };
     // Primary swap: user ends up owning target_slot, partner owns the slot
     // the user moved off of.
     next[target_slot] = user_owner;
@@ -175,6 +194,14 @@ export const useMockDraftStore = create<MockDraftStore>((set, get) => ({
       ownerOverrides: next,
       tradeModalOpen: false,
       pendingTrade: null,
+    });
+    return snapshot;
+  },
+
+  revertTrade: (snapshot) => {
+    set({
+      ownerOverrides: { ...snapshot.ownerOverrides },
+      lockedPicks: { ...snapshot.lockedPicks },
     });
   },
 

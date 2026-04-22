@@ -13,6 +13,7 @@ import {
   getDraftOwnerProfiles,
 } from "@/lib/api";
 import { useMockDraftStore } from "@/lib/stores/mock-draft-store";
+import MockDraftTradeModal from "./MockDraftTradeModal";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import PickDetailSheet from "@/components/league/mock-draft/PickDetailSheet";
 import { C, MONO, SANS, DISPLAY } from "@/components/league/tokens";
@@ -70,6 +71,38 @@ interface ChalkPick {
 type Phase = "landing" | "loading" | "live" | "user_pick" | "recap";
 
 /**
+ * pickTradeTargets — find trade-up and trade-back target slots relative to
+ * the user's current pick. Trade-up = earliest slot before currentSlot
+ * that belongs to another owner. Trade-back = latest slot after currentSlot
+ * that belongs to another owner. Either can be null if no valid target
+ * exists (user owns 1.01, user is picking last, etc.).
+ */
+function pickTradeTargets(
+  chalk: Array<{ slot: string; owner: string }>,
+  owner: string,
+  currentSlot: string,
+): { tradeUp: string | null; tradeBack: string | null } {
+  const lower = owner.toLowerCase();
+  const currentIdx = chalk.findIndex((c) => c.slot === currentSlot);
+  if (currentIdx < 0) return { tradeUp: null, tradeBack: null };
+  let tradeUp: string | null = null;
+  for (let i = 0; i < currentIdx; i++) {
+    if (chalk[i].owner.toLowerCase() !== lower) {
+      tradeUp = chalk[i].slot;
+      break;
+    }
+  }
+  let tradeBack: string | null = null;
+  for (let i = chalk.length - 1; i > currentIdx; i--) {
+    if (chalk[i].owner.toLowerCase() !== lower) {
+      tradeBack = chalk[i].slot;
+      break;
+    }
+  }
+  return { tradeUp, tradeBack };
+}
+
+/**
  * fastForwardIdx — resolve all picks instantly from `from` up to the next
  * user pick the user hasn't made yet. Returns chalk.length when the draft
  * is complete.
@@ -114,6 +147,7 @@ export default function MockDraftPage() {
   const [pickSearch, setPickSearch] = useState("");
   const [pickPosFilter, setPickPosFilter] = useState("ALL");
   const [activeDetailSlot, setActiveDetailSlot] = useState<string | null>(null);
+  const [tradeModalDir, setTradeModalDir] = useState<"up" | "back" | null>(null);
   const userPickRef = useRef<HTMLDivElement>(null);
 
   // ── Landing data (skip in mock mode) ──────────────────────────────────
@@ -515,6 +549,47 @@ export default function MockDraftPage() {
                   YOUR PICK — {currentPick.slot}
                 </div>
                 <div className="text-xs mt-0.5" style={{ fontFamily: SANS, color: C.secondary }}>{owner}</div>
+
+                {/* TRADE UP / TRADE BACK triggers. Primary treatment goes to
+                    the direction with a live offer on this slot; otherwise
+                    parity. Both disable gracefully when no target exists. */}
+                {(() => {
+                  const { tradeUp, tradeBack } = pickTradeTargets(
+                    chalk as Array<{ slot: string; owner: string }>,
+                    owner,
+                    currentPick.slot,
+                  );
+                  const slotTf = tradeFlags.find((t) => (t as any).slot === currentPick.slot);
+                  const backPrimary = !!slotTf && ((slotTf as any).top_buyer !== undefined);
+                  const btn = (primary: boolean) =>
+                    primary
+                      ? { fontFamily: MONO, color: "#1a1204", background: `linear-gradient(180deg, ${C.gold} 0%, #b88a26 100%)`, border: "none", boxShadow: "0 4px 14px rgba(212,165,50,0.25)" }
+                      : { fontFamily: MONO, color: C.primary, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.10)" };
+                  return (
+                    <div className="mt-2.5 flex gap-2">
+                      <button
+                        type="button"
+                        disabled={!tradeUp}
+                        onClick={() => tradeUp && setTradeModalDir("up")}
+                        className="flex-1 text-[10px] font-black tracking-[0.16em] uppercase px-3 py-2 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                        style={btn(!backPrimary && !!tradeUp)}
+                        title={tradeUp ? `Trade up to ${tradeUp}` : "No earlier slot available"}
+                      >
+                        Trade up{tradeUp ? ` → ${tradeUp}` : ""}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={!tradeBack}
+                        onClick={() => tradeBack && setTradeModalDir("back")}
+                        className="flex-1 text-[10px] font-black tracking-[0.16em] uppercase px-3 py-2 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                        style={btn(backPrimary && !!tradeBack)}
+                        title={tradeBack ? `Trade back to ${tradeBack}` : "No later slot available"}
+                      >
+                        Trade back{tradeBack ? ` → ${tradeBack}` : ""}
+                      </button>
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Recommended picks — sort by fit_score DESC.
@@ -832,6 +907,39 @@ export default function MockDraftPage() {
           )}
 
         </div>
+
+        {/* Trade modal — mounted once, driven by tradeModalDir. Closes on
+            commit success (via onCommitted) or cancel/error-dismiss. After
+            commitTrade's swap + simulate-from-state, setSim inside the modal
+            refreshes chalk; we then fast-forward to the user's next pick. */}
+        {tradeModalDir && currentPick && (() => {
+          const { tradeUp, tradeBack } = pickTradeTargets(
+            chalk as Array<{ slot: string; owner: string }>,
+            owner,
+            currentPick.slot,
+          );
+          const target = tradeModalDir === "up" ? tradeUp : tradeBack;
+          if (!target) return null;
+          return (
+            <MockDraftTradeModal
+              open
+              direction={tradeModalDir}
+              currentSlot={currentPick.slot}
+              targetSlot={target}
+              simId={(simulation.sim_id as string | null | undefined) ?? null}
+              leagueId={leagueId}
+              userOwner={owner}
+              userOwnerId={ownerId || null}
+              onClose={() => setTradeModalDir(null)}
+              onCommitted={(data) => {
+                // Re-fast-forward on the fresh chalk so the cursor lands on
+                // the user's next unmade pick under the new ownership map.
+                const newChalk = (data.chalk ?? []) as Array<{ slot: string; owner: string }>;
+                advanceRevealedTo(fastForwardIdx(newChalk, owner, userPicks, 0));
+              }}
+            />
+          );
+        })()}
       </div>
     );
   }
