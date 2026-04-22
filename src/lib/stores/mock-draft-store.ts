@@ -139,6 +139,7 @@ export interface LikelyBuyer {
   partner_owner: string;
   willingness: WillingnessResult;
   window: string;
+  grades: Record<"QB" | "RB" | "WR" | "TE", string>;
   slots_owned: string[];
 }
 
