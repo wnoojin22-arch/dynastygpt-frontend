@@ -3,6 +3,7 @@ import type {
   PostDraftPositionalGrades,
   SimulateResponse,
 } from "@/app/l/[slug]/mock-draft/contracts";
+import { buildChalkLockedPicks } from "./mock-draft-chalk-lock";
 
 /**
  * Mock draft store — single source of truth for the interactive draft flow.
@@ -338,21 +339,34 @@ export const useMockDraftStore = create<MockDraftStore>((set, get) => ({
   clearTrade: () => set({ tradeModalOpen: false, pendingTrade: null }),
 
   applyCommitTradeResponse: (resp) => {
+    const state = get();
     const snapshot: ExploreTradeSnapshot = {
-      ownerOverrides: { ...get().ownerOverrides },
-      lockedPicks: { ...get().lockedPicks },
-      tradesCommitted: [...get().tradesCommitted],
-      futurePicksGiven: [...get().futurePicksGiven],
-      futurePicksReceived: [...get().futurePicksReceived],
+      ownerOverrides: { ...state.ownerOverrides },
+      lockedPicks: { ...state.lockedPicks },
+      tradesCommitted: [...state.tradesCommitted],
+      futurePicksGiven: [...state.futurePicksGiven],
+      futurePicksReceived: [...state.futurePicksReceived],
     };
 
     const entry = resp.trade_log_entry;
     const pkg = entry.package ?? ({} as TradePackage);
 
+    // Lock every chalk pick that happened before the user's NEW slot. The
+    // backend's /simulate-from-state runs 50 fresh sims honoring only owner
+    // overrides — without these locks, already-chalked players re-surface
+    // in the aggregated availability and become recommendations.
+    const chalkLocks = buildChalkLockedPicks(
+      state.sim?.chalk ?? [],
+      resp.pick_ownership_overrides,
+      state.userPicks,
+      entry.user_owner,
+    );
+
     set((s) => ({
       // Server returns the authoritative slot→owner map — replace wholesale
       // so we don't leak stale entries from prior commits.
       ownerOverrides: { ...resp.pick_ownership_overrides },
+      lockedPicks: { ...s.lockedPicks, ...chalkLocks },
       tradesCommitted: [...s.tradesCommitted, entry],
       futurePicksGiven: [...s.futurePicksGiven, ...(pkg.future_picks_given ?? [])],
       futurePicksReceived: [...s.futurePicksReceived, ...(pkg.future_picks_received ?? [])],
