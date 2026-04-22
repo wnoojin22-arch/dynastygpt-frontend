@@ -50,6 +50,105 @@ export interface PendingTrade {
   preview: TradePreviewResponse;
 }
 
+// ─── Explore-flow types (mock-draft-lite /trade-explore + /commit-trade) ──
+export type WillingnessBand = "HIGH" | "MEDIUM" | "LOW" | "UNLIKELY";
+export type VerdictLabel = "GREAT" | "FAIR" | "BAD" | "NOT REALISTIC";
+
+export interface WillingnessFactor {
+  score: number;
+  max: number;
+  detail: string;
+}
+
+export interface WillingnessResult {
+  score: number;
+  band: WillingnessBand;
+  factors: {
+    activity: WillingnessFactor;
+    window_alignment: WillingnessFactor;
+    panic_signal: WillingnessFactor;
+    h2h_history: WillingnessFactor;
+  };
+  blocker: string | null;
+}
+
+export interface TradeVerdict {
+  label: VerdictLabel;
+  color: string;
+  headline: string;
+  why_lines: string[];
+  confirm_enabled: boolean;
+}
+
+export interface TradePackagePick {
+  slot: string;
+  round: number;
+  value_sha: number;
+}
+
+export interface FuturePick {
+  year: number;
+  round: number;
+  value_sha: number;
+  slot?: string;
+}
+
+export interface TradePackage {
+  kind: string;
+  picks_given: TradePackagePick[];
+  picks_received: TradePackagePick[];
+  future_picks_given: FuturePick[];
+  future_picks_received: FuturePick[];
+  player_given: string | null;
+  value_given: number;
+  value_received: number;
+  value_delta_pct: number;
+  asset_count: number;
+  verdict?: TradeVerdict;
+  fit_score_at_target?: number;
+}
+
+export interface TradeExploreResponse {
+  sim_id: string;
+  direction: "up" | "back";
+  current_slot: string;
+  target_slot: string;
+  partner_owner: string;
+  willingness: WillingnessResult;
+  likely_player_at_target: string | null;
+  fit_score_at_target: number;
+  packages: TradePackage[];
+}
+
+export interface CommittedTradeEntry {
+  committed_at: string;
+  direction: "up" | "back";
+  user_owner: string;
+  partner_owner: string;
+  package: TradePackage;
+}
+
+export interface CommitTradeResponse {
+  success: boolean;
+  trade_log_entry: CommittedTradeEntry;
+  pick_ownership_overrides: Record<string, string>;
+  trade_log_count: number;
+}
+
+export interface LikelyBuyer {
+  partner_owner: string;
+  willingness: WillingnessResult;
+  window: string;
+  slots_owned: string[];
+}
+
+export interface LikelyBuyersResponse {
+  user_owner: string;
+  slot: string;
+  direction: "up" | "back";
+  buyers: LikelyBuyer[];
+}
+
 /**
  * Snapshot of pre-trade state — returned by commitTrade so the caller can
  * roll back if the downstream /simulate-from-state call fails. Only the
@@ -59,6 +158,18 @@ export interface PendingTrade {
 export interface TradeSnapshot {
   ownerOverrides: SlotOwnerMap;
   lockedPicks: SlotProspectMap;
+}
+
+/**
+ * Snapshot for the explore-flow commit. Captures everything the commit-trade
+ * response mutates so a failed re-sim can roll the store back cleanly.
+ */
+export interface ExploreTradeSnapshot {
+  ownerOverrides: SlotOwnerMap;
+  lockedPicks: SlotProspectMap;
+  tradesCommitted: CommittedTradeEntry[];
+  futurePicksGiven: FuturePick[];
+  futurePicksReceived: FuturePick[];
 }
 
 // ─── State + actions ──────────────────────────────────────────────────────
@@ -75,6 +186,14 @@ interface MockDraftState {
 
   tradeModalOpen: boolean;
   pendingTrade: PendingTrade | null;
+
+  // Explore flow — history ledger + Tier A future-pick tracking. These are
+  // additive to the existing commit path; the old tradeModal still drives
+  // ownerOverrides directly. Committed entries are appended here so the UI
+  // can render a trade log and so revert can pop the last one on failure.
+  tradesCommitted: CommittedTradeEntry[];
+  futurePicksGiven: FuturePick[];
+  futurePicksReceived: FuturePick[];
 }
 
 interface MockDraftActions {
@@ -88,6 +207,13 @@ interface MockDraftActions {
   commitTrade: () => TradeSnapshot | null;
   revertTrade: (snapshot: TradeSnapshot) => void;
   clearTrade: () => void;
+
+  // Explore-flow commit. applyCommitTradeResponse merges the server response
+  // (authoritative pick_ownership_overrides map + trade_log_entry) into the
+  // store and returns a snapshot the caller can feed to revertCommitTrade if
+  // the follow-up /simulate-from-state fails.
+  applyCommitTradeResponse: (resp: CommitTradeResponse) => ExploreTradeSnapshot;
+  revertCommitTrade: (snapshot: ExploreTradeSnapshot) => void;
 
   advanceRevealedTo: (index: number) => void;
   updateCurrentSlot: () => void;
@@ -105,6 +231,9 @@ const INITIAL_STATE: MockDraftState = {
   currentSlot: null,
   tradeModalOpen: false,
   pendingTrade: null,
+  tradesCommitted: [],
+  futurePicksGiven: [],
+  futurePicksReceived: [],
 };
 
 function slotAtIndex(sim: SimulateResponse | null, idx: number): string | null {
@@ -206,6 +335,42 @@ export const useMockDraftStore = create<MockDraftStore>((set, get) => ({
   },
 
   clearTrade: () => set({ tradeModalOpen: false, pendingTrade: null }),
+
+  applyCommitTradeResponse: (resp) => {
+    const snapshot: ExploreTradeSnapshot = {
+      ownerOverrides: { ...get().ownerOverrides },
+      lockedPicks: { ...get().lockedPicks },
+      tradesCommitted: [...get().tradesCommitted],
+      futurePicksGiven: [...get().futurePicksGiven],
+      futurePicksReceived: [...get().futurePicksReceived],
+    };
+
+    const entry = resp.trade_log_entry;
+    const pkg = entry.package ?? ({} as TradePackage);
+
+    set((s) => ({
+      // Server returns the authoritative slot→owner map — replace wholesale
+      // so we don't leak stale entries from prior commits.
+      ownerOverrides: { ...resp.pick_ownership_overrides },
+      tradesCommitted: [...s.tradesCommitted, entry],
+      futurePicksGiven: [...s.futurePicksGiven, ...(pkg.future_picks_given ?? [])],
+      futurePicksReceived: [...s.futurePicksReceived, ...(pkg.future_picks_received ?? [])],
+      tradeModalOpen: false,
+      pendingTrade: null,
+    }));
+
+    return snapshot;
+  },
+
+  revertCommitTrade: (snapshot) => {
+    set({
+      ownerOverrides: { ...snapshot.ownerOverrides },
+      lockedPicks: { ...snapshot.lockedPicks },
+      tradesCommitted: [...snapshot.tradesCommitted],
+      futurePicksGiven: [...snapshot.futurePicksGiven],
+      futurePicksReceived: [...snapshot.futurePicksReceived],
+    });
+  },
 
   advanceRevealedTo: (index) =>
     set((s) => ({

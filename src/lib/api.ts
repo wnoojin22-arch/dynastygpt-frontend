@@ -180,6 +180,45 @@ export const mockDraftTradeBackPreview = (
   body: { sim_id: string; target_slot: string; user_owner?: string; user_owner_id?: string },
 ) => post<unknown>(`${L(id)}/draft/mock-draft/trade-back-preview`, body);
 
+/** Per-pick trade exploration — partner + willingness + up to 3 package options with verdicts. */
+export const mockDraftTradeExplore = (
+  id: string,
+  body: {
+    sim_id: string;
+    direction: "up" | "back";
+    target_slot: string;
+    user_owner?: string;
+    user_owner_id?: string;
+    include_future_picks?: boolean;
+  },
+) => post<unknown>(`${L(id)}/draft/mock-draft/trade-explore`, body);
+
+/** Commit a chosen trade package — swaps pick ownership in the sim, appends trade_log. */
+export const mockDraftCommitTrade = (
+  id: string,
+  body: {
+    sim_id: string;
+    direction: "up" | "back";
+    package: Record<string, unknown>;
+    partner_owner: string;
+    user_owner?: string;
+    user_owner_id?: string;
+  },
+) => post<unknown>(`${L(id)}/draft/mock-draft/commit-trade`, body);
+
+/** Rank partners by willingness to engage on a trade for the given slot. */
+export const mockDraftLikelyBuyers = (
+  id: string,
+  body: {
+    sim_id: string;
+    slot: string;
+    direction?: "up" | "back";
+    limit?: number;
+    user_owner?: string;
+    user_owner_id?: string;
+  },
+) => post<unknown>(`${L(id)}/draft/mock-draft/likely-buyers`, body);
+
 // ── Trade Builder ────────────────────────────────────────────────────────
 export const getTradeBuilderSuggestions = (id: string, owner: string, userId?: string | null) => get<unknown>(`${L(id)}/trade-builder/${O(owner, userId)}`);
 export const getTradeBuilderTargets = (id: string, owner: string, userId?: string | null) => get<unknown>(`${L(id)}/trade-builder/${O(owner, userId)}/targets`);
