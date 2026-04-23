@@ -14,6 +14,7 @@ import {
 import { RecentTrades, PlayerName } from "@/components/league";
 import PlayerHeadshot from "@/components/league/PlayerHeadshot";
 import WelcomeArticleCard from "@/components/league/WelcomeArticleCard";
+import TradeDBReleaseBanner from "@/components/league/TradeDBReleaseBanner";
 import { useTrack } from "@/hooks/useTrack";
 import { useOwnerClick } from "@/hooks/useOwnerClick";
 import { C, SANS, MONO, DISPLAY, fmt, posColor, getVerdictStyle, leaguePrefix } from "@/components/league/tokens";
@@ -706,6 +707,9 @@ export default function LeagueHome() {
           >✕</span>
         </div>
       )}
+
+      {/* ═══════════════ TRADEDB RELEASE BANNER ═══════════════ */}
+      <TradeDBReleaseBanner />
 
       {/* ═══════════════ ② HERO ═══════════════ */}
       {rcLoading && !reportCard ? <HeroSkeleton /> : (

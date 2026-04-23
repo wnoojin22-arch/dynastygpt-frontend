@@ -7,6 +7,7 @@ import { getOverview } from "@/lib/api";
 import DashboardView from "@/components/league/DashboardView";
 // import SurveyModal from "@/components/survey/SurveyModal"; // PAUSED — re-enable after beta stabilizes
 import { useTrack } from "@/hooks/useTrack";
+import TradeDBReleaseBanner from "@/components/league/TradeDBReleaseBanner";
 
 export default function DashboardPage() {
   const { currentLeagueId: lid, currentOwner: owner, currentOwnerId: ownerId } = useLeagueStore();
@@ -30,6 +31,7 @@ export default function DashboardPage() {
 
   return (
     <>
+      <TradeDBReleaseBanner />
       <DashboardView lid={lid} owner={owner} ownerId={ownerId} />
       {/* <SurveyModal /> — PAUSED during beta updates */}
     </>

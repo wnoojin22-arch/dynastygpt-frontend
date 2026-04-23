@@ -10,7 +10,7 @@ import OwnerQuickViewModal from "@/components/league/OwnerQuickViewModal";
 import FeedbackWidget from "@/components/feedback/FeedbackWidget";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getOwners, getOverview, getRankings, syncLeague, getLeagueBySlug } from "@/lib/api";
-import { Home, LayoutGrid, Search, Zap, BarChart3 } from "lucide-react";
+import { Home, LayoutGrid, Search, Zap, BarChart3, Database } from "lucide-react";
 
 /* ═══════════════════════════════════════════════════════════════
    DESIGN TOKENS
@@ -60,12 +60,13 @@ function ShieldLogo({ size = 28 }: { size?: number }) {
 /* ═══════════════════════════════════════════════════════════════
    NAV ITEMS — 5 items, no sub-nav
    ═══════════════════════════════════════════════════════════════ */
-const NAV_ITEMS: { id: string; label: string; path: string; icon: React.ReactNode }[] = [
+const NAV_ITEMS: { id: string; label: string; path: string; icon: React.ReactNode; external?: boolean; isNew?: boolean }[] = [
   { id: "home",      label: "Home",      path: "",           icon: <Home size={20} /> },
   { id: "dashboard", label: "Dashboard", path: "/dashboard", icon: <LayoutGrid size={20} /> },
   { id: "trades",    label: "Trades",    path: "/trades",    icon: <Zap size={20} /> },
   { id: "intel",     label: "Intel",     path: "/intel",     icon: <Search size={20} /> },
   { id: "rankings",  label: "Rankings",  path: "/rankings",  icon: <BarChart3 size={20} /> },
+  { id: "tradedb",   label: "TradeDB",   path: "https://dynastygpt.com/tradedb", icon: <Database size={20} />, external: true, isNew: true },
 ];
 
 /* ═══════════════════════════════════════════════════════════════
@@ -100,20 +101,30 @@ function IconSidebar({ basePath, pathname, owner, shaRank }: {
 
       {/* Nav items */}
       {NAV_ITEMS.map((item) => {
-        const href = `${basePath}${item.path}`;
-        const isActive = item.path === ""
-          ? pathname === basePath || pathname === basePath + "/"
-          : pathname.startsWith(href);
+        const href = item.external ? item.path : `${basePath}${item.path}`;
+        const isActive = item.external
+          ? false
+          : item.path === ""
+            ? pathname === basePath || pathname === basePath + "/"
+            : pathname.startsWith(href);
         const isHov = hovered === item.id;
 
         return (
           <div key={item.id}
-            onClick={() => router.push(href)}
+            onClick={() => { if (item.external) { window.location.href = href; } else { router.push(href); } }}
             onMouseEnter={() => setHovered(item.id)}
             onMouseLeave={() => setHovered(null)}
-            className={`flex flex-col items-center gap-1 w-[54px] py-2.5 rounded-md cursor-pointer transition-all
+            className={`relative flex flex-col items-center gap-1 w-[54px] py-2.5 rounded-md cursor-pointer transition-all
               ${isActive ? "bg-elevated border-l-2 border-gold" : isHov ? "bg-elevated/80 border-l-2 border-transparent" : "border-l-2 border-transparent"}`}
           >
+            {item.isNew && (
+              <span
+                className="absolute top-1 right-1 px-1 rounded-[3px] font-mono text-[7px] font-black tracking-wider text-bg bg-gold leading-[11px]"
+                style={{ boxShadow: "0 0 8px rgba(212,165,50,0.55)" }}
+              >
+                NEW
+              </span>
+            )}
             <span className={`transition-colors ${isActive ? "text-gold" : isHov ? "text-primary" : "text-dim"}`}>
               {item.icon}
             </span>
@@ -165,15 +176,17 @@ function BottomTabBar({ basePath, pathname }: { basePath: string; pathname: stri
       style={{ boxShadow: "0 -2px 20px rgba(0,0,0,0.5)" }}
     >
       {NAV_ITEMS.map((item, i) => {
-        const href = `${basePath}${item.path}`;
-        const isActive = item.path === ""
-          ? pathname === basePath || pathname === basePath + "/"
-          : pathname.startsWith(href);
+        const href = item.external ? item.path : `${basePath}${item.path}`;
+        const isActive = item.external
+          ? false
+          : item.path === ""
+            ? pathname === basePath || pathname === basePath + "/"
+            : pathname.startsWith(href);
 
         return (
           <button
             key={item.id}
-            onClick={() => router.push(href)}
+            onClick={() => { if (item.external) { window.location.href = href; } else { router.push(href); } }}
             className={`flex flex-col items-center justify-center gap-0.5 flex-1 h-full relative transition-all duration-200 animate-[fadeUp_0.3s_ease-out_both] ${isActive ? "scale-105" : ""}`}
             style={{ animationDelay: `${i * 50 + 100}ms` }}
           >
@@ -184,13 +197,21 @@ function BottomTabBar({ basePath, pathname }: { basePath: string; pathname: stri
                 style={{ boxShadow: "0 2px 8px rgba(212,165,50,0.4)" }}
               />
             )}
+            {item.isNew && (
+              <span
+                className="absolute top-1 right-2 px-1 rounded-[3px] font-mono text-[7px] font-black tracking-wider text-bg bg-gold leading-[11px]"
+                style={{ boxShadow: "0 0 8px rgba(212,165,50,0.55)" }}
+              >
+                NEW
+              </span>
+            )}
             <span
               className={`transition-all duration-200 ${isActive ? "text-gold scale-110" : "text-dim"}`}
               style={{ lineHeight: 0 }}
             >
               {isActive
                 ? (() => {
-                    const Icon = { home: Home, dashboard: LayoutGrid, trades: Zap, intel: Search, rankings: BarChart3 }[item.id]!;
+                    const Icon = { home: Home, dashboard: LayoutGrid, trades: Zap, intel: Search, rankings: BarChart3, tradedb: Database }[item.id]!;
                     return <Icon size={22} />;
                   })()
                 : item.icon
