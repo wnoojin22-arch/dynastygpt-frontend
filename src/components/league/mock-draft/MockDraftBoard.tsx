@@ -44,7 +44,7 @@ export default function MockDraftBoard({ simulation, currentRound, userPicks, on
   // Find active pick detail
   const activePick = activeSlot ? chalk.find((p) => p.slot === activeSlot) : null;
   const activeProbs = activeSlot ? pickProbs[activeSlot] || [] : [];
-  const activeTradeFlag = activeSlot ? tradeFlags.find((t) => t.slot === activeSlot) : null;
+  const activeTradeFlag = (activeSlot ? tradeFlags.find((t) => t.slot === activeSlot) : null) ?? null;
 
   return (
     <div style={{

@@ -899,7 +899,7 @@ export default function MockDraftPage() {
                         <div className="text-[10px] leading-relaxed" style={{ fontFamily: SANS, color: C.secondary }}>
                           {tb.reason as string}
                         </div>
-                        {tb.estimated_cost && (
+                        {!!tb.estimated_cost && (
                           <div className="text-[9px] mt-1 font-bold" style={{ fontFamily: MONO, color: C.gold }}>
                             Est. cost: {tb.estimated_cost as string}
                           </div>

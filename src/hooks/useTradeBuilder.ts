@@ -75,6 +75,9 @@ export interface UseTradeBuilderReturn {
   handleClear: () => void;
   fireSuggest: (body: Record<string, unknown>, query: string) => Promise<void>;
   cancelSuggest: () => void;
+
+  // Identity (used by ChatPanel)
+  ownerId: string | null;
 }
 
 const toBackend = (w: string) => (w === "WIN-NOW" ? "CONTENDER" : w);
