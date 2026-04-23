@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useUser, SignOutButton } from "@clerk/nextjs";
 import { useLeagueStore } from "@/lib/stores/league-store";
 import { DEV_BYPASS_ACTIVE, DEV_USER_METADATA } from "@/hooks/useDevUser";
+import { useTrack } from "@/hooks/useTrack";
 import PlayerCardModal from "@/components/league/PlayerCardModal";
 import OwnerQuickViewModal from "@/components/league/OwnerQuickViewModal";
 import FeedbackWidget from "@/components/feedback/FeedbackWidget";
@@ -76,6 +77,8 @@ function IconSidebar({ basePath, pathname, owner, shaRank }: {
   basePath: string; pathname: string; owner: string | null; shaRank: number;
 }) {
   const router = useRouter();
+  const track = useTrack();
+  const { currentLeagueId } = useLeagueStore();
   const [hovered, setHovered] = useState<string | null>(null);
   const windowLabel = shaRank <= 4 ? "CONTENDER" : shaRank <= 8 ? "MID PACK" : "REBUILDING";
   const windowColor = shaRank <= 4 ? C.green : shaRank <= 8 ? C.gold : C.red;
@@ -111,7 +114,20 @@ function IconSidebar({ basePath, pathname, owner, shaRank }: {
 
         return (
           <div key={item.id}
-            onClick={() => { if (item.external) { window.location.href = href; } else { router.push(href); } }}
+            onClick={() => {
+              if (item.external) {
+                if (item.id === "tradedb") {
+                  track("tradedb_nav_clicked", {
+                    league_id: currentLeagueId,
+                    owner_name: owner,
+                    surface: "desktop_sidebar",
+                  });
+                }
+                window.location.href = href;
+              } else {
+                router.push(href);
+              }
+            }}
             onMouseEnter={() => setHovered(item.id)}
             onMouseLeave={() => setHovered(null)}
             className={`relative flex flex-col items-center gap-1 w-[54px] py-2.5 rounded-md cursor-pointer transition-all
@@ -169,6 +185,8 @@ function IconSidebar({ basePath, pathname, owner, shaRank }: {
    ═══════════════════════════════════════════════════════════════ */
 function BottomTabBar({ basePath, pathname }: { basePath: string; pathname: string }) {
   const router = useRouter();
+  const track = useTrack();
+  const { currentLeagueId, currentOwner } = useLeagueStore();
 
   return (
     <div
@@ -186,7 +204,20 @@ function BottomTabBar({ basePath, pathname }: { basePath: string; pathname: stri
         return (
           <button
             key={item.id}
-            onClick={() => { if (item.external) { window.location.href = href; } else { router.push(href); } }}
+            onClick={() => {
+              if (item.external) {
+                if (item.id === "tradedb") {
+                  track("tradedb_nav_clicked", {
+                    league_id: currentLeagueId,
+                    owner_name: currentOwner,
+                    surface: "mobile_bottom_tab",
+                  });
+                }
+                window.location.href = href;
+              } else {
+                router.push(href);
+              }
+            }}
             className={`flex flex-col items-center justify-center gap-0.5 flex-1 h-full relative transition-all duration-200 animate-[fadeUp_0.3s_ease-out_both] ${isActive ? "scale-105" : ""}`}
             style={{ animationDelay: `${i * 50 + 100}ms` }}
           >

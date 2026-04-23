@@ -47,6 +47,7 @@ export function useTrack(): TrackFn {
           await fetch("/api/events", {
             method: "POST",
             headers,
+            keepalive: true,
             body: JSON.stringify({
               event_type: eventType,
               page: pathname,
