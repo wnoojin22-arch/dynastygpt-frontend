@@ -179,7 +179,7 @@ function MarketIntelSection({ feed, loading }: { feed: any; loading: boolean }) 
                   <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 600, color: C.primary, display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {item.player}
                   </span>
-                  {mostRecent != null && <span style={{ fontFamily: SANS, fontSize: 10, color: C.dim }}>Last traded {mostRecent} days ago</span>}
+                  {mostRecent != null && <span style={{ fontFamily: SANS, fontSize: 10, color: C.dim }}>Last traded {mostRecent === 0 ? "today" : mostRecent === 1 ? "yesterday" : `${mostRecent} days ago`}</span>}
                 </div>
                 <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.gold }}>{item.pos_rank || ""}</span>
                 <span style={{
