@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getOverview } from "@/lib/api";
 import DashboardView from "@/components/league/DashboardView";
 // import SurveyModal from "@/components/survey/SurveyModal"; // PAUSED — re-enable after beta stabilizes
+import BetaFeedbackModal from "@/components/survey/BetaFeedbackModal";
 import { useTrack } from "@/hooks/useTrack";
 import TradeDBReleaseBanner from "@/components/league/TradeDBReleaseBanner";
 
@@ -34,6 +35,7 @@ export default function DashboardPage() {
       <TradeDBReleaseBanner />
       <DashboardView lid={lid} owner={owner} ownerId={ownerId} />
       {/* <SurveyModal /> — PAUSED during beta updates */}
+      <BetaFeedbackModal />
     </>
   );
 }
