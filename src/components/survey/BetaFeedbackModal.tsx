@@ -325,14 +325,22 @@ export default function BetaFeedbackModal() {
             {/* Q5 — NPS */}
             {step === 5 && (
               <Question label="How likely are you to recommend DynastyGPT to another dynasty player?">
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6, gap: 4 }}>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(11, minmax(0, 1fr))",
+                    gap: 4,
+                    marginBottom: 6,
+                  }}
+                >
                   {Array.from({ length: 11 }, (_, i) => (
                     <button
                       key={i}
                       onClick={() => setA({ ...a, q5_nps: i })}
                       style={{
-                        flex: 1,
                         height: 44,
+                        minWidth: 0,
+                        padding: 0,
                         borderRadius: 6,
                         border: "none",
                         fontFamily: MONO,
@@ -348,9 +356,9 @@ export default function BetaFeedbackModal() {
                     </button>
                   ))}
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
                   <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>
-                    0 — Not at all likely
+                    0 — Not at all
                   </span>
                   <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>
                     10 — Extremely likely
@@ -377,7 +385,7 @@ export default function BetaFeedbackModal() {
                     border: `1px solid ${C.border}`,
                     color: C.primary,
                     fontFamily: SANS,
-                    fontSize: 14,
+                    fontSize: 16,
                     resize: "vertical",
                     outline: "none",
                   }}
@@ -509,12 +517,14 @@ function Options({
             background: selected === opt ? C.goldDim : C.card,
             color: selected === opt ? C.goldBright : C.secondary,
             fontFamily: SANS,
-            fontSize: 13,
+            fontSize: 14,
             fontWeight: 500,
             textAlign: "left",
             transition: "all 0.15s",
             minHeight: 44,
             lineHeight: 1.35,
+            whiteSpace: "normal",
+            wordBreak: "break-word",
           }}
         >
           {opt}
@@ -541,13 +551,13 @@ function TextInput({
       style={{
         width: "100%",
         marginTop: 8,
-        padding: 10,
+        padding: 12,
         borderRadius: 8,
         background: C.card,
         border: `1px solid ${C.border}`,
         color: C.primary,
         fontFamily: SANS,
-        fontSize: 14,
+        fontSize: 16,
         outline: "none",
       }}
     />
