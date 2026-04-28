@@ -8,7 +8,7 @@ import LeagueTradesView from "./LeagueTradesView";
 import TradeReportModal from "./TradeReportModal";
 import type { GradedTrade, TradeChain } from "@/lib/types";
 import PlayerName from "./PlayerName";
-import { useOwnerClick } from "@/hooks/useOwnerClick";
+import { useOwnerClick, useIsOwnerCurrent } from "@/hooks/useOwnerClick";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useTrack } from "@/hooks/useTrack";
 
@@ -173,6 +173,7 @@ export default function MyTradesView({ leagueId, owner: ownerProp, ownerId }: { 
   const mobile = useIsMobile();
   const track = useTrack();
   const onOwnerClick = useOwnerClick();
+  const isOwnerCurrent = useIsOwnerCurrent();
   const [historyTab, setHistoryTab] = useState<'log' | 'profile'>('log');
   const [reportTradeId, setReportTradeId] = useState<string | null>(null);
   const openTradeReport = (tradeId: string) => {
@@ -679,7 +680,7 @@ export default function MyTradesView({ leagueId, owner: ownerProp, ownerId }: { 
                   <div style={{ padding: '4px 8px', background: `${C.green}10`, borderBottom: `1px solid ${C.green}15`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 4 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.green, letterSpacing: '0.1em' }}>🏆 BEST TRADE</span>
-                      <span style={{ fontFamily: MONO, fontSize: 9, color: C.secondary }}>vs <span onClick={(e) => { e.stopPropagation(); onOwnerClick(bestTrade.partner); }} style={{ cursor: 'pointer', borderBottom: `1px dotted ${C.border}` }}>{bestTrade.partner}</span></span>
+                      <span style={{ fontFamily: MONO, fontSize: 9, color: C.secondary }}>vs <span onClick={(e) => { e.stopPropagation(); onOwnerClick(bestTrade.partner); }} style={{ cursor: isOwnerCurrent(bestTrade.partner) ? 'pointer' : 'default', borderBottom: isOwnerCurrent(bestTrade.partner) ? `1px dotted ${C.border}` : 'none' }}>{bestTrade.partner}</span></span>
                       {bestTrade.date && <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>· {fmtDate(bestTrade.date)}</span>}
                     </div>
                     <span style={{ fontFamily: MONO, fontSize: 9, color: C.green, fontWeight: 700 }}>{bestTrade.letter} ({bestTrade.score})</span>
@@ -704,7 +705,7 @@ export default function MyTradesView({ leagueId, owner: ownerProp, ownerId }: { 
                   <div style={{ padding: '4px 8px', background: `${C.red}10`, borderBottom: `1px solid ${C.red}15`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 4 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.red, letterSpacing: '0.1em' }}>💀 WORST TRADE</span>
-                      <span style={{ fontFamily: MONO, fontSize: 9, color: C.secondary }}>vs <span onClick={(e) => { e.stopPropagation(); onOwnerClick(worstTrade.partner); }} style={{ cursor: 'pointer', borderBottom: `1px dotted ${C.border}` }}>{worstTrade.partner}</span></span>
+                      <span style={{ fontFamily: MONO, fontSize: 9, color: C.secondary }}>vs <span onClick={(e) => { e.stopPropagation(); onOwnerClick(worstTrade.partner); }} style={{ cursor: isOwnerCurrent(worstTrade.partner) ? 'pointer' : 'default', borderBottom: isOwnerCurrent(worstTrade.partner) ? `1px dotted ${C.border}` : 'none' }}>{worstTrade.partner}</span></span>
                       {worstTrade.date && <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>· {fmtDate(worstTrade.date)}</span>}
                     </div>
                     <span style={{ fontFamily: MONO, fontSize: 9, color: C.red, fontWeight: 700 }}>{worstTrade.letter} ({worstTrade.score})</span>
@@ -926,7 +927,7 @@ export default function MyTradesView({ leagueId, owner: ownerProp, ownerId }: { 
                   {partners.slice(0, 10).map((p, i) => (
                     <div key={p.partner} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', borderBottom: `1px solid ${C.white08}` }}>
                       <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.gold, width: 16, textAlign: 'right' }}>{i + 1}.</span>
-                      <span onClick={() => onOwnerClick(p.partner)} style={{ fontFamily: SANS, fontSize: 12, fontWeight: 600, color: C.secondary, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer', borderBottom: `1px dotted ${C.border}` }}>{p.partner}</span>
+                      <span onClick={() => onOwnerClick(p.partner)} style={{ fontFamily: SANS, fontSize: 12, fontWeight: 600, color: C.secondary, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: isOwnerCurrent(p.partner) ? 'pointer' : 'default', borderBottom: isOwnerCurrent(p.partner) ? `1px dotted ${C.border}` : 'none' }}>{p.partner}</span>
                       <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>({p.count})</span>
                       <div style={{ width: 40, height: 4, borderRadius: 2, background: C.elevated, overflow: 'hidden' }}>
                         <div style={{ width: `${(p.count / maxPartner) * 100}%`, height: '100%', borderRadius: 2, background: C.gold }} />

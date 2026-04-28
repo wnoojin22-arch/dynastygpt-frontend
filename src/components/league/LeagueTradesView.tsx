@@ -6,7 +6,7 @@ import { getGradedTrades, getOwners } from "@/lib/api";
 import TradeReportModal from "./TradeReportModal";
 import { C, SANS, MONO, SERIF, DISPLAY, fmt, gradeColor, getVerdictStyle } from "./tokens";
 import PlayerName from "./PlayerName";
-import { useOwnerClick } from "@/hooks/useOwnerClick";
+import { useOwnerClick, useIsOwnerCurrent } from "@/hooks/useOwnerClick";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useTrack } from "@/hooks/useTrack";
 
@@ -113,6 +113,7 @@ export default function LeagueTradesView({ leagueId }: { leagueId: string }) {
   const mobile = useIsMobile();
   const track = useTrack();
   const onOwnerClick = useOwnerClick();
+  const isOwnerCurrent = useIsOwnerCurrent();
   useEffect(() => { if (leagueId) track("league_trades_viewed", { league_id: leagueId }); }, [leagueId]); // eslint-disable-line react-hooks/exhaustive-deps
   const [reportTradeId, setReportTradeId] = useState<string | null>(null);
   const [ownerFilter, setOwnerFilter] = useState("all");
@@ -261,9 +262,15 @@ export default function LeagueTradesView({ leagueId }: { leagueId: string }) {
                   <div style={{ display: "flex", alignItems: "center", gap: mobile ? 6 : 8, minWidth: 0 }}>
                     <span style={{ fontFamily: MONO, fontSize: mobile ? 9 : 10, fontWeight: 700, color: C.dim, flexShrink: 0 }}>{t.date?.slice(0, 10)}</span>
                     <div style={{ display: "flex", alignItems: "center", gap: 4, minWidth: 0 }}>
-                      <span onClick={(e) => { e.stopPropagation(); onOwnerClick(t.owner); }} style={{ fontFamily: SANS, fontSize: mobile ? 11 : 13, fontWeight: 700, color: C.primary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", cursor: "pointer", borderBottom: `1px dotted ${C.border}` }}>{t.owner}</span>
-                      <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>⇄</span>
-                      <span onClick={(e) => { e.stopPropagation(); onOwnerClick(t.counter_party); }} style={{ fontFamily: SANS, fontSize: mobile ? 11 : 13, fontWeight: 700, color: C.secondary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", cursor: "pointer", borderBottom: `1px dotted ${C.border}` }}>{t.counter_party}</span>
+                      {(() => {
+                        const oCur = isOwnerCurrent(t.owner);
+                        const cCur = isOwnerCurrent(t.counter_party);
+                        return (<>
+                          <span onClick={(e) => { e.stopPropagation(); onOwnerClick(t.owner); }} style={{ fontFamily: SANS, fontSize: mobile ? 11 : 13, fontWeight: 700, color: C.primary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", cursor: oCur ? "pointer" : "default", borderBottom: oCur ? `1px dotted ${C.border}` : "none" }}>{t.owner}</span>
+                          <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>⇄</span>
+                          <span onClick={(e) => { e.stopPropagation(); onOwnerClick(t.counter_party); }} style={{ fontFamily: SANS, fontSize: mobile ? 11 : 13, fontWeight: 700, color: C.secondary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", cursor: cCur ? "pointer" : "default", borderBottom: cCur ? `1px dotted ${C.border}` : "none" }}>{t.counter_party}</span>
+                        </>);
+                      })()}
                     </div>
                   </div>
                   {/* Grade badges */}

@@ -10,7 +10,7 @@ import { usePlayerCardStore } from "@/lib/stores/player-card-store";
 import { useLeagueStore } from "@/lib/stores/league-store";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useTrack } from "@/hooks/useTrack";
-import { useOwnerClick } from "@/hooks/useOwnerClick";
+import { useOwnerClick, useIsOwnerCurrent } from "@/hooks/useOwnerClick";
 
 /* ═══════════════════════════════════════════════════════════════
    HELPERS — ported from Shadynasty
@@ -265,6 +265,8 @@ function FullReport({reportData,hindsightData,onClose,pickSlotMap}:{reportData:a
   const [tab,setTab]=useState<'grade'|'details'>('grade');
   const track=useTrack();
   const currentOwner=useLeagueStore((s)=>s.currentOwner);
+  const onOwnerClick=useOwnerClick();
+  const isOwnerCurrent=useIsOwnerCurrent();
   // Track trade opened on mount
   React.useEffect(()=>{track("trade_opened",{trade_id:reportData.trade_id});},[]);// eslint-disable-line react-hooks/exhaustive-deps
 
@@ -377,9 +379,9 @@ function FullReport({reportData,hindsightData,onClose,pickSlotMap}:{reportData:a
       <div style={{width:3,height:mobile?24:30,borderRadius:2,background:C.gold,flexShrink:0}}/>
       <div style={{minWidth:0,flex:1}}>
         <div style={{display:'flex',alignItems:'center',gap:mobile?4:8,flexWrap:'wrap'}}>
-          <span onClick={() => onOwnerClick(myName)} style={{fontFamily:SANS,fontSize:mobile?13:16,fontWeight:800,color:C.primary,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',cursor:'pointer',borderBottom:`1px dotted ${C.border}`}}>{myName}</span>
+          <span onClick={() => onOwnerClick(myName)} style={{fontFamily:SANS,fontSize:mobile?13:16,fontWeight:800,color:C.primary,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',cursor:isOwnerCurrent(myName)?'pointer':'default',borderBottom:isOwnerCurrent(myName)?`1px dotted ${C.border}`:'none'}}>{myName}</span>
           <span style={{fontFamily:SANS,fontSize:mobile?11:13,color:C.dim,flexShrink:0}}>⇄</span>
-          <span onClick={() => onOwnerClick(theirName)} style={{fontFamily:SANS,fontSize:mobile?13:16,fontWeight:700,color:C.secondary,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',cursor:'pointer',borderBottom:`1px dotted ${C.border}`}}>{theirName}</span>
+          <span onClick={() => onOwnerClick(theirName)} style={{fontFamily:SANS,fontSize:mobile?13:16,fontWeight:700,color:C.secondary,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',cursor:isOwnerCurrent(theirName)?'pointer':'default',borderBottom:isOwnerCurrent(theirName)?`1px dotted ${C.border}`:'none'}}>{theirName}</span>
           <span style={{fontFamily:MONO,fontSize:mobile?9:10,color:C.dim,flexShrink:0}}>·</span>
           <span style={{fontFamily:MONO,fontSize:mobile?9:10,color:C.dim,flexShrink:0}}>{dateStr}</span>
           {overall&&<span style={{fontFamily:MONO,fontSize:mobile?9:10,fontWeight:800,color:os.color,padding:'1px 6px',borderRadius:3,background:os.bg,border:`1px solid ${os.border}`,flexShrink:0}}>{overall}</span>}

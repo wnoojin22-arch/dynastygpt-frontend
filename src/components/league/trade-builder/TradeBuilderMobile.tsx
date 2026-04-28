@@ -19,7 +19,7 @@ import TapToBuild from "./TapToBuild";
 import type { SuggestedPackage, TradeAsset } from "./types";
 import type { UseTradeBuilderReturn } from "@/hooks/useTradeBuilder";
 import { useTradeBuilderStore } from "@/lib/stores/trade-builder-store";
-import { useOwnerClick } from "@/hooks/useOwnerClick";
+import { useOwnerClick, useIsOwnerCurrent } from "@/hooks/useOwnerClick";
 
 const POSITIONS = ["QB", "RB", "WR", "TE"] as const;
 const MODES = ["conservative", "balanced", "aggressive"] as const;
@@ -152,6 +152,7 @@ export default function TradeBuilderMobile({
 
   const { queuedTrades, addToQueue, removeFromQueue, clearQueue } = useTradeBuilderStore();
   const onOwnerClick = useOwnerClick();
+  const isOwnerCurrent = useIsOwnerCurrent();
 
   const [mobileState, setMobileState] = useState<MobileState>("entry");
   const [selectedPkg, setSelectedPkg] = useState<SuggestedPackage | null>(null);
@@ -479,7 +480,7 @@ export default function TradeBuilderMobile({
                   <div key={idx} className="rounded-xl border border-[#1a1e30] bg-[#10131d] p-3">
                     {/* Partner + acceptance */}
                     <div className="flex items-center justify-between mb-2">
-                      <span onClick={(e) => { e.stopPropagation(); onOwnerClick(pkg.partner); }} className="font-['Archivo_Black'] text-sm text-[#eeeef2] tracking-wide cursor-pointer border-b border-dotted border-[#1a1e30]">{pkg.partner}</span>
+                      <span onClick={(e) => { e.stopPropagation(); onOwnerClick(pkg.partner); }} className={`font-['Archivo_Black'] text-sm text-[#eeeef2] tracking-wide ${isOwnerCurrent(pkg.partner) ? "cursor-pointer border-b border-dotted border-[#1a1e30]" : "cursor-default"}`}>{pkg.partner}</span>
                       <span className="font-mono text-sm font-black" style={{ color: accClr }}>{acc}%</span>
                     </div>
                     {/* Send / Get summary */}

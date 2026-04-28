@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getRivalries } from "@/lib/api";
 import { C, SANS, MONO, DISPLAY, SERIF, fmt } from "./tokens";
-import { useOwnerClick } from "@/hooks/useOwnerClick";
+import { useOwnerClick, useIsOwnerCurrent } from "@/hooks/useOwnerClick";
 import { useTrack } from "@/hooks/useTrack";
 
 /* ═══════════════════════════════════════════════════════════════
@@ -88,6 +88,7 @@ function TitleBadge({ title }: { title: string }) {
 
 function Spot({ r, label, lc, isNem }: { r: MappedRival | null; label: string; lc: string; isNem: boolean }) {
   const onOwnerClick = useOwnerClick();
+  const isOwnerCurrent = useIsOwnerCurrent();
   if (!r) return null;
   const pct = r.wins / Math.max(r.wins + r.losses, 1);
   return (
@@ -98,7 +99,7 @@ function Spot({ r, label, lc, isNem }: { r: MappedRival | null; label: string; l
           <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.14em", color: lc, padding: "2px 8px", borderRadius: 3, background: `${lc}15`, border: `1px solid ${lc}30` }}>{label}</div>
           <WLDots results={r.last5} />
         </div>
-        <div onClick={() => onOwnerClick(r.opponent)} style={{ fontFamily: DISPLAY, fontSize: 26, fontWeight: 900, color: C.primary, marginBottom: 2, cursor: "pointer", borderBottom: `1px dotted ${C.border}`, display: "inline-block" }}>{r.opponent}</div>
+        <div onClick={() => onOwnerClick(r.opponent)} style={{ fontFamily: DISPLAY, fontSize: 26, fontWeight: 900, color: C.primary, marginBottom: 2, cursor: isOwnerCurrent(r.opponent) ? "pointer" : "default", borderBottom: isOwnerCurrent(r.opponent) ? `1px dotted ${C.border}` : "none", display: "inline-block" }}>{r.opponent}</div>
         <div style={{ fontFamily: MONO, fontSize: 24, fontWeight: 800, color: isNem ? C.red : C.green, marginBottom: 6 }}>{r.wins}-{r.losses}</div>
         <div style={{ height: 6, borderRadius: 3, background: `${C.red}30`, overflow: "hidden", marginBottom: 10 }}>
           <div style={{ height: "100%", borderRadius: 3, background: C.green, width: `${pct * 100}%` }} />
@@ -123,6 +124,7 @@ export default function RivalsView({ leagueId, owner, ownerId }: {
   leagueId: string; owner: string; ownerId?: string | null;
 }) {
   const onOwnerClick = useOwnerClick();
+  const isOwnerCurrent = useIsOwnerCurrent();
   const track = useTrack();
   useEffect(() => { if (leagueId) track("rivals_view_opened", { league_id: leagueId }); }, [leagueId]); // eslint-disable-line react-hooks/exhaustive-deps
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -197,7 +199,7 @@ export default function RivalsView({ leagueId, owner, ownerId }: {
                 onMouseLeave={(e) => { e.currentTarget.style.background = isExp ? C.elevated : "transparent"; }}>
                 <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.dim, width: 16, flexShrink: 0 }}>{i + 1}</span>
                 <div style={{ width: 4, height: 16, borderRadius: 2, background: pc, flexShrink: 0 }} />
-                <span onClick={(e) => { e.stopPropagation(); onOwnerClick(r.opponent); }} style={{ fontFamily: SANS, fontSize: 13, fontWeight: 700, color: C.primary, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", cursor: "pointer", borderBottom: `1px dotted ${C.border}` }}>{r.opponent}</span>
+                <span onClick={(e) => { e.stopPropagation(); onOwnerClick(r.opponent); }} style={{ fontFamily: SANS, fontSize: 13, fontWeight: 700, color: C.primary, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", cursor: isOwnerCurrent(r.opponent) ? "pointer" : "default", borderBottom: isOwnerCurrent(r.opponent) ? `1px dotted ${C.border}` : "none" }}>{r.opponent}</span>
                 <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.primary, flexShrink: 0 }}>{r.wins}-{r.losses}</span>
                 <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: pc, flexShrink: 0 }}>{(pct * 100).toFixed(0)}%</span>
                 <WLDots results={r.last5} />
@@ -309,7 +311,7 @@ export default function RivalsView({ leagueId, owner, ownerId }: {
               const pct = r.wins / Math.max(r.wins + r.losses, 1);
               return (
                 <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 0", borderBottom: i < rivals.length - 1 ? `1px solid ${C.white08}` : "none" }}>
-                  <span onClick={(e) => { e.stopPropagation(); onOwnerClick(r.opponent); }} style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, color: C.primary, width: 60, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", cursor: "pointer", borderBottom: `1px dotted ${C.border}` }}>{r.opponent}</span>
+                  <span onClick={(e) => { e.stopPropagation(); onOwnerClick(r.opponent); }} style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, color: C.primary, width: 60, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", cursor: isOwnerCurrent(r.opponent) ? "pointer" : "default", borderBottom: isOwnerCurrent(r.opponent) ? `1px dotted ${C.border}` : "none" }}>{r.opponent}</span>
                   <div style={{ flex: 1, height: 12, borderRadius: 6, background: `${C.red}20`, overflow: "hidden" }}>
                     <div style={{ height: "100%", borderRadius: 6, background: pct >= 0.5 ? C.green : C.red, width: `${pct * 100}%` }} />
                   </div>
