@@ -1087,7 +1087,7 @@ function Rookies({ lid }: { lid: string }) {
     : rookies.filter(r => (r.position || "").toUpperCase() === posFilter);
 
   return (
-    <div style={{ padding: isMobile ? "14px 0" : "20px 0" }}>
+    <div style={{ padding: isMobile ? "14px 0" : "20px 0", width: "100%", maxWidth: "100%", overflowX: "hidden" }}>
       {/* Title block — over the top */}
       <div style={{ marginBottom: isMobile ? 12 : 18 }}>
         <div style={{
@@ -1140,11 +1140,24 @@ function Rookies({ lid }: { lid: string }) {
         <style>{`
           .rk-grid {
             display: grid;
-            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-            gap: 8px;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 6px;
             width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
           }
-          .rk-grid > * { min-width: 0; }
+          .rk-grid > * { min-width: 0; max-width: 100%; box-sizing: border-box; }
+          .rk-stats { display: flex; align-items: stretch; width: 100%; box-sizing: border-box; }
+          .rk-stats > div { flex: 1 1 0; min-width: 0; text-align: center; box-sizing: border-box; }
+          @media (max-width: 768px) {
+            .rk-grid {
+              /* Hard-pin to viewport so the 2nd card cannot leak past the right edge */
+              width: calc(100vw - 24px);
+              max-width: calc(100vw - 24px);
+              margin-left: auto;
+              margin-right: auto;
+            }
+          }
           @media (min-width: 769px) {
             .rk-grid {
               grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
@@ -1243,25 +1256,24 @@ function Rookies({ lid }: { lid: string }) {
                   </span>
                 </div>
 
-                {/* Earliest / Latest / R1 odds row */}
-                <div style={{
-                  display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr)", gap: isMobile ? 4 : 8,
-                  paddingTop: isMobile ? 7 : 12, borderTop: `1px solid ${tier.color}25`,
-                  width: "100%",
+                {/* Earliest / R1 odds / Latest row — flex enforces single row */}
+                <div className="rk-stats" style={{
+                  paddingTop: isMobile ? 6 : 12, borderTop: `1px solid ${tier.color}25`,
+                  gap: 0,
                 }}>
-                  <div style={{ textAlign: "center" }}>
-                    <div style={{ fontFamily: MONO, fontSize: isMobile ? 8 : 10, color: C.dim, letterSpacing: "0.08em", marginBottom: isMobile ? 1 : 3 }}>
-                      EARLIEST
+                  <div>
+                    <div style={{ fontFamily: MONO, fontSize: isMobile ? 9 : 10, color: "#c5c6d2", letterSpacing: 0, marginBottom: isMobile ? 2 : 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      EARLY
                     </div>
-                    <div style={{ fontFamily: MONO, fontSize: isMobile ? 12 : 16, fontWeight: 800, color: C.primary }}>
+                    <div style={{ fontFamily: MONO, fontSize: isMobile ? 13 : 16, fontWeight: 800, color: C.primary, whiteSpace: "nowrap" }}>
                       {fmtPick(r.p10_pick)}
                     </div>
                   </div>
-                  <div style={{ textAlign: "center", borderLeft: `1px solid ${C.border}`, borderRight: `1px solid ${C.border}` }}>
-                    <div style={{ fontFamily: MONO, fontSize: isMobile ? 8 : 10, color: C.dim, letterSpacing: "0.08em", marginBottom: isMobile ? 1 : 3 }}>
-                      R1 ODDS
+                  <div style={{ borderLeft: `1px solid ${C.border}`, borderRight: `1px solid ${C.border}` }}>
+                    <div style={{ fontFamily: MONO, fontSize: isMobile ? 9 : 10, color: "#c5c6d2", letterSpacing: 0, marginBottom: isMobile ? 2 : 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      R1 %
                     </div>
-                    <div style={{ fontFamily: MONO, fontSize: isMobile ? 12 : 16, fontWeight: 800,
+                    <div style={{ fontFamily: MONO, fontSize: isMobile ? 13 : 16, fontWeight: 800, whiteSpace: "nowrap",
                       color: r.pct_round_1 != null && r.pct_round_1 >= 0.7 ? C.green
                            : r.pct_round_1 != null && r.pct_round_1 >= 0.4 ? C.gold
                            : C.primary,
@@ -1269,11 +1281,11 @@ function Rookies({ lid }: { lid: string }) {
                       {r.pct_round_1 != null ? `${(r.pct_round_1 * 100).toFixed(0)}%` : "—"}
                     </div>
                   </div>
-                  <div style={{ textAlign: "center" }}>
-                    <div style={{ fontFamily: MONO, fontSize: isMobile ? 8 : 10, color: C.dim, letterSpacing: "0.08em", marginBottom: isMobile ? 1 : 3 }}>
-                      LATEST
+                  <div>
+                    <div style={{ fontFamily: MONO, fontSize: isMobile ? 9 : 10, color: "#c5c6d2", letterSpacing: 0, marginBottom: isMobile ? 2 : 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      LATE
                     </div>
-                    <div style={{ fontFamily: MONO, fontSize: isMobile ? 12 : 16, fontWeight: 800, color: C.primary }}>
+                    <div style={{ fontFamily: MONO, fontSize: isMobile ? 13 : 16, fontWeight: 800, color: C.primary, whiteSpace: "nowrap" }}>
                       {fmtPick(r.p90_pick)}
                     </div>
                   </div>
@@ -1368,9 +1380,9 @@ export default function DraftHQPage() {
   };
 
   return (
-    <div style={{ background: C.bg, minHeight: "100vh", color: C.primary, padding: isMobile ? "12px 10px 60px" : "20px 16px 80px" }}>
+    <div style={{ background: C.bg, minHeight: "100vh", color: C.primary, padding: isMobile ? "12px 12px 60px" : "20px 16px 80px", overflowX: "hidden", boxSizing: "border-box" }}>
       <style>{`@keyframes rk-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }`}</style>
-      <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+      <div style={{ maxWidth: 1100, margin: "0 auto", width: "100%", boxSizing: "border-box" }}>
         <div style={{ marginBottom: isMobile ? 10 : 14 }}>
           <div style={{
             fontFamily: SANS, fontSize: isMobile ? 10 : 11, color: C.gold, letterSpacing: "0.18em", fontWeight: 800,
