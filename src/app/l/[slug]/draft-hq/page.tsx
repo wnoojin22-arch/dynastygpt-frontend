@@ -374,10 +374,23 @@ function DraftIntel({ lid }: { lid: string }) {
             </div>
             <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>
               {t.sample_size} picks · {(t.seasons || []).join("+")}
+              {t.format_key && ` · baseline ${t.format_key}`}
               {fallback === "global" && " · global baseline (no league cache yet)"}
             </div>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 }}>
+            <TendencyStat
+              label="REACH MAGNITUDE"
+              v={t.reach_magnitude}
+              fmt="picks_signed"
+              sub={t.adp_sample_n != null ? `vs ADP · n=${t.adp_sample_n}` : undefined}
+            />
+            <TendencyStat
+              label="ADP DISCIPLINE"
+              v={t.adp_discipline}
+              fmt="picks_abs"
+              sub="mean |Δ| from ADP"
+            />
             <TendencyStat label="TE PREMIUM"  v={t.te_premium}    fmt="round"  />
             <TendencyStat label="QB EARLY"    v={t.qb_early}      fmt="round"  />
             <TendencyStat label="R1 RB BIAS"  v={t.rb_heavy_r1}   fmt="ratio"  />
@@ -469,23 +482,46 @@ function PosDistBar({ dist }: { dist: Record<string, number> }) {
   );
 }
 
-function TendencyStat({ label, v, fmt }: { label: string; v: number | null; fmt: "round" | "ratio" }) {
+function TendencyStat({
+  label, v, fmt, sub,
+}: {
+  label: string;
+  v: number | null;
+  fmt: "round" | "ratio" | "picks_signed" | "picks_abs";
+  sub?: string;
+}) {
   if (v == null) {
     return (
       <div>
         <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, letterSpacing: "0.06em" }}>{label}</div>
         <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: C.dim }}>—</div>
+        {sub && <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, marginTop: 2 }}>{sub}</div>}
       </div>
     );
   }
-  const color = v > 0 ? C.green : v < 0 ? C.red : C.dim;
-  const display = fmt === "round"
-    ? `${v > 0 ? "+" : ""}${v.toFixed(2)} rd`
-    : `${v > 0 ? "+" : ""}${(v * 100).toFixed(0)}%`;
+  let color: string = C.dim;
+  let display: string = "";
+  if (fmt === "round") {
+    color = v > 0 ? C.green : v < 0 ? C.red : C.dim;
+    display = `${v > 0 ? "+" : ""}${v.toFixed(2)} rd`;
+  } else if (fmt === "ratio") {
+    color = v > 0 ? C.green : v < 0 ? C.red : C.dim;
+    display = `${v > 0 ? "+" : ""}${(v * 100).toFixed(0)}%`;
+  } else if (fmt === "picks_signed") {
+    // negative = reaches earlier than ADP; positive = lets fall later than ADP
+    color = v <= -8 ? C.red : v <= -3 ? C.orange : v >= 8 ? C.green : v >= 3 ? C.gold : C.dim;
+    display = `${v > 0 ? "+" : ""}${v.toFixed(1)} pk`;
+  } else if (fmt === "picks_abs") {
+    // mean abs deviation: smaller = more disciplined
+    const a = Math.abs(v);
+    color = a <= 10 ? C.green : a <= 22 ? C.gold : C.red;
+    display = `${a.toFixed(1)} pk`;
+  }
   return (
     <div>
       <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, letterSpacing: "0.06em" }}>{label}</div>
       <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color }}>{display}</div>
+      {sub && <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, marginTop: 2 }}>{sub}</div>}
     </div>
   );
 }
