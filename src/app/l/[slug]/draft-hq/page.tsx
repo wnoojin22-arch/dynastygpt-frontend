@@ -1,9 +1,16 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { useSearchParams, useRouter, usePathname, useParams } from "next/navigation";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+import { useLeagueStore } from "@/lib/stores/league-store";
+import {
+  getDraftHQYourPicks,
+  getDraftOwnerProfiles,
+  getDraftHQTendencies,
+} from "@/lib/api";
 import { C, SANS, MONO } from "@/components/league/tokens";
-import { MOCK_ROOKIES, MOCK_USER_PICKS, MOCK_MANAGER_INTEL } from "./mocks";
+import { MOCK_ROOKIES } from "./mocks";
 import type { Pos } from "./mocks";
 
 const TABS = [
@@ -15,6 +22,26 @@ const TABS = [
 
 const POS_COLOR: Record<Pos, string> = {
   QB: "#e47272", RB: "#6bb8e0", WR: "#7dd3a0", TE: "#e09c6b",
+};
+
+const IDENTITY_COLOR: Record<string, string> = {
+  "DEVELOPER": "#7dd3a0",
+  "PIPELINE BUILDER": "#6bb8e0",
+  "GAMBLER": "#e09c6b",
+  "INEFFICIENT": "#e47272",
+  "BALANCED": "#b0b2c8",
+};
+const BAND_COLOR: Record<string, string> = {
+  "HIGH": "#7dd3a0",
+  "MEDIUM": "#d4a532",
+  "LOW": "#9596a5",
+  "UNLIKELY": "#e47272",
+};
+const REC_COLOR: Record<string, string> = {
+  "USE IT": "#7dd3a0",
+  "PACKAGE IT": "#d4a532",
+  "TRADE BACK": "#6bb8e0",
+  "TRADE UP": "#e09c6b",
 };
 
 function GlowTabs({ tabs, active, onChange }: {
@@ -43,18 +70,18 @@ function GlowTabs({ tabs, active, onChange }: {
   );
 }
 
-function PosBadge({ pos }: { pos: Pos }) {
+function PosBadge({ pos }: { pos: string }) {
+  const color = POS_COLOR[pos as Pos] || C.dim;
   return (
     <span style={{
       fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.06em",
       padding: "2px 6px", borderRadius: 3,
-      background: `${POS_COLOR[pos]}20`, color: POS_COLOR[pos],
-      border: `1px solid ${POS_COLOR[pos]}40`,
+      background: `${color}20`, color, border: `1px solid ${color}40`,
     }}>{pos}</span>
   );
 }
 
-function MockBanner() {
+function MockBanner({ msg }: { msg?: string }) {
   return (
     <div style={{
       margin: "12px 0",
@@ -64,82 +91,165 @@ function MockBanner() {
       border: `1px solid ${C.goldBorder}`,
       fontFamily: MONO, fontSize: 11, color: C.gold, letterSpacing: "0.05em",
     }}>
-      MOCK DATA — backend wiring in progress. Layout/structure for review only.
+      {msg || "MOCK DATA — backend wiring in progress."}
     </div>
   );
 }
 
-// ═════════════════════════════════════════════════════════════════════════
-// TAB 1 — YOUR PICKS
-// ═════════════════════════════════════════════════════════════════════════
-function YourPicks() {
+function EmptyMsg({ msg }: { msg: string }) {
   return (
-    <div style={{ padding: "20px 0" }}>
-      <MockBanner />
-      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        {MOCK_USER_PICKS.map((p) => (
-          <div key={p.slot} style={{
-            background: C.card, border: `1px solid ${C.border}`, borderRadius: 8,
-            padding: 16,
-          }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-              <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
-                <span style={{ fontFamily: MONO, fontSize: 24, fontWeight: 900, color: C.gold }}>
-                  {p.slot}
-                </span>
-                <span style={{ fontFamily: MONO, fontSize: 11, color: C.dim, letterSpacing: "0.08em" }}>
-                  PICK #{p.pick_num}
-                </span>
-              </div>
-              {p.tier_cliff_after && (
+    <div style={{
+      padding: 28, textAlign: "center",
+      fontFamily: MONO, fontSize: 12, color: C.dim, letterSpacing: "0.04em",
+    }}>{msg}</div>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// TAB 1 — YOUR PICKS  (real data: GET /draft-hq/your-picks)
+// ═════════════════════════════════════════════════════════════════════════
+function YourPicks({ lid, owner, ownerId }: { lid: string; owner: string | null; ownerId: string | null }) {
+  const enabled = !!lid && !!owner;
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["draft-hq-your-picks", lid, owner, ownerId],
+    queryFn: () => getDraftHQYourPicks(lid, owner!, ownerId, 3),
+    staleTime: 300_000,
+    enabled,
+  });
+
+  if (!enabled) return <EmptyMsg msg="No league/owner context — open this from your league dashboard." />;
+  if (isLoading) return <EmptyMsg msg="Loading your picks…" />;
+  if (error) return <EmptyMsg msg={`Error: ${(error as Error).message}`} />;
+
+  const picks: any[] = data?.picks || [];
+  const partners: any[] = data?.likely_partners || [];
+
+  if (!picks.length) return <EmptyMsg msg="No upcoming picks found for this league." />;
+
+  return (
+    <div style={{ padding: "20px 0", display: "flex", flexDirection: "column", gap: 18 }}>
+      {/* Picks block */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {picks.map((p: any, i: number) => {
+          const slotKey = p.slot_key || `${p.round}.${p.slot ? String(p.slot).padStart(2, "0") : "??"}`;
+          const recColor = REC_COLOR[p.recommendation] || C.dim;
+          const top3Pos = Object.entries(p.position_breakdown || {})
+            .sort(([, a]: any, [, b]: any) => b - a).slice(0, 3);
+          return (
+            <div key={i} style={{
+              background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 14,
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
+                  <span style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: C.gold }}>
+                    {slotKey}
+                  </span>
+                  <span style={{ fontFamily: MONO, fontSize: 11, color: C.dim, letterSpacing: "0.06em" }}>
+                    {p.season} · ROUND {p.round}{p.slot ? ` · SLOT ${p.slot}` : ""}
+                  </span>
+                  {!p.is_own_pick && p.original_owner && (
+                    <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>
+                      from {p.original_owner}
+                    </span>
+                  )}
+                </div>
                 <span style={{
                   fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.08em",
                   padding: "3px 8px", borderRadius: 3,
-                  background: "rgba(228,114,114,0.12)", color: C.red,
-                  border: "1px solid rgba(228,114,114,0.30)",
-                }}>TIER CLIFF AFTER</span>
-              )}
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {p.recommended.map((r, i) => (
-                <div key={i} style={{
-                  display: "grid", gridTemplateColumns: "auto 1fr auto auto", gap: 12, alignItems: "center",
-                  padding: "10px 12px", borderRadius: 6,
-                  background: i === 0 ? "rgba(212,165,50,0.06)" : C.elevated,
-                  border: `1px solid ${i === 0 ? C.goldBorder : C.border}`,
-                }}>
-                  <PosBadge pos={r.position} />
-                  <div>
-                    <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 700, color: C.primary }}>
-                      {r.name}
-                    </div>
-                    <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim, marginTop: 2 }}>
-                      {r.reason}
-                    </div>
-                  </div>
-                  <div style={{ textAlign: "right" }}>
-                    <div style={{ fontFamily: MONO, fontSize: 10, color: C.dim, letterSpacing: "0.06em" }}>RANK</div>
-                    <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: C.primary }}>#{r.rank}</div>
-                  </div>
-                  <div style={{ textAlign: "right" }}>
-                    <div style={{ fontFamily: MONO, fontSize: 10, color: C.dim, letterSpacing: "0.06em" }}>FIT</div>
-                    <div style={{
-                      fontFamily: MONO, fontSize: 14, fontWeight: 800,
-                      color: r.fit_score >= 85 ? C.green : r.fit_score >= 70 ? C.gold : C.dim,
-                    }}>{r.fit_score}</div>
+                  background: `${recColor}18`, color: recColor, border: `1px solid ${recColor}30`,
+                }}>{p.recommendation}</span>
+              </div>
+
+              <div style={{ display: "flex", gap: 16, marginBottom: 8 }}>
+                <div>
+                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, letterSpacing: "0.06em" }}>HIT RATE</div>
+                  <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: p.hit_rate >= 50 ? C.green : p.hit_rate >= 30 ? C.gold : C.dim }}>
+                    {p.hit_rate}%
                   </div>
                 </div>
-              ))}
+                {top3Pos.length > 0 && (
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, letterSpacing: "0.06em" }}>COMMON POSITIONS HERE</div>
+                    <div style={{ display: "flex", gap: 6, marginTop: 4, flexWrap: "wrap" }}>
+                      {top3Pos.map(([pos, pct]: any) => (
+                        <span key={pos} style={{
+                          fontFamily: MONO, fontSize: 10, fontWeight: 700,
+                          padding: "2px 6px", borderRadius: 3,
+                          background: `${POS_COLOR[pos as Pos] || C.dim}15`,
+                          color: POS_COLOR[pos as Pos] || C.dim,
+                        }}>{pos} {pct}%</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div style={{
+                fontFamily: SANS, fontSize: 12, color: C.primary, lineHeight: 1.5,
+                paddingTop: 8, borderTop: `1px solid ${C.border}`,
+              }}>{p.reasoning}</div>
             </div>
+          );
+        })}
+      </div>
+
+      {/* Likely partners block */}
+      <div>
+        <div style={{
+          fontFamily: SANS, fontSize: 13, fontWeight: 800, letterSpacing: "0.08em",
+          color: C.primary, marginBottom: 8,
+        }}>LIKELY TRADE PARTNERS</div>
+        <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim, marginBottom: 10 }}>
+          Ranked by behavioral willingness to trade up to your slot.
+        </div>
+        {partners.length === 0 ? (
+          <EmptyMsg msg="No partner signals yet — needs league_intel + behavioral_intel populated." />
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {partners.map((b: any, i: number) => {
+              const score = b.willingness?.score ?? 0;
+              const band = b.willingness?.band || "—";
+              const bandColor = BAND_COLOR[band] || C.dim;
+              return (
+                <div key={i} style={{
+                  background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, padding: "10px 14px",
+                  display: "grid", gridTemplateColumns: "1fr auto auto auto", gap: 14, alignItems: "center",
+                }}>
+                  <div>
+                    <div style={{ fontFamily: SANS, fontSize: 13, fontWeight: 700, color: C.primary }}>
+                      {b.partner_owner}
+                    </div>
+                    <div style={{ fontFamily: MONO, fontSize: 10, color: C.dim, marginTop: 2 }}>
+                      {b.window || "—"}
+                      {b.pick_surplus_delta != null && (
+                        <> · picks Δ {b.pick_surplus_delta > 0 ? "+" : ""}{b.pick_surplus_delta}</>
+                      )}
+                      {b.down_move_bias != null && (
+                        <> · down-move {Math.round(b.down_move_bias * 100)}%</>
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>SCORE</div>
+                    <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: bandColor }}>{score}</div>
+                  </div>
+                  <span style={{
+                    fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.06em",
+                    padding: "3px 7px", borderRadius: 3,
+                    background: `${bandColor}15`, color: bandColor, border: `1px solid ${bandColor}30`,
+                  }}>{band}</span>
+                </div>
+              );
+            })}
           </div>
-        ))}
+        )}
       </div>
     </div>
   );
 }
 
 // ═════════════════════════════════════════════════════════════════════════
-// TAB 2 — DRAFT BOARD
+// TAB 2 — DRAFT BOARD  (mock — needs ADP)
 // ═════════════════════════════════════════════════════════════════════════
 function DraftBoard() {
   const [posFilter, setPosFilter] = useState<Pos | "ALL">("ALL");
@@ -150,7 +260,7 @@ function DraftBoard() {
 
   return (
     <div style={{ padding: "20px 0" }}>
-      <MockBanner />
+      <MockBanner msg="MOCK ROOKIES — ADP unlocks after 2026 rookie crawl completes." />
       <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
         {(["ALL", "QB", "RB", "WR", "TE"] as const).map((p) => {
           const act = posFilter === p;
@@ -223,40 +333,69 @@ function DraftBoard() {
 }
 
 // ═════════════════════════════════════════════════════════════════════════
-// TAB 3 — DRAFT INTEL (per-manager — fields mirror /draft/owner-profiles + likely-buyers)
+// TAB 3 — DRAFT INTEL  (real data: GET /draft/owner-profiles)
 // ═════════════════════════════════════════════════════════════════════════
-const IDENTITY_COLOR: Record<string, string> = {
-  "DEVELOPER": "#7dd3a0",
-  "PIPELINE BUILDER": "#6bb8e0",
-  "GAMBLER": "#e09c6b",
-  "INEFFICIENT": "#e47272",
-  "BALANCED": "#b0b2c8",
-};
-const BAND_COLOR: Record<string, string> = {
-  "HIGH": "#7dd3a0",
-  "MEDIUM": "#d4a532",
-  "LOW": "#9596a5",
-  "UNLIKELY": "#e47272",
-};
+function DraftIntel({ lid }: { lid: string }) {
+  const enabled = !!lid;
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["draft-hq-owner-profiles", lid],
+    queryFn: () => getDraftOwnerProfiles(lid),
+    staleTime: 600_000,
+    enabled,
+  });
+  const tend = useQuery({
+    queryKey: ["draft-hq-tendencies", lid],
+    queryFn: () => getDraftHQTendencies(lid),
+    staleTime: 600_000,
+    enabled,
+  });
 
-function DraftIntel() {
-  const sorted = [...MOCK_MANAGER_INTEL].sort((a, b) => b.willingness.score - a.willingness.score);
+  if (!enabled) return <EmptyMsg msg="No league context." />;
+  if (isLoading) return <EmptyMsg msg="Loading owner profiles…" />;
+  if (error) return <EmptyMsg msg={`Error: ${(error as Error).message}`} />;
+
+  const profiles: any[] = data?.profiles || [];
+  if (!profiles.length) return <EmptyMsg msg="No owner profiles available." />;
+
+  const t = tend.data?.tendencies;
+  const fallback = tend.data?.fallback;
+
   return (
     <div style={{ padding: "20px 0" }}>
-      <MockBanner />
+      {/* League tendencies card */}
+      {t && (
+        <div style={{
+          background: C.card, border: `1px solid ${C.border}`, borderRadius: 8,
+          padding: 14, marginBottom: 16,
+        }}>
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 8 }}>
+            <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, letterSpacing: "0.08em", color: C.primary }}>
+              LEAGUE DRAFT TENDENCIES
+            </div>
+            <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>
+              {t.sample_size} picks · {(t.seasons || []).join("+")}
+              {fallback === "global" && " · global baseline (no league cache yet)"}
+            </div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 }}>
+            <TendencyStat label="TE PREMIUM"  v={t.te_premium}    fmt="round"  />
+            <TendencyStat label="QB EARLY"    v={t.qb_early}      fmt="round"  />
+            <TendencyStat label="R1 RB BIAS"  v={t.rb_heavy_r1}   fmt="ratio"  />
+          </div>
+        </div>
+      )}
+
       <div style={{
         display: "grid",
         gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
         gap: 12,
       }}>
-        {sorted.map((m) => {
+        {profiles.map((m: any) => {
           const identityColor = IDENTITY_COLOR[m.draft_identity] || C.dim;
-          const bandColor = BAND_COLOR[m.willingness.band] || C.dim;
           return (
-            <div key={m.owner_user_id} style={{
+            <div key={m.owner_user_id || m.owner} style={{
               background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 14,
             }}>
-              {/* Header — name + identity badge */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
                 <div style={{ fontFamily: SANS, fontSize: 15, fontWeight: 800, color: C.primary }}>
                   {m.owner}
@@ -269,44 +408,25 @@ function DraftIntel() {
                 }}>{m.draft_identity}</span>
               </div>
 
-              {/* Trade-up willingness — big number + band */}
-              <div style={{
-                display: "flex", alignItems: "baseline", gap: 8, marginBottom: 10,
-                padding: "8px 10px", borderRadius: 4,
-                background: `${bandColor}10`, border: `1px solid ${bandColor}28`,
-              }}>
-                <div style={{ fontFamily: MONO, fontSize: 9, letterSpacing: "0.06em", color: C.dim }}>
-                  TRADE-UP
-                </div>
-                <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: bandColor }}>
-                  {m.willingness.score}
-                </div>
-                <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: bandColor, letterSpacing: "0.06em" }}>
-                  {m.willingness.band}
-                </div>
-              </div>
+              <StatRow label="HIT RATE"  pct={m.hit_rate}  good />
+              <StatRow label="STAR RATE" pct={m.star_rate} good />
+              <StatRow label="BUST RATE" pct={m.bust_rate} bad />
 
-              {/* Hit/star/bust rates */}
-              <StatRow label="HIT RATE"  ratio={m.hit_rate}  good />
-              <StatRow label="STAR RATE" ratio={m.star_rate} good />
-              <StatRow label="BUST RATE" ratio={m.bust_rate} bad  />
-
-              {/* Round 1 position distribution */}
               <div style={{ marginTop: 10 }}>
                 <div style={{ fontFamily: MONO, fontSize: 9, letterSpacing: "0.06em", color: C.dim, marginBottom: 4 }}>
                   R1 POSITIONS
                 </div>
-                <PosDistBar dist={m.round1_position_distribution} />
+                <PosDistBar dist={m.round1_position_distribution || {}} />
               </div>
 
-              {/* Willingness factors + adapter signals */}
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 10 }}>
-                <FactorChip label="ACTIVITY" v={m.willingness.factors.activity} />
-                <FactorChip label="WINDOW"   v={m.willingness.factors.window_alignment} />
-                <FactorChip label="PANIC"    v={m.willingness.factors.panic_signal} />
-                <FactorChip label="H2H"      v={m.willingness.factors.h2h_history} />
-                <FactorChip label="DOWN-MOVE" v={Math.round(m.down_move_bias * 100)} />
-                <FactorChip label="PICKS Δ" v={m.pick_surplus_delta} format="signed" />
+              <div style={{
+                display: "flex", gap: 14, marginTop: 10,
+                fontFamily: MONO, fontSize: 10, color: C.dim,
+              }}>
+                <span><span style={{ color: C.gold, fontWeight: 700 }}>{m.stars}</span> stars</span>
+                <span><span style={{ color: C.green, fontWeight: 700 }}>{m.hits}</span> hits</span>
+                <span><span style={{ color: C.red, fontWeight: 700 }}>{m.busts}</span> busts</span>
+                <span style={{ marginLeft: "auto" }}>{m.total_picks} picks</span>
               </div>
             </div>
           );
@@ -316,8 +436,7 @@ function DraftIntel() {
   );
 }
 
-function StatRow({ label, ratio, good, bad }: { label: string; ratio: number; good?: boolean; bad?: boolean }) {
-  const pct = Math.round(ratio * 100);
+function StatRow({ label, pct, good, bad }: { label: string; pct: number; good?: boolean; bad?: boolean }) {
   const color = bad
     ? (pct >= 30 ? C.red : pct >= 20 ? C.orange : C.dim)
     : (pct >= 60 ? C.green : pct >= 40 ? C.gold : C.dim);
@@ -327,7 +446,7 @@ function StatRow({ label, ratio, good, bad }: { label: string; ratio: number; go
         {label}
       </div>
       <div style={{ flex: 1, height: 4, borderRadius: 2, background: C.border, overflow: "hidden" }}>
-        <div style={{ width: `${pct}%`, height: "100%", background: color }} />
+        <div style={{ width: `${Math.min(pct, 100)}%`, height: "100%", background: color }} />
       </div>
       <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.primary, width: 32, textAlign: "right" }}>
         {pct}%
@@ -336,12 +455,13 @@ function StatRow({ label, ratio, good, bad }: { label: string; ratio: number; go
   );
 }
 
-function PosDistBar({ dist }: { dist: { QB: number; RB: number; WR: number; TE: number } }) {
+function PosDistBar({ dist }: { dist: Record<string, number> }) {
   const order: Pos[] = ["QB", "RB", "WR", "TE"];
+  const total = order.reduce((s, p) => s + (dist[p] || 0), 0) || 1;
   return (
     <div style={{ display: "flex", height: 6, borderRadius: 2, overflow: "hidden", border: `1px solid ${C.border}` }}>
       {order.map((p) => {
-        const pct = dist[p] * 100;
+        const pct = ((dist[p] || 0) / total) * 100;
         if (pct === 0) return null;
         return <div key={p} title={`${p} ${pct.toFixed(0)}%`} style={{ width: `${pct}%`, background: POS_COLOR[p] }} />;
       })}
@@ -349,27 +469,34 @@ function PosDistBar({ dist }: { dist: { QB: number; RB: number; WR: number; TE: 
   );
 }
 
-function FactorChip({ label, v, format }: { label: string; v: number; format?: "signed" }) {
-  const display = format === "signed" ? (v >= 0 ? `+${v.toFixed(1)}` : v.toFixed(1)) : `${v}`;
-  const c = format === "signed"
-    ? (v > 0 ? C.green : v < 0 ? C.red : C.dim)
-    : (v >= 70 ? C.gold : v >= 40 ? C.blue : C.dim);
+function TendencyStat({ label, v, fmt }: { label: string; v: number | null; fmt: "round" | "ratio" }) {
+  if (v == null) {
+    return (
+      <div>
+        <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, letterSpacing: "0.06em" }}>{label}</div>
+        <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: C.dim }}>—</div>
+      </div>
+    );
+  }
+  const color = v > 0 ? C.green : v < 0 ? C.red : C.dim;
+  const display = fmt === "round"
+    ? `${v > 0 ? "+" : ""}${v.toFixed(2)} rd`
+    : `${v > 0 ? "+" : ""}${(v * 100).toFixed(0)}%`;
   return (
-    <span style={{
-      fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: "0.04em",
-      padding: "2px 6px", borderRadius: 3,
-      background: `${c}12`, color: c, border: `1px solid ${c}26`,
-    }}>{label} {display}</span>
+    <div>
+      <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, letterSpacing: "0.06em" }}>{label}</div>
+      <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color }}>{display}</div>
+    </div>
   );
 }
 
 // ═════════════════════════════════════════════════════════════════════════
-// TAB 4 — ROOKIES (profiles)
+// TAB 4 — ROOKIES (mock — needs profile data)
 // ═════════════════════════════════════════════════════════════════════════
 function Rookies() {
   return (
     <div style={{ padding: "20px 0" }}>
-      <MockBanner />
+      <MockBanner msg="MOCK ROOKIES — profile ingest pending." />
       <div style={{
         display: "grid",
         gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
@@ -418,11 +545,11 @@ function Rookies() {
 // PAGE
 // ═════════════════════════════════════════════════════════════════════════
 export default function DraftHQPage() {
-  const params = useParams();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const tab = searchParams.get("tab") || "your-picks";
+  const { currentLeagueId, currentOwner, currentOwnerId } = useLeagueStore();
 
   const setTab = (id: string) => {
     const next = new URLSearchParams(searchParams.toString());
@@ -447,9 +574,9 @@ export default function DraftHQPage() {
           }}>Format-aware ranks · league tendencies · pick-trade comps</div>
         </div>
         <GlowTabs tabs={TABS} active={tab} onChange={setTab} />
-        {tab === "your-picks"  && <YourPicks  />}
+        {tab === "your-picks"  && <YourPicks  lid={currentLeagueId || ""} owner={currentOwner} ownerId={currentOwnerId} />}
         {tab === "draft-board" && <DraftBoard />}
-        {tab === "intel"       && <DraftIntel />}
+        {tab === "intel"       && <DraftIntel lid={currentLeagueId || ""} />}
         {tab === "rookies"     && <Rookies    />}
       </div>
     </div>
