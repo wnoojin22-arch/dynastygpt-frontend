@@ -1115,6 +1115,19 @@ function Rookies({ lid }: { lid: string }) {
         <div style={{ fontFamily: MONO, fontSize: isMobile ? 10 : 11, color: C.dim, letterSpacing: "0.06em", marginTop: 8 }}>
           {rookies.length} rookies · tiers earned by board position
         </div>
+        <div style={{
+          display: "inline-flex", alignItems: "center", gap: 6,
+          marginTop: isMobile ? 8 : 10,
+          padding: isMobile ? "4px 9px" : "5px 11px",
+          borderRadius: 4,
+          background: `${C.gold}10`,
+          border: `1px solid ${C.gold}30`,
+          fontFamily: MONO, fontSize: isMobile ? 9.5 : 10.5,
+          fontWeight: 800, letterSpacing: "0.10em",
+          color: C.gold,
+        }}>
+          IDP NOT YET SUPPORTED
+        </div>
       </div>
 
       {/* Position filter */}
