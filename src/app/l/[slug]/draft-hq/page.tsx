@@ -1140,9 +1140,11 @@ function Rookies({ lid }: { lid: string }) {
         <style>{`
           .rk-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
             gap: 8px;
+            width: 100%;
           }
+          .rk-grid > * { min-width: 0; }
           @media (min-width: 769px) {
             .rk-grid {
               grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
@@ -1243,8 +1245,9 @@ function Rookies({ lid }: { lid: string }) {
 
                 {/* Earliest / Latest / R1 odds row */}
                 <div style={{
-                  display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: isMobile ? 4 : 8,
+                  display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr)", gap: isMobile ? 4 : 8,
                   paddingTop: isMobile ? 7 : 12, borderTop: `1px solid ${tier.color}25`,
+                  width: "100%",
                 }}>
                   <div style={{ textAlign: "center" }}>
                     <div style={{ fontFamily: MONO, fontSize: isMobile ? 8 : 10, color: C.dim, letterSpacing: "0.08em", marginBottom: isMobile ? 1 : 3 }}>
