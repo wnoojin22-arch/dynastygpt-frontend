@@ -805,7 +805,7 @@ function DashboardView({ lid, owner, ownerId }: { lid: string; owner: string; ow
           ══════════════════════════════════════════════════════════ */}
       <div className="mobile-stack" style={{ display: "grid", gridTemplateColumns: "55fr 45fr", gap: 10, alignItems: "stretch" }}>
         <DynastyScoreCard lid={lid} owner={owner} ownerId={ownerId} />
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, alignItems: "stretch" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 10, alignItems: "stretch" }}>
           {/* BUILD TRADE */}
           <div
             onClick={() => router.push(`/l/${currentLeagueSlug}/trades`)}
@@ -822,6 +822,23 @@ function DashboardView({ lid, owner, ownerId }: { lid: string; owner: string; ow
           >
             <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.gold, letterSpacing: "0.10em", textAlign: "center" }}>BUILD TRADE</span>
             <span style={{ fontFamily: SANS, fontSize: 9, color: C.dim, textAlign: "center", lineHeight: 1.3 }}>Find your next move</span>
+          </div>
+          {/* DRAFT HQ */}
+          <div
+            onClick={() => router.push(`/l/${currentLeagueSlug}/draft-hq`)}
+            className="cursor-pointer transition-all duration-200 hover:scale-[1.03]"
+            style={{
+              background: `linear-gradient(135deg, ${C.card} 0%, rgba(212,165,50,0.10) 100%)`,
+              border: `1px solid ${C.goldBorder}`,
+              borderTop: `2px solid ${C.goldBright}`,
+              borderRadius: 8,
+              padding: "12px 16px",
+              display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3,
+              boxShadow: `0 4px 24px rgba(212,165,50,0.10), inset 0 1px 0 rgba(212,165,50,0.12)`,
+            }}
+          >
+            <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.goldBright, letterSpacing: "0.10em", textAlign: "center" }}>DRAFT HQ</span>
+            <span style={{ fontFamily: SANS, fontSize: 9, color: C.dim, textAlign: "center", lineHeight: 1.3 }}>Rookie cheat sheet</span>
           </div>
           {/* FRANCHISE HEALTH */}
           <div

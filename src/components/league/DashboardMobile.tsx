@@ -342,6 +342,7 @@ export default function DashboardMobile({ lid, owner, ownerId }: { lid: string; 
       <div className="grid grid-cols-3 gap-2 px-3">
         {[
           { label: "BUILD TRADE", sub: "Find your next move", icon: Plus, color: C.gold, route: "trades" },
+          { label: "DRAFT HQ", sub: "Rookie cheat sheet", icon: FileText, color: C.goldBright, route: "draft-hq" },
           { label: "FRANCHISE", sub: "Where you stand", icon: Activity, color: C.green, route: "intel?tab=my-franchise" },
           { label: "SCOUTING", sub: "Scout opponents", icon: Search, color: C.blue, route: "intel?tab=opponents" },
           { label: "DRAFT ROOM", sub: "Picks & grades", icon: FileText, color: "#b39ddb", route: "draft" },
