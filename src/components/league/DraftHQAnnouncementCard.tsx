@@ -7,7 +7,6 @@ import { ArrowRight } from "lucide-react";
 import { C, SANS, MONO, DISPLAY } from "./tokens";
 import { useTrack } from "@/hooks/useTrack";
 
-const CARD_HEIGHT_PX = 240;
 const HERO_HEIGHT_PX = 116;
 
 export default function DraftHQAnnouncementCard({ slug, leagueId }: { slug: string; leagueId: string }) {
@@ -26,7 +25,6 @@ export default function DraftHQAnnouncementCard({ slug, leagueId }: { slug: stri
         transition={{ duration: 0.35 }}
         className="relative rounded-lg overflow-hidden flex flex-col w-full transition-all hover:border-gold/40 hover:shadow-[0_4px_24px_rgba(212,165,50,0.10)]"
         style={{
-          height: CARD_HEIGHT_PX,
           background: `linear-gradient(180deg, ${C.card} 0%, #0a0d15 100%)`,
           border: `1px solid ${C.border}`,
         }}
@@ -55,8 +53,8 @@ export default function DraftHQAnnouncementCard({ slug, leagueId }: { slug: stri
         <DraftHQHeroMock />
 
         {/* Content area */}
-        <div className="flex-1 min-h-0 px-4 py-3 flex flex-col">
-          <div className="flex items-center gap-2 mb-1.5 flex-shrink-0" style={{ fontFamily: MONO }}>
+        <div className="px-4 py-4 flex flex-col gap-2">
+          <div className="flex items-center gap-2" style={{ fontFamily: MONO }}>
             <span
               className="text-[8px] font-black tracking-[0.12em] px-1.5 py-0.5 rounded-sm"
               style={{
@@ -70,30 +68,30 @@ export default function DraftHQAnnouncementCard({ slug, leagueId }: { slug: stri
           </div>
 
           <h3
-            className="text-primary leading-[1.18] tracking-tight text-[15px] line-clamp-1 mb-0.5 flex-shrink-0"
+            className="text-primary leading-[1.18] tracking-tight text-[18px] sm:text-[20px]"
             style={{ fontFamily: DISPLAY }}
           >
             New: Draft HQ
           </h3>
 
           <p
-            className="text-secondary text-[12px] leading-snug line-clamp-1 flex-shrink-0"
-            style={{ fontFamily: SANS, fontWeight: 600 }}
+            className="text-primary text-[13px] sm:text-[14px] leading-snug"
+            style={{ fontFamily: SANS, fontWeight: 700 }}
           >
             Rookie ADP from real drafts. Live now.
           </p>
 
           <p
-            className="text-secondary text-[12px] leading-snug line-clamp-2 mt-1 flex-1 min-h-0"
+            className="text-secondary text-[13px] sm:text-[14px] leading-relaxed"
             style={{ fontFamily: SANS, fontWeight: 400 }}
           >
             Format-aware ADP from 10,000+ completed 2026 rookie drafts. Updated daily. Plus three more tabs launching this draft season — Your Picks, Draft Board, Draft Intel.
           </p>
 
           {/* CTA button */}
-          <div className="flex items-center justify-end mt-1.5 flex-shrink-0">
+          <div className="flex items-center justify-end mt-1">
             <span
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-black tracking-[0.10em] transition-all group-hover:bg-gold group-hover:text-[#06080d]"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-[11px] font-black tracking-[0.10em] transition-all group-hover:bg-gold group-hover:text-[#06080d]"
               style={{
                 fontFamily: MONO,
                 color: C.gold,
@@ -102,7 +100,7 @@ export default function DraftHQAnnouncementCard({ slug, leagueId }: { slug: stri
               }}
             >
               OPEN DRAFT HQ
-              <ArrowRight size={11} className="group-hover:translate-x-0.5 transition-transform" />
+              <ArrowRight size={12} className="group-hover:translate-x-0.5 transition-transform" />
             </span>
           </div>
         </div>
