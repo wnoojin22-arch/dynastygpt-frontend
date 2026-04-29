@@ -8,9 +8,11 @@ import {
   getDraftHQYourPicks,
   getDraftHQTendencies,
   getDraftHQOwnerStrategicIntel,
+  getDraftHQRookieADP,
+  getOverview,
 } from "@/lib/api";
 import { C, SANS, MONO } from "@/components/league/tokens";
-import { MOCK_ROOKIES } from "./mocks";
+import PlayerHeadshot from "@/components/league/PlayerHeadshot";
 import type { Pos } from "./mocks";
 
 const TABS = [
@@ -118,8 +120,8 @@ function Chip({ text, color, dim }: { text: string; color?: string; dim?: boolea
   const c = color || (dim ? C.dim : C.secondary);
   return (
     <span style={{
-      fontFamily: MONO, fontSize: 10, fontWeight: 700, letterSpacing: "0.04em",
-      padding: "2px 7px", borderRadius: 3,
+      fontFamily: MONO, fontSize: 12, fontWeight: 700, letterSpacing: "0.04em",
+      padding: "3px 9px", borderRadius: 3,
       background: `${c}15`, color: c, border: `1px solid ${c}30`,
     }}>{text}</span>
   );
@@ -146,6 +148,116 @@ function EmptyMsg({ msg }: { msg: string }) {
       padding: 28, textAlign: "center",
       fontFamily: MONO, fontSize: 12, color: C.dim, letterSpacing: "0.04em",
     }}>{msg}</div>
+  );
+}
+
+// ─── ADP tier display constants ───────────────────────────────────────────
+const TIER_LABEL: Record<string, string> = {
+  tep_sliced:  "FORMAT-EXACT",
+  format_only: "FORMAT-MATCH",
+  global:      "GLOBAL ADP",
+};
+const TIER_COLOR: Record<string, string> = {
+  tep_sliced:  "#7dd3a0",
+  format_only: "#6bb8e0",
+  global:      "#9596a5",
+};
+const TIER_TIP: Record<string, string> = {
+  tep_sliced:  "ADP from leagues that match your scoring, QB count, AND TE-premium setting (sample ≥24).",
+  format_only: "ADP from leagues that match scoring + QB count, ignoring TE premium (sample ≥12).",
+  global:      "Cross-format ADP fallback — use as a directional baseline only.",
+};
+
+function formatScoring(s?: string): string {
+  if (!s) return "—";
+  if (s === "ppr") return "PPR";
+  if (s === "half_ppr") return "Half-PPR";
+  if (s === "standard") return "Standard";
+  return s.toUpperCase();
+}
+
+// ─── ADP candidate helper (shared by Tab 1 + Tab 2) ─────────────────────
+type ADPRookie = {
+  player_name: string;
+  position: string | null;
+  avg_pick: number | null;
+  p10_pick: number | null;
+  p50_pick: number | null;
+  p90_pick: number | null;
+  pct_round_1: number | null;
+  sample_n: number;
+  format_key: string;
+  tier: string;
+};
+
+function pickCandidatesFor(
+  pickNum: number,
+  rookies: ADPRookie[],
+  windowSize = 4,
+  count = 3,
+): { rookies: ADPRookie[]; fallback: boolean } {
+  // Window overlap: rookie's [p10-W, p90+W] contains pickNum
+  const inWindow = rookies.filter(r => {
+    if (r.p10_pick == null || r.p90_pick == null) return false;
+    return (r.p10_pick - windowSize) <= pickNum && (r.p90_pick + windowSize) >= pickNum;
+  });
+
+  if (inWindow.length > 0) {
+    inWindow.sort((a, b) => {
+      const aP50 = a.p50_pick ?? a.avg_pick ?? 0;
+      const bP50 = b.p50_pick ?? b.avg_pick ?? 0;
+      const aDist = Math.abs(aP50 - pickNum);
+      const bDist = Math.abs(bP50 - pickNum);
+      if (aDist !== bDist) return aDist - bDist;
+      return (b.sample_n || 0) - (a.sample_n || 0);
+    });
+    return { rookies: inWindow.slice(0, count), fallback: false };
+  }
+
+  // Fallback: late pick — show top by latest p90 (most likely to fall)
+  const sorted = [...rookies]
+    .filter(r => r.p90_pick != null)
+    .sort((a, b) => (b.p90_pick! - a.p90_pick!));
+  return { rookies: sorted.slice(0, count), fallback: true };
+}
+
+function CandidateRow({ r }: { r: ADPRookie }) {
+  const tierColor = TIER_COLOR[r.tier] || C.dim;
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", gap: 10,
+      padding: "6px 0",
+    }}>
+      <PlayerHeadshot name={r.player_name} position={r.position || "PICK"} size={28} />
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div style={{ fontFamily: SANS, fontSize: 13, fontWeight: 700, color: C.primary, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {r.player_name}
+        </div>
+        <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 2 }}>
+          <span style={{
+            fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.06em",
+            padding: "1px 5px", borderRadius: 3,
+            background: `${POS_COLOR[(r.position || "") as Pos] || C.dim}20`,
+            color: POS_COLOR[(r.position || "") as Pos] || C.dim,
+            border: `1px solid ${POS_COLOR[(r.position || "") as Pos] || C.dim}40`,
+          }}>{r.position || "—"}</span>
+          <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>
+            range {r.p10_pick != null && r.p90_pick != null ? `${r.p10_pick.toFixed(0)}–${r.p90_pick.toFixed(0)}` : "—"}
+          </span>
+          <span title={TIER_TIP[r.tier]} style={{
+            fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: "0.06em",
+            padding: "1px 5px", borderRadius: 3, cursor: "help",
+            background: `${tierColor}15`, color: tierColor, border: `1px solid ${tierColor}30`,
+          }}>n={r.sample_n}</span>
+        </div>
+      </div>
+      <div style={{ textAlign: "right", flexShrink: 0 }}>
+        <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, letterSpacing: "0.06em" }}>ADP</div>
+        <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: C.gold, lineHeight: 1 }}>
+          {r.p50_pick != null ? r.p50_pick.toFixed(1) : (r.avg_pick != null ? r.avg_pick.toFixed(1) : "—")}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -235,6 +347,18 @@ function YourPicks({ lid, owner, ownerId }: { lid: string; owner: string | null;
     staleTime: 600_000,
     enabled,
   });
+  const adpQ = useQuery({
+    queryKey: ["draft-hq-rookie-adp", lid],
+    queryFn: () => getDraftHQRookieADP(lid, 80),
+    staleTime: 600_000,
+    enabled,
+  });
+  const overviewQ = useQuery({
+    queryKey: ["league-overview", lid],
+    queryFn: () => getOverview(lid),
+    staleTime: 600_000,
+    enabled,
+  });
 
   if (!enabled) return <EmptyMsg msg="No league/owner context — open this from your league dashboard." />;
   if (picksQ.isLoading) return <EmptyMsg msg="Loading your picks…" />;
@@ -286,6 +410,14 @@ function YourPicks({ lid, owner, ownerId }: { lid: string; owner: string | null;
           const recBlurb = REC_BLURB[p.recommendation] || "";
           const top3Pos = Object.entries(p.position_breakdown || {})
             .sort(([, a]: any, [, b]: any) => b - a).slice(0, 3);
+          const numTeams = overviewQ.data?.format?.num_teams;
+          const allRookies: ADPRookie[] = adpQ.data?.rookies || [];
+          const pickNum: number | null = (numTeams && p.round && p.slot)
+            ? (p.round - 1) * numTeams + p.slot
+            : null;
+          const candBlock = (pickNum != null && allRookies.length > 0)
+            ? pickCandidatesFor(pickNum, allRookies, 4, 3)
+            : null;
           return (
             <div key={i} style={{
               background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 14,
@@ -352,6 +484,34 @@ function YourPicks({ lid, owner, ownerId }: { lid: string; owner: string | null;
                 fontFamily: SANS, fontSize: 12, color: C.primary, lineHeight: 1.5,
                 paddingTop: 8, borderTop: `1px solid ${C.border}`,
               }}>{p.reasoning}</div>
+
+              {/* Likely available candidates (real ADP) */}
+              {candBlock && candBlock.rookies.length > 0 && (
+                <div style={{
+                  marginTop: 10, paddingTop: 10, borderTop: `1px solid ${C.border}`,
+                }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4, flexWrap: "wrap", gap: 6 }}>
+                    <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim, letterSpacing: "0.06em" }}>
+                      {candBlock.fallback ? "REACH TERRITORY" : "LIKELY AVAILABLE"}
+                    </div>
+                    {pickNum != null && (
+                      <div style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>
+                        at pick #{pickNum}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ fontFamily: SANS, fontSize: 12, color: C.secondary, marginBottom: 4, lineHeight: 1.4 }}>
+                    {candBlock.fallback
+                      ? "These rookies have ADP earlier than your pick — could fall if the board breaks right."
+                      : "Top 3 rookies whose ADP window overlaps this pick, sorted by closest median."}
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+                    {candBlock.rookies.map((r, idx) => (
+                      <CandidateRow key={`${r.player_name}-${idx}`} r={r} />
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           );
         })}
@@ -416,84 +576,147 @@ function YourPicks({ lid, owner, ownerId }: { lid: string; owner: string | null;
 }
 
 // ═════════════════════════════════════════════════════════════════════════
-// TAB 2 — DRAFT BOARD  (mock — needs ADP)
+// TAB 2 — DRAFT BOARD  (round-grouped, real ADP per pick)
 // ═════════════════════════════════════════════════════════════════════════
-function DraftBoard() {
-  const [posFilter, setPosFilter] = useState<Pos | "ALL">("ALL");
-  const filtered = useMemo(
-    () => posFilter === "ALL" ? MOCK_ROOKIES : MOCK_ROOKIES.filter((r) => r.position === posFilter),
-    [posFilter],
-  );
+function DraftBoard({ lid }: { lid: string }) {
+  const enabled = !!lid;
+  const adpQ = useQuery({
+    queryKey: ["draft-hq-rookie-adp", lid],
+    queryFn: () => getDraftHQRookieADP(lid, 80),
+    staleTime: 600_000,
+    enabled,
+  });
+  const intelQ = useQuery({
+    queryKey: ["draft-hq-strategic-intel", lid],
+    queryFn: () => getDraftHQOwnerStrategicIntel(lid),
+    staleTime: 600_000,
+    enabled,
+  });
+  const overviewQ = useQuery({
+    queryKey: ["league-overview", lid],
+    queryFn: () => getOverview(lid),
+    staleTime: 600_000,
+    enabled,
+  });
+
+  if (!enabled) return <EmptyMsg msg="No league context." />;
+  if (adpQ.isLoading || intelQ.isLoading || overviewQ.isLoading) {
+    return <EmptyMsg msg="Loading draft board…" />;
+  }
+  if (adpQ.error)      return <EmptyMsg msg={`ADP error: ${(adpQ.error as Error).message}`} />;
+  if (intelQ.error)    return <EmptyMsg msg={`Intel error: ${(intelQ.error as Error).message}`} />;
+
+  const rookies: ADPRookie[] = adpQ.data?.rookies || [];
+  const numTeams = overviewQ.data?.format?.num_teams;
+  if (!numTeams) return <EmptyMsg msg="League team count unavailable." />;
+
+  // Build pick → owner map from owner-strategic-intel.held_this_draft
+  const owners: any[] = intelQ.data?.owners || [];
+  const pickOwner: Record<string, string> = {};
+  for (const o of owners) {
+    const held: string[] = o.picks?.held_this_draft || [];
+    for (const slotKey of held) {
+      pickOwner[slotKey] = o.owner;
+    }
+  }
+
+  // Group all picks by round
+  const allSlotKeys = Object.keys(pickOwner);
+  const byRound = new Map<number, { slot: number; slotKey: string; ownerName: string }[]>();
+  for (const slotKey of allSlotKeys) {
+    const m = slotKey.match(/^(\d+)\.(\d+)$/);
+    if (!m) continue;
+    const round = parseInt(m[1], 10);
+    const slot  = parseInt(m[2], 10);
+    if (!byRound.has(round)) byRound.set(round, []);
+    byRound.get(round)!.push({ slot, slotKey, ownerName: pickOwner[slotKey] });
+  }
+  for (const arr of byRound.values()) arr.sort((a, b) => a.slot - b.slot);
+  const roundsSorted = Array.from(byRound.keys()).sort((a, b) => a - b);
+
+  if (roundsSorted.length === 0) {
+    return <EmptyMsg msg="No 2026 picks resolved yet for this league." />;
+  }
 
   return (
     <div style={{ padding: "20px 0" }}>
-      <MockBanner msg="MOCK ROOKIES — ADP unlocks after 2026 rookie crawl completes." />
-      <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
-        {(["ALL", "QB", "RB", "WR", "TE"] as const).map((p) => {
-          const act = posFilter === p;
-          const c = p === "ALL" ? C.gold : POS_COLOR[p as Pos];
-          return (
-            <button key={p} onClick={() => setPosFilter(p)} style={{
-              fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.06em",
-              padding: "6px 14px", borderRadius: 4, cursor: "pointer", border: "none",
-              background: act ? `${c}20` : "transparent",
-              color: act ? c : C.dim,
-              outline: act ? `1px solid ${c}40` : `1px solid ${C.border}`,
-            }}>{p}</button>
-          );
-        })}
-      </div>
       <div style={{
-        background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden",
+        background: `linear-gradient(180deg, ${C.goldGlow} 0%, ${C.card} 100%)`,
+        border: `1px solid ${C.goldBorder}`, borderRadius: 10, padding: 14, marginBottom: 14,
       }}>
         <div style={{
-          display: "grid",
-          gridTemplateColumns: "60px 1fr 60px 110px 80px 90px",
-          padding: "10px 14px", borderBottom: `1px solid ${C.border}`,
-          fontFamily: MONO, fontSize: 10, color: C.dim, letterSpacing: "0.08em", fontWeight: 800,
-        }}>
-          <div>RANK</div>
-          <div>PLAYER</div>
-          <div>POS</div>
-          <div>ADP</div>
-          <div>TIER</div>
-          <div style={{ textAlign: "right" }}>% DRAFTED</div>
+          fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.gold,
+          letterSpacing: "0.16em", marginBottom: 6,
+        }}>FULL DRAFT BOARD — 2026 ROOKIE DRAFT</div>
+        <div style={{ fontFamily: SANS, fontSize: 14, color: C.primary, lineHeight: 1.55 }}>
+          Every pick in the draft, grouped by round. For each pick, the three rookies whose ADP window most overlaps that slot. Late picks past every rookie's ADP fall back to "Reach territory" — names with the latest expected board fall.
         </div>
-        {filtered.map((r) => (
-          <div key={r.rank} style={{
-            display: "grid",
-            gridTemplateColumns: "60px 1fr 60px 110px 80px 90px",
-            padding: "10px 14px", borderBottom: `1px solid ${C.border}`,
-            alignItems: "center",
-          }}>
-            <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.gold }}>
-              #{r.rank}
-            </div>
-            <div>
-              <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 700, color: C.primary }}>
-                {r.name}
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+        {roundsSorted.map(rd => {
+          const picks = byRound.get(rd) || [];
+          return (
+            <div key={rd}>
+              <div style={{
+                position: "sticky", top: 0, zIndex: 1,
+                background: C.bg, padding: "8px 0",
+                borderBottom: `2px solid ${C.gold}`, marginBottom: 10,
+              }}>
+                <div style={{ fontFamily: SANS, fontSize: 18, fontWeight: 900, color: C.gold, letterSpacing: "0.06em" }}>
+                  ROUND {rd}
+                </div>
+                <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim, marginTop: 2 }}>
+                  {picks.length} pick{picks.length === 1 ? "" : "s"} · slots {picks[0]?.slot}–{picks[picks.length - 1]?.slot}
+                </div>
               </div>
-              <div style={{ fontFamily: MONO, fontSize: 10, color: C.dim, marginTop: 2 }}>
-                {r.team} · {r.age}yo
+              <div style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
+                gap: 10,
+              }}>
+                {picks.map(({ slot, slotKey, ownerName }) => {
+                  const pickNum = (rd - 1) * numTeams + slot;
+                  const cand = pickCandidatesFor(pickNum, rookies, 4, 3);
+                  return (
+                    <div key={slotKey} style={{
+                      background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12,
+                    }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
+                        <div>
+                          <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: C.gold }}>
+                            {slotKey}
+                          </div>
+                          <div style={{ fontFamily: MONO, fontSize: 10, color: C.dim, letterSpacing: "0.04em" }}>
+                            pick #{pickNum} · {ownerName}
+                          </div>
+                        </div>
+                        {cand.fallback && (
+                          <span style={{
+                            fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.06em",
+                            padding: "2px 6px", borderRadius: 3,
+                            background: `${C.orange}18`, color: C.orange, border: `1px solid ${C.orange}40`,
+                          }}>REACH</span>
+                        )}
+                      </div>
+                      {cand.rookies.length === 0 ? (
+                        <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim, padding: "8px 0" }}>
+                          No ADP data.
+                        </div>
+                      ) : (
+                        <div style={{ display: "flex", flexDirection: "column" }}>
+                          {cand.rookies.map((r, idx) => (
+                            <CandidateRow key={`${r.player_name}-${idx}`} r={r} />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
-            <div><PosBadge pos={r.position} /></div>
-            <div style={{ fontFamily: MONO, fontSize: 12, color: C.primary }}>
-              {r.adp_avg == null ? "—" : (
-                <>
-                  {r.adp_avg.toFixed(1)}
-                  <span style={{ color: C.dim, fontSize: 10 }}>
-                    {" "}({r.adp_p10?.toFixed(0)}–{r.adp_p90?.toFixed(0)})
-                  </span>
-                </>
-              )}
-            </div>
-            <div style={{ fontFamily: MONO, fontSize: 12, color: C.primary }}>T{r.tier}</div>
-            <div style={{ textAlign: "right", fontFamily: MONO, fontSize: 12, color: C.dim }}>
-              {r.pct_drafted == null ? "—" : `${(r.pct_drafted * 100).toFixed(0)}%`}
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -624,14 +847,14 @@ function DraftIntel({ lid }: { lid: string }) {
           border: `1px solid ${C.goldBorder}`, borderRadius: 10, padding: 16, marginBottom: 12,
         }}>
           <div style={{
-            fontFamily: SANS, fontSize: 10, fontWeight: 800, color: C.gold,
-            letterSpacing: "0.16em", marginBottom: 6,
+            fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.gold,
+            letterSpacing: "0.16em", marginBottom: 8,
           }}>LEAGUE SCOUTING REPORT</div>
-          <div style={{ fontFamily: SANS, fontSize: 14, color: C.primary, lineHeight: 1.55 }}>
+          <div style={{ fontFamily: SANS, fontSize: 15, color: C.primary, lineHeight: 1.6 }}>
             {heroText}
           </div>
           {(t?.sample_size != null) && (
-            <div style={{ fontFamily: MONO, fontSize: 10, color: C.dim, marginTop: 8, letterSpacing: "0.04em" }}>
+            <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim, marginTop: 10, letterSpacing: "0.04em" }}>
               {t.sample_size} picks · {(t.seasons || []).join("+")}
               {t.format_key && ` · baseline ${t.format_key}`}
               {fallback === "global" && " · global baseline (no league cache yet)"}
@@ -646,7 +869,7 @@ function DraftIntel({ lid }: { lid: string }) {
           background: C.card, border: `1px solid ${C.border}`, borderRadius: 8,
           padding: 14, marginBottom: 16,
         }}>
-          <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, letterSpacing: "0.08em", color: C.primary, marginBottom: 10 }}>
+          <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 800, letterSpacing: "0.08em", color: C.primary, marginBottom: 12 }}>
             LEAGUE DRAFT TENDENCIES
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 14 }}>
@@ -658,11 +881,11 @@ function DraftIntel({ lid }: { lid: string }) {
       )}
 
       {/* Owner cards header + key */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
-        <div style={{ fontFamily: SANS, fontSize: 13, fontWeight: 800, letterSpacing: "0.08em", color: C.primary }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12, flexWrap: "wrap", gap: 10 }}>
+        <div style={{ fontFamily: SANS, fontSize: 15, fontWeight: 800, letterSpacing: "0.08em", color: C.primary }}>
           STRATEGIC INTEL — BY OWNER
         </div>
-        <div style={{ display: "flex", gap: 8, fontFamily: MONO, fontSize: 9, color: C.dim, letterSpacing: "0.04em", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 8, fontFamily: MONO, fontSize: 11, color: C.dim, letterSpacing: "0.04em", flexWrap: "wrap" }}>
           <Chip text="TRADE-UP TARGET" color={FLAG_COLOR.TRADE_UP_TARGET} />
           <Chip text="TRADE-BACK PARTNER" color={FLAG_COLOR.TRADE_BACK_CANDIDATE} />
           <Chip text="LIKELY HOLD" color={FLAG_COLOR.LIKELY_HOLD} />
@@ -671,8 +894,8 @@ function DraftIntel({ lid }: { lid: string }) {
 
       <div style={{
         display: "grid",
-        gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
-        gap: 12,
+        gridTemplateColumns: "repeat(auto-fill, minmax(360px, 1fr))",
+        gap: 14,
       }}>
         {owners.map((o: any) => <OwnerStrategicCard key={o.owner_user_id || o.owner} o={o} />)}
       </div>
@@ -696,6 +919,9 @@ function OwnerStrategicCard({ o }: { o: any }) {
   const trader = o.draft_day_trader || {};
   const traderTag: string = trader.tag || "UNKNOWN";
   const tradesMade: number = trader.trades_made || 0;
+  const tradesUp: number = trader.trades_up || 0;
+  const tradesDown: number = trader.trades_down || 0;
+  const tradesLateral: number = trader.trades_lateral || 0;
   const seasonsActive: number = trader.seasons_active || 0;
   const seasonsTotal: number = trader.seasons_total || 0;
 
@@ -705,7 +931,15 @@ function OwnerStrategicCard({ o }: { o: any }) {
   const heldThisDraft: string[] = o.picks?.held_this_draft || [];
   const surplusDelta: number | null = o.picks?.surplus_delta ?? null;
   const futurePicks: { year: number; round: number }[] = o.picks?.future_picks || [];
-  const futurePicksCount = futurePicks.length;
+
+  // Group future picks: round -> year -> count
+  const futureByRound = new Map<number, Map<number, number>>();
+  for (const p of futurePicks) {
+    if (!futureByRound.has(p.round)) futureByRound.set(p.round, new Map());
+    const yrMap = futureByRound.get(p.round)!;
+    yrMap.set(p.year, (yrMap.get(p.year) || 0) + 1);
+  }
+  const futureRoundsSorted = Array.from(futureByRound.entries()).sort((a, b) => a[0] - b[0]);
 
   const directionTendency: string = o.behavior?.direction_tendency || "INSUFFICIENT_DATA";
   const positionsTargeted: string[] = o.behavior?.positions_targeted || [];
@@ -714,33 +948,33 @@ function OwnerStrategicCard({ o }: { o: any }) {
     <div style={{
       background: C.card,
       border: `1px solid ${flagVerdict === "LIKELY_HOLD" ? C.border : `${flagColor}50`}`,
-      borderRadius: 8, padding: 14,
-      display: "flex", flexDirection: "column", gap: 10,
+      borderRadius: 8, padding: 16,
+      display: "flex", flexDirection: "column", gap: 14,
     }}>
       {/* Header — owner name + flag */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
-          <div style={{ fontFamily: SANS, fontSize: 15, fontWeight: 800, color: C.primary, lineHeight: 1.2 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
+          <div style={{ fontFamily: SANS, fontSize: 17, fontWeight: 800, color: C.primary, lineHeight: 1.2 }}>
             {o.owner}
           </div>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             {identity && (
               <span title={identityTip || identity} style={{
-                fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.06em",
-                padding: "2px 6px", borderRadius: 3, cursor: "help",
+                fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.06em",
+                padding: "3px 8px", borderRadius: 3, cursor: "help",
                 background: `${identityColor}18`, color: identityColor, border: `1px solid ${identityColor}30`,
               }}>{identity}</span>
             )}
             {windowClass && (
               <span style={{
-                fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.06em",
-                padding: "2px 6px", borderRadius: 3,
+                fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.06em",
+                padding: "3px 8px", borderRadius: 3,
                 background: `${windowColor}18`, color: windowColor, border: `1px solid ${windowColor}30`,
               }}>{windowClass}</span>
             )}
             <span title={`${tradesMade} draft-day trades over ${seasonsActive}/${seasonsTotal} drafts`} style={{
-              fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.06em",
-              padding: "2px 6px", borderRadius: 3, cursor: "help",
+              fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.06em",
+              padding: "3px 8px", borderRadius: 3, cursor: "help",
               background: traderTag === "TRADER" ? `${C.gold}18` : `${C.dim}15`,
               color: traderTag === "TRADER" ? C.gold : C.dim,
               border: `1px solid ${traderTag === "TRADER" ? C.goldBorder : C.border}`,
@@ -748,8 +982,8 @@ function OwnerStrategicCard({ o }: { o: any }) {
           </div>
         </div>
         <span style={{
-          fontFamily: MONO, fontSize: 9, fontWeight: 900, letterSpacing: "0.06em",
-          padding: "4px 8px", borderRadius: 3, whiteSpace: "nowrap",
+          fontFamily: MONO, fontSize: 11, fontWeight: 900, letterSpacing: "0.06em",
+          padding: "5px 10px", borderRadius: 3, whiteSpace: "nowrap",
           background: `${flagColor}18`, color: flagColor, border: `1px solid ${flagColor}50`,
         }}>{flagLabel}</span>
       </div>
@@ -757,96 +991,169 @@ function OwnerStrategicCard({ o }: { o: any }) {
       {/* Trade flag reasoning */}
       {flagReason && (
         <div style={{
-          fontFamily: SANS, fontSize: 12, color: C.primary, lineHeight: 1.5,
-          padding: "8px 10px", borderRadius: 6,
+          fontFamily: SANS, fontSize: 14, color: C.primary, lineHeight: 1.55,
+          padding: "10px 12px", borderRadius: 6,
           background: `${flagColor}08`, border: `1px solid ${flagColor}25`,
         }}>{flagReason}</div>
       )}
 
       {/* Roster strengths/needs */}
       {(strengths.length > 0 || needs.length > 0) && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {strengths.length > 0 && (
-            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-              <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, letterSpacing: "0.06em", width: 56, flexShrink: 0 }}>SET AT</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim, letterSpacing: "0.06em", width: 64, flexShrink: 0 }}>SET AT</div>
               {strengths.map(s => <Chip key={s} text={s} color={C.green} />)}
             </div>
           )}
           {needs.length > 0 && (
-            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-              <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, letterSpacing: "0.06em", width: 56, flexShrink: 0 }}>NEEDS</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim, letterSpacing: "0.06em", width: 64, flexShrink: 0 }}>NEEDS</div>
               {needs.map(n => <Chip key={n} text={n} color={C.red} />)}
             </div>
           )}
         </div>
       )}
 
-      {/* Picks held + surplus + future */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, fontSize: 11 }}>
+      {/* Picks this draft + surplus */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
         <div>
-          <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, letterSpacing: "0.06em", marginBottom: 3 }}>
+          <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim, letterSpacing: "0.06em", marginBottom: 4 }}>
             HOLDS THIS DRAFT
           </div>
           {heldThisDraft.length > 0 ? (
-            <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
               {heldThisDraft.map((s, i) => (
                 <span key={i} style={{
-                  fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.primary,
-                  padding: "1px 6px", borderRadius: 3, background: C.elevated, border: `1px solid ${C.border}`,
+                  fontFamily: MONO, fontSize: 13, fontWeight: 700, color: C.primary,
+                  padding: "2px 8px", borderRadius: 3, background: C.elevated, border: `1px solid ${C.border}`,
                 }}>{s}</span>
               ))}
             </div>
           ) : (
-            <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>—</span>
+            <span style={{ fontFamily: MONO, fontSize: 12, color: C.dim }}>None</span>
           )}
+          <div style={{ fontFamily: SANS, fontSize: 12, color: C.secondary, marginTop: 6, lineHeight: 1.4 }}>
+            Picks this manager currently owns in the 2026 rookie draft (round.slot).
+          </div>
         </div>
         <div>
-          <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, letterSpacing: "0.06em", marginBottom: 3 }}>
+          <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim, letterSpacing: "0.06em", marginBottom: 4 }}>
             VS LEAGUE AVG
           </div>
           {surplusDelta != null ? (
             <div style={{
-              fontFamily: MONO, fontSize: 13, fontWeight: 800,
+              fontFamily: MONO, fontSize: 16, fontWeight: 800,
               color: surplusDelta >= 1 ? C.green : surplusDelta <= -1 ? C.red : C.dim,
             }}>
               {surplusDelta > 0 ? "+" : ""}{surplusDelta.toFixed(1)} picks
             </div>
           ) : (
-            <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>—</span>
+            <span style={{ fontFamily: MONO, fontSize: 12, color: C.dim }}>—</span>
           )}
+          <div style={{ fontFamily: SANS, fontSize: 12, color: C.secondary, marginTop: 6, lineHeight: 1.4 }}>
+            Pick capital surplus vs. league average. Positive = trade-up ammo. Negative = candidate to trade back.
+          </div>
         </div>
       </div>
 
-      {/* Behavior + future capital */}
+      {/* Draft-day trade history */}
       <div style={{
-        display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8,
-        paddingTop: 8, borderTop: `1px solid ${C.border}`,
+        paddingTop: 12, borderTop: `1px solid ${C.border}`,
+        display: "flex", flexDirection: "column", gap: 6,
       }}>
-        <div>
-          <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, letterSpacing: "0.06em", marginBottom: 3 }}>
-            DIRECTION
+        <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim, letterSpacing: "0.06em" }}>
+          DRAFT-DAY TRADE HISTORY
+        </div>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+          <div style={{ fontFamily: SANS, fontSize: 15, fontWeight: 800, color: C.primary }}>
+            {tradesMade} trade{tradesMade === 1 ? "" : "s"}
           </div>
-          <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 700, color: C.primary }}>
+          <div style={{ fontFamily: MONO, fontSize: 12, color: C.dim }}>
+            in {seasonsActive}/{seasonsTotal} drafts
+          </div>
+        </div>
+        {tradesMade > 0 && (
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {tradesUp > 0 && (
+              <span style={{
+                fontFamily: MONO, fontSize: 12, fontWeight: 700,
+                padding: "3px 8px", borderRadius: 3,
+                background: `${C.green}15`, color: C.green, border: `1px solid ${C.green}35`,
+              }}>↑ {tradesUp} UP</span>
+            )}
+            {tradesDown > 0 && (
+              <span style={{
+                fontFamily: MONO, fontSize: 12, fontWeight: 700,
+                padding: "3px 8px", borderRadius: 3,
+                background: `${C.orange}15`, color: C.orange, border: `1px solid ${C.orange}35`,
+              }}>↓ {tradesDown} DOWN</span>
+            )}
+            {tradesLateral > 0 && (
+              <span style={{
+                fontFamily: MONO, fontSize: 12, fontWeight: 700,
+                padding: "3px 8px", borderRadius: 3,
+                background: `${C.dim}15`, color: C.dim, border: `1px solid ${C.border}`,
+              }}>↔ {tradesLateral} LATERAL</span>
+            )}
+          </div>
+        )}
+        <div style={{ fontFamily: SANS, fontSize: 12, color: C.secondary, lineHeight: 1.4 }}>
+          {tradesMade > 0
+            ? "UP = moved up for a better pick. DOWN = traded back for additional capital. LATERAL = swap with no pick climb."
+            : "This manager has never made a trade on draft day in the data we have."}
+        </div>
+        {/* Direction tendency (broader signal across all pick trades, not just draft-day) */}
+        <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginTop: 4 }}>
+          <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim, letterSpacing: "0.06em" }}>
+            OVERALL DIRECTION
+          </div>
+          <div style={{ fontFamily: SANS, fontSize: 13, fontWeight: 700, color: C.primary }}>
             {DIRECTION_LABEL[directionTendency] || directionTendency}
           </div>
-          <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, marginTop: 2 }}>
-            {tradesMade} draft-day trade{tradesMade === 1 ? "" : "s"}
-            {seasonsTotal > 0 && ` · ${seasonsActive}/${seasonsTotal} drafts`}
-          </div>
         </div>
-        <div>
-          <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, letterSpacing: "0.06em", marginBottom: 3 }}>
-            FUTURE PICKS
-          </div>
-          <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 700, color: C.primary }}>
-            {futurePicksCount} held
-          </div>
-          {positionsTargeted.length > 0 && (
-            <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, marginTop: 2 }}>
-              targets {positionsTargeted.join("/")}
-            </div>
-          )}
+        <div style={{ fontFamily: SANS, fontSize: 12, color: C.secondary, lineHeight: 1.4 }}>
+          Across all pick trades (not just draft-day) — does this manager generally move up, down, or both?
         </div>
+      </div>
+
+      {/* Future picks — grouped by round */}
+      <div style={{
+        paddingTop: 12, borderTop: `1px solid ${C.border}`,
+        display: "flex", flexDirection: "column", gap: 6,
+      }}>
+        <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim, letterSpacing: "0.06em" }}>
+          FUTURE PICKS HELD
+        </div>
+        {futureRoundsSorted.length > 0 ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+            {futureRoundsSorted.map(([rd, yrMap]) => {
+              const yearsSorted = Array.from(yrMap.entries()).sort((a, b) => a[0] - b[0]);
+              const parts = yearsSorted.map(([yr, cnt]) => `${cnt > 1 ? `${cnt}× ` : ""}${yr}`);
+              return (
+                <div key={rd} style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                  <span style={{
+                    fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.primary,
+                    minWidth: 64,
+                  }}>R{rd}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 13, color: C.primary }}>
+                    {parts.join(", ")}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <span style={{ fontFamily: MONO, fontSize: 12, color: C.dim }}>None</span>
+        )}
+        <div style={{ fontFamily: SANS, fontSize: 12, color: C.secondary, lineHeight: 1.4 }}>
+          Picks owned beyond 2026 — broken out by round, then year. Trade-up ammo if surplus, trade bait if rebuilding.
+        </div>
+        {positionsTargeted.length > 0 && (
+          <div style={{ fontFamily: MONO, fontSize: 12, color: C.dim, marginTop: 2 }}>
+            historically targets <span style={{ color: C.primary, fontWeight: 700 }}>{positionsTargeted.join(" / ")}</span> in rookie drafts
+          </div>
+        )}
       </div>
     </div>
   );
@@ -866,9 +1173,9 @@ function TendencyStat({
   if (v == null) {
     return (
       <div>
-        <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, letterSpacing: "0.06em" }}>{label}</div>
-        <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: C.dim }}>—</div>
-        {sub && <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, marginTop: 2 }}>{sub}</div>}
+        <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim, letterSpacing: "0.06em" }}>{label}</div>
+        <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: C.dim }}>—</div>
+        {sub && <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim, marginTop: 3 }}>{sub}</div>}
       </div>
     );
   }
@@ -890,11 +1197,11 @@ function TendencyStat({
   }
   return (
     <div>
-      <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, letterSpacing: "0.06em" }}>{label}</div>
-      <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color }}>{display}</div>
-      {sub && <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, marginTop: 2 }}>{sub}</div>}
+      <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim, letterSpacing: "0.06em" }}>{label}</div>
+      <div style={{ fontFamily: MONO, fontSize: 19, fontWeight: 800, color, marginTop: 2 }}>{display}</div>
+      {sub && <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim, marginTop: 3 }}>{sub}</div>}
       {meaning && (
-        <div style={{ fontFamily: SANS, fontSize: 11, color: C.secondary, marginTop: 4, lineHeight: 1.4 }}>
+        <div style={{ fontFamily: SANS, fontSize: 13, color: C.secondary, marginTop: 6, lineHeight: 1.45 }}>
           {meaning}
         </div>
       )}
@@ -903,52 +1210,142 @@ function TendencyStat({
 }
 
 // ═════════════════════════════════════════════════════════════════════════
-// TAB 4 — ROOKIES (mock — needs profile data)
+// TAB 4 — ROOKIES (real ADP from rookie_adp_2026_cache)
 // ═════════════════════════════════════════════════════════════════════════
-function Rookies() {
+function Rookies({ lid }: { lid: string }) {
+  const enabled = !!lid;
+  const [posFilter, setPosFilter] = useState<"ALL" | "QB" | "RB" | "WR" | "TE">("ALL");
+
+  const adpQ = useQuery({
+    queryKey: ["draft-hq-rookie-adp", lid],
+    queryFn: () => getDraftHQRookieADP(lid, 80),
+    staleTime: 600_000,
+    enabled,
+  });
+
+  if (!enabled) return <EmptyMsg msg="No league context." />;
+  if (adpQ.isLoading) return <EmptyMsg msg="Loading 2026 rookie ADP…" />;
+  if (adpQ.error) return <EmptyMsg msg={`Error: ${(adpQ.error as Error).message}`} />;
+
+  const rookies: any[] = adpQ.data?.rookies || [];
+  const fmt = adpQ.data?.format || {};
+  const filtered = posFilter === "ALL"
+    ? rookies
+    : rookies.filter(r => (r.position || "").toUpperCase() === posFilter);
+
+  // Tier counts for header summary
+  const tierCounts = { tep_sliced: 0, format_only: 0, global: 0 };
+  for (const r of rookies) {
+    if (r.tier in tierCounts) tierCounts[r.tier as keyof typeof tierCounts]++;
+  }
+
   return (
     <div style={{ padding: "20px 0" }}>
-      <MockBanner msg="MOCK ROOKIES — profile ingest pending." />
+      {/* Format header */}
       <div style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
-        gap: 10,
+        background: `linear-gradient(180deg, ${C.goldGlow} 0%, ${C.card} 100%)`,
+        border: `1px solid ${C.goldBorder}`, borderRadius: 10, padding: 14, marginBottom: 14,
       }}>
-        {MOCK_ROOKIES.map((r) => (
-          <div key={r.rank} style={{
-            background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12,
-            cursor: "pointer", transition: "all 0.15s",
-          }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
-              <div>
-                <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 800, color: C.primary, lineHeight: 1.2 }}>
-                  {r.name}
-                </div>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: C.dim, marginTop: 3 }}>
-                  {r.team} · {r.age}yo
-                </div>
-              </div>
-              <PosBadge pos={r.position} />
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8 }}>
-              <div>
-                <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, letterSpacing: "0.06em" }}>RANK</div>
-                <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.gold }}>#{r.rank}</div>
-              </div>
-              <div>
-                <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, letterSpacing: "0.06em" }}>TIER</div>
-                <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.primary }}>T{r.tier}</div>
-              </div>
-              <div>
-                <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, letterSpacing: "0.06em" }}>ADP</div>
-                <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.primary }}>
-                  {r.adp_avg == null ? "—" : r.adp_avg.toFixed(1)}
-                </div>
-              </div>
-            </div>
-          </div>
-        ))}
+        <div style={{
+          fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.gold,
+          letterSpacing: "0.16em", marginBottom: 6,
+        }}>2026 ROOKIE ADP — TUNED FOR YOUR LEAGUE</div>
+        <div style={{ fontFamily: SANS, fontSize: 14, color: C.primary, lineHeight: 1.55 }}>
+          {formatScoring(fmt.scoring)} · {fmt.qb === "sf" ? "Superflex" : "1QB"} · {fmt.tep === "tep" ? "TE Premium" : "No TEP"}
+          . Each player's ADP is served from the most format-specific tier with enough sample. Tier badges below tell you the confidence.
+        </div>
+        <div style={{ display: "flex", gap: 14, marginTop: 10, flexWrap: "wrap", fontFamily: MONO, fontSize: 11, color: C.dim }}>
+          <span><span style={{ color: TIER_COLOR.tep_sliced, fontWeight: 700 }}>●</span> {tierCounts.tep_sliced} format-exact</span>
+          <span><span style={{ color: TIER_COLOR.format_only, fontWeight: 700 }}>●</span> {tierCounts.format_only} format-match</span>
+          <span><span style={{ color: TIER_COLOR.global, fontWeight: 700 }}>●</span> {tierCounts.global} global fallback</span>
+        </div>
       </div>
+
+      {/* Position filter */}
+      <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
+        {(["ALL", "QB", "RB", "WR", "TE"] as const).map(p => {
+          const active = posFilter === p;
+          const c = p === "ALL" ? C.gold : (POS_COLOR[p as Pos] || C.dim);
+          return (
+            <button key={p} onClick={() => setPosFilter(p)} style={{
+              fontFamily: MONO, fontSize: 12, fontWeight: 800, letterSpacing: "0.06em",
+              padding: "6px 14px", borderRadius: 4, cursor: "pointer",
+              background: active ? `${c}25` : "transparent",
+              color: active ? c : C.dim,
+              border: `1px solid ${active ? c : C.border}`,
+            }}>{p}</button>
+          );
+        })}
+      </div>
+
+      {filtered.length === 0 ? (
+        <EmptyMsg msg="No rookies match this filter yet." />
+      ) : (
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+          gap: 10,
+        }}>
+          {filtered.map((r, idx) => {
+            const tierColor = TIER_COLOR[r.tier] || C.dim;
+            const tierLabel = TIER_LABEL[r.tier] || r.tier;
+            const tierTip = TIER_TIP[r.tier] || "";
+            return (
+              <div key={`${r.player_name}-${idx}`} style={{
+                background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12,
+                display: "flex", flexDirection: "column", gap: 8,
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <PlayerHeadshot name={r.player_name} position={r.position || "PICK"} size={36} />
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 800, color: C.primary, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {r.player_name}
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3 }}>
+                      <PosBadge pos={r.position || "—"} />
+                      <span title={tierTip} style={{
+                        fontFamily: MONO, fontSize: 10, fontWeight: 700, letterSpacing: "0.06em",
+                        padding: "2px 6px", borderRadius: 3, cursor: "help",
+                        background: `${tierColor}18`, color: tierColor, border: `1px solid ${tierColor}40`,
+                      }}>{tierLabel}</span>
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontFamily: MONO, fontSize: 10, color: C.dim, letterSpacing: "0.06em" }}>ADP</div>
+                    <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 800, color: C.gold, lineHeight: 1 }}>
+                      {r.p50_pick != null ? r.p50_pick.toFixed(1) : (r.avg_pick != null ? r.avg_pick.toFixed(1) : "—")}
+                    </div>
+                  </div>
+                </div>
+                <div style={{
+                  display: "flex", justifyContent: "space-between", gap: 8,
+                  paddingTop: 8, borderTop: `1px solid ${C.border}`,
+                  fontFamily: MONO, fontSize: 11,
+                }}>
+                  <div>
+                    <div style={{ color: C.dim, letterSpacing: "0.06em", marginBottom: 2 }}>RANGE</div>
+                    <div style={{ color: C.primary, fontWeight: 700 }}>
+                      {r.p10_pick != null && r.p90_pick != null
+                        ? `${r.p10_pick.toFixed(0)}–${r.p90_pick.toFixed(0)}`
+                        : "—"}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ color: C.dim, letterSpacing: "0.06em", marginBottom: 2 }}>R1 ODDS</div>
+                    <div style={{ color: C.primary, fontWeight: 700 }}>
+                      {r.pct_round_1 != null ? `${(r.pct_round_1 * 100).toFixed(0)}%` : "—"}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ color: C.dim, letterSpacing: "0.06em", marginBottom: 2 }}>SAMPLE</div>
+                    <div style={{ color: C.primary, fontWeight: 700 }}>n={r.sample_n ?? 0}</div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -987,9 +1384,9 @@ export default function DraftHQPage() {
         </div>
         <GlowTabs tabs={TABS} active={tab} onChange={setTab} />
         {tab === "your-picks"  && <YourPicks  lid={currentLeagueId || ""} owner={currentOwner} ownerId={currentOwnerId} />}
-        {tab === "draft-board" && <DraftBoard />}
+        {tab === "draft-board" && <DraftBoard lid={currentLeagueId || ""} />}
         {tab === "intel"       && <DraftIntel lid={currentLeagueId || ""} />}
-        {tab === "rookies"     && <Rookies    />}
+        {tab === "rookies"     && <Rookies    lid={currentLeagueId || ""} />}
       </div>
     </div>
   );

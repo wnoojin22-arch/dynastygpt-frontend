@@ -361,6 +361,8 @@ export const getDraftHQYourPicks = (id: string, owner: string, userId?: string |
 export const getDraftHQTendencies = (id: string) => get<any>(`${L(id)}/draft-hq/tendencies`);
 export const getDraftHQOwnerStrategicIntel = (id: string) =>
   get<any>(`${L(id)}/draft-hq/owner-strategic-intel`);
+export const getDraftHQRookieADP = (id: string, limit = 60, position?: string) =>
+  get<any>(`${L(id)}/draft-hq/rookie-adp-2026?limit=${limit}${position ? `&position=${E(position)}` : ""}`);
 
 // ── Rankings ─────────────────────────────────────────────────────────────
 export const getDynastyRanks = (id: string) => get<{ rankings: unknown[] }>(`${L(id)}/dynasty-ranks`);
