@@ -187,6 +187,9 @@ type ADPRookie = {
   p50_pick: number | null;
   p90_pick: number | null;
   pct_round_1: number | null;
+  pct_round: number | null;
+  expected_round: number | null;
+  pct_by_round: Record<string, number> | null;
   sample_n: number;
   format_key: string;
   tier: string;
@@ -1261,14 +1264,14 @@ function Rookies({ lid }: { lid: string }) {
                   </div>
                   <div style={{ borderLeft: `1px solid ${C.border}`, borderRight: `1px solid ${C.border}` }}>
                     <div style={{ fontFamily: MONO, fontSize: isMobile ? 9 : 10, color: "#c5c6d2", letterSpacing: 0, marginBottom: isMobile ? 2 : 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                      R1 %
+                      {`R${r.expected_round ?? 1} %`}
                     </div>
                     <div style={{ fontFamily: MONO, fontSize: isMobile ? 13 : 16, fontWeight: 800, whiteSpace: "nowrap",
-                      color: r.pct_round_1 != null && r.pct_round_1 >= 0.7 ? C.green
-                           : r.pct_round_1 != null && r.pct_round_1 >= 0.4 ? C.gold
+                      color: r.pct_round != null && r.pct_round >= 0.7 ? C.green
+                           : r.pct_round != null && r.pct_round >= 0.4 ? C.gold
                            : C.primary,
                     }}>
-                      {r.pct_round_1 != null ? `${(r.pct_round_1 * 100).toFixed(0)}%` : "—"}
+                      {r.pct_round != null ? `${(r.pct_round * 100).toFixed(0)}%` : "—"}
                     </div>
                   </div>
                   <div>
