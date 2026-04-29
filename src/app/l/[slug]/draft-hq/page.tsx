@@ -4,6 +4,7 @@ import React, { useState, useMemo } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useLeagueStore } from "@/lib/stores/league-store";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import {
   getDraftHQYourPicks,
   getDraftHQTendencies,
@@ -91,6 +92,7 @@ function GlowTabs({ tabs, active, onChange }: {
   tabs: { id: string; label: string }[];
   active: string; onChange: (id: string) => void;
 }) {
+  const isMobile = useIsMobile();
   return (
     <div style={{
       display: "flex", gap: 0, borderBottom: `1px solid ${C.borderLt}`,
@@ -100,8 +102,8 @@ function GlowTabs({ tabs, active, onChange }: {
         const act = active === t.id;
         return (
           <div key={t.id} onClick={() => onChange(t.id)} style={{
-            padding: "10px 22px",
-            fontFamily: SANS, fontSize: 13, fontWeight: 800, letterSpacing: "0.10em",
+            padding: isMobile ? "8px 12px" : "10px 22px",
+            fontFamily: SANS, fontSize: isMobile ? 11 : 13, fontWeight: 800, letterSpacing: "0.08em",
             color: act ? C.gold : C.dim, cursor: "pointer",
             borderBottom: act ? `3px solid ${C.gold}` : "3px solid transparent",
             boxShadow: act ? `0 3px 12px ${C.gold}40, 0 1px 4px ${C.gold}25` : "none",
@@ -1064,6 +1066,7 @@ function talentTier(adp: number | null | undefined): TalentTier {
 
 function Rookies({ lid }: { lid: string }) {
   const enabled = !!lid;
+  const isMobile = useIsMobile();
   const [posFilter, setPosFilter] = useState<"ALL" | "QB" | "RB" | "WR" | "TE">("ALL");
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
 
@@ -1084,42 +1087,42 @@ function Rookies({ lid }: { lid: string }) {
     : rookies.filter(r => (r.position || "").toUpperCase() === posFilter);
 
   return (
-    <div style={{ padding: "20px 0" }}>
+    <div style={{ padding: isMobile ? "14px 0" : "20px 0" }}>
       {/* Title block — over the top */}
-      <div style={{ marginBottom: 18 }}>
+      <div style={{ marginBottom: isMobile ? 12 : 18 }}>
         <div style={{
-          fontFamily: SANS, fontSize: 11, fontWeight: 800, color: C.gold,
+          fontFamily: SANS, fontSize: isMobile ? 10 : 11, fontWeight: 800, color: C.gold,
           letterSpacing: "0.22em", marginBottom: 4,
         }}>2026 ROOKIE DRAFT</div>
         <div style={{
-          fontFamily: SANS, fontSize: 36, fontWeight: 900, color: C.primary,
-          letterSpacing: "-0.01em", lineHeight: 1, marginBottom: 8,
+          fontFamily: SANS, fontSize: isMobile ? 26 : 36, fontWeight: 900, color: C.primary,
+          letterSpacing: "-0.01em", lineHeight: 1, marginBottom: isMobile ? 6 : 8,
           background: `linear-gradient(180deg, ${C.primary} 0%, ${C.gold} 200%)`,
           WebkitBackgroundClip: "text", backgroundClip: "text",
           WebkitTextFillColor: "transparent",
         }}>Rookie ADP</div>
         <div style={{
-          fontFamily: SANS, fontSize: 14, color: C.secondary, lineHeight: 1.55,
+          fontFamily: SANS, fontSize: isMobile ? 12.5 : 14, color: C.secondary, lineHeight: 1.55,
           maxWidth: 720,
         }}>
-          Built from <span style={{ color: C.gold, fontWeight: 700 }}>10,000+ real 2026 rookie drafts</span> across the Sleeper network.
-          Format-aware to your league&rsquo;s scoring, QB count, and TE premium.
-          Refreshed daily.
+          Built from{" "}
+          <span style={{ color: C.gold, fontWeight: 700 }}>10,000+ real 2026 rookie drafts</span>
+          {" "}across the Sleeper network. Format-aware to your league&rsquo;s scoring, QB count, and TE premium. Refreshed daily.
         </div>
-        <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim, letterSpacing: "0.06em", marginTop: 8 }}>
+        <div style={{ fontFamily: MONO, fontSize: isMobile ? 10 : 11, color: C.dim, letterSpacing: "0.06em", marginTop: 8 }}>
           {rookies.length} rookies · tiers earned by board position
         </div>
       </div>
 
       {/* Position filter */}
-      <div style={{ display: "flex", gap: 6, marginBottom: 18, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: isMobile ? 4 : 6, marginBottom: isMobile ? 12 : 18, flexWrap: "wrap" }}>
         {(["ALL", "QB", "RB", "WR", "TE"] as const).map(p => {
           const active = posFilter === p;
           const c = p === "ALL" ? C.gold : (POS_COLOR[p as Pos] || C.dim);
           return (
             <button key={p} onClick={() => setPosFilter(p)} style={{
-              fontFamily: MONO, fontSize: 12, fontWeight: 800, letterSpacing: "0.08em",
-              padding: "8px 18px", borderRadius: 4, cursor: "pointer",
+              fontFamily: MONO, fontSize: isMobile ? 11 : 12, fontWeight: 800, letterSpacing: "0.08em",
+              padding: isMobile ? "6px 12px" : "8px 18px", borderRadius: 4, cursor: "pointer",
               background: active ? `${c}25` : "transparent",
               color: active ? c : C.dim,
               border: `1px solid ${active ? c : C.border}`,
@@ -1135,8 +1138,8 @@ function Rookies({ lid }: { lid: string }) {
       ) : (
         <div style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(310px, 1fr))",
-          gap: 14,
+          gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(auto-fill, minmax(310px, 1fr))",
+          gap: isMobile ? 8 : 14,
         }}>
           {filtered.map((r, idx) => {
             const adp = r.avg_pick ?? r.p50_pick;
@@ -1154,8 +1157,10 @@ function Rookies({ lid }: { lid: string }) {
                   position: "relative",
                   background: `${tier.bgGrad}, ${C.card}`,
                   border: `1px solid ${isHover ? `${tier.color}80` : `${tier.color}30`}`,
-                  borderRadius: 10, padding: 16,
-                  display: "flex", flexDirection: "column", gap: 14,
+                  borderRadius: isMobile ? 8 : 10,
+                  padding: isMobile ? 9 : 16,
+                  display: "flex", flexDirection: "column",
+                  gap: isMobile ? 8 : 14,
                   overflow: "hidden",
                   transform: isHover ? "translateY(-2px)" : "translateY(0)",
                   boxShadow: isHover
@@ -1166,30 +1171,35 @@ function Rookies({ lid }: { lid: string }) {
               >
                 {/* Tier accent stripe */}
                 <div style={{
-                  position: "absolute", top: 0, left: 0, right: 0, height: 4,
+                  position: "absolute", top: 0, left: 0, right: 0, height: isMobile ? 3 : 4,
                   background: `linear-gradient(90deg, ${tier.color} 0%, ${tier.color}40 100%)`,
                 }} />
 
                 {/* Header row: headshot, name, tier box */}
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <PlayerHeadshot name={r.player_name} position={r.position || "PICK"} size={56} sleeperId={r.sleeper_id} />
+                <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 7 : 12 }}>
+                  <PlayerHeadshot
+                    name={r.player_name}
+                    position={r.position || "PICK"}
+                    size={isMobile ? 36 : 56}
+                    sleeperId={r.sleeper_id}
+                  />
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <div style={{
-                      fontFamily: SANS, fontSize: 17, fontWeight: 800, color: C.primary,
+                      fontFamily: SANS, fontSize: isMobile ? 12 : 17, fontWeight: 800, color: C.primary,
                       lineHeight: 1.15,
                       overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                     }}>{r.player_name}</div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: isMobile ? 3 : 6 }}>
                       <span style={{
-                        fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.08em",
-                        padding: "3px 8px", borderRadius: 3,
+                        fontFamily: MONO, fontSize: isMobile ? 9 : 11, fontWeight: 800, letterSpacing: "0.08em",
+                        padding: isMobile ? "2px 5px" : "3px 8px", borderRadius: 3,
                         background: `${posCol}20`, color: posCol, border: `1px solid ${posCol}50`,
                       }}>{r.position || "—"}</span>
                     </div>
                   </div>
                   {/* Tier color-coded box */}
                   <div style={{
-                    width: 44, height: 44, borderRadius: 6,
+                    width: isMobile ? 28 : 44, height: isMobile ? 28 : 44, borderRadius: isMobile ? 5 : 6,
                     background: `linear-gradient(135deg, ${tier.color} 0%, ${tier.color}c0 100%)`,
                     display: "flex", alignItems: "center", justifyContent: "center",
                     flexDirection: "column",
@@ -1197,7 +1207,7 @@ function Rookies({ lid }: { lid: string }) {
                     flexShrink: 0,
                   }}>
                     <span style={{
-                      fontFamily: MONO, fontSize: 16, fontWeight: 900, color: "#0a0b14",
+                      fontFamily: MONO, fontSize: isMobile ? 11 : 16, fontWeight: 900, color: "#0a0b14",
                       letterSpacing: "0.02em", lineHeight: 1,
                     }}>{tier.label}</span>
                   </div>
@@ -1206,14 +1216,14 @@ function Rookies({ lid }: { lid: string }) {
                 {/* Massive ADP */}
                 <div style={{
                   display: "flex", alignItems: "baseline", justifyContent: "center",
-                  gap: 8, padding: "4px 0",
+                  gap: isMobile ? 5 : 8, padding: isMobile ? "2px 0" : "4px 0",
                 }}>
                   <span style={{
-                    fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.dim,
+                    fontFamily: MONO, fontSize: isMobile ? 9 : 11, fontWeight: 800, color: C.dim,
                     letterSpacing: "0.18em",
                   }}>ADP</span>
                   <span style={{
-                    fontFamily: MONO, fontSize: 38, fontWeight: 900, color: C.gold,
+                    fontFamily: MONO, fontSize: isMobile ? 26 : 38, fontWeight: 900, color: C.gold,
                     lineHeight: 1, letterSpacing: "-0.02em",
                     textShadow: `0 0 24px ${C.gold}40`,
                   }}>
@@ -1223,22 +1233,22 @@ function Rookies({ lid }: { lid: string }) {
 
                 {/* Earliest / Latest / R1 odds row */}
                 <div style={{
-                  display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8,
-                  paddingTop: 12, borderTop: `1px solid ${tier.color}25`,
+                  display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: isMobile ? 4 : 8,
+                  paddingTop: isMobile ? 7 : 12, borderTop: `1px solid ${tier.color}25`,
                 }}>
                   <div style={{ textAlign: "center" }}>
-                    <div style={{ fontFamily: MONO, fontSize: 10, color: C.dim, letterSpacing: "0.10em", marginBottom: 3 }}>
+                    <div style={{ fontFamily: MONO, fontSize: isMobile ? 8 : 10, color: C.dim, letterSpacing: "0.08em", marginBottom: isMobile ? 1 : 3 }}>
                       EARLIEST
                     </div>
-                    <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: C.primary }}>
+                    <div style={{ fontFamily: MONO, fontSize: isMobile ? 12 : 16, fontWeight: 800, color: C.primary }}>
                       {fmtPick(r.p10_pick)}
                     </div>
                   </div>
                   <div style={{ textAlign: "center", borderLeft: `1px solid ${C.border}`, borderRight: `1px solid ${C.border}` }}>
-                    <div style={{ fontFamily: MONO, fontSize: 10, color: C.dim, letterSpacing: "0.10em", marginBottom: 3 }}>
+                    <div style={{ fontFamily: MONO, fontSize: isMobile ? 8 : 10, color: C.dim, letterSpacing: "0.08em", marginBottom: isMobile ? 1 : 3 }}>
                       R1 ODDS
                     </div>
-                    <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800,
+                    <div style={{ fontFamily: MONO, fontSize: isMobile ? 12 : 16, fontWeight: 800,
                       color: r.pct_round_1 != null && r.pct_round_1 >= 0.7 ? C.green
                            : r.pct_round_1 != null && r.pct_round_1 >= 0.4 ? C.gold
                            : C.primary,
@@ -1247,10 +1257,10 @@ function Rookies({ lid }: { lid: string }) {
                     </div>
                   </div>
                   <div style={{ textAlign: "center" }}>
-                    <div style={{ fontFamily: MONO, fontSize: 10, color: C.dim, letterSpacing: "0.10em", marginBottom: 3 }}>
+                    <div style={{ fontFamily: MONO, fontSize: isMobile ? 8 : 10, color: C.dim, letterSpacing: "0.08em", marginBottom: isMobile ? 1 : 3 }}>
                       LATEST
                     </div>
-                    <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: C.primary }}>
+                    <div style={{ fontFamily: MONO, fontSize: isMobile ? 12 : 16, fontWeight: 800, color: C.primary }}>
                       {fmtPick(r.p90_pick)}
                     </div>
                   </div>
@@ -1268,15 +1278,16 @@ function Rookies({ lid }: { lid: string }) {
 // COMING SOON — locked tab panel (soft launch)
 // ═════════════════════════════════════════════════════════════════════════
 function ComingSoon({ tabId }: { tabId: string }) {
+  const isMobile = useIsMobile();
   const copy = COMING_SOON_COPY[tabId];
   if (!copy) return null;
   return (
-    <div style={{ padding: "32px 0 60px" }}>
+    <div style={{ padding: isMobile ? "20px 0 40px" : "32px 0 60px" }}>
       <div style={{
         position: "relative", overflow: "hidden",
         background: `linear-gradient(180deg, ${C.goldGlow} 0%, ${C.card} 70%)`,
-        border: `1px solid ${C.goldBorder}`, borderRadius: 14,
-        padding: "44px 36px",
+        border: `1px solid ${C.goldBorder}`, borderRadius: isMobile ? 10 : 14,
+        padding: isMobile ? "26px 18px" : "44px 36px",
       }}>
         {/* Top accent stripe */}
         <div style={{
@@ -1297,26 +1308,26 @@ function ComingSoon({ tabId }: { tabId: string }) {
             display: "inline-flex", alignItems: "center", gap: 8,
             padding: "5px 11px", borderRadius: 999,
             background: `${C.gold}15`, border: `1px solid ${C.goldBorder}`,
-            marginBottom: 18,
+            marginBottom: isMobile ? 12 : 18,
           }}>
             <span style={{
               width: 6, height: 6, borderRadius: "50%", background: C.gold,
               boxShadow: `0 0 8px ${C.gold}`,
             }} />
             <span style={{
-              fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.gold,
+              fontFamily: MONO, fontSize: isMobile ? 10 : 11, fontWeight: 800, color: C.gold,
               letterSpacing: "0.16em",
             }}>IN FLIGHT</span>
           </div>
           <div style={{
-            fontFamily: SANS, fontSize: 36, fontWeight: 900, color: C.primary,
-            letterSpacing: "-0.01em", lineHeight: 1.05, marginBottom: 16,
+            fontFamily: SANS, fontSize: isMobile ? 26 : 36, fontWeight: 900, color: C.primary,
+            letterSpacing: "-0.01em", lineHeight: 1.05, marginBottom: isMobile ? 12 : 16,
             background: `linear-gradient(180deg, ${C.primary} 0%, ${C.gold} 220%)`,
             WebkitBackgroundClip: "text", backgroundClip: "text",
             WebkitTextFillColor: "transparent",
           }}>{copy.title}</div>
           <div style={{
-            fontFamily: SANS, fontSize: 16, color: C.secondary, lineHeight: 1.7,
+            fontFamily: SANS, fontSize: isMobile ? 13.5 : 16, color: C.secondary, lineHeight: 1.65,
           }}>{copy.body}</div>
         </div>
       </div>
@@ -1333,6 +1344,7 @@ export default function DraftHQPage() {
   const searchParams = useSearchParams();
   const tab = searchParams.get("tab") || "rookies";
   const { currentLeagueId } = useLeagueStore();
+  const isMobile = useIsMobile();
 
   const setTab = (id: string) => {
     const next = new URLSearchParams(searchParams.toString());
@@ -1342,18 +1354,18 @@ export default function DraftHQPage() {
   };
 
   return (
-    <div style={{ background: C.bg, minHeight: "100vh", color: C.primary, padding: "20px 16px 80px" }}>
+    <div style={{ background: C.bg, minHeight: "100vh", color: C.primary, padding: isMobile ? "12px 10px 60px" : "20px 16px 80px" }}>
       <style>{`@keyframes rk-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }`}</style>
       <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-        <div style={{ marginBottom: 14 }}>
+        <div style={{ marginBottom: isMobile ? 10 : 14 }}>
           <div style={{
-            fontFamily: SANS, fontSize: 11, color: C.gold, letterSpacing: "0.18em", fontWeight: 800,
+            fontFamily: SANS, fontSize: isMobile ? 10 : 11, color: C.gold, letterSpacing: "0.18em", fontWeight: 800,
           }}>BETA · DRAFT HQ</div>
           <div style={{
-            fontFamily: SANS, fontSize: 28, fontWeight: 900, color: C.primary, marginTop: 4, lineHeight: 1.1,
+            fontFamily: SANS, fontSize: isMobile ? 22 : 28, fontWeight: 900, color: C.primary, marginTop: 4, lineHeight: 1.1,
           }}>Rookie Draft Cheat Sheet</div>
           <div style={{
-            fontFamily: MONO, fontSize: 12, color: C.dim, marginTop: 6, letterSpacing: "0.04em",
+            fontFamily: MONO, fontSize: isMobile ? 11 : 12, color: C.dim, marginTop: 6, letterSpacing: "0.04em",
           }}>Format-aware ranks · league tendencies · pick-trade comps</div>
         </div>
         <GlowTabs tabs={TABS} active={tab} onChange={setTab} />
