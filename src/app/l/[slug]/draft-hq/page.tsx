@@ -353,7 +353,7 @@ function YourPicks({ lid, owner, ownerId }: { lid: string; owner: string | null;
     enabled,
   });
   const adpQ = useQuery({
-    queryKey: ["draft-hq-rookie-adp", lid],
+    queryKey: ["draft-hq-rookie-adp-v2", lid],
     queryFn: () => getDraftHQRookieADP(lid, 80),
     staleTime: 600_000,
     enabled,
@@ -586,7 +586,7 @@ function YourPicks({ lid, owner, ownerId }: { lid: string; owner: string | null;
 function DraftBoard({ lid }: { lid: string }) {
   const enabled = !!lid;
   const adpQ = useQuery({
-    queryKey: ["draft-hq-rookie-adp", lid],
+    queryKey: ["draft-hq-rookie-adp-v2", lid],
     queryFn: () => getDraftHQRookieADP(lid, 80),
     staleTime: 600_000,
     enabled,
@@ -1074,7 +1074,7 @@ function Rookies({ lid }: { lid: string }) {
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
 
   const adpQ = useQuery({
-    queryKey: ["draft-hq-rookie-adp", lid],
+    queryKey: ["draft-hq-rookie-adp-v2", lid],
     queryFn: () => getDraftHQRookieADP(lid, 100),
     staleTime: 600_000,
     enabled,
