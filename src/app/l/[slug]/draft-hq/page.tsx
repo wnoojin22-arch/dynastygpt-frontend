@@ -16,11 +16,26 @@ import PlayerHeadshot from "@/components/league/PlayerHeadshot";
 import type { Pos } from "./mocks";
 
 const TABS = [
+  { id: "rookies",     label: "ROOKIE ADP"  },
   { id: "your-picks",  label: "YOUR PICKS"  },
   { id: "draft-board", label: "DRAFT BOARD" },
   { id: "intel",       label: "DRAFT INTEL" },
-  { id: "rookies",     label: "ROOKIES"     },
 ];
+
+const COMING_SOON_COPY: Record<string, { title: string; body: string }> = {
+  "your-picks": {
+    title: "Your Picks",
+    body: "Personalized strategy for every pick you own. Likely available rookies, trade-up partners with realistic costs from real trades, trade-back scenarios, sell signals — all built around YOUR roster, YOUR league, YOUR picks. Launching this draft season.",
+  },
+  "draft-board": {
+    title: "Draft Board",
+    body: "Every pick in your draft, every owner. See likely targets, biggest roster needs, and trade-up signals across the entire draft order. Spot the picks worth approaching and the ones worth avoiding before draft day. Launching this draft season.",
+  },
+  "intel": {
+    title: "Draft Intel",
+    body: "Reconnaissance on your league. Owner cards showing roster strengths, position needs, draft-day trade history, and trade flags. League-wide tendencies — does your league reach on RBs? Let QBs slide? — pulled from your actual draft history. Launching this draft season.",
+  },
+};
 
 const POS_COLOR: Record<Pos, string> = {
   QB: "#e47272", RB: "#6bb8e0", WR: "#7dd3a0", TE: "#e09c6b",
@@ -1075,15 +1090,23 @@ function Rookies({ lid }: { lid: string }) {
         <div style={{
           fontFamily: SANS, fontSize: 11, fontWeight: 800, color: C.gold,
           letterSpacing: "0.22em", marginBottom: 4,
-        }}>FORMAT-AWARE · 2026</div>
+        }}>2026 ROOKIE DRAFT</div>
         <div style={{
           fontFamily: SANS, fontSize: 36, fontWeight: 900, color: C.primary,
-          letterSpacing: "-0.01em", lineHeight: 1, marginBottom: 4,
+          letterSpacing: "-0.01em", lineHeight: 1, marginBottom: 8,
           background: `linear-gradient(180deg, ${C.primary} 0%, ${C.gold} 200%)`,
           WebkitBackgroundClip: "text", backgroundClip: "text",
           WebkitTextFillColor: "transparent",
         }}>Rookie ADP</div>
-        <div style={{ fontFamily: MONO, fontSize: 12, color: C.dim, letterSpacing: "0.04em" }}>
+        <div style={{
+          fontFamily: SANS, fontSize: 14, color: C.secondary, lineHeight: 1.55,
+          maxWidth: 720,
+        }}>
+          Built from <span style={{ color: C.gold, fontWeight: 700 }}>10,000+ real 2026 rookie drafts</span> across the Sleeper network.
+          Format-aware to your league&rsquo;s scoring, QB count, and TE premium.
+          Refreshed daily.
+        </div>
+        <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim, letterSpacing: "0.06em", marginTop: 8 }}>
           {rookies.length} rookies · tiers earned by board position
         </div>
       </div>
@@ -1242,18 +1265,78 @@ function Rookies({ lid }: { lid: string }) {
 }
 
 // ═════════════════════════════════════════════════════════════════════════
+// COMING SOON — locked tab panel (soft launch)
+// ═════════════════════════════════════════════════════════════════════════
+function ComingSoon({ tabId }: { tabId: string }) {
+  const copy = COMING_SOON_COPY[tabId];
+  if (!copy) return null;
+  return (
+    <div style={{ padding: "32px 0 60px" }}>
+      <div style={{
+        position: "relative", overflow: "hidden",
+        background: `linear-gradient(180deg, ${C.goldGlow} 0%, ${C.card} 70%)`,
+        border: `1px solid ${C.goldBorder}`, borderRadius: 14,
+        padding: "44px 36px",
+      }}>
+        {/* Top accent stripe */}
+        <div style={{
+          position: "absolute", top: 0, left: 0, right: 0, height: 3,
+          background: `linear-gradient(90deg, transparent 0%, ${C.gold} 50%, transparent 100%)`,
+          backgroundSize: "200% 100%",
+          animation: "rk-shimmer 3.6s linear infinite",
+        }} />
+        {/* Soft glow blob */}
+        <div style={{
+          position: "absolute", top: -120, right: -120, width: 320, height: 320,
+          borderRadius: "50%",
+          background: `radial-gradient(circle, ${C.gold}18 0%, transparent 60%)`,
+          pointerEvents: "none",
+        }} />
+        <div style={{ position: "relative", maxWidth: 680 }}>
+          <div style={{
+            display: "inline-flex", alignItems: "center", gap: 8,
+            padding: "5px 11px", borderRadius: 999,
+            background: `${C.gold}15`, border: `1px solid ${C.goldBorder}`,
+            marginBottom: 18,
+          }}>
+            <span style={{
+              width: 6, height: 6, borderRadius: "50%", background: C.gold,
+              boxShadow: `0 0 8px ${C.gold}`,
+            }} />
+            <span style={{
+              fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.gold,
+              letterSpacing: "0.16em",
+            }}>IN FLIGHT</span>
+          </div>
+          <div style={{
+            fontFamily: SANS, fontSize: 36, fontWeight: 900, color: C.primary,
+            letterSpacing: "-0.01em", lineHeight: 1.05, marginBottom: 16,
+            background: `linear-gradient(180deg, ${C.primary} 0%, ${C.gold} 220%)`,
+            WebkitBackgroundClip: "text", backgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+          }}>{copy.title}</div>
+          <div style={{
+            fontFamily: SANS, fontSize: 16, color: C.secondary, lineHeight: 1.7,
+          }}>{copy.body}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════════════
 // PAGE
 // ═════════════════════════════════════════════════════════════════════════
 export default function DraftHQPage() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const tab = searchParams.get("tab") || "your-picks";
-  const { currentLeagueId, currentOwner, currentOwnerId } = useLeagueStore();
+  const tab = searchParams.get("tab") || "rookies";
+  const { currentLeagueId } = useLeagueStore();
 
   const setTab = (id: string) => {
     const next = new URLSearchParams(searchParams.toString());
-    if (id === "your-picks") next.delete("tab"); else next.set("tab", id);
+    if (id === "rookies") next.delete("tab"); else next.set("tab", id);
     const qs = next.toString();
     router.push(`${pathname}${qs ? `?${qs}` : ""}`);
   };
@@ -1274,10 +1357,10 @@ export default function DraftHQPage() {
           }}>Format-aware ranks · league tendencies · pick-trade comps</div>
         </div>
         <GlowTabs tabs={TABS} active={tab} onChange={setTab} />
-        {tab === "your-picks"  && <YourPicks  lid={currentLeagueId || ""} owner={currentOwner} ownerId={currentOwnerId} />}
-        {tab === "draft-board" && <DraftBoard lid={currentLeagueId || ""} />}
-        {tab === "intel"       && <DraftIntel lid={currentLeagueId || ""} />}
         {tab === "rookies"     && <Rookies    lid={currentLeagueId || ""} />}
+        {tab === "your-picks"  && <ComingSoon tabId="your-picks" />}
+        {tab === "draft-board" && <ComingSoon tabId="draft-board" />}
+        {tab === "intel"       && <ComingSoon tabId="intel" />}
       </div>
     </div>
   );
