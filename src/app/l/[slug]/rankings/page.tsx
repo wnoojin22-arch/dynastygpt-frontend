@@ -576,7 +576,7 @@ function getVal(p: GlobalPlayerRanking, mode: PlayerMode): number {
   return p.sha_value;
 }
 
-function PlayerRankings({ overview }: { overview: any }) {
+function PlayerRankings({ lid }: { lid: string }) {
   const { openPlayerCard } = usePlayerCardStore();
   const [mode, setMode] = useState<PlayerMode>("overall");
   const [posFilter, setPosFilter] = useState("ALL");
@@ -585,19 +585,13 @@ function PlayerRankings({ overview }: { overview: any }) {
   const wrapRef = useRef<HTMLDivElement>(null);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["global-player-rankings"],
-    queryFn: getGlobalPlayerRankings,
+    queryKey: ["global-player-rankings", lid],
+    queryFn: () => getGlobalPlayerRankings(lid),
+    enabled: !!lid,
     staleTime: 600_000,
   });
 
-  const is1QB = overview?.format && !overview.format.is_superflex;
-  const allPlayers = data?.players || [];
-
-  // Apply 1QB format adjustment to QBs
-  const formatAdjusted = useMemo(() => {
-    if (!is1QB) return allPlayers;
-    return allPlayers.map((p) => p.position !== "QB" ? p : { ...p, sha_value: Math.round(p.sha_value * 0.73) });
-  }, [allPlayers, is1QB]);
+  const formatAdjusted = data?.players || [];
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -843,7 +837,7 @@ export default function RankingsPage() {
       {/* Content */}
       {subTab === "team" && <TeamPower lid={lid} overview={overview} mobile={mobile} />}
       {subTab === "positional" && <PositionalPower lid={lid} mobile={mobile} />}
-      {subTab === "players" && <PlayerRankings overview={overview} />}
+      {subTab === "players" && <PlayerRankings lid={lid} />}
     </div>
   );
 }

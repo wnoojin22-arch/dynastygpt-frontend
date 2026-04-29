@@ -370,8 +370,11 @@ export const getUserLeagues = (uid: string) => get<{ user_id: string; display_na
 export const getUserTrades = (uid: string, leagueId?: string) => get<{ trades: unknown[] }>(`${U(uid)}/trades${leagueId ? `?league_id=${leagueId}` : ""}`);
 export const getUserProfile = (uid: string) => get<{ user_id: string; display_name: string; leagues: unknown[]; total_trades: number }>(`${U(uid)}/profile`);
 
-// ── Global Player Rankings (no league required) ─────────────────────
-export const getGlobalPlayerRankings = () => get<GlobalPlayerRankingsResponse>("/api/market/player-rankings");
+// ── Global Player Rankings (format-adjusted when league_id passed) ──
+export const getGlobalPlayerRankings = (leagueId?: string) =>
+  get<GlobalPlayerRankingsResponse>(
+    `/api/market/player-rankings${leagueId ? `?league_id=${leagueId}` : ""}`,
+  );
 
 // ── Admin ────────────────────────────────────────────────────────────────
 export const enrichTrades = (id: string) => get<unknown>(`${L(id)}/trades/enrich`);
