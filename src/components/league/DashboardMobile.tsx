@@ -11,7 +11,7 @@ import {
   getMarketFeed, getCoachesCorner, getRosterValueChange,
 } from "@/lib/api";
 import type { DynastyScoreResponse } from "@/lib/api";
-import { Plus, FileText, ChevronRight, ChevronDown, Activity, Search, X, BarChart3, Users } from "lucide-react";
+import { Plus, FileText, ChevronRight, ChevronDown, Activity, Search, X, BarChart3 } from "lucide-react";
 import { useTradeBuilderStore } from "@/lib/stores/trade-builder-store";
 import { usePlayerCardStore } from "@/lib/stores/player-card-store";
 import { motion, AnimatePresence } from "framer-motion";
@@ -348,7 +348,6 @@ export default function DashboardMobile({ lid, owner, ownerId }: { lid: string; 
           { label: "SCOUTING", sub: "Scout opponents", icon: Search, color: C.blue, route: "intel?tab=opponents" },
           { label: "DRAFT ROOM", sub: "Picks & grades", icon: FileText, color: "#b39ddb", route: "draft" },
           { label: "RANKINGS", sub: "Full league", icon: BarChart3, color: C.orange, route: "rankings" },
-          { label: "YOUR ROSTER", sub: "Players & values", icon: Users, color: C.blue, route: "__roster" },
         ].map((btn) => {
           const Icon = btn.icon;
           return (
