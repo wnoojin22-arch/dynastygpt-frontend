@@ -338,10 +338,12 @@ export default function DashboardMobile({ lid, owner, ownerId }: { lid: string; 
         </>
       )}
 
-      {/* ── 3. ACTION GRID — 3x2 ── */}
+      {/* ── 3. ACTION GRID — 3 cols ── */}
+      <style>{`@keyframes dhqMobNewPulse{0%,100%{box-shadow:0 0 4px rgba(212,165,50,0.5)}50%{box-shadow:0 0 10px rgba(212,165,50,0.9)}}`}</style>
       <div className="grid grid-cols-3 gap-2 px-3">
         {[
           { label: "BUILD TRADE", sub: "Find your next move", icon: Plus, color: C.gold, route: "trades" },
+          { label: "DRAFT HQ", sub: "Rookie ADP — live", icon: FileText, color: C.gold, route: "draft-hq", isNew: true },
           { label: "FRANCHISE", sub: "Where you stand", icon: Activity, color: C.green, route: "intel?tab=my-franchise" },
           { label: "SCOUTING", sub: "Scout opponents", icon: Search, color: C.blue, route: "intel?tab=opponents" },
           { label: "DRAFT ROOM", sub: "Picks & grades", icon: FileText, color: "#b39ddb", route: "draft" },
@@ -353,13 +355,22 @@ export default function DashboardMobile({ lid, owner, ownerId }: { lid: string; 
             <button
               key={btn.label}
               onClick={() => btn.route === "__roster" ? document.getElementById("mobile-roster")?.scrollIntoView({ behavior: "smooth" }) : nav(btn.route)}
-              className="flex flex-col items-center justify-center gap-1 py-2.5 px-1 rounded-xl active:scale-95 transition-transform"
+              className="relative flex flex-col items-center justify-center gap-1 py-2.5 px-1 rounded-xl active:scale-95 transition-transform"
               style={{
                 background: C.card,
                 border: `1px solid ${btn.color}25`,
                 borderTop: `2px solid ${btn.color}60`,
               }}
             >
+              {btn.isNew && (
+                <span style={{
+                  position: "absolute", top: -5, right: -3,
+                  fontFamily: MONO, fontSize: 7, fontWeight: 900, letterSpacing: "0.08em",
+                  color: "#06080d", background: C.gold,
+                  padding: "1px 5px", borderRadius: 3,
+                  animation: "dhqMobNewPulse 2s ease infinite",
+                }}>NEW</span>
+              )}
               <Icon size={14} style={{ color: btn.color }} />
               <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, letterSpacing: "0.08em", color: btn.color }}>{btn.label}</span>
               <span style={{ fontFamily: SANS, fontSize: 9, color: C.dim }}>{btn.sub}</span>
