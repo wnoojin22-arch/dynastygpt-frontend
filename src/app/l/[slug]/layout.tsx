@@ -11,7 +11,7 @@ import OwnerQuickViewModal from "@/components/league/OwnerQuickViewModal";
 import FeedbackWidget from "@/components/feedback/FeedbackWidget";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getOwners, getOverview, getRankings, syncLeague, getLeagueBySlug } from "@/lib/api";
-import { Home, LayoutGrid, Search, Zap, BarChart3, Database } from "lucide-react";
+import { Home, LayoutGrid, Search, Zap, BarChart3, Database, MessageSquare } from "lucide-react";
 
 /* ═══════════════════════════════════════════════════════════════
    DESIGN TOKENS
@@ -273,6 +273,12 @@ function BottomTabBar({ basePath, pathname }: { basePath: string; pathname: stri
 function HeaderBar({ owner, leagueName }: {
   owner: string | null; leagueName: string;
 }) {
+  const [unread, setUnread] = useState(0);
+  useEffect(() => {
+    const handler = (e: Event) => setUnread((e as CustomEvent<{ count: number }>).detail.count || 0);
+    window.addEventListener("feedback-unread-count", handler);
+    return () => window.removeEventListener("feedback-unread-count", handler);
+  }, []);
   return (
     <div style={{
       height: 48, background: C.panel, borderBottom: `1px solid ${C.border}`,
@@ -316,6 +322,32 @@ function HeaderBar({ owner, leagueName }: {
       )}
 
       <div style={{ flex: 1 }} />
+
+      {/* Feedback trigger — desktop only. Dispatches the same open-feedback
+          event the mobile floating button uses; FeedbackWidget panel handles
+          the rest. Unread count comes via window event from the widget. */}
+      <button
+        onClick={() => window.dispatchEvent(new Event("open-feedback"))}
+        className="hidden sm:flex items-center gap-1.5 cursor-pointer relative transition-colors"
+        style={{
+          padding: "4px 12px", borderRadius: 20,
+          border: `1px solid ${C.goldBorder}`, background: C.goldGlow,
+          flexShrink: 0,
+        }}
+        onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(212,165,50,0.14)"; }}
+        onMouseLeave={(e) => { e.currentTarget.style.background = C.goldGlow; }}
+      >
+        <MessageSquare size={12} style={{ color: C.gold }} />
+        <span style={{ fontSize: 11, fontWeight: 700, color: C.gold, fontFamily: SANS, letterSpacing: 0.3 }}>Feedback</span>
+        {unread > 0 && (
+          <span
+            className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 flex items-center justify-center rounded-full text-white text-[10px] font-bold leading-none px-1"
+            style={{ background: C.red, border: `1.5px solid ${C.panel}` }}
+          >
+            {unread}
+          </span>
+        )}
+      </button>
 
       {/* Powered-by badge — hidden on mobile */}
       <div className="hidden sm:flex" style={{

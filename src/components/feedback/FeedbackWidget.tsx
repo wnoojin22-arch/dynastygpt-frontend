@@ -129,6 +129,11 @@ export default function FeedbackWidget() {
     return () => clearInterval(interval);
   }, []);
 
+  // Broadcast unread count for the desktop header trigger to render a badge.
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent("feedback-unread-count", { detail: { count: unreadCount } }));
+  }, [unreadCount]);
+
   // Load thread when messages tab opened
   const loadThread = useCallback(async () => {
     try {
@@ -317,18 +322,17 @@ export default function FeedbackWidget() {
 
   return (
     <>
-      {/* Floating button */}
+      {/* Floating button — mobile only. Desktop trigger lives in HeaderBar. */}
       <button
         onClick={() => { setOpen(true); setPulse(false); }}
-        className={`fixed z-[9998] cursor-pointer items-center gap-1.5 sm:bottom-5 sm:right-5 sm:rounded-[20px] sm:px-4 sm:py-2.5 top-2 right-3 sm:top-auto rounded-md px-2.5 py-1.5 bg-[#d4a532] text-[#06080d] font-mono font-extrabold tracking-wide shadow-[0_4px_20px_rgba(212,165,50,0.3)] ${pulse ? "animate-[feedbackPulse_2s_ease_infinite]" : ""} ${open || modalOpen || (isMobile && isTradeBuilder) ? "hidden" : "flex"}`}
+        className={`fixed z-[9998] cursor-pointer items-center gap-1.5 top-2 right-3 rounded-md px-2.5 py-1.5 bg-[#d4a532] text-[#06080d] font-mono font-extrabold tracking-wide shadow-[0_4px_20px_rgba(212,165,50,0.3)] sm:hidden ${pulse ? "animate-[feedbackPulse_2s_ease_infinite]" : ""} ${open || modalOpen || (isMobile && isTradeBuilder) ? "hidden" : "flex"}`}
       >
-        <span className="text-[10px] sm:text-xs relative">
+        <span className="text-[10px] relative">
           {"\u{1F4AC}"}
           {unreadCount > 0 && (
             <span className="absolute -top-2.5 -right-3 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-[#e47272] text-white text-[10px] font-bold leading-none px-1 border-2 border-[#06080d] shadow-[0_2px_8px_rgba(228,114,114,0.5)] animate-bounce">{unreadCount}</span>
           )}
         </span>
-        <span className="hidden sm:inline text-xs">Feedback</span>
       </button>
 
       <style>{`
