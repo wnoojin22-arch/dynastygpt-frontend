@@ -72,13 +72,6 @@ const REC_BLURB: Record<string, string> = {
   "TRADE UP":   "Combine picks to climb into a higher hit-rate slot.",
 };
 
-const DIRECTION_LABEL: Record<string, string> = {
-  TYPICALLY_UP:        "Trades up",
-  TYPICALLY_DOWN:      "Trades back",
-  MIXED:               "Mixed direction",
-  INSUFFICIENT_DATA:   "No clear direction",
-};
-
 function GlowTabs({ tabs, active, onChange }: {
   tabs: { id: string; label: string }[];
   active: string; onChange: (id: string) => void;
@@ -718,52 +711,62 @@ function DraftBoard({ lid }: { lid: string }) {
 // TAB 3 — DRAFT INTEL  (real data: tendencies + strategic intel per owner)
 // ═════════════════════════════════════════════════════════════════════════
 
-function buildTendencyHero(t: any): string | null {
-  if (!t) return null;
-  const sentences: string[] = [];
+function buildTendencyParagraphs(t: any): { headline: string | null; body: string[] } {
+  if (!t) return { headline: null, body: [] };
 
-  // Discipline
+  // ── Headline: discipline tier
+  let headline: string | null = null;
   const disc = t.adp_discipline;
   if (disc != null) {
     const a = Math.abs(disc);
-    if (a <= 10) {
-      sentences.push("This league drafts with discipline — picks rarely stray far from ADP.");
-    } else if (a <= 22) {
-      sentences.push("This league mostly stays on script, with occasional surprises.");
-    } else {
-      sentences.push("This league is improvisational — expect picks to drift far from ADP.");
-    }
+    if (a <= 10) headline = "This league drafts on script.";
+    else if (a <= 22) headline = "This league mostly drafts on script.";
+    else headline = "This league drafts off the cuff.";
   }
 
-  // Reach magnitude — directional
+  const body: string[] = [];
+
+  // ── Paragraph 1: discipline + reach (the "how predictable is this draft" story)
+  const p1: string[] = [];
+  if (disc != null) {
+    const a = Math.abs(disc);
+    if (a <= 10) {
+      p1.push(`Picks land within ${a.toFixed(1)} spots of consensus ADP on average — anything inside ±10 is disciplined, ±10–22 is normal scatter, beyond ±22 is chaos.`);
+    } else if (a <= 22) {
+      p1.push(`Picks drift ${a.toFixed(1)} spots from consensus ADP on average — normal scatter (the ±10–22 band). Expect occasional surprises but no chaos.`);
+    } else {
+      p1.push(`Picks drift ${a.toFixed(1)} spots from consensus ADP on average — well past the ±22 chaos line. Plan for board breaks you can't predict.`);
+    }
+  }
   const rm = t.reach_magnitude;
   if (rm != null) {
     if (rm <= -5) {
-      sentences.push(`Drafters tend to reach earlier than ADP (avg ${rm.toFixed(1)} picks).`);
+      p1.push(`Drafters reach early — players go ${Math.abs(rm).toFixed(1)} picks ahead of ADP on net. Anything beyond −5 is aggressive, beyond −10 is impatient. Drop your board down a notch when you make your read.`);
     } else if (rm >= 5) {
-      sentences.push(`Drafters let value fall later than ADP (avg +${rm.toFixed(1)} picks).`);
+      p1.push(`Drafters let value fall — players go ${rm.toFixed(1)} picks past ADP on net. Anything beyond +5 means the board sits tight; you'll often catch a slider.`);
+    } else {
+      p1.push(`Net reach is roughly neutral (${rm > 0 ? "+" : ""}${rm.toFixed(1)} picks vs ADP) — neither aggressive nor patient.`);
     }
   }
+  if (p1.length) body.push(p1.join(" "));
 
-  // QB early
-  if (t.qb_early != null && Math.abs(t.qb_early) >= 0.5) {
-    if (t.qb_early > 0) sentences.push(`QBs go ~${t.qb_early.toFixed(1)} rounds earlier than baseline.`);
-    else sentences.push(`QBs slide ~${Math.abs(t.qb_early).toFixed(1)} rounds later than baseline.`);
+  // ── Paragraph 2: positional bias (QB / TE / RB-heavy R1)
+  const p2: string[] = [];
+  if (t.qb_early != null) {
+    if (t.qb_early >= 0.5) p2.push(`QBs go ${t.qb_early.toFixed(1)} rounds earlier than baseline — a clear superflex/QB-aware market.`);
+    else if (t.qb_early <= -0.5) p2.push(`QBs slide ${Math.abs(t.qb_early).toFixed(1)} rounds later than baseline — drafters punt the position.`);
   }
-
-  // TE premium
-  if (t.te_premium != null && Math.abs(t.te_premium) >= 0.5) {
-    if (t.te_premium > 0) sentences.push(`TE premium scoring is real here — TEs go ~${t.te_premium.toFixed(1)} rounds earlier.`);
+  if (t.te_premium != null && t.te_premium >= 0.5) {
+    p2.push(`TE premium scoring shows in the data — TEs leave the board ${t.te_premium.toFixed(1)} rounds earlier than baseline.`);
   }
-
-  // R1 RB bias
-  if (t.rb_heavy_r1 != null && Math.abs(t.rb_heavy_r1) >= 0.05) {
-    if (t.rb_heavy_r1 > 0) sentences.push(`Round 1 skews RB-heavy (+${(t.rb_heavy_r1 * 100).toFixed(0)}% vs baseline).`);
-    else sentences.push(`Round 1 is RB-light vs baseline (${(t.rb_heavy_r1 * 100).toFixed(0)}%).`);
+  if (t.rb_heavy_r1 != null) {
+    const pct = Math.round(t.rb_heavy_r1 * 100);
+    if (t.rb_heavy_r1 >= 0.05) p2.push(`Round 1 skews RB-heavy (+${pct}% vs baseline) — running backs go off the board first.`);
+    else if (t.rb_heavy_r1 <= -0.05) p2.push(`Round 1 is RB-light (${pct}% vs baseline) — WRs and QBs dominate the top of the board.`);
   }
+  if (p2.length) body.push(p2.join(" "));
 
-  if (sentences.length === 0) return null;
-  return sentences.join(" ");
+  return { headline, body };
 }
 
 function DraftIntel({ lid }: { lid: string }) {
@@ -790,85 +793,39 @@ function DraftIntel({ lid }: { lid: string }) {
 
   const t = tendQ.data?.tendencies;
   const fallback = tendQ.data?.fallback;
-  const heroText = buildTendencyHero(t);
-
-  // Decide which tendency stats to render — drop nulls, drop TEP=0 when not a TEP league
-  const tendencyCards: { label: string; v: number | null; fmt: TendencyFmt; sub?: string; meaning: string }[] = [];
-  if (t) {
-    if (t.reach_magnitude != null) tendencyCards.push({
-      label: "REACH MAGNITUDE",
-      v: t.reach_magnitude,
-      fmt: "picks_signed",
-      sub: t.adp_sample_n != null ? `vs ADP · n=${t.adp_sample_n}` : undefined,
-      meaning: "Negative = drafters reach earlier than ADP. Positive = value falls later.",
-    });
-    if (t.adp_discipline != null) tendencyCards.push({
-      label: "ADP DISCIPLINE",
-      v: t.adp_discipline,
-      fmt: "picks_abs",
-      sub: "mean |Δ| from ADP",
-      meaning: "Smaller = picks stay close to ADP. Larger = unpredictable.",
-    });
-    // Hide TEP row when this league has no TE premium signal
-    if (t.te_premium != null && Math.abs(t.te_premium) >= 0.1) tendencyCards.push({
-      label: "TE PREMIUM",
-      v: t.te_premium,
-      fmt: "round",
-      meaning: "Rounds earlier (or later) TEs go vs baseline.",
-    });
-    if (t.qb_early != null && Math.abs(t.qb_early) >= 0.1) tendencyCards.push({
-      label: "QB EARLY",
-      v: t.qb_early,
-      fmt: "round",
-      meaning: "Rounds earlier (or later) QBs go vs baseline.",
-    });
-    if (t.rb_heavy_r1 != null && Math.abs(t.rb_heavy_r1) >= 0.02) tendencyCards.push({
-      label: "R1 RB BIAS",
-      v: t.rb_heavy_r1,
-      fmt: "ratio",
-      meaning: "R1 RB share above (or below) baseline.",
-    });
-  }
+  const { headline, body } = buildTendencyParagraphs(t);
 
   return (
     <div style={{ padding: "20px 0" }}>
-      {/* Hero summary */}
-      {heroText && (
+      {/* League scouting report — narrative */}
+      {(headline || body.length > 0) && (
         <div style={{
           background: `linear-gradient(180deg, ${C.goldGlow} 0%, ${C.card} 100%)`,
-          border: `1px solid ${C.goldBorder}`, borderRadius: 10, padding: 16, marginBottom: 12,
+          border: `1px solid ${C.goldBorder}`, borderRadius: 10, padding: 22, marginBottom: 18,
         }}>
           <div style={{
-            fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.gold,
-            letterSpacing: "0.16em", marginBottom: 8,
+            fontFamily: SANS, fontSize: 11, fontWeight: 800, color: C.gold,
+            letterSpacing: "0.22em", marginBottom: 10,
           }}>LEAGUE SCOUTING REPORT</div>
-          <div style={{ fontFamily: SANS, fontSize: 15, color: C.primary, lineHeight: 1.6 }}>
-            {heroText}
-          </div>
+          {headline && (
+            <div style={{
+              fontFamily: SANS, fontSize: 24, fontWeight: 900, color: C.primary,
+              letterSpacing: "-0.01em", lineHeight: 1.1, marginBottom: 14,
+            }}>{headline}</div>
+          )}
+          {body.map((para, i) => (
+            <div key={i} style={{
+              fontFamily: SANS, fontSize: 15, color: C.primary, lineHeight: 1.65,
+              marginBottom: i === body.length - 1 ? 0 : 10,
+            }}>{para}</div>
+          ))}
           {(t?.sample_size != null) && (
-            <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim, marginTop: 10, letterSpacing: "0.04em" }}>
+            <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim, marginTop: 14, letterSpacing: "0.04em" }}>
               {t.sample_size} picks · {(t.seasons || []).join("+")}
               {t.format_key && ` · baseline ${t.format_key}`}
               {fallback === "global" && " · global baseline (no league cache yet)"}
             </div>
           )}
-        </div>
-      )}
-
-      {/* Tendencies grid */}
-      {tendencyCards.length > 0 && (
-        <div style={{
-          background: C.card, border: `1px solid ${C.border}`, borderRadius: 8,
-          padding: 14, marginBottom: 16,
-        }}>
-          <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 800, letterSpacing: "0.08em", color: C.primary, marginBottom: 12 }}>
-            LEAGUE DRAFT TENDENCIES
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 14 }}>
-            {tendencyCards.map(c => (
-              <TendencyStat key={c.label} {...c} />
-            ))}
-          </div>
         </div>
       )}
 
@@ -895,6 +852,95 @@ function DraftIntel({ lid }: { lid: string }) {
   );
 }
 
+function buildOwnerNarrative(o: any): string[] {
+  const paragraphs: string[] = [];
+
+  // ── Roster paragraph: strengths + needs in prose
+  const strengths: string[] = o.roster?.strengths || [];
+  const needs: string[] = o.roster?.needs || [];
+  const windowClass: string | null = o.roster?.window || null;
+  const rosterParts: string[] = [];
+  if (windowClass === "CONTENDER") rosterParts.push("Contender window — built to win now.");
+  else if (windowClass === "REBUILDER") rosterParts.push("Rebuilding window — collecting picks and youth.");
+  else if (windowClass === "RETOOLING") rosterParts.push("Retooling window — straddling now and later.");
+  else if (windowClass === "BALANCED") rosterParts.push("Balanced window — no urgency either direction.");
+  if (strengths.length && needs.length) {
+    rosterParts.push(`Set at ${strengths.join(" / ")}, thin at ${needs.join(" / ")}.`);
+  } else if (strengths.length) {
+    rosterParts.push(`Set at ${strengths.join(" / ")} with no glaring holes.`);
+  } else if (needs.length) {
+    rosterParts.push(`Biggest holes: ${needs.join(" / ")}.`);
+  }
+  if (rosterParts.length) paragraphs.push(rosterParts.join(" "));
+
+  // ── Capital paragraph: picks held + surplus + future picks
+  const heldThisDraft: string[] = o.picks?.held_this_draft || [];
+  const surplusDelta: number | null = o.picks?.surplus_delta ?? null;
+  const futurePicks: { year: number; round: number }[] = o.picks?.future_picks || [];
+  const capitalParts: string[] = [];
+  if (heldThisDraft.length > 0) {
+    capitalParts.push(`Holds ${heldThisDraft.join(", ")} in this rookie draft`);
+  } else {
+    capitalParts.push("No picks in this rookie draft");
+  }
+  if (surplusDelta != null) {
+    if (surplusDelta >= 1) capitalParts[capitalParts.length - 1] += ` — that's ${surplusDelta > 0 ? "+" : ""}${surplusDelta.toFixed(1)} above league average, real trade-up ammo`;
+    else if (surplusDelta <= -1) capitalParts[capitalParts.length - 1] += ` — ${surplusDelta.toFixed(1)} below league average, light on capital`;
+    else capitalParts[capitalParts.length - 1] += ` — roughly the league-average pick load`;
+  }
+  capitalParts[capitalParts.length - 1] += ".";
+  if (futurePicks.length > 0) {
+    const byRound = new Map<number, Map<number, number>>();
+    for (const p of futurePicks) {
+      if (!byRound.has(p.round)) byRound.set(p.round, new Map());
+      const yrMap = byRound.get(p.round)!;
+      yrMap.set(p.year, (yrMap.get(p.year) || 0) + 1);
+    }
+    const roundStrs = Array.from(byRound.entries()).sort((a, b) => a[0] - b[0]).map(([rd, yrMap]) => {
+      const yrs = Array.from(yrMap.entries()).sort((a, b) => a[0] - b[0])
+        .map(([yr, cnt]) => `${cnt > 1 ? `${cnt}× ` : ""}${yr}`).join(", ");
+      return `R${rd} (${yrs})`;
+    });
+    capitalParts.push(`Beyond 2026 they own ${roundStrs.join(", ")}.`);
+  }
+  paragraphs.push(capitalParts.join(" "));
+
+  // ── Behavior paragraph: draft-day trades + direction + positions targeted
+  const trader = o.draft_day_trader || {};
+  const tradesMade: number = trader.trades_made || 0;
+  const tradesUp: number = trader.trades_up || 0;
+  const tradesDown: number = trader.trades_down || 0;
+  const tradesLateral: number = trader.trades_lateral || 0;
+  const seasonsActive: number = trader.seasons_active || 0;
+  const seasonsTotal: number = trader.seasons_total || 0;
+  const directionTendency: string = o.behavior?.direction_tendency || "INSUFFICIENT_DATA";
+  const positionsTargeted: string[] = o.behavior?.positions_targeted || [];
+
+  const behaviorParts: string[] = [];
+  if (tradesMade > 0) {
+    const breakdown: string[] = [];
+    if (tradesUp > 0) breakdown.push(`${tradesUp} up`);
+    if (tradesDown > 0) breakdown.push(`${tradesDown} back`);
+    if (tradesLateral > 0) breakdown.push(`${tradesLateral} lateral`);
+    behaviorParts.push(`Made ${tradesMade} draft-day trade${tradesMade === 1 ? "" : "s"} across ${seasonsActive}/${seasonsTotal} rookie drafts (${breakdown.join(", ")}).`);
+  } else if (seasonsTotal > 0) {
+    behaviorParts.push(`Has never traded on draft day across ${seasonsTotal} rookie draft${seasonsTotal === 1 ? "" : "s"} — sits and picks.`);
+  }
+  if (directionTendency === "TYPICALLY_UP") {
+    behaviorParts.push("On pick swaps overall, they typically move up.");
+  } else if (directionTendency === "TYPICALLY_DOWN") {
+    behaviorParts.push("On pick swaps overall, they typically trade back for capital.");
+  } else if (directionTendency === "MIXED") {
+    behaviorParts.push("Their pick-swap direction is mixed — moves either way depending on the deal.");
+  }
+  if (positionsTargeted.length > 0) {
+    behaviorParts.push(`Historically targets ${positionsTargeted.join(" / ")} in rookie drafts.`);
+  }
+  if (behaviorParts.length) paragraphs.push(behaviorParts.join(" "));
+
+  return paragraphs;
+}
+
 function OwnerStrategicCard({ o }: { o: any }) {
   const flagVerdict = o.trade_flag?.verdict || "LIKELY_HOLD";
   const flagColor = FLAG_COLOR[flagVerdict] || C.dim;
@@ -910,43 +956,20 @@ function OwnerStrategicCard({ o }: { o: any }) {
 
   const trader = o.draft_day_trader || {};
   const traderTag: string = trader.tag || "UNKNOWN";
-  const tradesMade: number = trader.trades_made || 0;
-  const tradesUp: number = trader.trades_up || 0;
-  const tradesDown: number = trader.trades_down || 0;
-  const tradesLateral: number = trader.trades_lateral || 0;
-  const seasonsActive: number = trader.seasons_active || 0;
-  const seasonsTotal: number = trader.seasons_total || 0;
 
-  const strengths: string[] = o.roster?.strengths || [];
-  const needs: string[] = o.roster?.needs || [];
-
-  const heldThisDraft: string[] = o.picks?.held_this_draft || [];
-  const surplusDelta: number | null = o.picks?.surplus_delta ?? null;
-  const futurePicks: { year: number; round: number }[] = o.picks?.future_picks || [];
-
-  // Group future picks: round -> year -> count
-  const futureByRound = new Map<number, Map<number, number>>();
-  for (const p of futurePicks) {
-    if (!futureByRound.has(p.round)) futureByRound.set(p.round, new Map());
-    const yrMap = futureByRound.get(p.round)!;
-    yrMap.set(p.year, (yrMap.get(p.year) || 0) + 1);
-  }
-  const futureRoundsSorted = Array.from(futureByRound.entries()).sort((a, b) => a[0] - b[0]);
-
-  const directionTendency: string = o.behavior?.direction_tendency || "INSUFFICIENT_DATA";
-  const positionsTargeted: string[] = o.behavior?.positions_targeted || [];
+  const paragraphs = buildOwnerNarrative(o);
 
   return (
     <div style={{
       background: C.card,
       border: `1px solid ${flagVerdict === "LIKELY_HOLD" ? C.border : `${flagColor}50`}`,
-      borderRadius: 8, padding: 16,
+      borderRadius: 8, padding: 18,
       display: "flex", flexDirection: "column", gap: 14,
     }}>
       {/* Header — owner name + flag */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
-          <div style={{ fontFamily: SANS, fontSize: 17, fontWeight: 800, color: C.primary, lineHeight: 1.2 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 7, minWidth: 0 }}>
+          <div style={{ fontFamily: SANS, fontSize: 18, fontWeight: 800, color: C.primary, lineHeight: 1.2 }}>
             {o.owner}
           </div>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -964,239 +987,37 @@ function OwnerStrategicCard({ o }: { o: any }) {
                 background: `${windowColor}18`, color: windowColor, border: `1px solid ${windowColor}30`,
               }}>{windowClass}</span>
             )}
-            <span title={`${tradesMade} draft-day trades over ${seasonsActive}/${seasonsTotal} drafts`} style={{
-              fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.06em",
-              padding: "3px 8px", borderRadius: 3, cursor: "help",
-              background: traderTag === "TRADER" ? `${C.gold}18` : `${C.dim}15`,
-              color: traderTag === "TRADER" ? C.gold : C.dim,
-              border: `1px solid ${traderTag === "TRADER" ? C.goldBorder : C.border}`,
-            }}>{traderTag}</span>
+            {traderTag === "TRADER" && (
+              <span style={{
+                fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.06em",
+                padding: "3px 8px", borderRadius: 3,
+                background: `${C.gold}18`, color: C.gold, border: `1px solid ${C.goldBorder}`,
+              }}>TRADER</span>
+            )}
           </div>
         </div>
         <span style={{
           fontFamily: MONO, fontSize: 11, fontWeight: 900, letterSpacing: "0.06em",
-          padding: "5px 10px", borderRadius: 3, whiteSpace: "nowrap",
+          padding: "6px 11px", borderRadius: 3, whiteSpace: "nowrap",
           background: `${flagColor}18`, color: flagColor, border: `1px solid ${flagColor}50`,
         }}>{flagLabel}</span>
       </div>
 
-      {/* Trade flag reasoning */}
+      {/* Trade flag reasoning — the headline */}
       {flagReason && (
         <div style={{
-          fontFamily: SANS, fontSize: 14, color: C.primary, lineHeight: 1.55,
-          padding: "10px 12px", borderRadius: 6,
-          background: `${flagColor}08`, border: `1px solid ${flagColor}25`,
+          fontFamily: SANS, fontSize: 14.5, color: C.primary, lineHeight: 1.6, fontWeight: 600,
+          padding: "12px 14px", borderRadius: 6,
+          background: `${flagColor}10`, border: `1px solid ${flagColor}30`,
         }}>{flagReason}</div>
       )}
 
-      {/* Roster strengths/needs */}
-      {(strengths.length > 0 || needs.length > 0) && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {strengths.length > 0 && (
-            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-              <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim, letterSpacing: "0.06em", width: 64, flexShrink: 0 }}>SET AT</div>
-              {strengths.map(s => <Chip key={s} text={s} color={C.green} />)}
-            </div>
-          )}
-          {needs.length > 0 && (
-            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-              <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim, letterSpacing: "0.06em", width: 64, flexShrink: 0 }}>NEEDS</div>
-              {needs.map(n => <Chip key={n} text={n} color={C.red} />)}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Picks this draft + surplus */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-        <div>
-          <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim, letterSpacing: "0.06em", marginBottom: 4 }}>
-            HOLDS THIS DRAFT
-          </div>
-          {heldThisDraft.length > 0 ? (
-            <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-              {heldThisDraft.map((s, i) => (
-                <span key={i} style={{
-                  fontFamily: MONO, fontSize: 13, fontWeight: 700, color: C.primary,
-                  padding: "2px 8px", borderRadius: 3, background: C.elevated, border: `1px solid ${C.border}`,
-                }}>{s}</span>
-              ))}
-            </div>
-          ) : (
-            <span style={{ fontFamily: MONO, fontSize: 12, color: C.dim }}>None</span>
-          )}
-          <div style={{ fontFamily: SANS, fontSize: 12, color: C.secondary, marginTop: 6, lineHeight: 1.4 }}>
-            Picks this manager currently owns in the 2026 rookie draft (round.slot).
-          </div>
-        </div>
-        <div>
-          <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim, letterSpacing: "0.06em", marginBottom: 4 }}>
-            VS LEAGUE AVG
-          </div>
-          {surplusDelta != null ? (
-            <div style={{
-              fontFamily: MONO, fontSize: 16, fontWeight: 800,
-              color: surplusDelta >= 1 ? C.green : surplusDelta <= -1 ? C.red : C.dim,
-            }}>
-              {surplusDelta > 0 ? "+" : ""}{surplusDelta.toFixed(1)} picks
-            </div>
-          ) : (
-            <span style={{ fontFamily: MONO, fontSize: 12, color: C.dim }}>—</span>
-          )}
-          <div style={{ fontFamily: SANS, fontSize: 12, color: C.secondary, marginTop: 6, lineHeight: 1.4 }}>
-            Pick capital surplus vs. league average. Positive = trade-up ammo. Negative = candidate to trade back.
-          </div>
-        </div>
-      </div>
-
-      {/* Draft-day trade history */}
-      <div style={{
-        paddingTop: 12, borderTop: `1px solid ${C.border}`,
-        display: "flex", flexDirection: "column", gap: 6,
-      }}>
-        <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim, letterSpacing: "0.06em" }}>
-          DRAFT-DAY TRADE HISTORY
-        </div>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
-          <div style={{ fontFamily: SANS, fontSize: 15, fontWeight: 800, color: C.primary }}>
-            {tradesMade} trade{tradesMade === 1 ? "" : "s"}
-          </div>
-          <div style={{ fontFamily: MONO, fontSize: 12, color: C.dim }}>
-            in {seasonsActive}/{seasonsTotal} drafts
-          </div>
-        </div>
-        {tradesMade > 0 && (
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-            {tradesUp > 0 && (
-              <span style={{
-                fontFamily: MONO, fontSize: 12, fontWeight: 700,
-                padding: "3px 8px", borderRadius: 3,
-                background: `${C.green}15`, color: C.green, border: `1px solid ${C.green}35`,
-              }}>↑ {tradesUp} UP</span>
-            )}
-            {tradesDown > 0 && (
-              <span style={{
-                fontFamily: MONO, fontSize: 12, fontWeight: 700,
-                padding: "3px 8px", borderRadius: 3,
-                background: `${C.orange}15`, color: C.orange, border: `1px solid ${C.orange}35`,
-              }}>↓ {tradesDown} DOWN</span>
-            )}
-            {tradesLateral > 0 && (
-              <span style={{
-                fontFamily: MONO, fontSize: 12, fontWeight: 700,
-                padding: "3px 8px", borderRadius: 3,
-                background: `${C.dim}15`, color: C.dim, border: `1px solid ${C.border}`,
-              }}>↔ {tradesLateral} LATERAL</span>
-            )}
-          </div>
-        )}
-        <div style={{ fontFamily: SANS, fontSize: 12, color: C.secondary, lineHeight: 1.4 }}>
-          {tradesMade > 0
-            ? "UP = moved up for a better pick. DOWN = traded back for additional capital. LATERAL = swap with no pick climb."
-            : "This manager has never made a trade on draft day in the data we have."}
-        </div>
-        {/* Direction tendency (broader signal across all pick trades, not just draft-day) */}
-        <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginTop: 4 }}>
-          <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim, letterSpacing: "0.06em" }}>
-            OVERALL DIRECTION
-          </div>
-          <div style={{ fontFamily: SANS, fontSize: 13, fontWeight: 700, color: C.primary }}>
-            {DIRECTION_LABEL[directionTendency] || directionTendency}
-          </div>
-        </div>
-        <div style={{ fontFamily: SANS, fontSize: 12, color: C.secondary, lineHeight: 1.4 }}>
-          Across all pick trades (not just draft-day) — does this manager generally move up, down, or both?
-        </div>
-      </div>
-
-      {/* Future picks — grouped by round */}
-      <div style={{
-        paddingTop: 12, borderTop: `1px solid ${C.border}`,
-        display: "flex", flexDirection: "column", gap: 6,
-      }}>
-        <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim, letterSpacing: "0.06em" }}>
-          FUTURE PICKS HELD
-        </div>
-        {futureRoundsSorted.length > 0 ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-            {futureRoundsSorted.map(([rd, yrMap]) => {
-              const yearsSorted = Array.from(yrMap.entries()).sort((a, b) => a[0] - b[0]);
-              const parts = yearsSorted.map(([yr, cnt]) => `${cnt > 1 ? `${cnt}× ` : ""}${yr}`);
-              return (
-                <div key={rd} style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-                  <span style={{
-                    fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.primary,
-                    minWidth: 64,
-                  }}>R{rd}</span>
-                  <span style={{ fontFamily: MONO, fontSize: 13, color: C.primary }}>
-                    {parts.join(", ")}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <span style={{ fontFamily: MONO, fontSize: 12, color: C.dim }}>None</span>
-        )}
-        <div style={{ fontFamily: SANS, fontSize: 12, color: C.secondary, lineHeight: 1.4 }}>
-          Picks owned beyond 2026 — broken out by round, then year. Trade-up ammo if surplus, trade bait if rebuilding.
-        </div>
-        {positionsTargeted.length > 0 && (
-          <div style={{ fontFamily: MONO, fontSize: 12, color: C.dim, marginTop: 2 }}>
-            historically targets <span style={{ color: C.primary, fontWeight: 700 }}>{positionsTargeted.join(" / ")}</span> in rookie drafts
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-type TendencyFmt = "round" | "ratio" | "picks_signed" | "picks_abs";
-
-function TendencyStat({
-  label, v, fmt, sub, meaning,
-}: {
-  label: string;
-  v: number | null;
-  fmt: TendencyFmt;
-  sub?: string;
-  meaning?: string;
-}) {
-  if (v == null) {
-    return (
-      <div>
-        <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim, letterSpacing: "0.06em" }}>{label}</div>
-        <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: C.dim }}>—</div>
-        {sub && <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim, marginTop: 3 }}>{sub}</div>}
-      </div>
-    );
-  }
-  let color: string = C.dim;
-  let display: string = "";
-  if (fmt === "round") {
-    color = v > 0 ? C.green : v < 0 ? C.red : C.dim;
-    display = `${v > 0 ? "+" : ""}${v.toFixed(2)} rd`;
-  } else if (fmt === "ratio") {
-    color = v > 0 ? C.green : v < 0 ? C.red : C.dim;
-    display = `${v > 0 ? "+" : ""}${(v * 100).toFixed(0)}%`;
-  } else if (fmt === "picks_signed") {
-    color = v <= -8 ? C.red : v <= -3 ? C.orange : v >= 8 ? C.green : v >= 3 ? C.gold : C.dim;
-    display = `${v > 0 ? "+" : ""}${v.toFixed(1)} pk`;
-  } else if (fmt === "picks_abs") {
-    const a = Math.abs(v);
-    color = a <= 10 ? C.green : a <= 22 ? C.gold : C.red;
-    display = `${a.toFixed(1)} pk`;
-  }
-  return (
-    <div>
-      <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim, letterSpacing: "0.06em" }}>{label}</div>
-      <div style={{ fontFamily: MONO, fontSize: 19, fontWeight: 800, color, marginTop: 2 }}>{display}</div>
-      {sub && <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim, marginTop: 3 }}>{sub}</div>}
-      {meaning && (
-        <div style={{ fontFamily: SANS, fontSize: 13, color: C.secondary, marginTop: 6, lineHeight: 1.45 }}>
-          {meaning}
-        </div>
-      )}
+      {/* Narrative paragraphs */}
+      {paragraphs.map((para, i) => (
+        <div key={i} style={{
+          fontFamily: SANS, fontSize: 14, color: C.secondary, lineHeight: 1.6,
+        }}>{para}</div>
+      ))}
     </div>
   );
 }
@@ -1295,8 +1116,10 @@ function Rookies({ lid }: { lid: string }) {
           gap: 14,
         }}>
           {filtered.map((r, idx) => {
-            const adp = r.p50_pick ?? r.avg_pick;
+            const adp = r.avg_pick ?? r.p50_pick;
             const tier = talentTier(adp);
+            const fmtPick = (n: number | null | undefined) =>
+              n == null ? "—" : (Number.isInteger(n) ? String(n) : n.toFixed(1));
             const posCol = POS_COLOR[(r.position || "") as Pos] || C.dim;
             const isHover = hoverIdx === idx;
             return (
@@ -1326,7 +1149,7 @@ function Rookies({ lid }: { lid: string }) {
 
                 {/* Header row: headshot, name, tier box */}
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <PlayerHeadshot name={r.player_name} position={r.position || "PICK"} size={56} />
+                  <PlayerHeadshot name={r.player_name} position={r.position || "PICK"} size={56} sleeperId={r.sleeper_id} />
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <div style={{
                       fontFamily: SANS, fontSize: 17, fontWeight: 800, color: C.primary,
@@ -1371,7 +1194,7 @@ function Rookies({ lid }: { lid: string }) {
                     lineHeight: 1, letterSpacing: "-0.02em",
                     textShadow: `0 0 24px ${C.gold}40`,
                   }}>
-                    {adp != null ? adp.toFixed(1) : "—"}
+                    {adp != null ? Number(adp).toFixed(1) : "—"}
                   </span>
                 </div>
 
@@ -1385,7 +1208,7 @@ function Rookies({ lid }: { lid: string }) {
                       EARLIEST
                     </div>
                     <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: C.primary }}>
-                      {r.p10_pick != null ? r.p10_pick.toFixed(1) : "—"}
+                      {fmtPick(r.p10_pick)}
                     </div>
                   </div>
                   <div style={{ textAlign: "center", borderLeft: `1px solid ${C.border}`, borderRight: `1px solid ${C.border}` }}>
@@ -1405,7 +1228,7 @@ function Rookies({ lid }: { lid: string }) {
                       LATEST
                     </div>
                     <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: C.primary }}>
-                      {r.p90_pick != null ? r.p90_pick.toFixed(1) : "—"}
+                      {fmtPick(r.p90_pick)}
                     </div>
                   </div>
                 </div>
