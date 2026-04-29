@@ -1370,9 +1370,8 @@ export default function DraftHQPage() {
   };
 
   return (
-    <div style={{ background: C.bg, minHeight: "100vh", color: C.primary, paddingTop: isMobile ? 12 : 20, paddingBottom: isMobile ? 60 : 80, paddingLeft: isMobile ? 12 : 16, paddingRight: isMobile ? 12 : 16, overflowX: "hidden" }}>
+    <div style={{ padding: isMobile ? "12px 10px" : "16px 20px", maxWidth: 1100, marginLeft: "auto", marginRight: "auto" }}>
       <style>{`@keyframes rk-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }`}</style>
-      <div style={{ maxWidth: 1100, marginLeft: "auto", marginRight: "auto" }}>
         <div style={{ marginBottom: isMobile ? 10 : 14 }}>
           <div style={{
             fontFamily: SANS, fontSize: isMobile ? 10 : 11, color: C.gold, letterSpacing: "0.18em", fontWeight: 800,
@@ -1389,7 +1388,6 @@ export default function DraftHQPage() {
         {tab === "your-picks"  && <ComingSoon tabId="your-picks" />}
         {tab === "draft-board" && <ComingSoon tabId="draft-board" />}
         {tab === "intel"       && <ComingSoon tabId="intel" />}
-      </div>
     </div>
   );
 }
