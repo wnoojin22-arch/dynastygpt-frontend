@@ -23,15 +23,33 @@ export type UserPickRow = {
   tier_cliff_after: boolean;
 };
 
+// Shape mirrors real backend: /draft/owner-profiles + /draft/mock-draft/likely-buyers
+export type DraftIdentity = "DEVELOPER" | "PIPELINE BUILDER" | "GAMBLER" | "INEFFICIENT" | "BALANCED";
+export type WillingnessBand = "HIGH" | "MEDIUM" | "LOW" | "UNLIKELY";
+
 export type ManagerIntel = {
-  user_id: string;
-  name: string;
-  reach_rate: number;        // 0..100 — % of past picks classified REACH
-  pick_trade_rate: number;   // % of trades involving picks
-  qb_early_score: number;    // 0..100 — drafts QBs above their ADP
-  te_premium_score: number;  // 0..100 — drafts TEs above their ADP
-  trade_up_willingness: number; // 0..100 — heuristic placeholder
-  recent_move: string | null;
+  // From /draft/owner-profiles
+  owner_user_id: string;
+  owner: string;
+  draft_identity: DraftIdentity;
+  hit_rate: number;              // 0..1
+  star_rate: number;             // 0..1
+  bust_rate: number;             // 0..1
+  round1_position_distribution: { QB: number; RB: number; WR: number; TE: number }; // ratios summing to 1
+  // From /draft/mock-draft/likely-buyers willingness (per partner)
+  willingness: {
+    score: number;               // 0..100
+    band: WillingnessBand;
+    factors: {
+      activity: number;          // 0..100
+      window_alignment: number;  // 0..100
+      panic_signal: number;      // 0..100
+      h2h_history: number;       // 0..100
+    };
+  };
+  // From new adapter (item 1+2)
+  pick_surplus_delta: number;    // partner picks 2026+2027 minus league avg
+  down_move_bias: number;        // 0..1
 };
 
 // ── Mock rookies (FP rookie_dynasty 2026 top-30 SF order, fabricated stats) ──
@@ -91,18 +109,20 @@ export const MOCK_USER_PICKS: UserPickRow[] = [
   },
 ];
 
-// ── Mock manager intel (12-team league) ──
+// ── Mock manager intel — fields mirror /draft/owner-profiles + likely-buyers ──
+const mkR1 = (q: number, r: number, w: number, t: number) => ({ QB: q, RB: r, WR: w, TE: t });
+
 export const MOCK_MANAGER_INTEL: ManagerIntel[] = [
-  { user_id: "u1",  name: "Big Jer",       reach_rate: 28, pick_trade_rate: 71, qb_early_score: 38, te_premium_score: 12, trade_up_willingness: 82, recent_move: "Sent 2027 1st for 1.04 in 2025 draft" },
-  { user_id: "u2",  name: "Duke Nukem",    reach_rate: 12, pick_trade_rate: 18, qb_early_score: 22, te_premium_score: 8,  trade_up_willingness: 24, recent_move: null },
-  { user_id: "u3",  name: "TheCommish",    reach_rate: 41, pick_trade_rate: 55, qb_early_score: 88, te_premium_score: 31, trade_up_willingness: 65, recent_move: "Always reaches for QBs round 1" },
-  { user_id: "u4",  name: "Zyn",           reach_rate: 19, pick_trade_rate: 62, qb_early_score: 41, te_premium_score: 19, trade_up_willingness: 71, recent_move: "Traded back twice in 2024 — pick hoarder" },
-  { user_id: "u5",  name: "ChiefsKingdom", reach_rate: 33, pick_trade_rate: 28, qb_early_score: 71, te_premium_score: 84, trade_up_willingness: 38, recent_move: "Drafted Bowers 1.04 in 2024 — TE premium" },
-  { user_id: "u6",  name: "RebuildBob",    reach_rate: 8,  pick_trade_rate: 79, qb_early_score: 18, te_premium_score: 11, trade_up_willingness: 12, recent_move: "Shipped 4 starters for picks last 6 months" },
-  { user_id: "u7",  name: "WinNowWill",    reach_rate: 22, pick_trade_rate: 35, qb_early_score: 31, te_premium_score: 22, trade_up_willingness: 88, recent_move: "Aging roster, traded 2 future 1sts for vets" },
-  { user_id: "u8",  name: "Anchor",        reach_rate: 16, pick_trade_rate: 22, qb_early_score: 27, te_premium_score: 14, trade_up_willingness: 31, recent_move: null },
-  { user_id: "u9",  name: "Slim",          reach_rate: 35, pick_trade_rate: 48, qb_early_score: 58, te_premium_score: 52, trade_up_willingness: 55, recent_move: null },
-  { user_id: "u10", name: "Chaos",         reach_rate: 47, pick_trade_rate: 81, qb_early_score: 62, te_premium_score: 39, trade_up_willingness: 92, recent_move: "Made 11 trades this offseason — most active" },
-  { user_id: "u11", name: "Lurker",        reach_rate: 11, pick_trade_rate: 14, qb_early_score: 24, te_premium_score: 17, trade_up_willingness: 18, recent_move: null },
-  { user_id: "u12", name: "Rookie",        reach_rate: 24, pick_trade_rate: 33, qb_early_score: 35, te_premium_score: 28, trade_up_willingness: 44, recent_move: null },
+  { owner_user_id: "u1",  owner: "Big Jer",       draft_identity: "GAMBLER",          hit_rate: 0.52, star_rate: 0.18, bust_rate: 0.31, round1_position_distribution: mkR1(0.10, 0.30, 0.55, 0.05), willingness: { score: 82, band: "HIGH",     factors: { activity: 88, window_alignment: 72, panic_signal: 65, h2h_history: 41 } }, pick_surplus_delta: +1.2, down_move_bias: 0.62 },
+  { owner_user_id: "u2",  owner: "Duke Nukem",    draft_identity: "BALANCED",         hit_rate: 0.61, star_rate: 0.14, bust_rate: 0.18, round1_position_distribution: mkR1(0.15, 0.40, 0.40, 0.05), willingness: { score: 24, band: "UNLIKELY", factors: { activity: 18, window_alignment: 38, panic_signal: 12, h2h_history: 33 } }, pick_surplus_delta: -0.4, down_move_bias: 0.18 },
+  { owner_user_id: "u3",  owner: "TheCommish",    draft_identity: "INEFFICIENT",      hit_rate: 0.38, star_rate: 0.09, bust_rate: 0.42, round1_position_distribution: mkR1(0.55, 0.20, 0.25, 0.00), willingness: { score: 65, band: "HIGH",     factors: { activity: 55, window_alignment: 71, panic_signal: 45, h2h_history: 62 } }, pick_surplus_delta: +0.3, down_move_bias: 0.41 },
+  { owner_user_id: "u4",  owner: "Zyn",           draft_identity: "PIPELINE BUILDER", hit_rate: 0.66, star_rate: 0.21, bust_rate: 0.16, round1_position_distribution: mkR1(0.05, 0.35, 0.55, 0.05), willingness: { score: 71, band: "HIGH",     factors: { activity: 62, window_alignment: 84, panic_signal: 28, h2h_history: 71 } }, pick_surplus_delta: +2.1, down_move_bias: 0.15 },
+  { owner_user_id: "u5",  owner: "ChiefsKingdom", draft_identity: "DEVELOPER",        hit_rate: 0.55, star_rate: 0.16, bust_rate: 0.25, round1_position_distribution: mkR1(0.20, 0.20, 0.30, 0.30), willingness: { score: 38, band: "MEDIUM",   factors: { activity: 28, window_alignment: 52, panic_signal: 18, h2h_history: 48 } }, pick_surplus_delta: -0.8, down_move_bias: 0.22 },
+  { owner_user_id: "u6",  owner: "RebuildBob",    draft_identity: "PIPELINE BUILDER", hit_rate: 0.59, star_rate: 0.19, bust_rate: 0.21, round1_position_distribution: mkR1(0.10, 0.45, 0.45, 0.00), willingness: { score: 12, band: "UNLIKELY", factors: { activity: 79, window_alignment: 18, panic_signal: 8,  h2h_history: 25 } }, pick_surplus_delta: +3.4, down_move_bias: 0.08 },
+  { owner_user_id: "u7",  owner: "WinNowWill",    draft_identity: "GAMBLER",          hit_rate: 0.41, star_rate: 0.12, bust_rate: 0.38, round1_position_distribution: mkR1(0.10, 0.30, 0.55, 0.05), willingness: { score: 88, band: "HIGH",     factors: { activity: 35, window_alignment: 92, panic_signal: 88, h2h_history: 68 } }, pick_surplus_delta: -2.2, down_move_bias: 0.78 },
+  { owner_user_id: "u8",  owner: "Anchor",        draft_identity: "BALANCED",         hit_rate: 0.58, star_rate: 0.13, bust_rate: 0.22, round1_position_distribution: mkR1(0.15, 0.35, 0.45, 0.05), willingness: { score: 31, band: "MEDIUM",   factors: { activity: 22, window_alignment: 41, panic_signal: 22, h2h_history: 38 } }, pick_surplus_delta: -0.1, down_move_bias: 0.28 },
+  { owner_user_id: "u9",  owner: "Slim",          draft_identity: "INEFFICIENT",      hit_rate: 0.42, star_rate: 0.11, bust_rate: 0.36, round1_position_distribution: mkR1(0.30, 0.25, 0.35, 0.10), willingness: { score: 55, band: "MEDIUM",   factors: { activity: 48, window_alignment: 58, panic_signal: 41, h2h_history: 58 } }, pick_surplus_delta: +0.0, down_move_bias: 0.45 },
+  { owner_user_id: "u10", owner: "Chaos",         draft_identity: "GAMBLER",          hit_rate: 0.46, star_rate: 0.22, bust_rate: 0.32, round1_position_distribution: mkR1(0.25, 0.25, 0.40, 0.10), willingness: { score: 92, band: "HIGH",     factors: { activity: 95, window_alignment: 78, panic_signal: 71, h2h_history: 82 } }, pick_surplus_delta: +0.8, down_move_bias: 0.71 },
+  { owner_user_id: "u11", owner: "Lurker",        draft_identity: "DEVELOPER",        hit_rate: 0.63, star_rate: 0.15, bust_rate: 0.18, round1_position_distribution: mkR1(0.10, 0.30, 0.55, 0.05), willingness: { score: 18, band: "UNLIKELY", factors: { activity: 14, window_alignment: 32, panic_signal: 11, h2h_history: 22 } }, pick_surplus_delta: +0.5, down_move_bias: 0.12 },
+  { owner_user_id: "u12", owner: "Rookie",        draft_identity: "BALANCED",         hit_rate: 0.49, star_rate: 0.10, bust_rate: 0.28, round1_position_distribution: mkR1(0.15, 0.35, 0.45, 0.05), willingness: { score: 44, band: "MEDIUM",   factors: { activity: 33, window_alignment: 48, panic_signal: 35, h2h_history: 51 } }, pick_surplus_delta: -0.3, down_move_bias: 0.34 },
 ];

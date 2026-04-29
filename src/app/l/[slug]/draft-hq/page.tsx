@@ -223,69 +223,143 @@ function DraftBoard() {
 }
 
 // ═════════════════════════════════════════════════════════════════════════
-// TAB 3 — DRAFT INTEL (per-manager tendencies)
+// TAB 3 — DRAFT INTEL (per-manager — fields mirror /draft/owner-profiles + likely-buyers)
 // ═════════════════════════════════════════════════════════════════════════
+const IDENTITY_COLOR: Record<string, string> = {
+  "DEVELOPER": "#7dd3a0",
+  "PIPELINE BUILDER": "#6bb8e0",
+  "GAMBLER": "#e09c6b",
+  "INEFFICIENT": "#e47272",
+  "BALANCED": "#b0b2c8",
+};
+const BAND_COLOR: Record<string, string> = {
+  "HIGH": "#7dd3a0",
+  "MEDIUM": "#d4a532",
+  "LOW": "#9596a5",
+  "UNLIKELY": "#e47272",
+};
+
 function DraftIntel() {
-  const sorted = [...MOCK_MANAGER_INTEL].sort((a, b) => b.trade_up_willingness - a.trade_up_willingness);
+  const sorted = [...MOCK_MANAGER_INTEL].sort((a, b) => b.willingness.score - a.willingness.score);
   return (
     <div style={{ padding: "20px 0" }}>
       <MockBanner />
       <div style={{
         display: "grid",
-        gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+        gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
         gap: 12,
       }}>
-        {sorted.map((m) => (
-          <div key={m.user_id} style={{
-            background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 14,
-          }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10 }}>
-              <div style={{ fontFamily: SANS, fontSize: 15, fontWeight: 800, color: C.primary }}>
-                {m.name}
+        {sorted.map((m) => {
+          const identityColor = IDENTITY_COLOR[m.draft_identity] || C.dim;
+          const bandColor = BAND_COLOR[m.willingness.band] || C.dim;
+          return (
+            <div key={m.owner_user_id} style={{
+              background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 14,
+            }}>
+              {/* Header — name + identity badge */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                <div style={{ fontFamily: SANS, fontSize: 15, fontWeight: 800, color: C.primary }}>
+                  {m.owner}
+                </div>
+                <span style={{
+                  fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.06em",
+                  padding: "3px 7px", borderRadius: 3,
+                  background: `${identityColor}18`, color: identityColor,
+                  border: `1px solid ${identityColor}30`,
+                }}>{m.draft_identity}</span>
               </div>
+
+              {/* Trade-up willingness — big number + band */}
               <div style={{
-                fontFamily: MONO, fontSize: 9, letterSpacing: "0.08em", color: C.dim,
+                display: "flex", alignItems: "baseline", gap: 8, marginBottom: 10,
+                padding: "8px 10px", borderRadius: 4,
+                background: `${bandColor}10`, border: `1px solid ${bandColor}28`,
               }}>
-                TRADE-UP <span style={{
-                  color: m.trade_up_willingness >= 70 ? C.green : m.trade_up_willingness >= 40 ? C.gold : C.dim,
-                  fontWeight: 800, marginLeft: 4,
-                }}>{m.trade_up_willingness}</span>
+                <div style={{ fontFamily: MONO, fontSize: 9, letterSpacing: "0.06em", color: C.dim }}>
+                  TRADE-UP
+                </div>
+                <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: bandColor }}>
+                  {m.willingness.score}
+                </div>
+                <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: bandColor, letterSpacing: "0.06em" }}>
+                  {m.willingness.band}
+                </div>
+              </div>
+
+              {/* Hit/star/bust rates */}
+              <StatRow label="HIT RATE"  ratio={m.hit_rate}  good />
+              <StatRow label="STAR RATE" ratio={m.star_rate} good />
+              <StatRow label="BUST RATE" ratio={m.bust_rate} bad  />
+
+              {/* Round 1 position distribution */}
+              <div style={{ marginTop: 10 }}>
+                <div style={{ fontFamily: MONO, fontSize: 9, letterSpacing: "0.06em", color: C.dim, marginBottom: 4 }}>
+                  R1 POSITIONS
+                </div>
+                <PosDistBar dist={m.round1_position_distribution} />
+              </div>
+
+              {/* Willingness factors + adapter signals */}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 10 }}>
+                <FactorChip label="ACTIVITY" v={m.willingness.factors.activity} />
+                <FactorChip label="WINDOW"   v={m.willingness.factors.window_alignment} />
+                <FactorChip label="PANIC"    v={m.willingness.factors.panic_signal} />
+                <FactorChip label="H2H"      v={m.willingness.factors.h2h_history} />
+                <FactorChip label="DOWN-MOVE" v={Math.round(m.down_move_bias * 100)} />
+                <FactorChip label="PICKS Δ" v={m.pick_surplus_delta} format="signed" />
               </div>
             </div>
-            <StatRow label="REACH RATE"   value={m.reach_rate}        suffix="%" />
-            <StatRow label="PICK-TRADER"  value={m.pick_trade_rate}   suffix="%" />
-            <StatRow label="QB-EARLY"     value={m.qb_early_score} />
-            <StatRow label="TE-PREMIUM"   value={m.te_premium_score} />
-            {m.recent_move && (
-              <div style={{
-                marginTop: 10, padding: "6px 8px", borderRadius: 4,
-                background: C.elevated, border: `1px solid ${C.border}`,
-                fontFamily: MONO, fontSize: 10, color: C.secondary, lineHeight: 1.4,
-              }}>{m.recent_move}</div>
-            )}
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
 }
 
-function StatRow({ label, value, suffix }: { label: string; value: number; suffix?: string }) {
+function StatRow({ label, ratio, good, bad }: { label: string; ratio: number; good?: boolean; bad?: boolean }) {
+  const pct = Math.round(ratio * 100);
+  const color = bad
+    ? (pct >= 30 ? C.red : pct >= 20 ? C.orange : C.dim)
+    : (pct >= 60 ? C.green : pct >= 40 ? C.gold : C.dim);
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
-      <div style={{ fontFamily: MONO, fontSize: 9, letterSpacing: "0.08em", color: C.dim, width: 90 }}>
+      <div style={{ fontFamily: MONO, fontSize: 9, letterSpacing: "0.08em", color: C.dim, width: 80 }}>
         {label}
       </div>
       <div style={{ flex: 1, height: 4, borderRadius: 2, background: C.border, overflow: "hidden" }}>
-        <div style={{
-          width: `${value}%`, height: "100%",
-          background: value >= 70 ? C.gold : value >= 40 ? C.blue : C.dim,
-        }} />
+        <div style={{ width: `${pct}%`, height: "100%", background: color }} />
       </div>
-      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.primary, width: 36, textAlign: "right" }}>
-        {value}{suffix || ""}
+      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.primary, width: 32, textAlign: "right" }}>
+        {pct}%
       </div>
     </div>
+  );
+}
+
+function PosDistBar({ dist }: { dist: { QB: number; RB: number; WR: number; TE: number } }) {
+  const order: Pos[] = ["QB", "RB", "WR", "TE"];
+  return (
+    <div style={{ display: "flex", height: 6, borderRadius: 2, overflow: "hidden", border: `1px solid ${C.border}` }}>
+      {order.map((p) => {
+        const pct = dist[p] * 100;
+        if (pct === 0) return null;
+        return <div key={p} title={`${p} ${pct.toFixed(0)}%`} style={{ width: `${pct}%`, background: POS_COLOR[p] }} />;
+      })}
+    </div>
+  );
+}
+
+function FactorChip({ label, v, format }: { label: string; v: number; format?: "signed" }) {
+  const display = format === "signed" ? (v >= 0 ? `+${v.toFixed(1)}` : v.toFixed(1)) : `${v}`;
+  const c = format === "signed"
+    ? (v > 0 ? C.green : v < 0 ? C.red : C.dim)
+    : (v >= 70 ? C.gold : v >= 40 ? C.blue : C.dim);
+  return (
+    <span style={{
+      fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: "0.04em",
+      padding: "2px 6px", borderRadius: 3,
+      background: `${c}12`, color: c, border: `1px solid ${c}26`,
+    }}>{label} {display}</span>
   );
 }
 
