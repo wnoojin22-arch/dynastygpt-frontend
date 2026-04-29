@@ -1087,7 +1087,7 @@ function Rookies({ lid }: { lid: string }) {
     : rookies.filter(r => (r.position || "").toUpperCase() === posFilter);
 
   return (
-    <div style={{ padding: isMobile ? "14px 0" : "20px 0", width: "100%", maxWidth: "100%", overflowX: "hidden" }}>
+    <div style={{ padding: isMobile ? "14px 0" : "20px 0" }}>
       {/* Title block — over the top */}
       <div style={{ marginBottom: isMobile ? 12 : 18 }}>
         <div style={{
@@ -1143,21 +1143,11 @@ function Rookies({ lid }: { lid: string }) {
             grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 6px;
             width: 100%;
-            max-width: 100%;
             box-sizing: border-box;
           }
-          .rk-grid > * { min-width: 0; max-width: 100%; box-sizing: border-box; }
+          .rk-grid > * { min-width: 0; box-sizing: border-box; }
           .rk-stats { display: flex; align-items: stretch; width: 100%; box-sizing: border-box; }
           .rk-stats > div { flex: 1 1 0; min-width: 0; text-align: center; box-sizing: border-box; }
-          @media (max-width: 768px) {
-            .rk-grid {
-              /* Hard-pin to viewport so the 2nd card cannot leak past the right edge */
-              width: calc(100vw - 24px);
-              max-width: calc(100vw - 24px);
-              margin-left: auto;
-              margin-right: auto;
-            }
-          }
           @media (min-width: 769px) {
             .rk-grid {
               grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
@@ -1380,9 +1370,9 @@ export default function DraftHQPage() {
   };
 
   return (
-    <div style={{ background: C.bg, minHeight: "100vh", color: C.primary, padding: isMobile ? "12px 12px 60px" : "20px 16px 80px", overflowX: "hidden", boxSizing: "border-box" }}>
+    <div style={{ background: C.bg, minHeight: "100vh", color: C.primary, paddingTop: isMobile ? 12 : 20, paddingBottom: isMobile ? 60 : 80, paddingLeft: isMobile ? 12 : 16, paddingRight: isMobile ? 12 : 16, overflowX: "hidden" }}>
       <style>{`@keyframes rk-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }`}</style>
-      <div style={{ maxWidth: 1100, margin: "0 auto", width: "100%", boxSizing: "border-box" }}>
+      <div style={{ maxWidth: 1100, marginLeft: "auto", marginRight: "auto" }}>
         <div style={{ marginBottom: isMobile ? 10 : 14 }}>
           <div style={{
             fontFamily: SANS, fontSize: isMobile ? 10 : 11, color: C.gold, letterSpacing: "0.18em", fontWeight: 800,
