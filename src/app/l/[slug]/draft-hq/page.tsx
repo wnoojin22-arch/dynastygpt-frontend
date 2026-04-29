@@ -1136,11 +1136,21 @@ function Rookies({ lid }: { lid: string }) {
       {filtered.length === 0 ? (
         <EmptyMsg msg="No rookies match this filter." />
       ) : (
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(auto-fill, minmax(310px, 1fr))",
-          gap: isMobile ? 8 : 14,
-        }}>
+        <>
+        <style>{`
+          .rk-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+          }
+          @media (min-width: 769px) {
+            .rk-grid {
+              grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+              gap: 14px;
+            }
+          }
+        `}</style>
+        <div className="rk-grid">
           {filtered.map((r, idx) => {
             const adp = r.avg_pick ?? r.p50_pick;
             const tier = talentTier(adp);
@@ -1269,6 +1279,7 @@ function Rookies({ lid }: { lid: string }) {
             );
           })}
         </div>
+        </>
       )}
     </div>
   );
