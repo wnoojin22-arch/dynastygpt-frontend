@@ -168,14 +168,6 @@ const TIER_TIP: Record<string, string> = {
   global:      "Cross-format ADP fallback — use as a directional baseline only.",
 };
 
-function formatScoring(s?: string): string {
-  if (!s) return "—";
-  if (s === "ppr") return "PPR";
-  if (s === "half_ppr") return "Half-PPR";
-  if (s === "standard") return "Standard";
-  return s.toUpperCase();
-}
-
 // ─── ADP candidate helper (shared by Tab 1 + Tab 2) ─────────────────────
 type ADPRookie = {
   player_name: string;
@@ -1210,135 +1202,211 @@ function TendencyStat({
 }
 
 // ═════════════════════════════════════════════════════════════════════════
-// TAB 4 — ROOKIES (real ADP from rookie_adp_2026_cache)
+// TAB 4 — ROOKIE ADP
 // ═════════════════════════════════════════════════════════════════════════
+type TalentTier = { tier: 1 | 2 | 3 | 4; label: string; color: string; bgGrad: string };
+
+function talentTier(adp: number | null | undefined): TalentTier {
+  if (adp == null) {
+    return { tier: 4, label: "T4", color: "#9596a5", bgGrad: "linear-gradient(135deg, rgba(149,150,165,0.18) 0%, rgba(149,150,165,0.04) 100%)" };
+  }
+  if (adp <= 6) {
+    return { tier: 1, label: "T1", color: "#d4a532",
+             bgGrad: "linear-gradient(135deg, rgba(212,165,50,0.32) 0%, rgba(212,165,50,0.06) 65%, rgba(0,0,0,0) 100%)" };
+  }
+  if (adp <= 12) {
+    return { tier: 2, label: "T2", color: "#7dd3a0",
+             bgGrad: "linear-gradient(135deg, rgba(125,211,160,0.26) 0%, rgba(125,211,160,0.05) 65%, rgba(0,0,0,0) 100%)" };
+  }
+  if (adp <= 24) {
+    return { tier: 3, label: "T3", color: "#6bb8e0",
+             bgGrad: "linear-gradient(135deg, rgba(107,184,224,0.22) 0%, rgba(107,184,224,0.04) 65%, rgba(0,0,0,0) 100%)" };
+  }
+  return { tier: 4, label: "T4", color: "#9596a5",
+           bgGrad: "linear-gradient(135deg, rgba(149,150,165,0.16) 0%, rgba(149,150,165,0.03) 65%, rgba(0,0,0,0) 100%)" };
+}
+
 function Rookies({ lid }: { lid: string }) {
   const enabled = !!lid;
   const [posFilter, setPosFilter] = useState<"ALL" | "QB" | "RB" | "WR" | "TE">("ALL");
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
 
   const adpQ = useQuery({
     queryKey: ["draft-hq-rookie-adp", lid],
-    queryFn: () => getDraftHQRookieADP(lid, 80),
+    queryFn: () => getDraftHQRookieADP(lid, 100),
     staleTime: 600_000,
     enabled,
   });
 
   if (!enabled) return <EmptyMsg msg="No league context." />;
-  if (adpQ.isLoading) return <EmptyMsg msg="Loading 2026 rookie ADP…" />;
+  if (adpQ.isLoading) return <EmptyMsg msg="Loading rookie ADP…" />;
   if (adpQ.error) return <EmptyMsg msg={`Error: ${(adpQ.error as Error).message}`} />;
 
   const rookies: any[] = adpQ.data?.rookies || [];
-  const fmt = adpQ.data?.format || {};
   const filtered = posFilter === "ALL"
     ? rookies
     : rookies.filter(r => (r.position || "").toUpperCase() === posFilter);
 
-  // Tier counts for header summary
-  const tierCounts = { tep_sliced: 0, format_only: 0, global: 0 };
-  for (const r of rookies) {
-    if (r.tier in tierCounts) tierCounts[r.tier as keyof typeof tierCounts]++;
-  }
-
   return (
     <div style={{ padding: "20px 0" }}>
-      {/* Format header */}
-      <div style={{
-        background: `linear-gradient(180deg, ${C.goldGlow} 0%, ${C.card} 100%)`,
-        border: `1px solid ${C.goldBorder}`, borderRadius: 10, padding: 14, marginBottom: 14,
-      }}>
+      {/* Title block — over the top */}
+      <div style={{ marginBottom: 18 }}>
         <div style={{
-          fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.gold,
-          letterSpacing: "0.16em", marginBottom: 6,
-        }}>2026 ROOKIE ADP — TUNED FOR YOUR LEAGUE</div>
-        <div style={{ fontFamily: SANS, fontSize: 14, color: C.primary, lineHeight: 1.55 }}>
-          {formatScoring(fmt.scoring)} · {fmt.qb === "sf" ? "Superflex" : "1QB"} · {fmt.tep === "tep" ? "TE Premium" : "No TEP"}
-          . Each player's ADP is served from the most format-specific tier with enough sample. Tier badges below tell you the confidence.
-        </div>
-        <div style={{ display: "flex", gap: 14, marginTop: 10, flexWrap: "wrap", fontFamily: MONO, fontSize: 11, color: C.dim }}>
-          <span><span style={{ color: TIER_COLOR.tep_sliced, fontWeight: 700 }}>●</span> {tierCounts.tep_sliced} format-exact</span>
-          <span><span style={{ color: TIER_COLOR.format_only, fontWeight: 700 }}>●</span> {tierCounts.format_only} format-match</span>
-          <span><span style={{ color: TIER_COLOR.global, fontWeight: 700 }}>●</span> {tierCounts.global} global fallback</span>
+          fontFamily: SANS, fontSize: 11, fontWeight: 800, color: C.gold,
+          letterSpacing: "0.22em", marginBottom: 4,
+        }}>FORMAT-AWARE · 2026</div>
+        <div style={{
+          fontFamily: SANS, fontSize: 36, fontWeight: 900, color: C.primary,
+          letterSpacing: "-0.01em", lineHeight: 1, marginBottom: 4,
+          background: `linear-gradient(180deg, ${C.primary} 0%, ${C.gold} 200%)`,
+          WebkitBackgroundClip: "text", backgroundClip: "text",
+          WebkitTextFillColor: "transparent",
+        }}>Rookie ADP</div>
+        <div style={{ fontFamily: MONO, fontSize: 12, color: C.dim, letterSpacing: "0.04em" }}>
+          {rookies.length} rookies · tiers earned by board position
         </div>
       </div>
 
       {/* Position filter */}
-      <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: 6, marginBottom: 18, flexWrap: "wrap" }}>
         {(["ALL", "QB", "RB", "WR", "TE"] as const).map(p => {
           const active = posFilter === p;
           const c = p === "ALL" ? C.gold : (POS_COLOR[p as Pos] || C.dim);
           return (
             <button key={p} onClick={() => setPosFilter(p)} style={{
-              fontFamily: MONO, fontSize: 12, fontWeight: 800, letterSpacing: "0.06em",
-              padding: "6px 14px", borderRadius: 4, cursor: "pointer",
+              fontFamily: MONO, fontSize: 12, fontWeight: 800, letterSpacing: "0.08em",
+              padding: "8px 18px", borderRadius: 4, cursor: "pointer",
               background: active ? `${c}25` : "transparent",
               color: active ? c : C.dim,
               border: `1px solid ${active ? c : C.border}`,
+              boxShadow: active ? `0 0 18px ${c}30` : "none",
+              transition: "all 0.15s ease",
             }}>{p}</button>
           );
         })}
       </div>
 
       {filtered.length === 0 ? (
-        <EmptyMsg msg="No rookies match this filter yet." />
+        <EmptyMsg msg="No rookies match this filter." />
       ) : (
         <div style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-          gap: 10,
+          gridTemplateColumns: "repeat(auto-fill, minmax(310px, 1fr))",
+          gap: 14,
         }}>
           {filtered.map((r, idx) => {
-            const tierColor = TIER_COLOR[r.tier] || C.dim;
-            const tierLabel = TIER_LABEL[r.tier] || r.tier;
-            const tierTip = TIER_TIP[r.tier] || "";
+            const adp = r.p50_pick ?? r.avg_pick;
+            const tier = talentTier(adp);
+            const posCol = POS_COLOR[(r.position || "") as Pos] || C.dim;
+            const isHover = hoverIdx === idx;
             return (
-              <div key={`${r.player_name}-${idx}`} style={{
-                background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12,
-                display: "flex", flexDirection: "column", gap: 8,
-              }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <PlayerHeadshot name={r.player_name} position={r.position || "PICK"} size={36} />
+              <div
+                key={`${r.player_name}-${idx}`}
+                onMouseEnter={() => setHoverIdx(idx)}
+                onMouseLeave={() => setHoverIdx(null)}
+                style={{
+                  position: "relative",
+                  background: `${tier.bgGrad}, ${C.card}`,
+                  border: `1px solid ${isHover ? `${tier.color}80` : `${tier.color}30`}`,
+                  borderRadius: 10, padding: 16,
+                  display: "flex", flexDirection: "column", gap: 14,
+                  overflow: "hidden",
+                  transform: isHover ? "translateY(-2px)" : "translateY(0)",
+                  boxShadow: isHover
+                    ? `0 8px 24px ${tier.color}25, 0 0 0 1px ${tier.color}40`
+                    : `0 2px 6px rgba(0,0,0,0.20)`,
+                  transition: "all 0.18s ease",
+                }}
+              >
+                {/* Tier accent stripe */}
+                <div style={{
+                  position: "absolute", top: 0, left: 0, right: 0, height: 4,
+                  background: `linear-gradient(90deg, ${tier.color} 0%, ${tier.color}40 100%)`,
+                }} />
+
+                {/* Header row: headshot, name, tier box */}
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <PlayerHeadshot name={r.player_name} position={r.position || "PICK"} size={56} />
                   <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 800, color: C.primary, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis" }}>
-                      {r.player_name}
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3 }}>
-                      <PosBadge pos={r.position || "—"} />
-                      <span title={tierTip} style={{
-                        fontFamily: MONO, fontSize: 10, fontWeight: 700, letterSpacing: "0.06em",
-                        padding: "2px 6px", borderRadius: 3, cursor: "help",
-                        background: `${tierColor}18`, color: tierColor, border: `1px solid ${tierColor}40`,
-                      }}>{tierLabel}</span>
+                    <div style={{
+                      fontFamily: SANS, fontSize: 17, fontWeight: 800, color: C.primary,
+                      lineHeight: 1.15,
+                      overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                    }}>{r.player_name}</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
+                      <span style={{
+                        fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.08em",
+                        padding: "3px 8px", borderRadius: 3,
+                        background: `${posCol}20`, color: posCol, border: `1px solid ${posCol}50`,
+                      }}>{r.position || "—"}</span>
                     </div>
                   </div>
-                  <div style={{ textAlign: "right" }}>
-                    <div style={{ fontFamily: MONO, fontSize: 10, color: C.dim, letterSpacing: "0.06em" }}>ADP</div>
-                    <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 800, color: C.gold, lineHeight: 1 }}>
-                      {r.p50_pick != null ? r.p50_pick.toFixed(1) : (r.avg_pick != null ? r.avg_pick.toFixed(1) : "—")}
-                    </div>
+                  {/* Tier color-coded box */}
+                  <div style={{
+                    width: 44, height: 44, borderRadius: 6,
+                    background: `linear-gradient(135deg, ${tier.color} 0%, ${tier.color}c0 100%)`,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    flexDirection: "column",
+                    boxShadow: `0 4px 12px ${tier.color}40, inset 0 1px 0 rgba(255,255,255,0.2)`,
+                    flexShrink: 0,
+                  }}>
+                    <span style={{
+                      fontFamily: MONO, fontSize: 16, fontWeight: 900, color: "#0a0b14",
+                      letterSpacing: "0.02em", lineHeight: 1,
+                    }}>{tier.label}</span>
                   </div>
                 </div>
+
+                {/* Massive ADP */}
                 <div style={{
-                  display: "flex", justifyContent: "space-between", gap: 8,
-                  paddingTop: 8, borderTop: `1px solid ${C.border}`,
-                  fontFamily: MONO, fontSize: 11,
+                  display: "flex", alignItems: "baseline", justifyContent: "center",
+                  gap: 8, padding: "4px 0",
                 }}>
-                  <div>
-                    <div style={{ color: C.dim, letterSpacing: "0.06em", marginBottom: 2 }}>RANGE</div>
-                    <div style={{ color: C.primary, fontWeight: 700 }}>
-                      {r.p10_pick != null && r.p90_pick != null
-                        ? `${r.p10_pick.toFixed(0)}–${r.p90_pick.toFixed(0)}`
-                        : "—"}
+                  <span style={{
+                    fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.dim,
+                    letterSpacing: "0.18em",
+                  }}>ADP</span>
+                  <span style={{
+                    fontFamily: MONO, fontSize: 38, fontWeight: 900, color: C.gold,
+                    lineHeight: 1, letterSpacing: "-0.02em",
+                    textShadow: `0 0 24px ${C.gold}40`,
+                  }}>
+                    {adp != null ? adp.toFixed(1) : "—"}
+                  </span>
+                </div>
+
+                {/* Earliest / Latest / R1 odds row */}
+                <div style={{
+                  display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8,
+                  paddingTop: 12, borderTop: `1px solid ${tier.color}25`,
+                }}>
+                  <div style={{ textAlign: "center" }}>
+                    <div style={{ fontFamily: MONO, fontSize: 10, color: C.dim, letterSpacing: "0.10em", marginBottom: 3 }}>
+                      EARLIEST
+                    </div>
+                    <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: C.primary }}>
+                      {r.p10_pick != null ? r.p10_pick.toFixed(1) : "—"}
                     </div>
                   </div>
-                  <div>
-                    <div style={{ color: C.dim, letterSpacing: "0.06em", marginBottom: 2 }}>R1 ODDS</div>
-                    <div style={{ color: C.primary, fontWeight: 700 }}>
+                  <div style={{ textAlign: "center", borderLeft: `1px solid ${C.border}`, borderRight: `1px solid ${C.border}` }}>
+                    <div style={{ fontFamily: MONO, fontSize: 10, color: C.dim, letterSpacing: "0.10em", marginBottom: 3 }}>
+                      R1 ODDS
+                    </div>
+                    <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800,
+                      color: r.pct_round_1 != null && r.pct_round_1 >= 0.7 ? C.green
+                           : r.pct_round_1 != null && r.pct_round_1 >= 0.4 ? C.gold
+                           : C.primary,
+                    }}>
                       {r.pct_round_1 != null ? `${(r.pct_round_1 * 100).toFixed(0)}%` : "—"}
                     </div>
                   </div>
-                  <div style={{ textAlign: "right" }}>
-                    <div style={{ color: C.dim, letterSpacing: "0.06em", marginBottom: 2 }}>SAMPLE</div>
-                    <div style={{ color: C.primary, fontWeight: 700 }}>n={r.sample_n ?? 0}</div>
+                  <div style={{ textAlign: "center" }}>
+                    <div style={{ fontFamily: MONO, fontSize: 10, color: C.dim, letterSpacing: "0.10em", marginBottom: 3 }}>
+                      LATEST
+                    </div>
+                    <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: C.primary }}>
+                      {r.p90_pick != null ? r.p90_pick.toFixed(1) : "—"}
+                    </div>
                   </div>
                 </div>
               </div>
