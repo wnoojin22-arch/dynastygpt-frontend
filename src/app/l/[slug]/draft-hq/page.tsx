@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useLeagueStore } from "@/lib/stores/league-store";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useTrack } from "@/hooks/useTrack";
 import {
   getDraftHQYourPicks,
   getDraftHQTendencies,
@@ -1377,6 +1378,25 @@ export default function DraftHQPage() {
   const tab = searchParams.get("tab") || "rookies";
   const { currentLeagueId } = useLeagueStore();
   const isMobile = useIsMobile();
+  const track = useTrack();
+
+  // Track page open + every tab transition. Mount fires draft_hq_viewed
+  // once; subsequent tab changes (incl. URL-driven ones) fire
+  // draft_hq_tab_clicked with from/to + league_id so the admin dashboard
+  // can break down which tabs beta users actually use.
+  const lastTabRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (lastTabRef.current === null) {
+      track("draft_hq_viewed", { tab, league_id: currentLeagueId || null });
+    } else if (lastTabRef.current !== tab) {
+      track("draft_hq_tab_clicked", {
+        from: lastTabRef.current,
+        to: tab,
+        league_id: currentLeagueId || null,
+      });
+    }
+    lastTabRef.current = tab;
+  }, [tab, currentLeagueId, track]);
 
   const setTab = (id: string) => {
     const next = new URLSearchParams(searchParams.toString());
