@@ -10,6 +10,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   getRankings, getRecentTrades, getTrending, getOwnerProfiles,
   getOverview, getLeagueIntel, getReportCard, getMarketPulse,
+  getUpcomingDraft, getHeroSummary,
 } from "@/lib/api";
 import { RecentTrades, PlayerName } from "@/components/league";
 import PlayerHeadshot from "@/components/league/PlayerHeadshot";
@@ -594,6 +595,8 @@ export default function LeagueHome() {
   const { data: leagueIntel } = useQuery({ queryKey: ["league-intel", lid], queryFn: () => getLeagueIntel(lid!), enabled: !!lid, staleTime: 2 * HOUR });
   const { data: reportCard, isLoading: rcLoading } = useQuery({ queryKey: ["report-card", lid], queryFn: () => getReportCard(lid!), enabled: !!lid, staleTime: 4 * HOUR });
   const { data: marketPulse } = useQuery({ queryKey: ["market-pulse", lid], queryFn: () => getMarketPulse(lid!), enabled: !!lid, staleTime: HOUR });
+  const { data: upcomingDraft } = useQuery({ queryKey: ["upcoming-draft", lid], queryFn: () => getUpcomingDraft(lid!), enabled: !!lid, staleTime: HOUR });
+  const { data: heroSummary } = useQuery({ queryKey: ["hero-summary", lid], queryFn: () => getHeroSummary(lid!), enabled: !!lid, staleTime: 4 * HOUR });
 
   const heroRef = useRef<HTMLDivElement>(null);
   const { ref: heroInViewRef, inView: heroInView } = useInView(0.2);
@@ -695,92 +698,79 @@ export default function LeagueHome() {
           <div className="max-w-[1200px] mx-auto px-4 sm:px-10 py-3 sm:py-4 grid grid-cols-1 sm:grid-cols-[3fr_2fr] gap-3 sm:gap-6 items-center">
             {/* Left — League identity */}
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-              <div className="flex items-center gap-3 mb-1.5">
-                <h1 className="text-lg sm:text-2xl text-primary tracking-tight leading-tight" style={{ fontFamily: DISPLAY }}>
-                  {leagueName}
-                </h1>
-              </div>
+              <h1 className="text-lg sm:text-2xl text-primary tracking-tight leading-tight mb-1.5" style={{ fontFamily: DISPLAY }}>
+                {leagueName}
+              </h1>
 
-              {/* League Identity with real narrative */}
+              {/* Desktop: tag + description. Mobile: compact stat row. */}
               {personality && reportCard && (
-                <div className="flex items-start gap-2 mb-2">
+                <div className="hidden sm:flex items-start gap-2">
                   <span className="text-[9px] font-black tracking-[0.08em] text-gold-bright px-2 py-0.5 rounded-sm bg-gold-dim border border-gold-border shrink-0 mt-0.5" style={{ fontFamily: SANS }}>
                     {personality.type.toUpperCase()}
                   </span>
-                  <p className="text-[12px] text-secondary leading-relaxed line-clamp-3 sm:line-clamp-none" style={{ fontFamily: SANS }}>
-                    {(() => {
-                      const rc = reportCard;
-                      const activityRatio = rc.db_avg_trades > 0 ? Math.round(((rc.total_trades - rc.db_avg_trades) / rc.db_avg_trades) * 100) : 0;
-                      const robberyCount = rc.overpay_trades || (rc.biggest_robbery ? 1 : 0);
-                      let narrative = `${rc.total_trades} trades across all seasons.`;
-                      if (activityRatio > 50) narrative += " One of the most active leagues on the platform.";
-                      else if (activityRatio > 20) narrative += " More active than most leagues.";
-                      else if (activityRatio > 0) narrative += " Above-average trade volume.";
-                      else if (activityRatio > -20) narrative += " Moderate trade activity.";
-                      else narrative += " A quieter league on the trade front.";
-                      if (robberyCount > 0) narrative += ` ${robberyCount} confirmed ${robberyCount > 1 ? "robberies" : "robbery"} detected.`;
-                      if (rc.panic_trades > 0) narrative += ` ${rc.panic_trades} panic ${rc.panic_trades > 1 ? "trades" : "trade"} flagged.`;
-                      if (rc.blockbusters > 0) narrative += ` ${rc.blockbusters} blockbuster ${rc.blockbusters > 1 ? "deals" : "deal"}.`;
-                      if (!robberyCount && !rc.panic_trades && rc.best_winwin) narrative += " A league where deals tend to be fair.";
-                      return narrative;
-                    })()}
+                  <p className="text-[12px] text-secondary leading-relaxed" style={{ fontFamily: SANS }}>
+                    {personality.description || reportCard.league_personality?.description || ""}
                   </p>
                 </div>
               )}
 
-              {/* Fun stat — picks the most specific, interesting data available */}
-              {reportCard && (
-                <div className="border-l-2 border-gold pl-3 py-1.5 bg-gold-glow rounded-r-sm">
-                  <span className="text-[11px] text-secondary leading-snug line-clamp-2 sm:line-clamp-none" style={{ fontFamily: SANS }}>
-                    {(() => {
-                      const rc = reportCard;
-                      // Priority 1: biggest robbery with real names and assets
-                      if (rc.biggest_robbery && rc.biggest_robbery.sha_gap > 500) {
-                        const got = rc.biggest_robbery.winner_got.slice(0, 2).join(" & ");
-                        const gave = rc.biggest_robbery.loser_got.slice(0, 2).join(" & ");
-                        return `Biggest heist: ${rc.biggest_robbery.winner} sent ${gave} and got back ${got}. Value gap: +${fmt(rc.biggest_robbery.sha_gap)}.`;
-                      }
-                      // Priority 2: most lopsided win rate with context
-                      const best = rc.quality_leaderboard?.[0];
-                      const worst = rc.quality_leaderboard?.slice(-1)[0];
-                      if (best && worst && best.win_pct >= 60 && best.trades >= 3 && worst.win_pct <= 30) {
-                        return `${best.owner} wins ${best.win_pct}% of their trades. ${worst.owner} wins just ${worst.win_pct}%. The gap between the league's best and worst dealer is ${best.win_pct - worst.win_pct} points.`;
-                      }
-                      if (best && best.win_pct >= 60 && best.trades >= 3) {
-                        return `${best.owner} has won ${best.win_pct}% of their ${best.trades} trades — averaging +${fmt(best.avg_sha_net)} value per deal.`;
-                      }
-                      // Priority 3: panic trades or blockbusters
-                      if (rc.panic_trades >= 2) {
-                        return `${rc.panic_trades} panic trades detected this season — someone is making moves they'll regret.`;
-                      }
-                      if (rc.blockbusters >= 2) {
-                        return `${rc.blockbusters} blockbuster deals this season. This league doesn't do small ball.`;
-                      }
-                      // Fallback: API fun_stat
-                      return rc.fun_stat || "";
-                    })()}
-                  </span>
+              {/* Mobile-only quick stats */}
+              <div className="sm:hidden flex items-center gap-3 text-[11px]" style={{ fontFamily: SANS }}>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-primary font-bold">{heroSummary?.num_seasons ?? "—"}</span>
+                  <span className="text-dim uppercase tracking-wider text-[9px]">seasons</span>
                 </div>
-              )}
+                <span className="text-border">·</span>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-primary font-bold">{reportCard?.total_trades ?? "—"}</span>
+                  <span className="text-dim uppercase tracking-wider text-[9px]">trades</span>
+                </div>
+                {heroSummary?.current_champion && (
+                  <>
+                    <span className="text-border">·</span>
+                    <div className="flex items-baseline gap-1 min-w-0">
+                      <span className="text-gold-bright text-[9px] uppercase tracking-wider">Champ</span>
+                      <span className="text-primary font-bold truncate">{heroSummary.current_champion.owner}</span>
+                    </div>
+                  </>
+                )}
+              </div>
             </motion.div>
 
-            {/* Right — Platform stats (desktop only — vanity metrics, not league-specific) */}
+            {/* Right — Rookie Draft Countdown */}
             <motion.div
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.15 }}
-              className="hidden sm:block"
             >
-              <div className="grid grid-cols-2 gap-2">
-                {PLATFORM_STATS.map((s) => (
-                  <StatCard key={s.label} label={s.label} value={s.value} display={s.display} inView={heroInView} />
-                ))}
-              </div>
-              <div className="flex items-center justify-center mt-2">
-                <span className="text-[8px] font-bold tracking-[0.08em] text-gold/40" style={{ fontFamily: SANS }}>
-                  Powered by DynastyGPT.com
-                </span>
-              </div>
+              {(() => {
+                const u = upcomingDraft?.upcoming;
+                let line1 = "Draft not yet scheduled";
+                let line2: string | null = null;
+                if (u && u.start_time_ms) {
+                  const ms = u.start_time_ms - Date.now();
+                  if (ms > 0) {
+                    const days = Math.ceil(ms / 86_400_000);
+                    line1 = `${days} ${days === 1 ? "DAY" : "DAYS"}`;
+                    line2 = "until rookie draft";
+                  }
+                }
+                return (
+                  <div className="border-l-2 border-gold pl-3 sm:pl-4 py-2 sm:py-2.5 bg-gold-glow rounded-r-sm">
+                    <div className="text-[9px] sm:text-[10px] font-black tracking-[0.12em] text-gold-bright uppercase mb-0.5" style={{ fontFamily: SANS }}>
+                      Rookie Draft Countdown
+                    </div>
+                    <div className="text-base sm:text-xl text-primary leading-tight" style={{ fontFamily: DISPLAY }}>
+                      {line1}
+                    </div>
+                    {line2 && (
+                      <div className="text-[10px] sm:text-[11px] text-secondary leading-snug mt-0.5" style={{ fontFamily: SANS }}>
+                        {line2}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </motion.div>
           </div>
         </div>

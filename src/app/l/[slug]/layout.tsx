@@ -323,22 +323,24 @@ function HeaderBar({ owner, leagueName }: {
 
       <div style={{ flex: 1 }} />
 
-      {/* Feedback trigger — desktop only. Dispatches the same open-feedback
-          event the mobile floating button uses; FeedbackWidget panel handles
-          the rest. Unread count comes via window event from the widget. */}
+      {/* Feedback trigger — header pill on all sizes. Dispatches open-feedback;
+          FeedbackWidget panel handles the rest. Unread count comes via window
+          event from the widget. Compact (icon-only) on mobile. */}
       <button
         onClick={() => window.dispatchEvent(new Event("open-feedback"))}
-        className="hidden sm:flex items-center gap-1.5 cursor-pointer relative transition-colors"
+        className="flex items-center gap-1.5 cursor-pointer relative transition-all px-2 sm:px-3 py-1 sm:py-1"
         style={{
-          padding: "4px 12px", borderRadius: 20,
-          border: `1px solid ${C.goldBorder}`, background: C.goldGlow,
+          borderRadius: 20,
+          border: `1px solid ${C.gold}`, background: C.gold,
           flexShrink: 0,
+          boxShadow: "0 0 0 1px rgba(212,165,50,0.25), 0 4px 14px rgba(212,165,50,0.30)",
         }}
-        onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(212,165,50,0.14)"; }}
-        onMouseLeave={(e) => { e.currentTarget.style.background = C.goldGlow; }}
+        aria-label="Feedback"
+        onMouseEnter={(e) => { e.currentTarget.style.filter = "brightness(1.08)"; }}
+        onMouseLeave={(e) => { e.currentTarget.style.filter = "none"; }}
       >
-        <MessageSquare size={12} style={{ color: C.gold }} />
-        <span style={{ fontSize: 11, fontWeight: 700, color: C.gold, fontFamily: SANS, letterSpacing: 0.3 }}>Feedback</span>
+        <MessageSquare size={12} style={{ color: "#06080d" }} />
+        <span className="hidden sm:inline" style={{ fontSize: 11, fontWeight: 800, color: "#06080d", fontFamily: SANS, letterSpacing: 0.3 }}>Feedback</span>
         {unread > 0 && (
           <span
             className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 flex items-center justify-center rounded-full text-white text-[10px] font-bold leading-none px-1"

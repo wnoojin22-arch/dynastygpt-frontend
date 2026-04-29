@@ -146,6 +146,26 @@ export const getTradeHindsight = (id: string, tradeId: string) => get<unknown>(`
 export const getVerdictCache = (id: string) => get<{ verdicts: Record<string, unknown> }>(`${L(id)}/verdict-cache`);
 export const getTradeRecord = (id: string, owner: string, userId?: string | null) => get<{ hindsight: { won: number; lost: number; even: number; decided: number; win_rate: number; pending_count: number; total_displayable: number }; trade_day: { won: number; lost: number; even: number; decided: number; win_rate: number } }>(`${L(id)}/trades/record?owner=${E(owner)}${userId ? `&owner_user_id=${E(userId)}` : ''}`);
 
+// ── Draft ───────────────────────────────────────────────────────────────
+export type UpcomingDraft = {
+  draft_id: string | null;
+  season: string | null;
+  status: string | null;
+  start_time_ms: number | null;
+  rounds: number | null;
+  teams: number | null;
+  type: string | null;
+  scoring_type: string | null;
+  name: string | null;
+};
+export const getUpcomingDraft = (id: string) => get<{ upcoming: UpcomingDraft | null }>(`${L(id)}/draft/upcoming`);
+
+export type HeroSummary = {
+  num_seasons: number;
+  current_champion: { season: number; owner: string } | null;
+};
+export const getHeroSummary = (id: string) => get<HeroSummary>(`${L(id)}/hero-summary`);
+
 // ── Mock Draft ──────────────────────────────────────────────────────────
 export const getMockDraftPreDraft = (id: string, owner?: string, ownerId?: string) => get<unknown>(`${L(id)}/draft/mock-draft/pre-draft?owner=${E(owner || '')}${ownerId ? `&owner_id=${E(ownerId)}` : ''}`);
 export const simulateMockDraft = (id: string, body: { user_owner?: string; user_owner_id?: string }) => post<unknown>(`${L(id)}/draft/mock-draft/simulate`, body);

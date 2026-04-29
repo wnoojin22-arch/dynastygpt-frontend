@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useUser } from "@clerk/nextjs";
-import { usePathname } from "next/navigation";
 import { useLeagueStore } from "@/lib/stores/league-store";
 import { AnimatePresence, motion } from "framer-motion";
 import { authHeaders } from "@/lib/api";
@@ -68,7 +67,6 @@ export default function FeedbackWidget() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [pulse, setPulse] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
   const [threadData, setThreadData] = useState<ThreadData | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -80,18 +78,7 @@ export default function FeedbackWidget() {
   const chatFileRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { user } = useUser();
-  const { currentLeagueId, currentOwner, currentOwnerId } = useLeagueStore();
-  const pathname = usePathname();
-  const isTradeBuilder = pathname.includes("/trades") || pathname.includes("/trade-analyzer") || pathname.includes("/war-room");
-  const [modalOpen, setModalOpen] = useState(false);
-
-  useEffect(() => {
-    const check = () => setModalOpen(document.body.style.overflow === "hidden");
-    check();
-    const observer = new MutationObserver(check);
-    observer.observe(document.body, { attributes: true, attributeFilter: ["style"] });
-    return () => observer.disconnect();
-  }, []);
+  const { currentLeagueId, currentOwner } = useLeagueStore();
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 640);
@@ -101,15 +88,9 @@ export default function FeedbackWidget() {
   }, []);
 
   useEffect(() => {
-    const handler = () => { setOpen(true); setPulse(false); };
+    const handler = () => { setOpen(true); };
     window.addEventListener("open-feedback", handler);
     return () => window.removeEventListener("open-feedback", handler);
-  }, []);
-
-  useEffect(() => {
-    const visits = parseInt(localStorage.getItem("dg_fb_visits") || "0", 10);
-    if (visits >= 3) setPulse(false);
-    localStorage.setItem("dg_fb_visits", String(visits + 1));
   }, []);
 
   // Poll for unread every 60s
@@ -322,24 +303,7 @@ export default function FeedbackWidget() {
 
   return (
     <>
-      {/* Floating button — mobile only. Desktop trigger lives in HeaderBar. */}
-      <button
-        onClick={() => { setOpen(true); setPulse(false); }}
-        className={`fixed z-[9998] cursor-pointer items-center gap-1.5 top-2 right-3 rounded-md px-2.5 py-1.5 bg-[#d4a532] text-[#06080d] font-mono font-extrabold tracking-wide shadow-[0_4px_20px_rgba(212,165,50,0.3)] sm:hidden ${pulse ? "animate-[feedbackPulse_2s_ease_infinite]" : ""} ${open || modalOpen || (isMobile && isTradeBuilder) ? "hidden" : "flex"}`}
-      >
-        <span className="text-[10px] relative">
-          {"\u{1F4AC}"}
-          {unreadCount > 0 && (
-            <span className="absolute -top-2.5 -right-3 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-[#e47272] text-white text-[10px] font-bold leading-none px-1 border-2 border-[#06080d] shadow-[0_2px_8px_rgba(228,114,114,0.5)] animate-bounce">{unreadCount}</span>
-          )}
-        </span>
-      </button>
-
       <style>{`
-        @keyframes feedbackPulse {
-          0%, 100% { box-shadow: 0 4px 20px rgba(212,165,50,0.3); }
-          50% { box-shadow: 0 4px 30px rgba(212,165,50,0.6), 0 0 40px rgba(212,165,50,0.2); }
-        }
         @keyframes checkPop {
           0% { transform: scale(0); } 50% { transform: scale(1.2); } 100% { transform: scale(1); }
         }
