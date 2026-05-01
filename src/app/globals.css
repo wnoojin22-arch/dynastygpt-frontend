@@ -125,13 +125,40 @@
   * {
     @apply border-border;
   }
+  /* Lock the page to vertical scrolling — no L/R swipe jitter on touch devices.
+     `touch-action: pan-y` tells the browser to consume only the vertical
+     component of pan gestures, so a diagonal swipe scrolls vertically instead
+     of also panning horizontally. Combined with overflow-x: hidden and
+     overscroll-behavior: none on x, this kills the iOS rubber-band drift.
+     Inner elements that need horizontal scroll (e.g. tab bars) must override
+     with `touch-action: pan-x` or `touch-action: auto`. */
+  html, body {
+    overflow-x: hidden;
+    overscroll-behavior-x: none;
+    touch-action: pan-y;
+    width: 100%;
+    max-width: 100%;
+  }
   body {
     background: var(--color-bg);
     color: var(--color-primary);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    position: relative;
   }
+}
+
+/* ── Restore horizontal pan on known horizontal-scroll containers.
+   Body has touch-action: pan-y which would otherwise block horizontal swipes
+   on tab bars / pill rows / chip rows. These selectors put it back. ── */
+[class*="overflow-x-auto"],
+[class*="overflow-x-scroll"],
+[style*="overflowX: 'auto'"],
+[style*="overflowX: \"auto\""],
+[style*="overflow-x: auto"],
+[style*="overflow-x: scroll"] {
+  touch-action: pan-x pan-y;
 }
 
 /* ── Scrollbar ── */
@@ -183,14 +210,8 @@
    ═══════════════════════════════════════════════════════════════ */
 
 @media (max-width: 640px) {
-  /* ── Prevent horizontal overflow ──
-     Use 100% (not 100vw): 100vw includes the scrollbar width on iOS Safari and
-     leaks subpixel overflow that manifests as L/R jitter while scrolling. */
-  body, html {
-    overflow-x: hidden;
-    max-width: 100%;
-    overscroll-behavior-x: contain;
-  }
+  /* Note: html/body overflow-x: hidden, overscroll-behavior, and touch-action
+     are now applied universally in @layer base above. */
 
   /* ── Force ALL inline multi-column grids to stack ── */
   /* This catches every gridTemplateColumns set via inline style */
