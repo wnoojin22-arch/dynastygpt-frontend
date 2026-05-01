@@ -8,6 +8,7 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 import { useTrack } from "@/hooks/useTrack";
 import {
   getDraftHQYourPicks,
+  getDraftHQYourPicksRecs,
   getDraftHQTendencies,
   getDraftHQOwnerStrategicIntel,
   getDraftHQRookieADP,
@@ -74,19 +75,6 @@ const FLAG_LABEL: Record<string, string> = {
   TRADE_UP_TARGET:      "TRADE-UP TARGET",
   TRADE_BACK_CANDIDATE: "TRADE-BACK PARTNER",
   LIKELY_HOLD:          "LIKELY HOLD",
-};
-
-const REC_COLOR: Record<string, string> = {
-  "USE IT":      "#7dd3a0",
-  "PACKAGE IT":  "#d4a532",
-  "TRADE BACK":  "#6bb8e0",
-  "TRADE UP":    "#e09c6b",
-};
-const REC_BLURB: Record<string, string> = {
-  "USE IT":     "Make this pick — slot has a real hit rate and a position you need.",
-  "PACKAGE IT": "Bundle this with another pick to move up — slot is weaker than your stronger pick in the same round.",
-  "TRADE BACK": "Sell down for additional capital — limited upside at this slot.",
-  "TRADE UP":   "Combine picks to climb into a higher hit-rate slot.",
 };
 
 function GlowTabs({ tabs, active, onChange }: {
@@ -333,11 +321,66 @@ function buildYourPicksHero(args: {
   return sentences.join(" ");
 }
 
+// ── YourPicks helpers ──────────────────────────────────────────────────────
+function hitRateColorYP(pct: number | null | undefined): string {
+  if (pct == null) return C.dim;
+  if (pct >= 50) return C.green;
+  if (pct >= 30) return C.gold;
+  return C.red;
+}
+
+function availColorYP(pct: number | null | undefined): string {
+  if (pct == null) return C.dim;
+  if (pct >= 60) return C.green;
+  if (pct >= 30) return C.gold;
+  return C.red;
+}
+
+function gradePillStyleYP(grade: string | null | undefined): { bg: string; color: string; border: string } {
+  const g = (grade || "AVERAGE").toUpperCase();
+  if (g === "ELITE")    return { bg: `${C.green}22`, color: C.green, border: `${C.green}60` };
+  if (g === "STRONG")   return { bg: `${C.green}14`, color: "#a8e0bf", border: `${C.green}40` };
+  if (g === "WEAK")     return { bg: `${C.orange}1a`, color: C.orange, border: `${C.orange}40` };
+  if (g === "CRITICAL") return { bg: `${C.red}1f`, color: C.red, border: `${C.red}60` };
+  return { bg: "rgba(149,150,165,0.10)", color: C.secondary, border: "rgba(149,150,165,0.32)" };
+}
+
+function verdictPillStyleYP(tag: string | null | undefined): { bg: string; color: string; border: string } {
+  const t = (tag || "").toUpperCase();
+  if (t === "HOLD FIRM")          return { bg: `${C.green}14`, color: C.green, border: `${C.green}40` };
+  if (t === "LISTEN, DON'T SHOP") return { bg: `${C.gold}14`, color: C.gold, border: `${C.gold}40` };
+  if (t === "PACKAGE FORWARD")    return { bg: `${C.blue}14`, color: C.blue, border: `${C.blue}40` };
+  if (t === "ACTIVELY SHOP")      return { bg: `${C.orange}14`, color: C.orange, border: `${C.orange}40` };
+  return { bg: "rgba(149,150,165,0.12)", color: C.secondary, border: "rgba(149,150,165,0.32)" };
+}
+
+function recChipStyleYP(label: string): { bg: string; color: string; border: string } {
+  if (label === "TARGET")        return { bg: `${C.gold}22`, color: C.goldBright, border: `${C.gold}66` };
+  if (label === "REALISTIC")     return { bg: `${C.blue}14`, color: C.blue, border: `${C.blue}40` };
+  if (label === "OPPORTUNISTIC") return { bg: `${C.orange}14`, color: C.orange, border: `${C.orange}40` };
+  return { bg: "rgba(149,150,165,0.12)", color: C.secondary, border: "rgba(149,150,165,0.32)" };
+}
+
+function recBandColorYP(band: string | null | undefined): string {
+  if (!band) return C.dim;
+  const b = band.toUpperCase();
+  if (b === "STEAL") return C.green;
+  if (b === "REACH") return C.red;
+  return C.dim;
+}
+
 function YourPicks({ lid, owner, ownerId }: { lid: string; owner: string | null; ownerId: string | null }) {
+  const isMobile = useIsMobile();
   const enabled = !!lid && !!owner;
   const picksQ = useQuery({
     queryKey: ["draft-hq-your-picks", lid, owner, ownerId],
     queryFn: () => getDraftHQYourPicks(lid, owner!, ownerId, 3),
+    staleTime: 300_000,
+    enabled,
+  });
+  const recsQ = useQuery({
+    queryKey: ["draft-hq-your-picks-recs", lid, owner, ownerId],
+    queryFn: () => getDraftHQYourPicksRecs(lid, owner!, ownerId),
     staleTime: 300_000,
     enabled,
   });
@@ -353,25 +396,23 @@ function YourPicks({ lid, owner, ownerId }: { lid: string; owner: string | null;
     staleTime: 600_000,
     enabled,
   });
-  const adpQ = useQuery({
-    queryKey: ["draft-hq-rookie-adp-v2", lid],
-    queryFn: () => getDraftHQRookieADP(lid, 80),
-    staleTime: 600_000,
-    enabled,
-  });
-  const overviewQ = useQuery({
-    queryKey: ["league-overview", lid],
-    queryFn: () => getOverview(lid),
-    staleTime: 600_000,
-    enabled,
-  });
 
-  if (!enabled) return <EmptyMsg msg="No league/owner context — open this from your league dashboard." />;
-  if (picksQ.isLoading) return <EmptyMsg msg="Loading your picks…" />;
-  if (picksQ.error) return <EmptyMsg msg={`Error: ${(picksQ.error as Error).message}`} />;
-
-  const picks: any[] = picksQ.data?.picks || [];
-  const partners: any[] = picksQ.data?.likely_partners || [];
+  const FEEDBACK_BANNER_KEY = "your_picks_feedback_banner_dismissed_v1";
+  const [bannerDismissed, setBannerDismissed] = useState(true);
+  useEffect(() => {
+    try {
+      setBannerDismissed(localStorage.getItem(FEEDBACK_BANNER_KEY) === "1");
+    } catch {
+      setBannerDismissed(false);
+    }
+  }, []);
+  const dismissBanner = () => {
+    try { localStorage.setItem(FEEDBACK_BANNER_KEY, "1"); } catch {}
+    setBannerDismissed(true);
+  };
+  const openFeedback = () => {
+    try { window.dispatchEvent(new CustomEvent("open-feedback")); } catch {}
+  };
 
   const selfIntel = useMemo(() => {
     const all: any[] = intelQ.data?.owners || [];
@@ -384,198 +425,744 @@ function YourPicks({ lid, owner, ownerId }: { lid: string; owner: string | null;
     );
   }, [intelQ.data, owner, ownerId]);
 
+  if (!enabled) return <EmptyMsg msg="No league/owner context — open this from your league dashboard." />;
+  if (picksQ.isLoading || recsQ.isLoading) return <EmptyMsg msg="Loading your picks…" />;
+  if (picksQ.error) return <EmptyMsg msg={`Error: ${(picksQ.error as Error).message}`} />;
+
+  const picksRaw: any[] = picksQ.data?.picks || [];
+  const recsByKey = new Map<string, any>();
+  for (const rp of (recsQ.data?.picks || [])) {
+    const k = `${rp.round}.${rp.slot ?? "x"}`;
+    recsByKey.set(k, rp);
+  }
+  const ownerCtx = recsQ.data?.owner_context || null;
+  const ownerWindow: string | null = ownerCtx?.window || null;
   const heroText = buildYourPicksHero({
-    picks,
+    picks: picksRaw,
     selfIntel,
     tendencies: tendQ.data?.tendencies || null,
   });
 
-  if (!picks.length) return <EmptyMsg msg="No upcoming picks found for this league." />;
+  if (!picksRaw.length) return <EmptyMsg msg="No upcoming picks found for this league." />;
 
   return (
-    <div style={{ padding: "20px 0", display: "flex", flexDirection: "column", gap: 16 }}>
-      {/* Hero strategy summary */}
-      <div style={{
-        background: `linear-gradient(180deg, ${C.goldGlow} 0%, ${C.card} 100%)`,
-        border: `1px solid ${C.goldBorder}`, borderRadius: 10, padding: 16,
-      }}>
+    <div style={{ padding: isMobile ? "14px 0" : "20px 0", fontFamily: SANS, display: "flex", flexDirection: "column", gap: isMobile ? 14 : 18 }}>
+      <style>{`
+        @keyframes ypFadeIn {
+          from { opacity: 0; transform: translateY(4px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        .yp-card { animation: ypFadeIn 280ms ease-out both; }
+        .yp-row:hover { background-color: ${C.elevated}; }
+        .yp-likely-scroll::-webkit-scrollbar { width: 6px; }
+        .yp-likely-scroll::-webkit-scrollbar-track { background: transparent; }
+        .yp-likely-scroll::-webkit-scrollbar-thumb { background: ${C.borderLt}; border-radius: 3px; }
+      `}</style>
+
+      {!bannerDismissed && (
         <div style={{
-          fontFamily: SANS, fontSize: 10, fontWeight: 800, color: C.gold,
-          letterSpacing: "0.16em", marginBottom: 6,
-        }}>YOUR DRAFT SUMMARY</div>
-        <div style={{ fontFamily: SANS, fontSize: 14, color: C.primary, lineHeight: 1.55 }}>
-          {heroText}
+          position: "relative",
+          background: C.goldDim,
+          border: `1px solid ${C.goldBorder}`,
+          borderRadius: 10,
+          padding: isMobile ? "14px 16px" : "18px 20px",
+          display: "flex",
+          flexDirection: isMobile ? "column" : "row",
+          alignItems: isMobile ? "flex-start" : "center",
+          justifyContent: "space-between",
+          gap: isMobile ? 10 : 16,
+        }}>
+          <div style={{ flex: 1, paddingRight: isMobile ? 24 : 32 }}>
+            <div style={{
+              fontFamily: SANS, fontSize: 14, fontWeight: 600, color: C.primary,
+              marginBottom: 4,
+            }}>Help shape this feature</div>
+            <div style={{
+              fontFamily: SANS, fontSize: isMobile ? 12 : 13, color: C.secondary,
+              lineHeight: 1.5,
+            }}>
+              This was built and tested with one league&apos;s data — it&apos;s not perfect yet. If something doesn&apos;t make sense, looks off, or is straight-up broken, hit the feedback button. This is a work in progress and your input directly improves it.
+            </div>
+          </div>
+          <button
+            onClick={openFeedback}
+            style={{
+              flexShrink: 0,
+              fontFamily: SANS, fontSize: 12, fontWeight: 600,
+              color: C.primary,
+              background: C.elevated,
+              border: `1px solid ${C.goldBorder}`,
+              borderRadius: 6,
+              padding: "8px 14px",
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+            }}
+          >Send feedback</button>
+          <button
+            onClick={dismissBanner}
+            aria-label="Dismiss"
+            style={{
+              position: "absolute",
+              top: 6, right: 8,
+              background: "transparent",
+              border: "none",
+              color: C.dim,
+              fontSize: 16,
+              lineHeight: 1,
+              cursor: "pointer",
+              padding: 4,
+            }}
+          >×</button>
         </div>
+      )}
+
+      {/* Title block — same gradient treatment as Rookie ADP */}
+      <div style={{ marginBottom: isMobile ? 4 : 6 }}>
+        <div style={{
+          fontFamily: SANS, fontSize: isMobile ? 10 : 11, fontWeight: 800, color: C.gold,
+          letterSpacing: "0.22em", marginBottom: 4,
+        }}>YOUR DRAFT STRATEGY</div>
+        <div style={{
+          fontFamily: SANS, fontSize: isMobile ? 26 : 36, fontWeight: 900, color: C.primary,
+          letterSpacing: "-0.01em", lineHeight: 1, marginBottom: isMobile ? 8 : 10,
+          background: `linear-gradient(180deg, ${C.primary} 0%, ${C.gold} 200%)`,
+          WebkitBackgroundClip: "text", backgroundClip: "text",
+          WebkitTextFillColor: "transparent",
+        }}>Your Picks</div>
+        <div style={{
+          fontFamily: SANS, fontSize: isMobile ? 12.5 : 14, color: C.secondary, lineHeight: 1.55,
+          maxWidth: 760,
+        }}>{heroText}</div>
+        {ownerWindow && (
+          <div style={{
+            display: "inline-flex", alignItems: "center", gap: 6,
+            marginTop: isMobile ? 8 : 10,
+            padding: isMobile ? "4px 9px" : "5px 11px",
+            borderRadius: 4,
+            background: `${C.gold}10`, border: `1px solid ${C.gold}30`,
+            fontFamily: MONO, fontSize: isMobile ? 9.5 : 10.5,
+            fontWeight: 800, letterSpacing: "0.10em", color: C.gold,
+          }}>WINDOW · {ownerWindow}</div>
+        )}
       </div>
 
-      {/* Picks block */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        {picks.map((p: any, i: number) => {
-          const slotKey = p.slot_key || `${p.round}.${p.slot ? String(p.slot).padStart(2, "0") : "??"}`;
-          const recColor = REC_COLOR[p.recommendation] || C.dim;
-          const recBlurb = REC_BLURB[p.recommendation] || "";
-          const top3Pos = Object.entries(p.position_breakdown || {})
-            .sort(([, a]: any, [, b]: any) => b - a).slice(0, 3);
-          const numTeams = overviewQ.data?.format?.num_teams;
-          const allRookies: ADPRookie[] = adpQ.data?.rookies || [];
-          const pickNum: number | null = (numTeams && p.round && p.slot)
-            ? (p.round - 1) * numTeams + p.slot
-            : null;
-          const candBlock = (pickNum != null && allRookies.length > 0)
-            ? pickCandidatesFor(pickNum, allRookies, 4, 3)
-            : null;
-          return (
-            <div key={i} style={{
-              background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 14,
-            }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
-                <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
-                  <span style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: C.gold }}>
-                    {slotKey}
-                  </span>
-                  <span style={{ fontFamily: MONO, fontSize: 11, color: C.dim, letterSpacing: "0.06em" }}>
-                    {p.season} · ROUND {p.round}{p.slot ? ` · SLOT ${p.slot}` : ""}
-                  </span>
-                  {!p.is_own_pick && p.original_owner && (
-                    <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>
-                      from {p.original_owner}
-                    </span>
-                  )}
-                </div>
-                <span title={recBlurb} style={{
-                  fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.08em",
-                  padding: "3px 8px", borderRadius: 3,
-                  background: `${recColor}18`, color: recColor, border: `1px solid ${recColor}30`,
-                  cursor: "help",
-                }}>{p.recommendation}</span>
-              </div>
+      {/* Roster grades pill row */}
+      {ownerCtx?.grades && (
+        <div style={{
+          background: C.card, border: `1px solid ${C.border}`,
+          borderRadius: 10, padding: isMobile ? "12px 14px" : "14px 18px",
+        }}>
+          <div style={{
+            fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.18em",
+            color: C.dim, marginBottom: 10,
+          }}>YOUR ROSTER GRADES</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {(["QB", "RB", "WR", "TE"] as const).map((pos) => {
+              const g = ((ownerCtx.grades as Record<string, string>)[pos]) || "AVERAGE";
+              const posC = POS_COLOR[pos];
+              const gp = gradePillStyleYP(g);
+              return (
+                <span key={pos} style={{
+                  display: "inline-flex", alignItems: "center", gap: 8,
+                  padding: "5px 10px", borderRadius: 4,
+                  background: gp.bg, border: `1px solid ${gp.border}`,
+                }}>
+                  <span style={{
+                    fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.08em",
+                    padding: "2px 6px", borderRadius: 3,
+                    background: `${posC}20`, color: posC, border: `1px solid ${posC}50`,
+                  }}>{pos}</span>
+                  <span style={{
+                    fontFamily: MONO, fontSize: 11, fontWeight: 700, letterSpacing: "0.10em",
+                    color: gp.color,
+                  }}>{g}</span>
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
-              <div style={{ display: "flex", gap: 16, marginBottom: 8, flexWrap: "wrap" }}>
-                <div>
-                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, letterSpacing: "0.06em" }}>SLOT HIT RATE</div>
-                  <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: p.hit_rate >= 50 ? C.green : p.hit_rate >= 30 ? C.gold : C.dim }}>
-                    {p.hit_rate}%
-                  </div>
-                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, marginTop: 2 }}>
-                    % of picks at this slot historically that became starters
+      {/* Picks */}
+      <div style={{ display: "flex", flexDirection: "column", gap: isMobile ? 14 : 18 }}>
+        {picksRaw.map((p: any, i: number) => {
+          const k = `${p.round}.${p.slot ?? "x"}`;
+          const recPick = recsByKey.get(k) || null;
+          const slotLabel = p.slot_key || `${p.round}.${p.slot ? String(p.slot).padStart(2, "0") : "??"}`;
+          const pickNum = recPick?.pick_num ?? null;
+          const yourHr: number | null = recPick?.your_round_hit_rate ?? p.your_round_hit_rate ?? null;
+          const yourHrSample: number = recPick?.your_round_sample ?? p.your_round_hit_sample ?? 0;
+          const leagueAvgHr: number | null = recPick?.league_avg_round_hit_rate ?? p.round_avg_hit ?? null;
+          const slotHr: number | null = recPick?.slot_hit_rate ?? p.slot_hit_rate ?? p.hit_rate ?? null;
+          const slotN: number = recPick?.slot_total ?? p.slot_total ?? 0;
+          const posMix = recPick?.pos_mix_top3
+            || Object.entries(p.position_breakdown || {})
+                .sort(([, a]: any, [, b]: any) => (b as number) - (a as number))
+                .slice(0, 3).map(([position, pct]: any) => ({ position, pct }));
+          const likely: any[] = recPick?.likely_available || [];
+          const recs: any[] = recPick?.recommendations || [];
+          const tradeAngle = recPick?.trade_angle || null;
+          const verdictTag = tradeAngle?.tag || p.recommendation || null;
+          const vpill = verdictPillStyleYP(verdictTag);
+          const roundLabelClean = recPick?.round_label?.toUpperCase().replace(/\s/g, "") || `R${p.round}`;
+
+          return (
+            <div
+              key={i}
+              className="yp-card"
+              style={{
+                position: "relative",
+                background: `linear-gradient(180deg, ${C.card} 0%, ${C.panel} 100%)`,
+                border: `1px solid ${C.border}`,
+                borderRadius: isMobile ? 10 : 12,
+                padding: isMobile ? 14 : 20,
+                animationDelay: `${i * 30}ms`,
+                boxShadow: `0 2px 8px rgba(0,0,0,0.25)`,
+                overflow: "hidden",
+              }}
+            >
+              {/* Gold accent stripe at top */}
+              <div style={{
+                position: "absolute", top: 0, left: 0, right: 0, height: 3,
+                background: `linear-gradient(90deg, ${C.gold} 0%, ${C.gold}40 100%)`,
+              }} />
+
+              {/* Pick header strip — pick num + meta + 3 inline stat tiles + verdict pill, ONE row */}
+              <div style={{
+                display: "flex", flexWrap: "wrap", alignItems: "center",
+                gap: isMobile ? 10 : 14, marginBottom: isMobile ? 14 : 18,
+              }}>
+                {/* Pick number + meta (the headline) */}
+                <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexShrink: 0 }}>
+                  <span style={{
+                    fontFamily: MONO, fontSize: isMobile ? 22 : 32, fontWeight: 900,
+                    color: C.gold, lineHeight: 1, letterSpacing: "-0.02em",
+                    textShadow: `0 0 20px ${C.gold}40`,
+                  }}>Pick {slotLabel}</span>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                    <span style={{
+                      fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.14em",
+                      color: C.dim,
+                    }}>R{p.round}{p.slot ? ` · ${slotLabel}` : ""} · {p.season}</span>
+                    {!p.is_own_pick && p.original_owner && (
+                      <span style={{ fontFamily: SANS, fontSize: 10.5, color: C.dim, letterSpacing: "0.02em" }}>
+                        from {p.original_owner}
+                      </span>
+                    )}
                   </div>
                 </div>
-                {top3Pos.length > 0 && (
-                  <div style={{ flex: 1, minWidth: 220 }}>
-                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, letterSpacing: "0.06em" }}>POSITION MIX AT THIS SLOT</div>
-                    <div style={{ display: "flex", gap: 6, marginTop: 4, flexWrap: "wrap" }}>
-                      {top3Pos.map(([pos, pct]: any) => (
-                        <span key={pos} style={{
-                          fontFamily: MONO, fontSize: 10, fontWeight: 700,
-                          padding: "2px 6px", borderRadius: 3,
-                          background: `${POS_COLOR[pos as Pos] || C.dim}15`,
-                          color: POS_COLOR[pos as Pos] || C.dim,
-                        }}>{pos} {pct}%</span>
-                      ))}
-                    </div>
-                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.dim, marginTop: 4 }}>
-                      What past drafters at this slot picked
-                    </div>
+
+                {/* 3 inline stat tiles — context, not headline; height 50 max */}
+                <div style={{
+                  display: "flex", flex: "1 1 auto", gap: 8, minWidth: 0,
+                  flexWrap: isMobile ? "wrap" : "nowrap",
+                }}>
+                  {/* YOUR HIT RATE */}
+                  <div style={{
+                    flex: "1 1 0", minWidth: isMobile ? 140 : 0,
+                    background: C.panel, border: `1px solid ${C.border}`,
+                    borderRadius: 6, padding: "6px 10px", height: 50,
+                    display: "flex", flexDirection: "column", justifyContent: "center", gap: 2,
+                  }}>
+                    <div style={{
+                      fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.14em",
+                      color: C.dim,
+                    }}>YOUR {roundLabelClean} HIT</div>
+                    {yourHr != null && yourHrSample > 0 ? (
+                      <div style={{ display: "flex", alignItems: "baseline", gap: 6, minWidth: 0 }}>
+                        <span style={{
+                          fontFamily: MONO, fontSize: 16, fontWeight: 800,
+                          color: hitRateColorYP(yourHr), lineHeight: 1,
+                        }}>{Math.round(yourHr)}%</span>
+                        {leagueAvgHr != null && (
+                          <span style={{
+                            fontFamily: MONO, fontSize: 11, color: C.secondary,
+                            whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                          }}>league avg {leagueAvgHr}%</span>
+                        )}
+                      </div>
+                    ) : (
+                      <span style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: C.dim, lineHeight: 1 }}>—</span>
+                    )}
                   </div>
+
+                  {/* SLOT HIT RATE */}
+                  <div style={{
+                    flex: "1 1 0", minWidth: isMobile ? 140 : 0,
+                    background: C.panel, border: `1px solid ${C.border}`,
+                    borderRadius: 6, padding: "6px 10px", height: 50,
+                    display: "flex", flexDirection: "column", justifyContent: "center", gap: 2,
+                  }}>
+                    <div style={{
+                      fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.14em",
+                      color: C.dim,
+                    }}>SLOT {slotLabel} HIT</div>
+                    {slotHr != null && slotN > 0 ? (
+                      <div style={{ display: "flex", alignItems: "baseline", gap: 6, minWidth: 0 }}>
+                        <span style={{
+                          fontFamily: MONO, fontSize: 16, fontWeight: 800,
+                          color: hitRateColorYP(slotHr), lineHeight: 1,
+                        }}>{Math.round(slotHr)}%</span>
+                        <span style={{
+                          fontFamily: MONO, fontSize: 11, color: C.secondary,
+                          whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                        }}>league-wide</span>
+                      </div>
+                    ) : (
+                      <span style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: C.dim, lineHeight: 1 }}>—</span>
+                    )}
+                  </div>
+
+                  {/* POS MIX — condensed pills */}
+                  <div style={{
+                    flex: "1 1 0", minWidth: isMobile ? 140 : 0,
+                    background: C.panel, border: `1px solid ${C.border}`,
+                    borderRadius: 6, padding: "6px 10px", height: 50,
+                    display: "flex", flexDirection: "column", justifyContent: "center", gap: 3,
+                  }}>
+                    <div style={{
+                      fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.14em",
+                      color: C.dim,
+                    }}>POS MIX</div>
+                    {posMix && posMix.length > 0 ? (
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "nowrap", minWidth: 0 }}>
+                        {posMix.slice(0, 3).map((m: any) => {
+                          const c = POS_COLOR[m.position as Pos] || C.dim;
+                          return (
+                            <span key={m.position} style={{
+                              display: "inline-flex", alignItems: "center", gap: 3,
+                            }}>
+                              <span style={{
+                                padding: "1px 4px", borderRadius: 2,
+                                background: `${c}20`, color: c, border: `1px solid ${c}40`,
+                                fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.04em",
+                              }}>{m.position}</span>
+                              <span style={{
+                                fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.secondary,
+                              }}>{m.pct}%</span>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <span style={{ fontFamily: SANS, fontSize: 11, color: C.dim }}>no slot data</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Verdict pill — far right of the same row */}
+                {verdictTag && (
+                  <span style={{
+                    fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.12em",
+                    padding: "5px 10px", borderRadius: 4,
+                    background: vpill.bg, color: vpill.color, border: `1px solid ${vpill.border}`,
+                    flexShrink: 0, whiteSpace: "nowrap",
+                  }}>{verdictTag}</span>
                 )}
               </div>
 
-              {recBlurb && (
-                <div style={{
-                  fontFamily: SANS, fontSize: 11, color: recColor, lineHeight: 1.45, marginBottom: 6,
-                  paddingTop: 6, paddingLeft: 8, borderLeft: `2px solid ${recColor}40`,
-                }}>{recBlurb}</div>
-              )}
+              {/* LIKELY AVAILABLE + RECOMMENDATIONS — TWO-COLUMN GRID */}
               <div style={{
-                fontFamily: SANS, fontSize: 12, color: C.primary, lineHeight: 1.5,
-                paddingTop: 8, borderTop: `1px solid ${C.border}`,
-              }}>{p.reasoning}</div>
-
-              {/* Likely available candidates (real ADP) */}
-              {candBlock && candBlock.rookies.length > 0 && (
-                <div style={{
-                  marginTop: 10, paddingTop: 10, borderTop: `1px solid ${C.border}`,
-                }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4, flexWrap: "wrap", gap: 6 }}>
-                    <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim, letterSpacing: "0.06em" }}>
-                      {candBlock.fallback ? "REACH TERRITORY" : "LIKELY AVAILABLE"}
-                    </div>
+                paddingTop: isMobile ? 14 : 18,
+                borderTop: `1px solid ${C.border}`,
+                display: "grid",
+                gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1fr) minmax(0, 1fr)",
+                gap: isMobile ? 16 : 20,
+              }}>
+                {/* LIKELY AVAILABLE */}
+                <div style={{ minWidth: 0 }}>
+                  <div style={{
+                    display: "flex", alignItems: "baseline", justifyContent: "space-between",
+                    flexWrap: "wrap", gap: 8, marginBottom: 10,
+                  }}>
+                    <div style={{
+                      fontFamily: MONO, fontSize: 10.5, fontWeight: 800, letterSpacing: "0.18em",
+                      color: C.dim,
+                    }}>LIKELY AVAILABLE</div>
                     {pickNum != null && (
-                      <div style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>
-                        at pick #{pickNum}
-                      </div>
+                      <div style={{
+                        fontFamily: MONO, fontSize: 10, color: C.dim, letterSpacing: "0.06em",
+                      }}>at #{pickNum}</div>
                     )}
                   </div>
-                  <div style={{ fontFamily: SANS, fontSize: 12, color: C.secondary, marginBottom: 4, lineHeight: 1.4 }}>
-                    {candBlock.fallback
-                      ? "These rookies have ADP earlier than your pick — could fall if the board breaks right."
-                      : "Top 3 rookies whose ADP window overlaps this pick, sorted by closest median."}
+                  {likely.length > 0 ? (
+                    <div className="yp-likely-scroll" style={{
+                      maxHeight: 320, overflowY: "auto", paddingRight: 4,
+                      display: "flex", flexDirection: "column",
+                    }}>
+                      {likely.map((r: any, idx: number) => {
+                        const isLast = idx === likely.length - 1;
+                        const posCol = POS_COLOR[(r.position || "") as Pos] || C.dim;
+                        const ac = availColorYP(r.availability_pct);
+                        return (
+                          <div
+                            key={`${r.name}-${idx}`}
+                            className="yp-row"
+                            style={{
+                              display: "grid",
+                              gridTemplateColumns: "auto minmax(0, 1fr) auto",
+                              gap: 10, alignItems: "center",
+                              padding: "8px 6px",
+                              borderBottom: isLast ? "none" : `1px solid ${C.border}80`,
+                              borderRadius: 4, transition: "background 0.15s ease",
+                            }}
+                          >
+                            <PlayerHeadshot name={r.name} position={r.position || "PICK"} size={32} />
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{
+                                fontFamily: SANS, fontSize: 13.5, fontWeight: 700,
+                                color: C.primary, lineHeight: 1.2,
+                                whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                              }}>{r.name}</div>
+                              <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3 }}>
+                                <span style={{
+                                  fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.06em",
+                                  padding: "1px 5px", borderRadius: 3,
+                                  background: `${posCol}20`, color: posCol, border: `1px solid ${posCol}40`,
+                                }}>{r.position || "—"}</span>
+                                <span style={{
+                                  fontFamily: MONO, fontSize: 10, color: C.dim, letterSpacing: "0.02em",
+                                }}>
+                                  ADP {r.avg_pick != null ? Number(r.avg_pick).toFixed(1) : "—"}
+                                  {r.p10_pick != null && r.p90_pick != null && (
+                                    <> · {Math.round(r.p10_pick)}–{Math.round(r.p90_pick)}</>
+                                  )}
+                                  {r.age != null && <> · age {r.age}</>}
+                                </span>
+                              </div>
+                            </div>
+                            <div style={{ textAlign: "right", flexShrink: 0 }}>
+                              <div style={{
+                                fontFamily: MONO, fontSize: 9, color: C.dim, letterSpacing: "0.10em",
+                              }}>AVAIL</div>
+                              <div style={{
+                                fontFamily: MONO, fontSize: 14, fontWeight: 800, color: ac, lineHeight: 1,
+                              }}>{r.availability_pct == null ? "—" : `${r.availability_pct}%`}</div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div style={{ fontFamily: SANS, fontSize: 12, color: C.dim }}>
+                      No ADP coverage for this slot.
+                    </div>
+                  )}
+                </div>
+
+                {/* RECOMMENDATIONS — ALWAYS 3 CARDS */}
+                <div style={{ minWidth: 0 }}>
+                  <div style={{
+                    fontFamily: MONO, fontSize: 10.5, fontWeight: 800, letterSpacing: "0.18em",
+                    color: C.dim, marginBottom: 10,
+                  }}>RECOMMENDATIONS</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {(() => {
+                      const slots: Array<"TARGET" | "REALISTIC" | "OPPORTUNISTIC"> = ["TARGET", "REALISTIC", "OPPORTUNISTIC"];
+                      const byLabel = new Map<string, any>();
+                      for (const r of recs) byLabel.set(r.label, r);
+                      const emptyDefault: Record<string, string> = {
+                        TARGET: "No high-availability target at this slot — see Realistic.",
+                        REALISTIC: "No fallback option in this window.",
+                        OPPORTUNISTIC: "No opportunistic upside in this window.",
+                      };
+                      return slots.map((label) => {
+                        const rec = byLabel.get(label);
+                        const chip = recChipStyleYP(label);
+                        const isTarget = label === "TARGET";
+                        const cardBg = isTarget
+                          ? `linear-gradient(180deg, ${C.gold}10 0%, ${C.panel} 100%)`
+                          : C.panel;
+                        const cardBorder = isTarget ? `${C.gold}66` : C.border;
+                        const cardBorderWidth = isTarget ? 2 : 1;
+
+                        if (!rec || rec.empty) {
+                          const msg = rec?.empty_message || emptyDefault[label];
+                          return (
+                            <div key={label} style={{
+                              borderRadius: 8,
+                              border: `${isTarget ? 2 : 1}px solid ${isTarget ? `${C.gold}38` : C.border}`,
+                              background: isTarget ? `${C.gold}05` : C.panel,
+                              padding: "12px 14px",
+                              opacity: 0.78,
+                            }}>
+                              <div style={{ marginBottom: 8 }}>
+                                <span style={{
+                                  fontFamily: MONO, fontSize: 9.5, fontWeight: 800, letterSpacing: "0.14em",
+                                  padding: "3px 7px", borderRadius: 3,
+                                  background: chip.bg, color: chip.color, border: `1px solid ${chip.border}`,
+                                  opacity: 0.7,
+                                }}>{label}</span>
+                              </div>
+                              <div style={{
+                                fontFamily: SANS, fontSize: 12, color: C.dim,
+                                lineHeight: 1.55,
+                              }}>{msg}</div>
+                            </div>
+                          );
+                        }
+
+                        const players: any[] = Array.isArray(rec.players) && rec.players.length > 0
+                          ? rec.players
+                          : [];
+
+                        // Multi-player OPPORTUNISTIC card — list of 1–3 players + shared reason
+                        if (players.length > 0) {
+                          return (
+                            <div key={label} style={{
+                              borderRadius: 8,
+                              border: `${cardBorderWidth}px solid ${cardBorder}`,
+                              background: cardBg,
+                              padding: "12px 14px",
+                              boxShadow: isTarget ? `0 0 0 1px ${C.gold}10, 0 4px 14px ${C.gold}10` : "none",
+                            }}>
+                              <div style={{ marginBottom: 8 }}>
+                                <span style={{
+                                  fontFamily: MONO, fontSize: 9.5, fontWeight: 800, letterSpacing: "0.14em",
+                                  padding: "3px 7px", borderRadius: 3,
+                                  background: chip.bg, color: chip.color, border: `1px solid ${chip.border}`,
+                                }}>{label}</span>
+                              </div>
+                              <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
+                                {players.map((pl: any, pi: number) => {
+                                  const pPosCol = POS_COLOR[(pl.position || "") as Pos] || C.dim;
+                                  const pBandC = recBandColorYP(pl.band);
+                                  return (
+                                    <div key={`${pl.name}-${pi}`} style={{
+                                      display: "flex", alignItems: "center", gap: 8,
+                                      flexWrap: "wrap", minWidth: 0,
+                                      paddingBottom: pi < players.length - 1 ? 6 : 0,
+                                      borderBottom: pi < players.length - 1 ? `1px solid ${C.border}80` : "none",
+                                    }}>
+                                      <span style={{
+                                        fontFamily: SANS, fontSize: 13.5, fontWeight: 800, color: C.primary,
+                                        letterSpacing: "-0.005em",
+                                        whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                                      }}>{pl.name}</span>
+                                      <span style={{
+                                        fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.06em",
+                                        padding: "1px 5px", borderRadius: 3,
+                                        background: `${pPosCol}20`, color: pPosCol, border: `1px solid ${pPosCol}40`,
+                                      }}>{pl.position}</span>
+                                      <span style={{
+                                        fontFamily: MONO, fontSize: 10.5, color: C.dim, letterSpacing: "0.02em",
+                                      }}>
+                                        ADP {pl.avg_pick != null ? Number(pl.avg_pick).toFixed(1) : "—"}
+                                      </span>
+                                      {pl.band && (
+                                        <span style={{
+                                          fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: "0.10em",
+                                          color: pBandC,
+                                        }}>{pl.band}</span>
+                                      )}
+                                      <div style={{ flex: 1 }} />
+                                      {pl.fit_score != null && (
+                                        <span style={{
+                                          fontFamily: MONO, fontSize: 11, fontWeight: 800,
+                                          color: C.primary, letterSpacing: "0.04em",
+                                        }}>FIT {pl.fit_score}</span>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                              <div style={{
+                                fontFamily: SANS, fontSize: 13, color: C.secondary,
+                                lineHeight: 1.55,
+                              }}>{rec.reason}</div>
+                            </div>
+                          );
+                        }
+
+                        const posCol = POS_COLOR[(rec.position || "") as Pos] || C.dim;
+                        const ac = availColorYP(rec.availability_pct);
+                        const bandC = recBandColorYP(rec.band);
+
+                        return (
+                          <div key={label} style={{
+                            borderRadius: 8,
+                            border: `${cardBorderWidth}px solid ${cardBorder}`,
+                            background: cardBg,
+                            padding: "12px 14px",
+                            boxShadow: isTarget ? `0 0 0 1px ${C.gold}10, 0 4px 14px ${C.gold}10` : "none",
+                          }}>
+                            <div style={{
+                              display: "flex", alignItems: "center", justifyContent: "space-between",
+                              flexWrap: "wrap", gap: 10, marginBottom: 8,
+                            }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", minWidth: 0 }}>
+                                <span style={{
+                                  fontFamily: MONO, fontSize: 9.5, fontWeight: 800, letterSpacing: "0.14em",
+                                  padding: "3px 7px", borderRadius: 3,
+                                  background: chip.bg, color: chip.color, border: `1px solid ${chip.border}`,
+                                }}>{label}</span>
+                                <span style={{
+                                  fontFamily: SANS, fontSize: 14, fontWeight: 800, color: C.primary,
+                                  letterSpacing: "-0.005em",
+                                }}>{rec.name}</span>
+                                <span style={{
+                                  fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.06em",
+                                  padding: "1px 5px", borderRadius: 3,
+                                  background: `${posCol}20`, color: posCol, border: `1px solid ${posCol}40`,
+                                }}>{rec.position}</span>
+                                {rec.band && (
+                                  <span style={{
+                                    fontFamily: MONO, fontSize: 9.5, fontWeight: 700, letterSpacing: "0.10em",
+                                    color: bandC,
+                                  }}>{rec.band}</span>
+                                )}
+                              </div>
+                              <div style={{ display: "flex", alignItems: "flex-end", gap: 12, flexShrink: 0 }}>
+                                {rec.fit_score != null && (
+                                  <div style={{ textAlign: "right", lineHeight: 1 }}>
+                                    <div style={{
+                                      fontFamily: MONO, fontSize: 8.5, color: C.dim,
+                                      letterSpacing: "0.14em", marginBottom: 2,
+                                    }}>FIT</div>
+                                    <div style={{
+                                      fontFamily: MONO, fontSize: 14, fontWeight: 800,
+                                      color: C.primary, lineHeight: 1,
+                                    }}>{rec.fit_score}</div>
+                                  </div>
+                                )}
+                                {rec.availability_pct != null && (
+                                  <div style={{ textAlign: "right", lineHeight: 1 }}>
+                                    <div style={{
+                                      fontFamily: MONO, fontSize: 8.5, color: C.dim,
+                                      letterSpacing: "0.14em", marginBottom: 2,
+                                    }}>AVAIL</div>
+                                    <div style={{
+                                      fontFamily: MONO, fontSize: 14, fontWeight: 800,
+                                      color: ac, lineHeight: 1,
+                                    }}>{rec.availability_pct}%</div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            <div style={{
+                              fontFamily: SANS, fontSize: 13, color: C.secondary,
+                              lineHeight: 1.55,
+                            }}>{rec.reason}</div>
+                          </div>
+                        );
+                      });
+                    })()}
                   </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-                    {candBlock.rookies.map((r, idx) => (
-                      <CandidateRow key={`${r.player_name}-${idx}`} r={r} />
-                    ))}
+                </div>
+              </div>
+
+              {/* TRADE ANGLE */}
+              {tradeAngle && (
+                <div style={{
+                  marginTop: isMobile ? 16 : 20,
+                  paddingTop: isMobile ? 14 : 18,
+                  borderTop: `1px solid ${C.border}`,
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
+                    <div style={{
+                      fontFamily: MONO, fontSize: 10.5, fontWeight: 800, letterSpacing: "0.18em",
+                      color: C.dim,
+                    }}>SHOULD YOU TRADE THIS PICK</div>
+                    <span style={{
+                      fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.12em",
+                      padding: "3px 8px", borderRadius: 4,
+                      background: vpill.bg, color: vpill.color, border: `1px solid ${vpill.border}`,
+                    }}>{tradeAngle.tag}</span>
                   </div>
+                  {tradeAngle.angle && (
+                    <div style={{
+                      fontFamily: SANS, fontSize: 13.5, color: C.primary,
+                      lineHeight: 1.6, marginBottom: 14,
+                    }}>{tradeAngle.angle}</div>
+                  )}
+                  {Array.isArray(tradeAngle.try) && tradeAngle.try.length > 0 && (
+                    <div style={{ marginBottom: 14 }}>
+                      <div style={{
+                        fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.14em",
+                        color: C.dim, marginBottom: 8,
+                      }}>TRY</div>
+                      <ol style={{ display: "flex", flexDirection: "column", gap: 7, listStyle: "none", padding: 0, margin: 0 }}>
+                        {tradeAngle.try.map((t: string, ti: number) => (
+                          <li key={ti} style={{
+                            display: "flex", gap: 10,
+                            fontFamily: SANS, fontSize: 13, color: C.primary, lineHeight: 1.55,
+                          }}>
+                            <span style={{
+                              fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.gold,
+                              flexShrink: 0, lineHeight: 1.55,
+                            }}>{ti + 1}.</span>
+                            <span>{t}</span>
+                          </li>
+                        ))}
+                      </ol>
+                    </div>
+                  )}
+                  {Array.isArray(tradeAngle.likely_partners) && (
+                    <div style={{ marginBottom: 14 }}>
+                      <div style={{
+                        fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.14em",
+                        color: C.dim, marginBottom: 8,
+                      }}>LIKELY PARTNERS</div>
+                      {tradeAngle.likely_partners.length === 0 ? (
+                        <div style={{
+                          fontFamily: SANS, fontSize: 13, color: C.secondary, lineHeight: 1.45,
+                        }}>
+                          No realistic trade partners at this slot — most owners don&apos;t have the willingness or capital to move up.
+                        </div>
+                      ) : (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        {tradeAngle.likely_partners.map((partner: any, pi: number) => {
+                          const name = typeof partner === "string" ? partner : partner?.name;
+                          const band = typeof partner === "object" ? partner?.band : null;
+                          const reasoning = typeof partner === "object" ? partner?.reasoning : null;
+                          const bandStyle =
+                            band === "HIGH" ? { color: C.green, bg: C.greenDim, border: `${C.green}55` } :
+                            band === "MEDIUM" ? { color: C.gold, bg: C.goldDim, border: C.goldBorder } :
+                            band === "LOW" ? { color: C.dim, bg: "rgba(149,150,165,0.10)", border: `${C.borderLt}` } :
+                            { color: C.red, bg: C.redDim, border: `${C.red}40` };
+                          return (
+                            <div key={pi} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <span style={{
+                                  fontFamily: SANS, fontSize: 13, fontWeight: 600, color: C.primary,
+                                }}>{name}</span>
+                                {band && (
+                                  <span style={{
+                                    fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.10em",
+                                    color: bandStyle.color, background: bandStyle.bg,
+                                    border: `1px solid ${bandStyle.border}`,
+                                    padding: "2px 6px", borderRadius: 3,
+                                  }}>{band}</span>
+                                )}
+                              </div>
+                              {reasoning && (
+                                <div style={{
+                                  fontFamily: SANS, fontSize: 12, color: C.secondary, lineHeight: 1.45,
+                                }}>{reasoning}</div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                      )}
+                    </div>
+                  )}
+                  {tradeAngle.fallback && (
+                    <div>
+                      <div style={{
+                        fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.14em",
+                        color: C.dim, marginBottom: 8,
+                      }}>IF NO TAKERS</div>
+                      <div style={{
+                        fontFamily: SANS, fontSize: 13, color: C.secondary, lineHeight: 1.55,
+                      }}>{tradeAngle.fallback}</div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           );
         })}
-      </div>
-
-      {/* Likely partners block — prose-first, scores secondary */}
-      <div>
-        <div style={{
-          fontFamily: SANS, fontSize: 13, fontWeight: 800, letterSpacing: "0.08em",
-          color: C.primary, marginBottom: 4,
-        }}>LIKELY TRADE PARTNERS</div>
-        <div style={{ fontFamily: SANS, fontSize: 12, color: C.secondary, marginBottom: 12, lineHeight: 1.5 }}>
-          Owners most likely to move up to your slots, based on their pick inventory, roster window, and trade history.
-        </div>
-        {partners.length === 0 ? (
-          <EmptyMsg msg="No partner signals yet — needs league_intel + behavioral_intel populated." />
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {partners.map((b: any, i: number) => {
-              const score = b.willingness?.score ?? 0;
-              const band = b.willingness?.band || "—";
-              const bandColor = band === "HIGH" ? C.green : band === "MEDIUM" ? C.gold : band === "LOW" ? C.dim : C.red;
-
-              const bits: string[] = [];
-              if (b.window) bits.push(b.window.toLowerCase() + " window");
-              if (b.pick_surplus_delta != null) {
-                const sd = b.pick_surplus_delta;
-                if (sd >= 1) bits.push(`${sd > 0 ? "+" : ""}${sd.toFixed(0)} picks vs avg`);
-                else if (sd <= -1) bits.push(`${sd.toFixed(0)} picks vs avg`);
-              }
-              if (b.down_move_bias != null && b.down_move_bias <= 0.35) {
-                bits.push("history of moving up");
-              }
-              const subtitle = bits.length ? bits.join(" · ") : "limited signal";
-
-              return (
-                <div key={i} style={{
-                  background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, padding: "12px 14px",
-                  display: "grid", gridTemplateColumns: "1fr auto", gap: 14, alignItems: "center",
-                }}>
-                  <div>
-                    <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 700, color: C.primary }}>
-                      {b.partner_owner}
-                    </div>
-                    <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim, marginTop: 3, letterSpacing: "0.03em" }}>
-                      {subtitle}
-                    </div>
-                  </div>
-                  <span title={`willingness score ${score}`} style={{
-                    fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.06em",
-                    padding: "4px 9px", borderRadius: 3,
-                    background: `${bandColor}15`, color: bandColor, border: `1px solid ${bandColor}30`,
-                  }}>{band} INTEREST</span>
-                </div>
-              );
-            })}
-          </div>
-        )}
       </div>
     </div>
   );
@@ -1376,7 +1963,7 @@ export default function DraftHQPage() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const tab = searchParams.get("tab") || "rookies";
-  const { currentLeagueId } = useLeagueStore();
+  const { currentLeagueId, currentOwner, currentOwnerId } = useLeagueStore();
   const isMobile = useIsMobile();
   const track = useTrack();
 
@@ -1421,9 +2008,9 @@ export default function DraftHQPage() {
         </div>
         <GlowTabs tabs={TABS} active={tab} onChange={setTab} />
         {tab === "rookies"     && <Rookies    lid={currentLeagueId || ""} />}
-        {tab === "your-picks"  && <ComingSoon tabId="your-picks" />}
-        {tab === "draft-board" && <ComingSoon tabId="draft-board" />}
-        {tab === "intel"       && <ComingSoon tabId="intel" />}
+        {tab === "your-picks"  && <YourPicks  lid={currentLeagueId || ""} owner={currentOwner} ownerId={currentOwnerId} />}
+        {tab === "draft-board" && <DraftBoard lid={currentLeagueId || ""} />}
+        {tab === "intel"       && <DraftIntel lid={currentLeagueId || ""} />}
     </div>
   );
 }
