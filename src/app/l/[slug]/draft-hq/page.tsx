@@ -397,19 +397,6 @@ function YourPicks({ lid, owner, ownerId }: { lid: string; owner: string | null;
     enabled,
   });
 
-  const FEEDBACK_BANNER_KEY = "your_picks_feedback_banner_dismissed_v1";
-  const [bannerDismissed, setBannerDismissed] = useState(true);
-  useEffect(() => {
-    try {
-      setBannerDismissed(localStorage.getItem(FEEDBACK_BANNER_KEY) === "1");
-    } catch {
-      setBannerDismissed(false);
-    }
-  }, []);
-  const dismissBanner = () => {
-    try { localStorage.setItem(FEEDBACK_BANNER_KEY, "1"); } catch {}
-    setBannerDismissed(true);
-  };
   const openFeedback = () => {
     try { window.dispatchEvent(new CustomEvent("open-feedback")); } catch {}
   };
@@ -459,62 +446,44 @@ function YourPicks({ lid, owner, ownerId }: { lid: string; owner: string | null;
         .yp-likely-scroll::-webkit-scrollbar-thumb { background: ${C.borderLt}; border-radius: 3px; }
       `}</style>
 
-      {!bannerDismissed && (
-        <div style={{
-          position: "relative",
-          background: C.goldDim,
-          border: `1px solid ${C.goldBorder}`,
-          borderRadius: 10,
-          padding: isMobile ? "14px 16px" : "18px 20px",
-          display: "flex",
-          flexDirection: isMobile ? "column" : "row",
-          alignItems: isMobile ? "flex-start" : "center",
-          justifyContent: "space-between",
-          gap: isMobile ? 10 : 16,
-        }}>
-          <div style={{ flex: 1, paddingRight: isMobile ? 24 : 32 }}>
-            <div style={{
-              fontFamily: SANS, fontSize: 14, fontWeight: 600, color: C.primary,
-              marginBottom: 4,
-            }}>Help shape this feature</div>
-            <div style={{
-              fontFamily: SANS, fontSize: isMobile ? 12 : 13, color: C.secondary,
-              lineHeight: 1.5,
-            }}>
-              This was built and tested with one league&apos;s data — it&apos;s not perfect yet. If something doesn&apos;t make sense, looks off, or is straight-up broken, hit the feedback button. This is a work in progress and your input directly improves it.
-            </div>
+      <div style={{
+        background: C.goldDim,
+        border: `1px solid ${C.goldBorder}`,
+        borderRadius: 10,
+        padding: isMobile ? "14px 16px" : "18px 20px",
+        display: "flex",
+        flexDirection: isMobile ? "column" : "row",
+        alignItems: isMobile ? "flex-start" : "center",
+        justifyContent: "space-between",
+        gap: isMobile ? 10 : 16,
+      }}>
+        <div style={{ flex: 1 }}>
+          <div style={{
+            fontFamily: SANS, fontSize: 14, fontWeight: 600, color: C.primary,
+            marginBottom: 4,
+          }}>Help shape this feature</div>
+          <div style={{
+            fontFamily: SANS, fontSize: isMobile ? 12 : 13, color: C.secondary,
+            lineHeight: 1.5,
+          }}>
+            This was built and tested with one league&apos;s data — it&apos;s not perfect yet. If something doesn&apos;t make sense, looks off, or is straight-up broken, hit the feedback button. This is a work in progress and your input directly improves it.
           </div>
-          <button
-            onClick={openFeedback}
-            style={{
-              flexShrink: 0,
-              fontFamily: SANS, fontSize: 12, fontWeight: 600,
-              color: C.primary,
-              background: C.elevated,
-              border: `1px solid ${C.goldBorder}`,
-              borderRadius: 6,
-              padding: "8px 14px",
-              cursor: "pointer",
-              whiteSpace: "nowrap",
-            }}
-          >Send feedback</button>
-          <button
-            onClick={dismissBanner}
-            aria-label="Dismiss"
-            style={{
-              position: "absolute",
-              top: 6, right: 8,
-              background: "transparent",
-              border: "none",
-              color: C.dim,
-              fontSize: 16,
-              lineHeight: 1,
-              cursor: "pointer",
-              padding: 4,
-            }}
-          >×</button>
         </div>
-      )}
+        <button
+          onClick={openFeedback}
+          style={{
+            flexShrink: 0,
+            fontFamily: SANS, fontSize: 12, fontWeight: 600,
+            color: C.primary,
+            background: C.elevated,
+            border: `1px solid ${C.goldBorder}`,
+            borderRadius: 6,
+            padding: "8px 14px",
+            cursor: "pointer",
+            whiteSpace: "nowrap",
+          }}
+        >Send feedback</button>
+      </div>
 
       {/* Title block — same gradient treatment as Rookie ADP */}
       <div style={{ marginBottom: isMobile ? 4 : 6 }}>
@@ -2009,8 +1978,8 @@ export default function DraftHQPage() {
         <GlowTabs tabs={TABS} active={tab} onChange={setTab} />
         {tab === "rookies"     && <Rookies    lid={currentLeagueId || ""} />}
         {tab === "your-picks"  && <YourPicks  lid={currentLeagueId || ""} owner={currentOwner} ownerId={currentOwnerId} />}
-        {tab === "draft-board" && <DraftBoard lid={currentLeagueId || ""} />}
-        {tab === "intel"       && <DraftIntel lid={currentLeagueId || ""} />}
+        {tab === "draft-board" && <ComingSoon tabId="draft-board" />}
+        {tab === "intel"       && <ComingSoon tabId="intel" />}
     </div>
   );
 }
