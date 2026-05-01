@@ -61,6 +61,13 @@ export default function ManagerCardModal({
   const handleShare = useCallback(async () => {
     if (!captureRef.current || sharing) return;
     setSharing(true);
+    const downloadBlob = (blob: Blob) => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = "dynastygpt-card.png";
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    };
     try {
       const html2canvas = (await import("html2canvas")).default;
       const canvas = await html2canvas(captureRef.current, { backgroundColor: "#1a1505", scale: 2, useCORS: true, logging: false });
@@ -68,13 +75,17 @@ export default function ManagerCardModal({
       if (!blob) { setSharing(false); return; }
       const file = new File([blob], "dynastygpt-card.png", { type: "image/png" });
       if (typeof navigator.share === "function" && navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file], title: `${owner} — DynastyGPT` });
+        try {
+          await navigator.share({ files: [file], title: `${owner} — DynastyGPT` });
+        } catch (err: any) {
+          if (err?.name !== "AbortError") downloadBlob(blob);
+        }
       } else {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a"); a.href = url; a.download = "dynastygpt-card.png";
-        document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+        downloadBlob(blob);
       }
-    } catch { /* cancelled */ }
+    } catch (err) {
+      console.error("[ManagerCardModal] share failed", err);
+    }
     setSharing(false);
   }, [sharing, owner]);
 
