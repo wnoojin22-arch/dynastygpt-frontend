@@ -369,6 +369,101 @@ function recBandColorYP(band: string | null | undefined): string {
   return C.dim;
 }
 
+function LikelyPartnersSection({ partners }: { partners: any[] }) {
+  const [expanded, setExpanded] = useState(false);
+  const count = partners.length;
+
+  if (count === 0) {
+    return (
+      <div>
+        <div style={{
+          fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.14em",
+          color: C.dim, marginBottom: 10,
+        }}>LIKELY PARTNERS</div>
+        <div style={{
+          fontFamily: SANS, fontSize: 13, color: C.secondary, lineHeight: 1.45,
+        }}>
+          No realistic trade partners at this slot — most owners don&apos;t have the willingness or capital to move up.
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setExpanded((e) => !e)}
+        aria-expanded={expanded}
+        style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          width: "100%", background: "transparent", border: "none", padding: 0,
+          cursor: "pointer", color: C.dim, textAlign: "left",
+        }}
+      >
+        <span style={{
+          fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.14em",
+          color: C.dim,
+        }}>LIKELY PARTNERS ({count})</span>
+        <svg
+          width="11" height="11" viewBox="0 0 10 10" aria-hidden="true"
+          style={{
+            flexShrink: 0,
+            transform: expanded ? "rotate(90deg)" : "rotate(0deg)",
+            transition: "transform 220ms ease",
+          }}
+        >
+          <path d="M3 1.5 L7 5 L3 8.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+      <div
+        style={{
+          overflow: "hidden",
+          maxHeight: expanded ? 1200 : 0,
+          opacity: expanded ? 1 : 0,
+          marginTop: expanded ? 10 : 0,
+          transition: "max-height 280ms ease, opacity 200ms ease, margin-top 200ms ease",
+        }}
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {partners.map((partner: any, pi: number) => {
+            const name = typeof partner === "string" ? partner : partner?.name;
+            const band = typeof partner === "object" ? partner?.band : null;
+            const reasoning = typeof partner === "object" ? partner?.reasoning : null;
+            const bandStyle =
+              band === "HIGH"   ? { color: C.green, bg: C.greenDim, border: `${C.green}55` } :
+              band === "MEDIUM" ? { color: C.gold,  bg: C.goldDim,  border: C.goldBorder } :
+              band === "LOW"    ? { color: C.dim,   bg: "rgba(149,150,165,0.10)", border: `${C.borderLt}` } :
+                                  { color: C.red,   bg: C.redDim,   border: `${C.red}40` };
+            return (
+              <div key={pi} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{
+                    fontFamily: SANS, fontSize: 13, fontWeight: 600, color: C.primary,
+                  }}>{name}</span>
+                  {band && (
+                    <span style={{
+                      fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.10em",
+                      color: bandStyle.color, background: bandStyle.bg,
+                      border: `1px solid ${bandStyle.border}`,
+                      padding: "2px 6px", borderRadius: 3,
+                    }}>{band}</span>
+                  )}
+                </div>
+                {reasoning && (
+                  <div style={{
+                    fontFamily: SANS, fontSize: 12, color: C.secondary, lineHeight: 1.45,
+                  }}>{reasoning}</div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function YourPicks({ lid, owner, ownerId }: { lid: string; owner: string | null; ownerId: string | null }) {
   const isMobile = useIsMobile();
   const enabled = !!lid && !!owner;
@@ -1041,14 +1136,14 @@ function YourPicks({ lid, owner, ownerId }: { lid: string; owner: string | null;
                   {tradeAngle.angle && (
                     <div style={{
                       fontFamily: SANS, fontSize: 13.5, color: C.primary,
-                      lineHeight: 1.6, marginBottom: 14,
+                      lineHeight: 1.6, marginBottom: 18,
                     }}>{tradeAngle.angle}</div>
                   )}
                   {Array.isArray(tradeAngle.try) && tradeAngle.try.length > 0 && (
-                    <div style={{ marginBottom: 14 }}>
+                    <div style={{ marginBottom: 18 }}>
                       <div style={{
-                        fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.14em",
-                        color: C.dim, marginBottom: 8,
+                        fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.14em",
+                        color: C.dim, marginBottom: 10,
                       }}>TRY</div>
                       <ol style={{ display: "flex", flexDirection: "column", gap: 7, listStyle: "none", padding: 0, margin: 0 }}>
                         {tradeAngle.try.map((t: string, ti: number) => (
@@ -1067,60 +1162,15 @@ function YourPicks({ lid, owner, ownerId }: { lid: string; owner: string | null;
                     </div>
                   )}
                   {Array.isArray(tradeAngle.likely_partners) && (
-                    <div style={{ marginBottom: 14 }}>
-                      <div style={{
-                        fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.14em",
-                        color: C.dim, marginBottom: 8,
-                      }}>LIKELY PARTNERS</div>
-                      {tradeAngle.likely_partners.length === 0 ? (
-                        <div style={{
-                          fontFamily: SANS, fontSize: 13, color: C.secondary, lineHeight: 1.45,
-                        }}>
-                          No realistic trade partners at this slot — most owners don&apos;t have the willingness or capital to move up.
-                        </div>
-                      ) : (
-                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                        {tradeAngle.likely_partners.map((partner: any, pi: number) => {
-                          const name = typeof partner === "string" ? partner : partner?.name;
-                          const band = typeof partner === "object" ? partner?.band : null;
-                          const reasoning = typeof partner === "object" ? partner?.reasoning : null;
-                          const bandStyle =
-                            band === "HIGH" ? { color: C.green, bg: C.greenDim, border: `${C.green}55` } :
-                            band === "MEDIUM" ? { color: C.gold, bg: C.goldDim, border: C.goldBorder } :
-                            band === "LOW" ? { color: C.dim, bg: "rgba(149,150,165,0.10)", border: `${C.borderLt}` } :
-                            { color: C.red, bg: C.redDim, border: `${C.red}40` };
-                          return (
-                            <div key={pi} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                <span style={{
-                                  fontFamily: SANS, fontSize: 13, fontWeight: 600, color: C.primary,
-                                }}>{name}</span>
-                                {band && (
-                                  <span style={{
-                                    fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.10em",
-                                    color: bandStyle.color, background: bandStyle.bg,
-                                    border: `1px solid ${bandStyle.border}`,
-                                    padding: "2px 6px", borderRadius: 3,
-                                  }}>{band}</span>
-                                )}
-                              </div>
-                              {reasoning && (
-                                <div style={{
-                                  fontFamily: SANS, fontSize: 12, color: C.secondary, lineHeight: 1.45,
-                                }}>{reasoning}</div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                      )}
+                    <div style={{ marginBottom: 18 }}>
+                      <LikelyPartnersSection partners={tradeAngle.likely_partners} />
                     </div>
                   )}
                   {tradeAngle.fallback && (
                     <div>
                       <div style={{
-                        fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.14em",
-                        color: C.dim, marginBottom: 8,
+                        fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.14em",
+                        color: C.dim, marginBottom: 10,
                       }}>IF NO TAKERS</div>
                       <div style={{
                         fontFamily: SANS, fontSize: 13, color: C.secondary, lineHeight: 1.55,
