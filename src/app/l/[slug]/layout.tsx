@@ -513,7 +513,7 @@ export default function LeagueLayout({ children }: { children: React.ReactNode }
             leagueName={overview?.name || ""}
           />
 
-          <main className="pb-16 sm:pb-0" style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
+          <main className="pb-16 sm:pb-0" style={{ flex: 1, overflowY: "auto", overflowX: "hidden", minHeight: 0, minWidth: 0 }}>
             {children}
           </main>
         </div>
