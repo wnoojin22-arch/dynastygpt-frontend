@@ -567,39 +567,35 @@ function YourPicks({ lid, owner, ownerId }: { lid: string; owner: string | null;
         background: C.goldDim,
         border: `1px solid ${C.goldBorder}`,
         borderRadius: 10,
-        padding: isMobile ? "14px 16px" : "18px 20px",
-        display: "flex",
-        flexDirection: isMobile ? "column" : "row",
-        alignItems: isMobile ? "flex-start" : "center",
-        justifyContent: "space-between",
-        gap: isMobile ? 10 : 16,
+        padding: isMobile ? "12px 14px" : "14px 18px",
       }}>
-        <div style={{ flex: 1 }}>
-          <div style={{
-            fontFamily: SANS, fontSize: 14, fontWeight: 600, color: C.primary,
-            marginBottom: 4,
-          }}>Help shape this feature</div>
-          <div style={{
-            fontFamily: SANS, fontSize: isMobile ? 12 : 13, color: C.secondary,
-            lineHeight: 1.5,
-          }}>
-            This was built and tested with one league&apos;s data — it&apos;s not perfect yet. If something doesn&apos;t make sense, looks off, or is straight-up broken, hit the feedback button. This is a work in progress and your input directly improves it.
-          </div>
+        <div style={{
+          fontFamily: SANS, fontSize: 14, fontWeight: 600, color: C.primary,
+          marginBottom: 4,
+        }}>Help shape this feature</div>
+        <div style={{
+          fontFamily: SANS, fontSize: isMobile ? 12 : 13, color: C.secondary,
+          lineHeight: 1.5,
+        }}>
+          This was built and tested with one league&apos;s data — it&apos;s not perfect yet. If something doesn&apos;t make sense, looks off, or is straight-up broken, hit the feedback button. This is a work in progress and your input directly improves it.{" "}
+          <button
+            onClick={openFeedback}
+            style={{
+              display: "inline-block",
+              verticalAlign: "baseline",
+              fontFamily: SANS, fontSize: isMobile ? 11 : 12, fontWeight: 700,
+              color: C.primary,
+              background: C.elevated,
+              border: `1px solid ${C.goldBorder}`,
+              borderRadius: 5,
+              padding: "3px 9px",
+              marginLeft: 2,
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+              lineHeight: 1.3,
+            }}
+          >Send feedback</button>
         </div>
-        <button
-          onClick={openFeedback}
-          style={{
-            flexShrink: 0,
-            fontFamily: SANS, fontSize: 12, fontWeight: 600,
-            color: C.primary,
-            background: C.elevated,
-            border: `1px solid ${C.goldBorder}`,
-            borderRadius: 6,
-            padding: "8px 14px",
-            cursor: "pointer",
-            whiteSpace: "nowrap",
-          }}
-        >Send feedback</button>
       </div>
 
       {/* Title block — same gradient treatment as Rookie ADP. Hidden on mobile to put picks above the fold. */}
