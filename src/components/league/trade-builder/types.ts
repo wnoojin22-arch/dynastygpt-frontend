@@ -109,6 +109,7 @@ export interface TradeEvaluation {
 
 export interface SuggestedPackage {
   partner: string;
+  partner_user_id?: string | null;
   i_give: TradeAsset[];
   i_receive: TradeAsset[];
   i_give_names: string[];
