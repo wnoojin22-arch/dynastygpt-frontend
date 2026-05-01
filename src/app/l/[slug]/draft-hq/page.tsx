@@ -369,7 +369,7 @@ function recBandColorYP(band: string | null | undefined): string {
   return C.dim;
 }
 
-function LikelyPartnersSection({ partners }: { partners: any[] }) {
+function LikelyPartnersSection({ partners, fallback }: { partners: any[]; fallback?: string | null }) {
   const [expanded, setExpanded] = useState(false);
   const count = partners.length;
 
@@ -381,10 +381,21 @@ function LikelyPartnersSection({ partners }: { partners: any[] }) {
           color: C.dim, marginBottom: 10,
         }}>LIKELY PARTNERS</div>
         <div style={{
-          fontFamily: SANS, fontSize: 13, color: C.secondary, lineHeight: 1.45,
+          fontFamily: SANS, fontSize: 13, color: C.secondary, lineHeight: 1.45, marginBottom: fallback ? 14 : 0,
         }}>
           No realistic trade partners at this slot — most owners don&apos;t have the willingness or capital to move up.
         </div>
+        {fallback && (
+          <div>
+            <div style={{
+              fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.14em",
+              color: C.dim, marginBottom: 10,
+            }}>IF NO TAKERS</div>
+            <div style={{
+              fontFamily: SANS, fontSize: 13, color: C.secondary, lineHeight: 1.55,
+            }}>{fallback}</div>
+          </div>
+        )}
       </div>
     );
   }
@@ -404,7 +415,7 @@ function LikelyPartnersSection({ partners }: { partners: any[] }) {
         <span style={{
           fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.14em",
           color: C.dim,
-        }}>LIKELY PARTNERS ({count})</span>
+        }}>LIKELY PARTNERS ({count}){fallback ? " + FALLBACK" : ""}</span>
         <svg
           width="11" height="11" viewBox="0 0 10 10" aria-hidden="true"
           style={{
@@ -419,7 +430,7 @@ function LikelyPartnersSection({ partners }: { partners: any[] }) {
       <div
         style={{
           overflow: "hidden",
-          maxHeight: expanded ? 1200 : 0,
+          maxHeight: expanded ? 1500 : 0,
           opacity: expanded ? 1 : 0,
           marginTop: expanded ? 10 : 0,
           transition: "max-height 280ms ease, opacity 200ms ease, margin-top 200ms ease",
@@ -459,6 +470,17 @@ function LikelyPartnersSection({ partners }: { partners: any[] }) {
             );
           })}
         </div>
+        {fallback && (
+          <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${C.border}` }}>
+            <div style={{
+              fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.14em",
+              color: C.dim, marginBottom: 8,
+            }}>IF NO TAKERS</div>
+            <div style={{
+              fontFamily: SANS, fontSize: 13, color: C.secondary, lineHeight: 1.55,
+            }}>{fallback}</div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1005,6 +1027,7 @@ function YourPicks({ lid, owner, ownerId }: { lid: string; owner: string | null;
                                 {players.map((pl: any, pi: number) => {
                                   const pPosCol = POS_COLOR[(pl.position || "") as Pos] || C.dim;
                                   const pBandC = recBandColorYP(pl.band);
+                                  const pShowBand = pl.band === "STEAL" || pl.band === "REACH";
                                   return (
                                     <div key={`${pl.name}-${pi}`} style={{
                                       display: "flex", alignItems: "center", gap: 8,
@@ -1027,18 +1050,11 @@ function YourPicks({ lid, owner, ownerId }: { lid: string; owner: string | null;
                                       }}>
                                         ADP {pl.avg_pick != null ? Number(pl.avg_pick).toFixed(1) : "—"}
                                       </span>
-                                      {pl.band && (
+                                      {pShowBand && (
                                         <span style={{
                                           fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: "0.10em",
                                           color: pBandC,
                                         }}>{pl.band}</span>
-                                      )}
-                                      <div style={{ flex: 1 }} />
-                                      {pl.fit_score != null && (
-                                        <span style={{
-                                          fontFamily: MONO, fontSize: 11, fontWeight: 800,
-                                          color: C.primary, letterSpacing: "0.04em",
-                                        }}>FIT {pl.fit_score}</span>
                                       )}
                                     </div>
                                   );
@@ -1083,7 +1099,7 @@ function YourPicks({ lid, owner, ownerId }: { lid: string; owner: string | null;
                                   padding: "1px 5px", borderRadius: 3,
                                   background: `${posCol}20`, color: posCol, border: `1px solid ${posCol}40`,
                                 }}>{rec.position}</span>
-                                {rec.band && (
+                                {(rec.band === "STEAL" || rec.band === "REACH") && (
                                   <span style={{
                                     fontFamily: MONO, fontSize: 9.5, fontWeight: 700, letterSpacing: "0.10em",
                                     color: bandC,
@@ -1091,18 +1107,6 @@ function YourPicks({ lid, owner, ownerId }: { lid: string; owner: string | null;
                                 )}
                               </div>
                               <div style={{ display: "flex", alignItems: "flex-end", gap: 12, flexShrink: 0 }}>
-                                {rec.fit_score != null && (
-                                  <div style={{ textAlign: "right", lineHeight: 1 }}>
-                                    <div style={{
-                                      fontFamily: MONO, fontSize: 8.5, color: C.dim,
-                                      letterSpacing: "0.14em", marginBottom: 2,
-                                    }}>FIT</div>
-                                    <div style={{
-                                      fontFamily: MONO, fontSize: 14, fontWeight: 800,
-                                      color: C.primary, lineHeight: 1,
-                                    }}>{rec.fit_score}</div>
-                                  </div>
-                                )}
                                 {rec.availability_pct != null && (
                                   <div style={{ textAlign: "right", lineHeight: 1 }}>
                                     <div style={{
@@ -1129,14 +1133,16 @@ function YourPicks({ lid, owner, ownerId }: { lid: string; owner: string | null;
                 </div>
               </div>
 
-              {/* TRADE ANGLE */}
+              {/* TRADE ANGLE — its own card, matches rec-card visual treatment */}
               {tradeAngle && (
                 <div style={{
-                  marginTop: isMobile ? 16 : 20,
-                  paddingTop: isMobile ? 14 : 18,
-                  borderTop: `1px solid ${C.border}`,
+                  marginTop: isMobile ? 14 : 18,
+                  borderRadius: 8,
+                  border: `1px solid ${C.border}`,
+                  background: C.panel,
+                  padding: isMobile ? "14px 14px" : "16px 18px",
                 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
                     <div style={{
                       fontFamily: MONO, fontSize: 10.5, fontWeight: 800, letterSpacing: "0.18em",
                       color: C.dim,
@@ -1176,20 +1182,10 @@ function YourPicks({ lid, owner, ownerId }: { lid: string; owner: string | null;
                     </div>
                   )}
                   {Array.isArray(tradeAngle.likely_partners) && (
-                    <div style={{ marginBottom: 18 }}>
-                      <LikelyPartnersSection partners={tradeAngle.likely_partners} />
-                    </div>
-                  )}
-                  {tradeAngle.fallback && (
-                    <div>
-                      <div style={{
-                        fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.14em",
-                        color: C.dim, marginBottom: 10,
-                      }}>IF NO TAKERS</div>
-                      <div style={{
-                        fontFamily: SANS, fontSize: 13, color: C.secondary, lineHeight: 1.55,
-                      }}>{tradeAngle.fallback}</div>
-                    </div>
+                    <LikelyPartnersSection
+                      partners={tradeAngle.likely_partners}
+                      fallback={tradeAngle.fallback || null}
+                    />
                   )}
                 </div>
               )}
@@ -2036,8 +2032,10 @@ export default function DraftHQPage() {
             fontFamily: SANS, fontSize: isMobile ? 22 : 28, fontWeight: 900, color: C.primary, marginTop: 4, lineHeight: 1.1,
           }}>Rookie Draft Cheat Sheet</div>
           <div style={{
-            fontFamily: MONO, fontSize: isMobile ? 11 : 12, color: C.dim, marginTop: 6, letterSpacing: "0.04em",
-          }}>Format-aware ranks · league tendencies · pick-trade comps</div>
+            fontFamily: MONO, fontSize: isMobile ? 9.5 : 12, color: C.dim, marginTop: 6,
+            letterSpacing: isMobile ? "0.02em" : "0.04em",
+            whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+          }}>Format-aware · league tendencies · pick-trade</div>
         </div>
         <GlowTabs tabs={TABS} active={tab} onChange={setTab} />
         {tab === "rookies"     && <Rookies    lid={currentLeagueId || ""} />}
