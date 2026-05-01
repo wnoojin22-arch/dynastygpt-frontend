@@ -358,6 +358,8 @@ export const getDraftAnalysis = (id: string, owner: string, userId?: string | nu
 // ── Draft HQ (composite + tendencies) ────────────────────────────────────
 export const getDraftHQYourPicks = (id: string, owner: string, userId?: string | null, partnersPerPick = 3) =>
   get<any>(`${L(id)}/draft-hq/your-picks?owner=${E(owner)}${userId ? `&owner_id=${E(userId)}` : ""}&partners_per_pick=${partnersPerPick}`);
+export const getDraftHQYourPicksRecs = (id: string, owner: string, userId?: string | null) =>
+  get<any>(`${L(id)}/draft-hq/your-picks-recs?owner=${E(owner)}${userId ? `&owner_id=${E(userId)}` : ""}`);
 export const getDraftHQTendencies = (id: string) => get<any>(`${L(id)}/draft-hq/tendencies`);
 export const getDraftHQOwnerStrategicIntel = (id: string) =>
   get<any>(`${L(id)}/draft-hq/owner-strategic-intel`);

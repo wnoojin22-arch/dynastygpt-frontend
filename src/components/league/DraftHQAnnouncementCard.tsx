@@ -29,19 +29,32 @@ export default function DraftHQAnnouncementCard({ slug, leagueId }: { slug: stri
           border: `1px solid ${C.border}`,
         }}
       >
-        {/* Pulsing NEW badge */}
+        {/* Badges — UPDATED (red, signals change to returning users) + NEW (gold) */}
         <style>{`@keyframes draftHQPulse{0%,100%{box-shadow:0 0 6px rgba(212,165,50,0.4)}50%{box-shadow:0 0 16px rgba(212,165,50,0.85),0 0 30px rgba(212,165,50,0.35)}}`}</style>
-        <span
-          className="absolute top-2 right-2 z-10 px-2.5 py-1 rounded-full text-[8px] font-black tracking-[0.10em]"
-          style={{
-            fontFamily: MONO,
-            color: "#06080d",
-            background: C.gold,
-            animation: "draftHQPulse 2s ease infinite",
-          }}
-        >
-          NEW — LIVE NOW
-        </span>
+        <div className="absolute top-2 right-2 z-10 flex items-center gap-1.5">
+          <span
+            className="px-2 py-1 rounded-full text-[10px] font-black tracking-[0.10em]"
+            style={{
+              fontFamily: MONO,
+              color: "#ffffff",
+              background: C.red,
+              border: `1px solid ${C.red}`,
+            }}
+          >
+            UPDATED
+          </span>
+          <span
+            className="px-2.5 py-1 rounded-full text-[8px] font-black tracking-[0.10em]"
+            style={{
+              fontFamily: MONO,
+              color: "#06080d",
+              background: C.gold,
+              animation: "draftHQPulse 2s ease infinite",
+            }}
+          >
+            NEW — LIVE NOW
+          </span>
+        </div>
 
         {/* Top accent bar */}
         <div
@@ -78,14 +91,14 @@ export default function DraftHQAnnouncementCard({ slug, leagueId }: { slug: stri
             className="text-primary text-[13px] sm:text-[14px] leading-snug"
             style={{ fontFamily: SANS, fontWeight: 700 }}
           >
-            Rookie ADP from real drafts. Live now.
+            Update: Now Live with Pick Insights + Rookie ADP from real drafts
           </p>
 
           <p
             className="text-secondary text-[13px] sm:text-[14px] leading-relaxed"
             style={{ fontFamily: SANS, fontWeight: 400 }}
           >
-            Format-aware ADP from 10,000+ completed 2026 rookie drafts. Updated daily. Plus three more tabs launching this draft season — Your Picks, Draft Board, Draft Intel.
+            Your Picks — a roster-aware cheat sheet for every pick you hold. Likely-available players, target recommendations, and trade angles tailored to your draft slot. Plus format-aware ADP from 10,000+ real 2026 rookie drafts. Draft Board, League Draft Intel, and full mock draft simulation coming soon.
           </p>
 
           {/* CTA button */}
