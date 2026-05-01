@@ -28,6 +28,7 @@ import { ChevronRight, Plus, FileText } from "lucide-react";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useOwnerClick } from "@/hooks/useOwnerClick";
 import DashboardMobile from "@/components/league/DashboardMobile";
+import ManagerCardModal from "@/components/league/ManagerCardModal";
 
 /* ═══════════════════════════════════════════════════════════════
    DESIGN TOKENS
@@ -263,8 +264,13 @@ const COMPONENT_LABELS: Record<string, string> = {
 
 function DynastyScoreCard({ lid, owner, ownerId }: { lid: string; owner: string; ownerId?: string | null }) {
   const [expanded, setExpanded] = useState(false);
+  const [showCardModal, setShowCardModal] = useState(false);
   const track = useTrack();
   const onOwnerClick = useOwnerClick();
+
+  const { data: cardRecord } = useQuery({ queryKey: ["record", lid, owner], queryFn: () => getOwnerRecord(lid, owner, ownerId), enabled: !!lid && !!owner, staleTime: 3600000 });
+  const { data: cardChamps } = useQuery({ queryKey: ["champs", lid, owner], queryFn: () => getChampionships(lid, owner, ownerId), enabled: !!lid && !!owner, staleTime: 3600000 });
+  const { data: cardTendencies } = useQuery({ queryKey: ["tendencies", lid, owner], queryFn: () => getOwnerTendencies(lid, owner, ownerId), enabled: !!lid && !!owner, staleTime: 600000 });
 
   const { data: myScore, isLoading: loadingScore, isError: errorScore } = useQuery({
     queryKey: ["dynasty-score", lid, owner],
@@ -494,7 +500,7 @@ function DynastyScoreCard({ lid, owner, ownerId }: { lid: string; owner: string;
                   onClick={(e) => {
                     e.stopPropagation();
                     setExpanded(false);
-                    window.dispatchEvent(new CustomEvent("open-manager-card"));
+                    setShowCardModal(true);
                   }}
                   style={{
                     width: "100%", padding: "12px 0", borderRadius: 8, border: "none",
@@ -542,6 +548,21 @@ function DynastyScoreCard({ lid, owner, ownerId }: { lid: string; owner: string;
             );
           })()}
       </div>
+      {showCardModal && myScore && (
+        <ManagerCardModal
+          myScore={myScore}
+          leagueName={leagueName}
+          owner={owner}
+          leagueRank={leagueRank}
+          globalRank={globalRank}
+          topPct={topPct}
+          bullets={bullets}
+          record={(cardRecord as any) || null}
+          champs={(cardChamps as any) || null}
+          badges={(cardTendencies as any)?.badges || []}
+          onClose={() => setShowCardModal(false)}
+        />
+      )}
     </div>
   );
 }
