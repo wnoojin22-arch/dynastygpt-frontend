@@ -183,10 +183,13 @@
    ═══════════════════════════════════════════════════════════════ */
 
 @media (max-width: 640px) {
-  /* ── Prevent horizontal overflow ── */
+  /* ── Prevent horizontal overflow ──
+     Use 100% (not 100vw): 100vw includes the scrollbar width on iOS Safari and
+     leaks subpixel overflow that manifests as L/R jitter while scrolling. */
   body, html {
     overflow-x: hidden;
-    max-width: 100vw;
+    max-width: 100%;
+    overscroll-behavior-x: contain;
   }
 
   /* ── Force ALL inline multi-column grids to stack ── */
@@ -285,8 +288,8 @@
   div[style*="maxWidth: 1100"],
   div[style*="max-width: 800px"],
   div[style*="maxWidth: 800"] {
-    width: 100vw !important;
-    max-width: 100vw !important;
+    width: 100% !important;
+    max-width: 100% !important;
     border-radius: 0 !important;
     margin: 0 !important;
   }
