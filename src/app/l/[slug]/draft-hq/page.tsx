@@ -580,64 +580,78 @@ function YourPicks({ lid, owner, ownerId }: { lid: string; owner: string | null;
         >Send feedback</button>
       </div>
 
-      {/* Title block — same gradient treatment as Rookie ADP */}
-      <div style={{ marginBottom: isMobile ? 4 : 6 }}>
-        <div style={{
-          fontFamily: SANS, fontSize: isMobile ? 10 : 11, fontWeight: 800, color: C.gold,
-          letterSpacing: "0.22em", marginBottom: 4,
-        }}>YOUR DRAFT STRATEGY</div>
-        <div style={{
-          fontFamily: SANS, fontSize: isMobile ? 26 : 36, fontWeight: 900, color: C.primary,
-          letterSpacing: "-0.01em", lineHeight: 1, marginBottom: isMobile ? 8 : 10,
-          background: `linear-gradient(180deg, ${C.primary} 0%, ${C.gold} 200%)`,
-          WebkitBackgroundClip: "text", backgroundClip: "text",
-          WebkitTextFillColor: "transparent",
-        }}>Your Picks</div>
-        <div style={{
-          fontFamily: SANS, fontSize: isMobile ? 12.5 : 14, color: C.secondary, lineHeight: 1.55,
-          maxWidth: 760,
-        }}>{heroText}</div>
-        {ownerWindow && (
+      {/* Title block — same gradient treatment as Rookie ADP. Hidden on mobile to put picks above the fold. */}
+      {!isMobile && (
+        <div style={{ marginBottom: 6 }}>
           <div style={{
-            display: "inline-flex", alignItems: "center", gap: 6,
-            marginTop: isMobile ? 8 : 10,
-            padding: isMobile ? "4px 9px" : "5px 11px",
-            borderRadius: 4,
-            background: `${C.gold}10`, border: `1px solid ${C.gold}30`,
-            fontFamily: MONO, fontSize: isMobile ? 9.5 : 10.5,
-            fontWeight: 800, letterSpacing: "0.10em", color: C.gold,
-          }}>WINDOW · {ownerWindow}</div>
-        )}
-      </div>
+            fontFamily: SANS, fontSize: 11, fontWeight: 800, color: C.gold,
+            letterSpacing: "0.22em", marginBottom: 4,
+          }}>YOUR DRAFT STRATEGY</div>
+          <div style={{
+            fontFamily: SANS, fontSize: 36, fontWeight: 900, color: C.primary,
+            letterSpacing: "-0.01em", lineHeight: 1, marginBottom: 10,
+            background: `linear-gradient(180deg, ${C.primary} 0%, ${C.gold} 200%)`,
+            WebkitBackgroundClip: "text", backgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+          }}>Your Picks</div>
+          <div style={{
+            fontFamily: SANS, fontSize: 14, color: C.secondary, lineHeight: 1.55,
+            maxWidth: 760,
+          }}>{heroText}</div>
+          {ownerWindow && (
+            <div style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              marginTop: 10,
+              padding: "5px 11px",
+              borderRadius: 4,
+              background: `${C.gold}10`, border: `1px solid ${C.gold}30`,
+              fontFamily: MONO, fontSize: 10.5,
+              fontWeight: 800, letterSpacing: "0.10em", color: C.gold,
+            }}>WINDOW · {ownerWindow}</div>
+          )}
+        </div>
+      )}
 
-      {/* Roster grades pill row */}
+      {/* Roster grades pill row — compact on mobile so all 4 fit on one line */}
       {ownerCtx?.grades && (
         <div style={{
           background: C.card, border: `1px solid ${C.border}`,
-          borderRadius: 10, padding: isMobile ? "12px 14px" : "14px 18px",
+          borderRadius: 10, padding: isMobile ? "12px 12px" : "14px 18px",
         }}>
           <div style={{
             fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.18em",
             color: C.dim, marginBottom: 10,
           }}>YOUR ROSTER GRADES</div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          <div style={{
+            display: "flex",
+            flexWrap: isMobile ? "nowrap" : "wrap",
+            gap: isMobile ? 5 : 8,
+          }}>
             {(["QB", "RB", "WR", "TE"] as const).map((pos) => {
               const g = ((ownerCtx.grades as Record<string, string>)[pos]) || "AVERAGE";
               const posC = POS_COLOR[pos];
               const gp = gradePillStyleYP(g);
               return (
                 <span key={pos} style={{
-                  display: "inline-flex", alignItems: "center", gap: 8,
-                  padding: "5px 10px", borderRadius: 4,
+                  display: "inline-flex", alignItems: "center",
+                  gap: isMobile ? 4 : 8,
+                  padding: isMobile ? "4px 6px" : "5px 10px",
+                  borderRadius: 4,
                   background: gp.bg, border: `1px solid ${gp.border}`,
+                  flex: isMobile ? "1 1 0" : "0 0 auto",
+                  minWidth: 0,
+                  justifyContent: "center",
                 }}>
                   <span style={{
-                    fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.08em",
-                    padding: "2px 6px", borderRadius: 3,
+                    fontFamily: MONO, fontSize: isMobile ? 9 : 10, fontWeight: 800,
+                    letterSpacing: "0.06em",
+                    padding: isMobile ? "1px 4px" : "2px 6px", borderRadius: 3,
                     background: `${posC}20`, color: posC, border: `1px solid ${posC}50`,
+                    flexShrink: 0,
                   }}>{pos}</span>
                   <span style={{
-                    fontFamily: MONO, fontSize: 11, fontWeight: 700, letterSpacing: "0.10em",
+                    fontFamily: MONO, fontSize: isMobile ? 9.5 : 11, fontWeight: 700,
+                    letterSpacing: isMobile ? "0.04em" : "0.10em",
                     color: gp.color,
                   }}>{g}</span>
                 </span>
