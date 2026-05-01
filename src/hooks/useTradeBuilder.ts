@@ -32,7 +32,13 @@ export interface UseTradeBuilderReturn {
 
   // State
   partner: string;
-  setPartner: (v: string) => void;
+  /**
+   * Set the active trade partner. Pass `uid` when you have a canonical
+   * platform_user_id (e.g. from V2 trade-engine `pkg.partner_user_id`); it
+   * takes precedence over name-based resolution and bypasses the
+   * `otherOwners.find()` fallback that breaks on historical names.
+   */
+  setPartner: (v: string, uid?: string | null) => void;
   myWindow: string | null;
   setMyWindow: (v: string | null) => void;
   theirWindow: string | null;
@@ -232,7 +238,17 @@ export function useTradeBuilder({
   owner: string;
   ownerId?: string | null;
 }): UseTradeBuilderReturn {
-  const [partner, setPartner] = useState("");
+  const [partner, _setPartnerName] = useState("");
+  // Canonical partner uid set explicitly (e.g. from V2 trade-engine
+  // pkg.partner_user_id). Takes precedence over name-based resolution so
+  // historical/renamed partner names still hit the right uid path.
+  const [partnerUidOverride, setPartnerUidOverride] = useState<string | null>(
+    null,
+  );
+  const setPartner = useCallback((v: string, uid?: string | null) => {
+    _setPartnerName(v);
+    setPartnerUidOverride(uid ?? null);
+  }, []);
   const [myWindow, setMyWindow] = useState<string | null>(null);
   const [theirWindow, setTheirWindow] = useState<string | null>(null);
   const [mode, setMode] = useState("balanced");
@@ -264,15 +280,21 @@ export function useTradeBuilder({
     queryFn: () => getRoster(leagueId, owner, ownerId),
     enabled: !!owner,
   });
-  // partner state stores the display name. Resolve uid from otherOwners for API calls.
+  // Resolve uid for the active partner. Order of precedence:
+  //   1. partnerUidOverride — explicit uid set via setPartner(name, uid),
+  //      e.g. canonical pkg.partner_user_id from the V2 trade engine.
+  //      This is the only path that survives a historical/renamed name.
+  //   2. ownersData lookup — exact name or platform_user_id match against
+  //      the current /owners response.
   const partnerUid = useMemo(() => {
     if (!partner) return null;
+    if (partnerUidOverride) return partnerUidOverride;
     const match = (ownersData?.owners || []).find(
       (o: { name: string; platform_user_id?: string }) =>
         o.name === partner || o.platform_user_id === partner,
     );
     return match?.platform_user_id || null;
-  }, [partner, ownersData]);
+  }, [partner, partnerUidOverride, ownersData]);
 
   const { data: partnerRoster } = useQuery({
     queryKey: ["roster", leagueId, partner],
@@ -551,6 +573,7 @@ export function useTradeBuilder({
           const confidence = (p.confidence as number) || 0;
           return {
             partner: p.partner as string,
+            partner_user_id: (p.partner_user_id as string) ?? null,
             i_give: give,
             i_receive: receive,
             i_give_names: give.map((a) => a.name as string),
@@ -674,14 +697,17 @@ export function useTradeBuilder({
     (pkg: SuggestedPackage) => {
       if (!partner && pkg.partner) {
         buildingRef.current = true;
-        setPartner(pkg.partner);
+        // Pass the canonical uid from the trade engine so getPicks/getRoster
+        // hit the uid path even when pkg.partner is a renamed/historical
+        // display name that doesn't match current /owners.
+        setPartner(pkg.partner, pkg.partner_user_id ?? null);
       }
       setGiveNames(pkg.i_give_names || []);
       setReceiveNames(pkg.i_receive_names || []);
       setSuggestedPkgs([]);
       setSuggestQuery("");
     },
-    [partner],
+    [partner, setPartner],
   );
 
   const handleClear = useCallback(() => {
