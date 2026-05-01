@@ -628,21 +628,21 @@ function PlayerRankings({ lid }: { lid: string }) {
   return (
     <div>
       {/* Search + Position filters */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 12 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 8 }}>
         {/* Search bar with auto-suggest */}
         <div ref={wrapRef} style={{ position: "relative" }}>
           <div style={{
-            display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderRadius: 6,
+            display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", borderRadius: 5,
             background: C.card,
             border: `1px solid ${focused ? C.gold : C.border}`,
             boxShadow: focused ? `0 0 0 1px ${C.gold}30` : "none",
             transition: "all 0.15s",
           }}>
-            <Search size={14} style={{ color: focused ? C.gold : C.dim, flexShrink: 0 }} />
+            <Search size={12} style={{ color: focused ? C.gold : C.dim, flexShrink: 0 }} />
             <input type="text" value={search} onChange={e => setSearch(e.target.value)} onFocus={() => setFocused(true)}
               placeholder="Search any player..."
-              style={{ flex: 1, background: "transparent", border: "none", outline: "none", fontFamily: SANS, fontSize: 13, fontWeight: 500, color: C.primary }} />
-            {search && <button onClick={() => setSearch("")} style={{ background: "none", border: "none", cursor: "pointer", padding: 0 }}><X size={14} style={{ color: C.dim }} /></button>}
+              style={{ flex: 1, background: "transparent", border: "none", outline: "none", fontFamily: SANS, fontSize: 12, fontWeight: 500, color: C.primary }} />
+            {search && <button onClick={() => setSearch("")} style={{ background: "none", border: "none", cursor: "pointer", padding: 0 }}><X size={13} style={{ color: C.dim }} /></button>}
           </div>
           {/* Suggest dropdown */}
           {focused && suggestions.length > 0 && (
@@ -672,40 +672,59 @@ function PlayerRankings({ lid }: { lid: string }) {
           )}
         </div>
 
-        {/* Position pills + mode tabs */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
-          <div style={{ display: "flex", gap: 4 }}>
+        {/* Position pills + mode tabs — single line, no wrap */}
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          gap: 6, flexWrap: "nowrap",
+        }}>
+          <div style={{ display: "flex", gap: 3, flexShrink: 0 }}>
             {POS_FILTERS.map((p) => {
               const act = posFilter === p;
               const c = p === "ALL" ? C.gold : posColor(p);
               return (
                 <button key={p} onClick={() => setPosFilter(p)}
                   style={{
-                    fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.06em",
-                    padding: "4px 12px", borderRadius: 4, cursor: "pointer", border: "none",
+                    fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.04em",
+                    padding: "3px 8px", borderRadius: 4, cursor: "pointer", border: "none",
                     background: act ? `${c}20` : "transparent",
                     color: act ? c : C.dim,
                     outline: act ? `1px solid ${c}40` : `1px solid ${C.border}`,
-                    transition: "all 0.15s",
+                    transition: "all 0.15s", whiteSpace: "nowrap",
                   }}>{p}</button>
               );
             })}
           </div>
-          <GlowTabs size="sm" tabs={PLAYER_MODE_TABS} active={mode} onChange={(id) => setMode(id as PlayerMode)} />
+          <div style={{ display: "flex", gap: 3, flexShrink: 0 }}>
+            {PLAYER_MODE_TABS.map((t) => {
+              const act = mode === t.id;
+              const c = t.id === "overall" ? C.gold : t.id === "dynasty" ? "#7dd3a0" : "#e09c6b";
+              return (
+                <button key={t.id} onClick={() => setMode(t.id)}
+                  style={{
+                    fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.04em",
+                    padding: "3px 8px", borderRadius: 4, cursor: "pointer", border: "none",
+                    background: act ? `${c}20` : "transparent",
+                    color: act ? c : C.dim,
+                    outline: act ? `1px solid ${c}40` : `1px solid ${C.border}`,
+                    transition: "all 0.15s", whiteSpace: "nowrap",
+                  }}>{t.label}</button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
       {/* Table header */}
       <div style={{
         display: "grid", gridTemplateColumns: "0.8fr 4fr 1.2fr 1.5fr",
-        alignItems: "center", gap: 8, padding: "10px 20px",
+        alignItems: "center", gap: 8, padding: "6px 16px",
         position: "sticky", top: 0, zIndex: 2,
         background: C.panel, borderBottom: `1px solid ${C.border}`,
       }}>
-        <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", color: C.dim }}>RK</span>
-        <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", color: C.dim }}>PLAYER</span>
-        <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", color: C.dim, textAlign: "center" }}>POS RK</span>
-        <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", color: C.gold, textAlign: "right" }}>{valKey}</span>
+        <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.08em", color: C.dim }}>RK</span>
+        <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.08em", color: C.dim }}>PLAYER</span>
+        <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.08em", color: C.dim, textAlign: "center" }}>POS RK</span>
+        <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.08em", color: C.gold, textAlign: "right" }}>{valKey}</span>
       </div>
 
       {/* Player rows */}
