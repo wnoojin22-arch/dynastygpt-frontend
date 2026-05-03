@@ -2246,7 +2246,7 @@ function OwnerStrategicCard({ o, baselines }: { o: any; baselines: LeagueBaselin
         borderTop: `1px solid ${C.borderLt}`,
         borderBottom: `1px solid ${C.borderLt}`,
       }}>
-        {/* Tile 1 — TEAM NEEDS */}
+        {/* Tile 1 — ROSTER STRENGTH */}
         <div style={{
           padding: "12px 14px",
           borderRight: `1px solid ${C.borderLt}`,
@@ -2255,11 +2255,11 @@ function OwnerStrategicCard({ o, baselines }: { o: any; baselines: LeagueBaselin
           <div style={{
             fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.16em",
             color: C.dim,
-          }}>TEAM NEEDS</div>
+          }}>ROSTER STRENGTH</div>
           <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
             {needs.map((pos) => {
               const posCol = POS_COLOR[pos as Pos] || C.dim;
-              const grade = grades[pos] || "";
+              const grade = grades[pos] || "—";
               return (
                 <span key={pos} style={{
                   fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.06em",
@@ -2267,10 +2267,8 @@ function OwnerStrategicCard({ o, baselines }: { o: any; baselines: LeagueBaselin
                   background: `${posCol}20`, color: posCol, border: `1px solid ${posCol}50`,
                   display: "inline-flex", alignItems: "center", gap: 5,
                 }}>
-                  <span>{pos}</span>
-                  {grade && (
-                    <span style={{ opacity: 0.85, fontWeight: 700 }}>{grade}</span>
-                  )}
+                  <span style={{ opacity: 0.78, fontWeight: 700 }}>{pos}</span>
+                  <span>{grade}</span>
                 </span>
               );
             })}
