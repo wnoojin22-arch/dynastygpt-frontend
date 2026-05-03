@@ -365,6 +365,8 @@ export const getDraftHQOwnerStrategicIntel = (id: string) =>
   get<any>(`${L(id)}/draft-hq/owner-strategic-intel`);
 export const getDraftHQRookieADP = (id: string, limit = 60, position?: string) =>
   get<any>(`${L(id)}/draft-hq/rookie-adp-2026?limit=${limit}${position ? `&position=${E(position)}` : ""}`);
+export const getDraftHQBoardProjection = (id: string) =>
+  get<any>(`${L(id)}/draft-hq/board-projection`);
 
 // ── Rankings ─────────────────────────────────────────────────────────────
 export const getDynastyRanks = (id: string) => get<{ rankings: unknown[] }>(`${L(id)}/dynasty-ranks`);
