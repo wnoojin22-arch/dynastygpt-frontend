@@ -2144,7 +2144,12 @@ function OwnerStrategicCard({ o, baselines }: { o: any; baselines: LeagueBaselin
 
   // roster.needs arrives sorted worst-first (all 4 positions, ranked by
   // letter grade ascending). roster.grades is the {pos: letterGrade} map.
-  const needs: string[] = o.roster?.needs || [];
+  // Always render all 4 positions — even a B+ #1 position is still that
+  // team's biggest relative need.
+  const needs: string[] =
+    (o.roster?.needs && o.roster.needs.length > 0)
+      ? o.roster.needs
+      : ["QB", "RB", "WR", "TE"];
   const grades: Record<string, string> = o.roster?.grades || {};
   const heldList: string[] = o.picks?.held_this_draft || [];
   const heldCount: number = heldList.length;
@@ -2251,31 +2256,25 @@ function OwnerStrategicCard({ o, baselines }: { o: any; baselines: LeagueBaselin
             fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.16em",
             color: C.dim,
           }}>TEAM NEEDS</div>
-          {needs.length > 0 ? (
-            <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-              {needs.map((pos) => {
-                const posCol = POS_COLOR[pos as Pos] || C.dim;
-                const grade = grades[pos] || "";
-                return (
-                  <span key={pos} style={{
-                    fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.06em",
-                    padding: "3px 8px", borderRadius: 4,
-                    background: `${posCol}20`, color: posCol, border: `1px solid ${posCol}50`,
-                    display: "inline-flex", alignItems: "center", gap: 5,
-                  }}>
-                    <span>{pos}</span>
-                    {grade && (
-                      <span style={{ opacity: 0.85, fontWeight: 700 }}>{grade}</span>
-                    )}
-                  </span>
-                );
-              })}
-            </div>
-          ) : (
-            <div style={{
-              fontFamily: SANS, fontSize: 12, color: C.dim, lineHeight: 1.4,
-            }}>—</div>
-          )}
+          <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+            {needs.map((pos) => {
+              const posCol = POS_COLOR[pos as Pos] || C.dim;
+              const grade = grades[pos] || "";
+              return (
+                <span key={pos} style={{
+                  fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.06em",
+                  padding: "3px 8px", borderRadius: 4,
+                  background: `${posCol}20`, color: posCol, border: `1px solid ${posCol}50`,
+                  display: "inline-flex", alignItems: "center", gap: 5,
+                }}>
+                  <span>{pos}</span>
+                  {grade && (
+                    <span style={{ opacity: 0.85, fontWeight: 700 }}>{grade}</span>
+                  )}
+                </span>
+              );
+            })}
+          </div>
         </div>
 
         {/* Tile 2 — PICKS HELD */}
