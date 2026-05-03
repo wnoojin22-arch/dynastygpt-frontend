@@ -2142,9 +2142,10 @@ function OwnerStrategicCard({ o, baselines }: { o: any; baselines: LeagueBaselin
   const windowClass: string | null = o.roster?.window;
   const windowColor = windowClass ? (WINDOW_COLOR[windowClass] || C.dim) : C.dim;
 
-  // roster.needs arrives criticality-sorted (CRITICAL first, then WEAK) from
-  // franchise_intel.py — render in array order.
+  // roster.needs arrives sorted worst-first (all 4 positions, ranked by
+  // letter grade ascending). roster.grades is the {pos: letterGrade} map.
   const needs: string[] = o.roster?.needs || [];
+  const grades: Record<string, string> = o.roster?.grades || {};
   const heldList: string[] = o.picks?.held_this_draft || [];
   const heldCount: number = heldList.length;
   const surplusDelta: number | null = o.picks?.surplus_delta ?? null;
@@ -2254,19 +2255,26 @@ function OwnerStrategicCard({ o, baselines }: { o: any; baselines: LeagueBaselin
             <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
               {needs.map((pos) => {
                 const posCol = POS_COLOR[pos as Pos] || C.dim;
+                const grade = grades[pos] || "";
                 return (
                   <span key={pos} style={{
                     fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.06em",
                     padding: "3px 8px", borderRadius: 4,
                     background: `${posCol}20`, color: posCol, border: `1px solid ${posCol}50`,
-                  }}>{pos}</span>
+                    display: "inline-flex", alignItems: "center", gap: 5,
+                  }}>
+                    <span>{pos}</span>
+                    {grade && (
+                      <span style={{ opacity: 0.85, fontWeight: 700 }}>{grade}</span>
+                    )}
+                  </span>
                 );
               })}
             </div>
           ) : (
             <div style={{
               fontFamily: SANS, fontSize: 12, color: C.dim, lineHeight: 1.4,
-            }}>Set across the board</div>
+            }}>—</div>
           )}
         </div>
 
