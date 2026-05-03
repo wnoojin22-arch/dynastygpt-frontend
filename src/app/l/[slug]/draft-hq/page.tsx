@@ -12,6 +12,7 @@ import {
   getDraftHQTendencies,
   getDraftHQOwnerStrategicIntel,
   getDraftHQRookieADP,
+  getDraftHQBoardProjection,
   getOverview,
 } from "@/lib/api";
 import { C, SANS, MONO } from "@/components/league/tokens";
@@ -66,15 +67,19 @@ const WINDOW_COLOR: Record<string, string> = {
   RETOOLING: "#6bb8e0",
 };
 
+// Capacity × likelihood verdict palette. Backend emits enum keys; the maps
+// below resolve them to display label + accent color (token-only, no invented hex).
 const FLAG_COLOR: Record<string, string> = {
-  TRADE_UP_TARGET:      "#7dd3a0",
-  TRADE_BACK_CANDIDATE: "#6bb8e0",
-  LIKELY_HOLD:          "#9596a5",
+  ACTIVE_TRADER:      "#7dd3a0",  // C.green   — engageable
+  TRADE_UP_CANDIDATE: "#6bb8e0",  // C.blue    — incoming offers likely
+  STOCKPILER:         "#d4a532",  // C.gold    — has ammo, sits on it
+  LIKELY_HOLD:        "#9596a5",  // C.dim     — no clear angle
 };
 const FLAG_LABEL: Record<string, string> = {
-  TRADE_UP_TARGET:      "TRADE-UP TARGET",
-  TRADE_BACK_CANDIDATE: "TRADE-BACK PARTNER",
-  LIKELY_HOLD:          "LIKELY HOLD",
+  ACTIVE_TRADER:      "ACTIVE TRADER",
+  TRADE_UP_CANDIDATE: "TRADE-UP CANDIDATE",
+  STOCKPILER:         "STOCKPILER",
+  LIKELY_HOLD:        "LIKELY HOLD",
 };
 
 function GlowTabs({ tabs, active, onChange }: {
@@ -1194,80 +1199,400 @@ function YourPicks({ lid, owner, ownerId }: { lid: string; owner: string | null;
 }
 
 // ═════════════════════════════════════════════════════════════════════════
-// TAB 2 — DRAFT BOARD  (round-grouped, real ADP per pick)
+// TAB 2 — DRAFT BOARD  (your_picks_aligned_v3 — same engine as Your Picks)
 // ═════════════════════════════════════════════════════════════════════════
-function DraftBoard({ lid }: { lid: string }) {
+
+type RosterPlayer = {
+  name: string;
+  position: string;
+  pos_rank: string | null;
+  sha_value: number | null;
+  sleeper_id: string | null;
+  headshot_url: string | null;
+  just_drafted: boolean;
+};
+
+type PredictedPlayer = {
+  name: string;
+  position: string | null;
+  adp: number | null;
+  availability_pct: number | null;
+  sleeper_id: string | null;
+  headshot_url: string | null;
+  source: string;  // TARGET, REALISTIC, OPPORTUNISTIC, BPA
+};
+
+type ProjectionAlternative = {
+  name: string;
+  position: string | null;
+  adp: number | null;
+  sleeper_id: string | null;
+  headshot_url: string | null;
+  label: string;  // TARGET, REALISTIC, OPPORTUNISTIC, BPA
+};
+
+type ProjectionFlag = {
+  type: string;       // HIGH_TRADE_POTENTIAL
+  condition: string;  // A or B
+  reasoning: string;
+};
+
+type ProjectionPick = {
+  pick_number: string;
+  slot_key: string;
+  pick_num: number;
+  owner: {
+    display_name: string;
+    user_id: string | null;
+    grades: Record<string, string>;
+    grade_letters?: Record<string, string>;
+    window: string;
+    cohort_state: Record<string, number>;
+  };
+  critical_needs: string[];
+  predicted_player: PredictedPlayer | null;
+  reasoning: string;
+  alternatives: ProjectionAlternative[];
+  flags: ProjectionFlag[];
+  roster_top_3_per_position: Record<string, RosterPlayer[]>;
+};
+
+function letterGradeStyle(letter: string | null | undefined): { bg: string; color: string; border: string } {
+  const L = (letter || "").toUpperCase();
+  // A+/A/A- = green-gold, B = green, C = neutral/gray, D = orange, F = red
+  if (L.startsWith("A")) return { bg: `${C.goldBright}1c`, color: C.goldBright, border: `${C.goldBright}55` };
+  if (L.startsWith("B")) return { bg: `${C.green}1c`,      color: C.green,       border: `${C.green}55` };
+  if (L.startsWith("C")) return { bg: "rgba(176,178,200,0.10)", color: C.secondary, border: "rgba(176,178,200,0.32)" };
+  if (L.startsWith("D")) return { bg: `${C.orange}1c`,     color: C.orange,      border: `${C.orange}55` };
+  if (L === "F")          return { bg: `${C.red}1c`,        color: C.red,         border: `${C.red}55` };
+  return { bg: "rgba(149,150,165,0.10)", color: C.dim, border: "rgba(149,150,165,0.28)" };
+}
+
+function GradeLetterRow({ letters, isMobile }: { letters: Record<string, string>; isMobile: boolean }) {
+  const order: Pos[] = ["QB", "RB", "WR", "TE"];
+  return (
+    <div style={{ display: "flex", gap: 4, flexWrap: "nowrap" }}>
+      {order.map((pos) => {
+        const letter = (letters?.[pos] || "").toUpperCase();
+        const s = letterGradeStyle(letter);
+        return (
+          <span key={pos} style={{
+            fontFamily: MONO, fontSize: isMobile ? 9 : 10, fontWeight: 800, letterSpacing: "0.04em",
+            padding: isMobile ? "2px 5px" : "2px 6px", borderRadius: 3, whiteSpace: "nowrap",
+            background: s.bg, color: s.color, border: `1px solid ${s.border}`,
+            display: "inline-flex", alignItems: "center", gap: 4,
+          }}>
+            <span style={{ opacity: 0.78, fontWeight: 700 }}>{pos}</span>
+            <span>{letter || "—"}</span>
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+function FlagPill() {
+  return (
+    <span style={{
+      fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.1em",
+      padding: "3px 8px", borderRadius: 4, whiteSpace: "nowrap",
+      background: `${C.gold}1c`, color: C.goldBright, border: `1px solid ${C.gold}66`,
+    }}>⚡ HIGH TRADE POTENTIAL</span>
+  );
+}
+
+function ExpandedDetails({ p, isMobile }: { p: ProjectionPick; isMobile: boolean }) {
+  const alts = p.alternatives || [];
+  const roster = p.roster_top_3_per_position || {};
+  const positions: Pos[] = ["QB", "RB", "WR", "TE"];
+  return (
+    <div onClick={(e) => e.stopPropagation()} style={{
+      marginTop: 10, paddingTop: 10, borderTop: `1px dashed ${C.border}`,
+      display: "flex", flexDirection: "column", gap: 12,
+    }}>
+      {alts.length > 0 && (
+        <div>
+          <div style={{
+            fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.dim,
+            letterSpacing: "0.12em", marginBottom: 6,
+          }}>ALTERNATIVES</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {alts.map((a, idx) => {
+              const apos = (a.position || "PICK").toUpperCase();
+              return (
+                <div key={`${a.name}-${idx}`} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <PlayerHeadshot name={a.name} position={apos} size={isMobile ? 26 : 28} sleeperId={a.sleeper_id} />
+                  <span style={{
+                    fontFamily: SANS, fontSize: 12, fontWeight: 600, color: C.secondary,
+                    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0, flex: 1,
+                  }}>{a.name}</span>
+                  <PosBadge pos={apos} />
+                  {a.adp != null && (
+                    <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>ADP {a.adp.toFixed(2)}</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+      <div>
+        <div style={{
+          fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.dim,
+          letterSpacing: "0.12em", marginBottom: 6,
+        }}>ROSTER · TOP 3 BY VALUE PER POSITION</div>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2, 1fr)", gap: 8 }}>
+          {positions.map(pos => {
+            const entries = (roster[pos] || []) as RosterPlayer[];
+            if (!entries.length) return null;
+            const posCol = POS_COLOR[pos as Pos] || C.dim;
+            return (
+              <div key={pos} style={{
+                background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, padding: "6px 8px",
+              }}>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 4 }}>
+                  <span style={{
+                    fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.08em",
+                    padding: "1px 5px", borderRadius: 3,
+                    background: `${posCol}20`, color: posCol, border: `1px solid ${posCol}40`,
+                  }}>{pos}</span>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                  {entries.map((e, i) => (
+                    <div key={`${e.name}-${i}`} style={{ display: "flex", alignItems: "center", gap: 6, fontFamily: SANS, fontSize: 11 }}>
+                      <span style={{
+                        color: C.primary, overflow: "hidden", textOverflow: "ellipsis",
+                        whiteSpace: "nowrap", minWidth: 0, flex: 1,
+                      }}>{e.name}</span>
+                      {e.pos_rank && (
+                        <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>({e.pos_rank})</span>
+                      )}
+                      {e.just_drafted && (
+                        <span style={{
+                          fontFamily: MONO, fontSize: 8, fontWeight: 800, letterSpacing: "0.08em",
+                          padding: "1px 4px", borderRadius: 3, whiteSpace: "nowrap",
+                          background: `${C.gold}22`, color: C.goldBright, border: `1px solid ${C.gold}50`,
+                        }}>JUST DRAFTED</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PickRow({ p, isViewer, isMobile }: { p: ProjectionPick; isViewer: boolean; isMobile: boolean }) {
+  const [expanded, setExpanded] = useState(false);
+  const pred = p.predicted_player;
+  const letters = p.owner?.grade_letters || {};
+  const htp = (p.flags || []).find(f => f.type === "HIGH_TRADE_POTENTIAL");
+  const headshotSize = isMobile ? 32 : 40;
+
+  const baseStyle: React.CSSProperties = {
+    background: C.card,
+    border: isViewer ? `2px solid ${C.gold}` : `1px solid ${C.border}`,
+    borderRadius: 8,
+    boxShadow: isViewer ? `0 0 0 2px ${C.gold}25, 0 4px 14px ${C.gold}20` : "none",
+    cursor: "pointer",
+  };
+
+  // ─── MOBILE: stacked 4-line ─────────────────────────────────
+  if (isMobile) {
+    return (
+      <div style={{ ...baseStyle, padding: "10px 12px" }} onClick={() => setExpanded(e => !e)}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 4 }}>
+          <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: C.gold }}>{p.pick_number}</span>
+          <span style={{
+            fontFamily: SANS, fontSize: 12, fontWeight: 700, color: C.primary,
+            flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+          }}>{p.owner?.display_name || "—"}</span>
+          {isViewer && (
+            <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.gold, letterSpacing: "0.1em" }}>★ YOU</span>
+          )}
+        </div>
+        <div style={{ marginBottom: 6 }}>
+          <GradeLetterRow letters={letters} isMobile={true} />
+        </div>
+        {pred ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+            <PlayerHeadshot
+              name={pred.name}
+              position={(pred.position || "PICK").toUpperCase()}
+              size={headshotSize}
+              sleeperId={pred.sleeper_id}
+            />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{
+                  fontFamily: SANS, fontSize: 13, fontWeight: 800, color: C.primary,
+                  overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0,
+                }}>{pred.name}</span>
+                <PosBadge pos={(pred.position || "—").toUpperCase()} />
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
+                {pred.adp != null && (
+                  <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>ADP {pred.adp.toFixed(2)}</span>
+                )}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim, marginBottom: 6 }}>No projection.</div>
+        )}
+        {p.reasoning && (
+          <div style={{ fontFamily: SANS, fontSize: 11, color: C.secondary, lineHeight: 1.45 }}>
+            {p.reasoning}
+          </div>
+        )}
+        {htp && (
+          <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 4 }}>
+            <FlagPill />
+            <div style={{ fontFamily: SANS, fontSize: 11, color: C.dim, lineHeight: 1.45 }}>
+              {htp.reasoning}
+            </div>
+          </div>
+        )}
+        {expanded && <ExpandedDetails p={p} isMobile={true} />}
+        <div style={{ marginTop: 6, fontFamily: MONO, fontSize: 9, color: C.dim, letterSpacing: "0.05em" }}>
+          {expanded ? "▲ Tap to collapse" : "▼ Tap for alternatives + roster"}
+        </div>
+      </div>
+    );
+  }
+
+  // ─── DESKTOP: 60/40 row ─────────────────────────────────────
+  return (
+    <div style={{ ...baseStyle, padding: "12px 14px" }} onClick={() => setExpanded(e => !e)}>
+      <div style={{ display: "flex", gap: 16, alignItems: "stretch" }}>
+        {/* LEFT 60% */}
+        <div style={{ flex: "0 0 60%", minWidth: 0, display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+            <span style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.gold, letterSpacing: "0.04em" }}>
+              {p.pick_number}
+            </span>
+            <span style={{
+              fontFamily: SANS, fontSize: 13, fontWeight: 700, color: C.primary,
+              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0, flex: 1,
+            }}>{p.owner?.display_name || "—"}</span>
+            {isViewer && (
+              <span title="Your pick" style={{
+                fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.gold, letterSpacing: "0.1em",
+              }}>★ YOU</span>
+            )}
+            <GradeLetterRow letters={letters} isMobile={false} />
+          </div>
+          {pred ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <PlayerHeadshot
+                name={pred.name}
+                position={(pred.position || "PICK").toUpperCase()}
+                size={headshotSize}
+                sleeperId={pred.sleeper_id}
+              />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <span style={{
+                    fontFamily: SANS, fontSize: 14, fontWeight: 800, color: C.primary,
+                    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0,
+                  }}>{pred.name}</span>
+                  <PosBadge pos={(pred.position || "—").toUpperCase()} />
+                  {pred.adp != null && (
+                    <span style={{ fontFamily: MONO, fontSize: 11, color: C.dim }}>ADP {pred.adp.toFixed(2)}</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim }}>No projection.</div>
+          )}
+        </div>
+        {/* RIGHT 40% */}
+        <div style={{
+          flex: "1 1 40%", minWidth: 0, display: "flex", flexDirection: "column", gap: 6,
+          borderLeft: `1px solid ${C.border}`, paddingLeft: 14,
+        }}>
+          {p.reasoning && (
+            <div style={{ fontFamily: SANS, fontSize: 12, color: C.secondary, lineHeight: 1.5 }}>
+              {p.reasoning}
+            </div>
+          )}
+          {htp && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <div><FlagPill /></div>
+              <div style={{ fontFamily: SANS, fontSize: 11, color: C.dim, lineHeight: 1.45 }}>
+                {htp.reasoning}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+      {expanded && <ExpandedDetails p={p} isMobile={false} />}
+      <div style={{
+        marginTop: 6, fontFamily: MONO, fontSize: 9, color: C.dim,
+        letterSpacing: "0.05em", textAlign: "right",
+      }}>
+        {expanded ? "▲ collapse" : "▼ alternatives + roster"}
+      </div>
+    </div>
+  );
+}
+
+function DraftBoard({ lid, currentOwnerId }: { lid: string; currentOwnerId: string | null }) {
   const enabled = !!lid;
-  const adpQ = useQuery({
-    queryKey: ["draft-hq-rookie-adp-v2", lid],
-    queryFn: () => getDraftHQRookieADP(lid, 80),
-    staleTime: 600_000,
-    enabled,
-  });
-  const intelQ = useQuery({
-    queryKey: ["draft-hq-strategic-intel", lid],
-    queryFn: () => getDraftHQOwnerStrategicIntel(lid),
-    staleTime: 600_000,
-    enabled,
-  });
-  const overviewQ = useQuery({
-    queryKey: ["league-overview", lid],
-    queryFn: () => getOverview(lid),
+  const isMobile = useIsMobile();
+  const projQ = useQuery({
+    queryKey: ["draft-hq-board-projection", lid],
+    queryFn: () => getDraftHQBoardProjection(lid),
     staleTime: 600_000,
     enabled,
   });
 
   if (!enabled) return <EmptyMsg msg="No league context." />;
-  if (adpQ.isLoading || intelQ.isLoading || overviewQ.isLoading) {
-    return <EmptyMsg msg="Loading draft board…" />;
-  }
-  if (adpQ.error)      return <EmptyMsg msg={`ADP error: ${(adpQ.error as Error).message}`} />;
-  if (intelQ.error)    return <EmptyMsg msg={`Intel error: ${(intelQ.error as Error).message}`} />;
+  if (projQ.isLoading) return <EmptyMsg msg="Loading draft board…" />;
+  if (projQ.error)   return <EmptyMsg msg={`Projection error: ${(projQ.error as Error).message}`} />;
 
-  const rookies: ADPRookie[] = adpQ.data?.rookies || [];
-  const numTeams = overviewQ.data?.format?.num_teams;
-  if (!numTeams) return <EmptyMsg msg="League team count unavailable." />;
-
-  // Build pick → owner map from owner-strategic-intel.held_this_draft
-  const owners: any[] = intelQ.data?.owners || [];
-  const pickOwner: Record<string, string> = {};
-  for (const o of owners) {
-    const held: string[] = o.picks?.held_this_draft || [];
-    for (const slotKey of held) {
-      pickOwner[slotKey] = o.owner;
-    }
-  }
-
-  // Group all picks by round
-  const allSlotKeys = Object.keys(pickOwner);
-  const byRound = new Map<number, { slot: number; slotKey: string; ownerName: string }[]>();
-  for (const slotKey of allSlotKeys) {
-    const m = slotKey.match(/^(\d+)\.(\d+)$/);
-    if (!m) continue;
-    const round = parseInt(m[1], 10);
-    const slot  = parseInt(m[2], 10);
-    if (!byRound.has(round)) byRound.set(round, []);
-    byRound.get(round)!.push({ slot, slotKey, ownerName: pickOwner[slotKey] });
-  }
-  for (const arr of byRound.values()) arr.sort((a, b) => a.slot - b.slot);
-  const roundsSorted = Array.from(byRound.keys()).sort((a, b) => a - b);
-
-  if (roundsSorted.length === 0) {
+  const picksData: ProjectionPick[] = projQ.data?.picks || [];
+  if (picksData.length === 0) {
     return <EmptyMsg msg="No 2026 picks resolved yet for this league." />;
   }
+
+  // Group picks by round
+  const byRound = new Map<number, ProjectionPick[]>();
+  for (const p of picksData) {
+    const sk = p.pick_number || p.slot_key || "";
+    const m = sk.match(/^(\d+)\.(\d+)$/);
+    if (!m) continue;
+    const round = parseInt(m[1], 10);
+    if (!byRound.has(round)) byRound.set(round, []);
+    byRound.get(round)!.push(p);
+  }
+  for (const arr of byRound.values()) {
+    arr.sort((a, b) => {
+      const sa = parseInt((a.pick_number || a.slot_key).split(".")[1], 10);
+      const sb = parseInt((b.pick_number || b.slot_key).split(".")[1], 10);
+      return sa - sb;
+    });
+  }
+  const roundsSorted = Array.from(byRound.keys()).sort((a, b) => a - b);
 
   return (
     <div style={{ padding: "20px 0" }}>
       <div style={{
         background: `linear-gradient(180deg, ${C.goldGlow} 0%, ${C.card} 100%)`,
-        border: `1px solid ${C.goldBorder}`, borderRadius: 10, padding: 14, marginBottom: 14,
+        border: `1px solid ${C.goldBorder}`, borderRadius: 10,
+        padding: isMobile ? 12 : 14, marginBottom: 14,
       }}>
         <div style={{
           fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.gold,
           letterSpacing: "0.16em", marginBottom: 6,
         }}>FULL DRAFT BOARD — 2026 ROOKIE DRAFT</div>
-        <div style={{ fontFamily: SANS, fontSize: 14, color: C.primary, lineHeight: 1.55 }}>
-          Every pick in the draft, grouped by round. For each pick, the three rookies whose ADP window most overlaps that slot. Late picks past every rookie's ADP fall back to "Reach territory" — names with the latest expected board fall.
+        <div style={{ fontFamily: SANS, fontSize: isMobile ? 13 : 14, color: C.primary, lineHeight: 1.55 }}>
+          Same engine as Your Picks. Each row predicts what that owner would actually take given their roster grades, position cohort, and what's already off the board. Tap a row for alternatives + their current top 3 per position. Gold border = your pick.
         </div>
       </div>
 
@@ -1281,54 +1606,24 @@ function DraftBoard({ lid }: { lid: string }) {
                 background: C.bg, padding: "8px 0",
                 borderBottom: `2px solid ${C.gold}`, marginBottom: 10,
               }}>
-                <div style={{ fontFamily: SANS, fontSize: 18, fontWeight: 900, color: C.gold, letterSpacing: "0.06em" }}>
-                  ROUND {rd}
-                </div>
+                <div style={{
+                  fontFamily: SANS, fontSize: isMobile ? 16 : 18, fontWeight: 900,
+                  color: C.gold, letterSpacing: "0.06em",
+                }}>ROUND {rd}</div>
                 <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim, marginTop: 2 }}>
-                  {picks.length} pick{picks.length === 1 ? "" : "s"} · slots {picks[0]?.slot}–{picks[picks.length - 1]?.slot}
+                  {picks.length} pick{picks.length === 1 ? "" : "s"}
                 </div>
               </div>
-              <div style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
-                gap: 10,
-              }}>
-                {picks.map(({ slot, slotKey, ownerName }) => {
-                  const pickNum = (rd - 1) * numTeams + slot;
-                  const cand = pickCandidatesFor(pickNum, rookies, 4, 3);
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {picks.map(p => {
+                  const isViewer = !!currentOwnerId && p.owner?.user_id === currentOwnerId;
                   return (
-                    <div key={slotKey} style={{
-                      background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12,
-                    }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
-                        <div>
-                          <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: C.gold }}>
-                            {slotKey}
-                          </div>
-                          <div style={{ fontFamily: MONO, fontSize: 10, color: C.dim, letterSpacing: "0.04em" }}>
-                            pick #{pickNum} · {ownerName}
-                          </div>
-                        </div>
-                        {cand.fallback && (
-                          <span style={{
-                            fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.06em",
-                            padding: "2px 6px", borderRadius: 3,
-                            background: `${C.orange}18`, color: C.orange, border: `1px solid ${C.orange}40`,
-                          }}>REACH</span>
-                        )}
-                      </div>
-                      {cand.rookies.length === 0 ? (
-                        <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim, padding: "8px 0" }}>
-                          No ADP data.
-                        </div>
-                      ) : (
-                        <div style={{ display: "flex", flexDirection: "column" }}>
-                          {cand.rookies.map((r, idx) => (
-                            <CandidateRow key={`${r.player_name}-${idx}`} r={r} />
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                    <PickRow
+                      key={p.slot_key || p.pick_number}
+                      p={p}
+                      isViewer={isViewer}
+                      isMobile={isMobile}
+                    />
                   );
                 })}
               </div>
@@ -1343,6 +1638,16 @@ function DraftBoard({ lid }: { lid: string }) {
 // ═════════════════════════════════════════════════════════════════════════
 // TAB 3 — DRAFT INTEL  (real data: tendencies + strategic intel per owner)
 // ═════════════════════════════════════════════════════════════════════════
+
+function formatSeasonsRange(seasons: number[] | undefined | null): string {
+  if (!seasons || !seasons.length) return "recent seasons";
+  const sorted = [...seasons].sort((a, b) => a - b);
+  if (sorted.length === 1) return String(sorted[0]);
+  const first = sorted[0];
+  const last = sorted[sorted.length - 1];
+  const isContig = sorted.length === last - first + 1;
+  return isContig ? `${first}-${last}` : sorted.join(", ");
+}
 
 function buildTendencyParagraphs(t: any): { headline: string | null; body: string[] } {
   if (!t) return { headline: null, body: [] };
@@ -1359,29 +1664,57 @@ function buildTendencyParagraphs(t: any): { headline: string | null; body: strin
 
   const body: string[] = [];
 
-  // ── Paragraph 1: discipline + reach (the "how predictable is this draft" story)
-  const p1: string[] = [];
+  // ── Paragraph 1: 3-sentence explainer composed from real data.
+  //   S1 = what was measured (sample, seasons, distance, optional bias lean)
+  //   S2 = where this league sits on the discipline scale
+  //   S3 = practical takeaway, branched by state + bias direction
   if (disc != null) {
     const a = Math.abs(disc);
+    const rm = t.reach_magnitude;
+    const seasonsStr = formatSeasonsRange(t.seasons);
+    const sampleStr = t.sample_size != null ? `${t.sample_size} picks` : "the recent picks";
+    const biasMeaningful = rm != null && Math.abs(rm) >= 1;
+    const biasIsAggressive = biasMeaningful && rm <= -1;
+
+    // S1
+    let s1 = a <= 10
+      ? `Across ${sampleStr} in ${seasonsStr}, this league drafted players within ${a.toFixed(1)} spots of where the broader dynasty market valued them`
+      : `Across ${sampleStr} in ${seasonsStr}, this league drafted players an average of ${a.toFixed(1)} spots away from where the broader dynasty market valued them`;
+    if (biasMeaningful) {
+      s1 += biasIsAggressive ? `, with a slight lean toward reaching early` : `, with a slight lean toward letting value fall`;
+    }
+    s1 += ".";
+
+    // S2
+    let s2 = a <= 10
+      ? "That's well inside the disciplined range"
+      : a <= 22
+        ? "That's normal scatter"
+        : "That's beyond the chaos threshold";
+    s2 += " (under ±10 is disciplined, ±10-22 is normal, beyond ±22 is chaotic)";
+    if (biasMeaningful) {
+      s2 += biasIsAggressive ? " with a measurable aggressive bias" : " with a measurable patient bias";
+    }
+    s2 += ".";
+
+    // S3
+    let s3: string;
     if (a <= 10) {
-      p1.push(`Picks land within ${a.toFixed(1)} spots of consensus ADP on average — anything inside ±10 is disciplined, ±10–22 is normal scatter, beyond ±22 is chaos.`);
+      s3 = "Practical takeaway: ADP is a reliable signal here. Reaches and slides are rare, so a player available significantly past consensus is a real value, not a likely overrate.";
     } else if (a <= 22) {
-      p1.push(`Picks drift ${a.toFixed(1)} spots from consensus ADP on average — normal scatter (the ±10–22 band). Expect occasional surprises but no chaos.`);
+      if (biasMeaningful && biasIsAggressive) {
+        s3 = "Practical takeaway: expect names to come off the board a bit earlier than dynasty rankings suggest. Targets you have ranked at your slot may already be gone.";
+      } else if (biasMeaningful) {
+        s3 = "Practical takeaway: expect value to slide a bit past dynasty rankings. You'll often catch a player available later than the consensus board would predict.";
+      } else {
+        s3 = "Practical takeaway: ADP is a reasonable starting point, but expect occasional surprises in either direction. Don't pin your board to consensus ranks.";
+      }
     } else {
-      p1.push(`Picks drift ${a.toFixed(1)} spots from consensus ADP on average — well past the ±22 chaos line. Plan for board breaks you can't predict.`);
+      s3 = "Practical takeaway: ADP is a weak signal in this league. Players go far earlier or later than the market expects, so plan for surprises and don't anchor expectations to consensus boards.";
     }
+
+    body.push(`${s1} ${s2} ${s3}`);
   }
-  const rm = t.reach_magnitude;
-  if (rm != null) {
-    if (rm <= -5) {
-      p1.push(`Drafters reach early — players go ${Math.abs(rm).toFixed(1)} picks ahead of ADP on net. Anything beyond −5 is aggressive, beyond −10 is impatient. Drop your board down a notch when you make your read.`);
-    } else if (rm >= 5) {
-      p1.push(`Drafters let value fall — players go ${rm.toFixed(1)} picks past ADP on net. Anything beyond +5 means the board sits tight; you'll often catch a slider.`);
-    } else {
-      p1.push(`Net reach is roughly neutral (${rm > 0 ? "+" : ""}${rm.toFixed(1)} picks vs ADP) — neither aggressive nor patient.`);
-    }
-  }
-  if (p1.length) body.push(p1.join(" "));
 
   // ── Paragraph 2: positional bias (QB / TE / RB-heavy R1)
   const p2: string[] = [];
@@ -1402,7 +1735,7 @@ function buildTendencyParagraphs(t: any): { headline: string | null; body: strin
   return { headline, body };
 }
 
-function DraftIntel({ lid }: { lid: string }) {
+function DraftIntel({ lid, currentOwnerId }: { lid: string; currentOwnerId: string | null }) {
   const enabled = !!lid;
   const intelQ = useQuery({
     queryKey: ["draft-hq-strategic-intel", lid],
@@ -1421,8 +1754,28 @@ function DraftIntel({ lid }: { lid: string }) {
   if (intelQ.isLoading) return <EmptyMsg msg="Loading strategic intel…" />;
   if (intelQ.error) return <EmptyMsg msg={`Error: ${(intelQ.error as Error).message}`} />;
 
-  const owners: any[] = intelQ.data?.owners || [];
-  if (!owners.length) return <EmptyMsg msg="No owner intel available — league_intel may not be populated yet." />;
+  const allOwners: any[] = intelQ.data?.owners || [];
+  if (!allOwners.length) return <EmptyMsg msg="No owner intel available — league_intel may not be populated yet." />;
+
+  // Filter out the viewing owner, then sort by 2026 R1 slot ascending.
+  // Owners with slot_2026 === null sort to the end, alphabetical by display_name_raw within that bucket.
+  const owners = allOwners
+    .filter((o: any) => !currentOwnerId || o.owner_user_id !== currentOwnerId)
+    .slice()
+    .sort((a: any, b: any) => {
+      const sa = a.slot_2026;
+      const sb = b.slot_2026;
+      if (sa != null && sb != null) return sa - sb;
+      if (sa != null) return -1;
+      if (sb != null) return 1;
+      const na = (a.display_name_raw || a.owner || "").toLowerCase();
+      const nb = (b.display_name_raw || b.owner || "").toLowerCase();
+      return na < nb ? -1 : na > nb ? 1 : 0;
+    });
+
+  // League baselines computed once over the FULL owners array (incl. self).
+  // Used for outlier detection in scouting narratives — never recomputed per card.
+  const baselines = computeLeagueBaselines(allOwners);
 
   const t = tendQ.data?.tendencies;
   const fallback = tendQ.data?.fallback;
@@ -1430,6 +1783,17 @@ function DraftIntel({ lid }: { lid: string }) {
 
   return (
     <div style={{ padding: "20px 0" }}>
+      {/* Tendencies fetch failure — inline banner, do NOT blank the page */}
+      {tendQ.error && (
+        <div style={{
+          background: `${C.red}12`, border: `1px solid ${C.red}40`, borderRadius: 8,
+          padding: "10px 14px", marginBottom: 14,
+          fontFamily: MONO, fontSize: 12, color: C.red, letterSpacing: "0.04em",
+        }}>
+          League scouting report unavailable — {(tendQ.error as Error).message}
+        </div>
+      )}
+
       {/* League scouting report — narrative */}
       {(headline || body.length > 0) && (
         <div style={{
@@ -1452,13 +1816,17 @@ function DraftIntel({ lid }: { lid: string }) {
               marginBottom: i === body.length - 1 ? 0 : 10,
             }}>{para}</div>
           ))}
-          {(t?.sample_size != null) && (
-            <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim, marginTop: 14, letterSpacing: "0.04em" }}>
-              {t.sample_size} picks · {(t.seasons || []).join("+")}
-              {t.format_key && ` · baseline ${t.format_key}`}
-              {fallback === "global" && " · global baseline (no league cache yet)"}
-            </div>
-          )}
+          {(() => {
+            const parts: string[] = [];
+            if (t?.format_key) parts.push(`baseline ${t.format_key}`);
+            if (fallback === "global") parts.push("global baseline (no league cache yet)");
+            if (!parts.length) return null;
+            return (
+              <div style={{ fontFamily: MONO, fontSize: 11, color: C.dim, marginTop: 14, letterSpacing: "0.04em" }}>
+                {parts.join(" · ")}
+              </div>
+            );
+          })()}
         </div>
       )}
 
@@ -1468,9 +1836,10 @@ function DraftIntel({ lid }: { lid: string }) {
           STRATEGIC INTEL — BY OWNER
         </div>
         <div style={{ display: "flex", gap: 8, fontFamily: MONO, fontSize: 11, color: C.dim, letterSpacing: "0.04em", flexWrap: "wrap" }}>
-          <Chip text="TRADE-UP TARGET" color={FLAG_COLOR.TRADE_UP_TARGET} />
-          <Chip text="TRADE-BACK PARTNER" color={FLAG_COLOR.TRADE_BACK_CANDIDATE} />
-          <Chip text="LIKELY HOLD" color={FLAG_COLOR.LIKELY_HOLD} />
+          <Chip text="ACTIVE TRADER"      color={FLAG_COLOR.ACTIVE_TRADER} />
+          <Chip text="TRADE-UP CANDIDATE" color={FLAG_COLOR.TRADE_UP_CANDIDATE} />
+          <Chip text="STOCKPILER"         color={FLAG_COLOR.STOCKPILER} />
+          <Chip text="LIKELY HOLD"        color={FLAG_COLOR.LIKELY_HOLD} />
         </div>
       </div>
 
@@ -1479,7 +1848,7 @@ function DraftIntel({ lid }: { lid: string }) {
         gridTemplateColumns: "repeat(auto-fill, minmax(360px, 1fr))",
         gap: 14,
       }}>
-        {owners.map((o: any) => <OwnerStrategicCard key={o.owner_user_id || o.owner} o={o} />)}
+        {owners.map((o: any) => <OwnerStrategicCard key={o.owner_user_id || o.owner} o={o} baselines={baselines} />)}
       </div>
     </div>
   );
@@ -1543,7 +1912,6 @@ function buildOwnerNarrative(o: any): string[] {
   const tradesMade: number = trader.trades_made || 0;
   const tradesUp: number = trader.trades_up || 0;
   const tradesDown: number = trader.trades_down || 0;
-  const tradesLateral: number = trader.trades_lateral || 0;
   const seasonsActive: number = trader.seasons_active || 0;
   const seasonsTotal: number = trader.seasons_total || 0;
   const directionTendency: string = o.behavior?.direction_tendency || "INSUFFICIENT_DATA";
@@ -1552,9 +1920,8 @@ function buildOwnerNarrative(o: any): string[] {
   const behaviorParts: string[] = [];
   if (tradesMade > 0) {
     const breakdown: string[] = [];
-    if (tradesUp > 0) breakdown.push(`${tradesUp} up`);
-    if (tradesDown > 0) breakdown.push(`${tradesDown} back`);
-    if (tradesLateral > 0) breakdown.push(`${tradesLateral} lateral`);
+    if (tradesUp > 0) breakdown.push(`${tradesUp} traded up`);
+    if (tradesDown > 0) breakdown.push(`${tradesDown} traded back/out`);
     behaviorParts.push(`Made ${tradesMade} draft-day trade${tradesMade === 1 ? "" : "s"} across ${seasonsActive}/${seasonsTotal} rookie drafts (${breakdown.join(", ")}).`);
   } else if (seasonsTotal > 0) {
     behaviorParts.push(`Has never traded on draft day across ${seasonsTotal} rookie draft${seasonsTotal === 1 ? "" : "s"} — sits and picks.`);
@@ -1574,11 +1941,199 @@ function buildOwnerNarrative(o: any): string[] {
   return paragraphs;
 }
 
-function OwnerStrategicCard({ o }: { o: any }) {
+// League-baseline summary computed once over the full owners array. Drives
+// outlier detection in buildScoutingNarrative — a signal only fires when the
+// owner deviates from these baselines, not when they merely match the league.
+type LeagueBaselines = {
+  ownerCount: number;
+  avgTrades: number;
+  avgFuture: number;
+  avgHeld: number;
+  modalPositionPattern: string | null;  // joined "POS1|POS2", null if no clear mode
+  modalPatternCount: number;
+};
+
+function computeLeagueBaselines(allOwners: any[]): LeagueBaselines {
+  const n = allOwners.length || 1;
+  let totalTrades = 0;
+  let totalFuture = 0;
+  let totalHeld = 0;
+  const patternCounts = new Map<string, number>();
+
+  for (const o of allOwners) {
+    totalTrades += (o.draft_day_trader?.trades_made || 0);
+    totalFuture += (o.picks?.future_picks?.length || 0);
+    totalHeld   += (o.picks?.held_this_draft?.length || 0);
+    const pos: string[] = o.behavior?.positions_targeted || [];
+    if (pos.length > 0) {
+      const key = pos.join("|");
+      patternCounts.set(key, (patternCounts.get(key) || 0) + 1);
+    }
+  }
+
+  let modal: string | null = null;
+  let modalCount = 0;
+  for (const [k, v] of patternCounts.entries()) {
+    if (v > modalCount) { modal = k; modalCount = v; }
+  }
+
+  return {
+    ownerCount: n,
+    avgTrades: totalTrades / n,
+    avgFuture: totalFuture / n,
+    avgHeld:   totalHeld / n,
+    modalPositionPattern: modal,
+    modalPatternCount: modalCount,
+  };
+}
+
+// Parse "1.04" → {round:1, slot:4} or "R3" → {round:3, slot:null}. Used to
+// reason about pick capital shape (early vs late, stacked rounds, etc).
+function parseHeldPick(s: string): { round: number; slot: number | null } | null {
+  const m = s.match(/^(\d+)\.(\d+)$/);
+  if (m) return { round: parseInt(m[1], 10), slot: parseInt(m[2], 10) };
+  const r = s.match(/^R(\d+)$/);
+  if (r) return { round: parseInt(r[1], 10), slot: null };
+  return null;
+}
+
+// Build a ranked, league-relative scouting paragraph. Tiered signals — Tier 1
+// fires first (pick-capital shape), then trade-day pattern (only if outlier
+// vs league avg), then slot×need interaction, then future-capital posture
+// (only if outlier), then position targeting (only if deviating from modal),
+// finally window framing as filler. Cap at 3 sentences. No generic phrases.
+function buildScoutingNarrative(o: any, base: LeagueBaselines): string {
+  const sentences: string[] = [];
+
+  const window: string | null = o.roster?.window || null;
+  const needs: string[] = o.roster?.needs || [];
+  const heldArr: string[] = o.picks?.held_this_draft || [];
+  const heldCount = heldArr.length;
+  const futurePicks: { year: number; round: number }[] = o.picks?.future_picks || [];
+  const futureCount = futurePicks.length;
+  const trader = o.draft_day_trader || {};
+  const tradesMade: number = trader.trades_made || 0;
+  const tradesUp: number = trader.trades_up || 0;
+  const tradesDown: number = trader.trades_down || 0;
+  const seasonsTotal: number = trader.seasons_total || 0;
+  const positions: string[] = o.behavior?.positions_targeted || [];
+  const slot2026: number | null = o.slot_2026 ?? null;
+
+  const parsedHeld = heldArr.map(parseHeldPick).filter((p): p is { round: number; slot: number | null } => p !== null);
+  const earliestRound = parsedHeld.length ? Math.min(...parsedHeld.map(p => p.round)) : null;
+  const roundCounts = new Map<number, number>();
+  for (const p of parsedHeld) roundCounts.set(p.round, (roundCounts.get(p.round) || 0) + 1);
+  const stackedRound = (() => {
+    for (const [rd, ct] of roundCounts.entries()) if (ct >= 3) return { round: rd, count: ct };
+    return null;
+  })();
+
+  // ── TIER 1: Pick capital shape ──────────────────────────────────────────
+  // Sparse late capital — mostly R3+
+  if (heldCount > 0 && heldCount <= 3 && earliestRound != null && earliestRound >= 3) {
+    sentences.push(
+      `Only ${heldCount} pick${heldCount === 1 ? "" : "s"} this draft, all R${earliestRound}+. ` +
+      `May package up to land an early hit.`
+    );
+  }
+  // Front-loaded — owns a chunk of the league's earliest picks
+  else if (heldCount >= 4 && earliestRound === 1 && roundCounts.get(1)! >= 2) {
+    const r1Count = roundCounts.get(1)!;
+    sentences.push(
+      `Holds ${r1Count} of the league's ${r1Count === 1 ? "first picks" : "R1 picks"} ` +
+      `with ${heldCount} total — premium capital concentration.`
+    );
+  }
+  // No early picks in a rebuild
+  else if (window === "REBUILDER" && earliestRound != null && earliestRound >= 3) {
+    sentences.push(
+      `No R1, no R2 in a rebuild year. Trade-up candidate.`
+    );
+  }
+  // Stacked round — built to package or batch
+  else if (stackedRound) {
+    sentences.push(
+      `${stackedRound.count} R${stackedRound.round} picks in hand. Built to package or batch a position.`
+    );
+  }
+
+  // ── TIER 2: Trade-day pattern (only when outlier vs league baseline) ────
+  if (sentences.length < 3) {
+    const isHighTrader = base.avgTrades >= 1 && tradesMade > base.avgTrades * 1.5;
+    const isLowTrader  = base.avgTrades >= 1 && tradesMade < base.avgTrades * 0.5;
+    const upDominant   = tradesMade >= 3 && tradesUp >= tradesMade * 0.6;
+    const downDominant = tradesMade >= 3 && tradesDown >= tradesMade * 0.6;
+
+    if (upDominant && isHighTrader) {
+      sentences.push(`Traded up ${tradesUp} times across ${seasonsTotal} drafts. Proactive on draft day.`);
+    } else if (downDominant && isHighTrader) {
+      sentences.push(`Trades back consistently (${tradesDown} of ${tradesMade}). Values volume over slot.`);
+    } else if (isLowTrader && tradesMade === 0) {
+      sentences.push(`Hasn't moved on draft day in ${seasonsTotal} drafts. Predictable.`);
+    } else if (isHighTrader && tradesMade >= 3) {
+      sentences.push(`Active trader (${tradesMade} draft-day moves), mixed direction.`);
+    }
+  }
+
+  // ── TIER 3: Slot × need interaction ─────────────────────────────────────
+  if (sentences.length < 3 && slot2026 != null && needs.length > 0) {
+    const slotLabel = `1.${String(slot2026).padStart(2, "0")}`;
+    const isEarlySlot = slot2026 <= 4;
+    if (isEarlySlot) {
+      sentences.push(`Holds ${slotLabel} with acute ${needs[0]} need. Fit is obvious.`);
+    } else if (window === "CONTENDER") {
+      sentences.push(`${slotLabel} pick in a contender window. Currency, not consumption.`);
+    }
+  }
+
+  // ── TIER 4: Future capital posture (only when outlier) ──────────────────
+  if (sentences.length < 3) {
+    const futHigh = base.avgFuture >= 1 && futureCount > base.avgFuture * 1.3;
+    const futLow  = base.avgFuture >= 1 && futureCount < base.avgFuture * 0.7;
+    if (futLow) {
+      sentences.push(
+        `Mortgaged future. Only ${futureCount} pick${futureCount === 1 ? "" : "s"} beyond 2026 ` +
+        `vs league avg ${base.avgFuture.toFixed(1)}.`
+      );
+    } else if (futHigh) {
+      sentences.push(
+        `Hoarding future capital. ${futureCount} picks beyond 2026, well above league norm.`
+      );
+    }
+  }
+
+  // ── TIER 5: Position targeting (only when deviates from modal pattern) ──
+  if (sentences.length < 3 && positions.length > 0 && base.modalPositionPattern) {
+    const ownerKey = positions.join("|");
+    const isModalDominant = base.modalPatternCount >= Math.ceil(base.ownerCount * 0.5);
+    if (ownerKey !== base.modalPositionPattern && isModalDominant) {
+      sentences.push(`Drafts ${positions.join(" / ")} more than the league norm.`);
+    }
+  }
+
+  // ── TIER 6: Window framing — filler if Tier 1-5 produced <2 sentences ──
+  if (sentences.length < 2) {
+    if (window === "CONTENDER") {
+      sentences.push(`Contender window. This draft is currency, not future.`);
+    } else if (window === "REBUILDER") {
+      sentences.push(`Rebuilding. Every offer should start from a sell-now lens.`);
+    } else if (window === "RETOOLING") {
+      sentences.push(`Retooling. Open to deals that bridge now and later.`);
+    }
+  }
+
+  // ── FALLBACK: zero outlier signals across all tiers ─────────────────────
+  if (sentences.length === 0) {
+    return "League-average profile across pick capital, trade history, and roster shape. No clear edge to exploit.";
+  }
+
+  return sentences.slice(0, 3).join(" ");
+}
+
+function OwnerStrategicCard({ o, baselines }: { o: any; baselines: LeagueBaselines }) {
   const flagVerdict = o.trade_flag?.verdict || "LIKELY_HOLD";
   const flagColor = FLAG_COLOR[flagVerdict] || C.dim;
   const flagLabel = FLAG_LABEL[flagVerdict] || flagVerdict;
-  const flagReason = o.trade_flag?.reasoning || "";
 
   const identity: string | null = o.draft_identity;
   const identityColor = identity ? (IDENTITY_COLOR[identity] || C.dim) : C.dim;
@@ -1587,70 +2142,267 @@ function OwnerStrategicCard({ o }: { o: any }) {
   const windowClass: string | null = o.roster?.window;
   const windowColor = windowClass ? (WINDOW_COLOR[windowClass] || C.dim) : C.dim;
 
-  const trader = o.draft_day_trader || {};
-  const traderTag: string = trader.tag || "UNKNOWN";
+  // roster.needs arrives criticality-sorted (CRITICAL first, then WEAK) from
+  // franchise_intel.py — render in array order.
+  const needs: string[] = o.roster?.needs || [];
+  const heldList: string[] = o.picks?.held_this_draft || [];
+  const heldCount: number = heldList.length;
+  const surplusDelta: number | null = o.picks?.surplus_delta ?? null;
+  const futurePicks: { year: number; round: number }[] = o.picks?.future_picks || [];
 
-  const paragraphs = buildOwnerNarrative(o);
+  const trader = o.draft_day_trader || {};
+  const tradesMade: number = trader.trades_made || 0;
+  const tradesUp: number = trader.trades_up || 0;
+  const tradesDown: number = trader.trades_down || 0;
+
+  const teamName: string = o.display_name_raw || o.owner || "—";
+
+  const narrative = buildScoutingNarrative(o, baselines);
+
+  // Group future_picks by year for the FUTURE PICKS section.
+  // future_picks arrives sorted ascending by (year, round). Build a Map of
+  // year → Map of round → count so we can render "R3 (×2)" for multi-occurrence.
+  const futureByYear = new Map<number, Map<number, number>>();
+  for (const fp of futurePicks) {
+    if (!futureByYear.has(fp.year)) futureByYear.set(fp.year, new Map());
+    const rm = futureByYear.get(fp.year)!;
+    rm.set(fp.round, (rm.get(fp.round) || 0) + 1);
+  }
+  const futureRows = Array.from(futureByYear.entries())
+    .sort((a, b) => a[0] - b[0])
+    .map(([yr, rm]) => {
+      const parts = Array.from(rm.entries())
+        .sort((a, b) => a[0] - b[0])
+        .map(([rd, ct]) => ct > 1 ? `R${rd} (×${ct})` : `R${rd}`);
+      return { year: yr, rounds: parts };
+    });
+
+  // Card outer border: full flag color for active flags, C.border for HOLD.
+  const cardBorder = flagVerdict === "LIKELY_HOLD" ? C.border : `${flagColor}50`;
 
   return (
-    <div style={{
-      background: C.card,
-      border: `1px solid ${flagVerdict === "LIKELY_HOLD" ? C.border : `${flagColor}50`}`,
-      borderRadius: 8, padding: 18,
-      display: "flex", flexDirection: "column", gap: 14,
+    <div className={`osc-card osc-${flagVerdict.toLowerCase()}`} style={{
+      position: "relative",
+      background: `linear-gradient(180deg, ${C.card} 0%, ${C.panel} 100%)`,
+      border: `1px solid ${cardBorder}`,
+      borderRadius: 12,
+      boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
+      overflow: "hidden",
+      display: "flex", flexDirection: "column",
+      transition: "border-color 150ms ease",
     }}>
-      {/* Header — owner name + flag */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 7, minWidth: 0 }}>
-          <div style={{ fontFamily: SANS, fontSize: 18, fontWeight: 800, color: C.primary, lineHeight: 1.2 }}>
-            {o.owner}
-          </div>
+      {/* Top accent stripe — flag-color */}
+      <div style={{
+        height: 3,
+        background: `linear-gradient(90deg, ${flagColor} 0%, ${flagColor}40 100%)`,
+      }} />
+
+      {/* Header — team name + verdict pill (cards already ordered by 2026 R1 slot) */}
+      <div style={{ padding: "16px 18px 12px 18px", display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+          <span style={{
+            fontFamily: SANS, fontSize: 18, fontWeight: 800, color: C.primary,
+            lineHeight: 1.2, minWidth: 0, flex: 1,
+            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+          }}>{teamName}</span>
+          <span style={{
+            fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.06em",
+            padding: "5px 10px", borderRadius: 4, whiteSpace: "nowrap", flexShrink: 0,
+            background: `${flagColor}18`, color: flagColor, border: `1px solid ${flagColor}50`,
+          }}>{flagLabel}</span>
+        </div>
+
+        {/* Archetype pills row */}
+        {(identity || windowClass) && (
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             {identity && (
               <span title={identityTip || identity} style={{
                 fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.06em",
-                padding: "3px 8px", borderRadius: 3, cursor: "help",
+                padding: "3px 8px", borderRadius: 4, cursor: "help",
                 background: `${identityColor}18`, color: identityColor, border: `1px solid ${identityColor}30`,
               }}>{identity}</span>
             )}
             {windowClass && (
               <span style={{
                 fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.06em",
-                padding: "3px 8px", borderRadius: 3,
+                padding: "3px 8px", borderRadius: 4,
                 background: `${windowColor}18`, color: windowColor, border: `1px solid ${windowColor}30`,
               }}>{windowClass}</span>
             )}
-            {traderTag === "TRADER" && (
+          </div>
+        )}
+      </div>
+
+      {/* Three-tile stat row — equal-width grid, hairline dividers (C.borderLt = one step lighter than C.border) */}
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+        borderTop: `1px solid ${C.borderLt}`,
+        borderBottom: `1px solid ${C.borderLt}`,
+      }}>
+        {/* Tile 1 — TEAM NEEDS */}
+        <div style={{
+          padding: "12px 14px",
+          borderRight: `1px solid ${C.borderLt}`,
+          display: "flex", flexDirection: "column", gap: 8, minWidth: 0,
+        }}>
+          <div style={{
+            fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.16em",
+            color: C.dim,
+          }}>TEAM NEEDS</div>
+          {needs.length > 0 ? (
+            <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+              {needs.map((pos) => {
+                const posCol = POS_COLOR[pos as Pos] || C.dim;
+                return (
+                  <span key={pos} style={{
+                    fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.06em",
+                    padding: "3px 8px", borderRadius: 4,
+                    background: `${posCol}20`, color: posCol, border: `1px solid ${posCol}50`,
+                  }}>{pos}</span>
+                );
+              })}
+            </div>
+          ) : (
+            <div style={{
+              fontFamily: SANS, fontSize: 12, color: C.dim, lineHeight: 1.4,
+            }}>Set across the board</div>
+          )}
+        </div>
+
+        {/* Tile 2 — PICKS HELD */}
+        <div style={{
+          padding: "12px 14px",
+          borderRight: `1px solid ${C.borderLt}`,
+          display: "flex", flexDirection: "column", gap: 8, minWidth: 0,
+        }}>
+          <div style={{
+            fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.16em",
+            color: C.dim,
+          }}>PICKS HELD</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+            <span style={{
+              fontFamily: MONO, fontSize: 22, fontWeight: 800, color: C.primary,
+              lineHeight: 1, letterSpacing: "-0.01em",
+            }}>{heldCount}</span>
+          </div>
+        </div>
+
+        {/* Tile 3 — DRAFT-DAY TRADES */}
+        <div style={{
+          padding: "12px 14px",
+          display: "flex", flexDirection: "column", gap: 8, minWidth: 0,
+        }}>
+          <div style={{
+            fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.16em",
+            color: C.dim,
+          }}>DRAFT-DAY TRADES</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+            <span style={{
+              fontFamily: MONO, fontSize: 22, fontWeight: 800, color: C.primary,
+              lineHeight: 1, letterSpacing: "-0.01em",
+            }}>{tradesMade}</span>
+            {tradesMade > 0 ? (
               <span style={{
-                fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.06em",
-                padding: "3px 8px", borderRadius: 3,
-                background: `${C.gold}18`, color: C.gold, border: `1px solid ${C.goldBorder}`,
-              }}>TRADER</span>
+                fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.secondary,
+                letterSpacing: "0.04em",
+              }}>{`${tradesUp} traded up · ${tradesDown} traded back/out`}</span>
+            ) : (
+              <span style={{
+                fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.dim,
+                letterSpacing: "0.04em",
+              }}>{"— sits & picks"}</span>
             )}
           </div>
         </div>
-        <span style={{
-          fontFamily: MONO, fontSize: 11, fontWeight: 900, letterSpacing: "0.06em",
-          padding: "6px 11px", borderRadius: 3, whiteSpace: "nowrap",
-          background: `${flagColor}18`, color: flagColor, border: `1px solid ${flagColor}50`,
-        }}>{flagLabel}</span>
       </div>
 
-      {/* Trade flag reasoning — the headline */}
-      {flagReason && (
+      {/* 2026 PICKS — inline list of held picks in pick-order, dot-separated */}
+      <div style={{
+        padding: "14px 18px 12px 18px",
+        borderTop: `1px solid ${C.borderLt}`,
+        display: "flex", flexDirection: "column", gap: 6,
+      }}>
         <div style={{
-          fontFamily: SANS, fontSize: 14.5, color: C.primary, lineHeight: 1.6, fontWeight: 600,
-          padding: "12px 14px", borderRadius: 6,
-          background: `${flagColor}10`, border: `1px solid ${flagColor}30`,
-        }}>{flagReason}</div>
-      )}
+          fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.16em",
+          color: C.dim,
+        }}>2026 PICKS</div>
+        {heldList.length > 0 ? (
+          <div style={{
+            fontFamily: MONO, fontSize: 13, fontWeight: 700, color: C.primary,
+            letterSpacing: "0.04em",
+            display: "flex", flexWrap: "wrap", alignItems: "baseline",
+          }}>
+            {heldList.map((pk, i) => (
+              <span key={i} style={{ display: "inline-flex", alignItems: "baseline" }}>
+                <span>{pk}</span>
+                {i < heldList.length - 1 && (
+                  <span style={{ color: C.dim, padding: "0 10px", fontWeight: 400 }}>·</span>
+                )}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <div style={{ fontFamily: SANS, fontSize: 13, color: C.dim, lineHeight: 1.4 }}>
+            None — fully cashed out
+          </div>
+        )}
+      </div>
 
-      {/* Narrative paragraphs */}
-      {paragraphs.map((para, i) => (
-        <div key={i} style={{
+      {/* FUTURE PICKS — grouped by season, two-column layout (year | rounds list) */}
+      <div style={{
+        padding: "12px 18px 14px 18px",
+        borderTop: `1px solid ${C.borderLt}`,
+        display: "flex", flexDirection: "column", gap: 6,
+      }}>
+        <div style={{
+          fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.16em",
+          color: C.dim,
+        }}>FUTURE PICKS</div>
+        {futureRows.length > 0 ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            {futureRows.map((row) => (
+              <div key={row.year} style={{
+                display: "grid",
+                gridTemplateColumns: "auto 1fr",
+                columnGap: 14,
+                alignItems: "baseline",
+              }}>
+                <span style={{
+                  fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.dim,
+                  letterSpacing: "0.06em",
+                }}>{row.year}</span>
+                <span style={{
+                  fontFamily: MONO, fontSize: 13, fontWeight: 700, color: C.primary,
+                  letterSpacing: "0.04em",
+                }}>
+                  {row.rounds.map((r, i) => (
+                    <span key={i}>
+                      {r}
+                      {i < row.rounds.length - 1 && (
+                        <span style={{ color: C.dim, padding: "0 8px", fontWeight: 400 }}>·</span>
+                      )}
+                    </span>
+                  ))}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div style={{ fontFamily: SANS, fontSize: 13, color: C.dim, lineHeight: 1.4 }}>
+            None — future fully traded
+          </div>
+        )}
+      </div>
+
+      {/* Scouting narrative — league-relative, distinctive signals only */}
+      {narrative && (
+        <div style={{
+          padding: "14px 18px 18px 18px",
+          borderTop: `1px solid ${C.borderLt}`,
           fontFamily: SANS, fontSize: 14, color: C.secondary, lineHeight: 1.6,
-        }}>{para}</div>
-      ))}
+        }}>{narrative}</div>
+      )}
     </div>
   );
 }
@@ -2036,10 +2788,16 @@ export default function DraftHQPage() {
         <GlowTabs tabs={TABS} active={tab} onChange={setTab} />
         {tab === "rookies"     && <Rookies    lid={currentLeagueId || ""} />}
         {tab === "your-picks"  && <YourPicks  lid={currentLeagueId || ""} owner={currentOwner} ownerId={currentOwnerId} />}
-        {tab === "draft-board" && <ComingSoon tabId="draft-board" />}
-        {tab === "intel"       && (
+        {tab === "draft-board" && (
+          process.env.NEXT_PUBLIC_DRAFT_BOARD_LOCAL === "true" ||
           currentLeagueId === "1326743821593116672"
-            ? <DraftIntel lid={currentLeagueId || ""} />
+            ? <DraftBoard lid={currentLeagueId || ""} currentOwnerId={currentOwnerId} />
+            : <ComingSoon tabId="draft-board" />
+        )}
+        {tab === "intel"       && (
+          process.env.NODE_ENV === "development" ||
+          currentLeagueId === "1326743821593116672"
+            ? <DraftIntel lid={currentLeagueId || ""} currentOwnerId={currentOwnerId} />
             : <ComingSoon tabId="intel" />
         )}
     </div>
