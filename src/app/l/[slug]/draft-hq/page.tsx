@@ -2037,7 +2037,11 @@ export default function DraftHQPage() {
         {tab === "rookies"     && <Rookies    lid={currentLeagueId || ""} />}
         {tab === "your-picks"  && <YourPicks  lid={currentLeagueId || ""} owner={currentOwner} ownerId={currentOwnerId} />}
         {tab === "draft-board" && <ComingSoon tabId="draft-board" />}
-        {tab === "intel"       && <ComingSoon tabId="intel" />}
+        {tab === "intel"       && (
+          currentLeagueId === "1326743821593116672"
+            ? <DraftIntel lid={currentLeagueId || ""} />
+            : <ComingSoon tabId="intel" />
+        )}
     </div>
   );
 }
