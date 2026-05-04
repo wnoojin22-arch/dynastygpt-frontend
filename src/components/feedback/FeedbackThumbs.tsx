@@ -17,20 +17,20 @@ interface ReasonOption {
 }
 
 const V2_REASONS: ReasonOption[] = [
-  { code: "not_realistic", label: "Not realistic" },
-  { code: "wrong_partner", label: "Wrong partner" },
-  { code: "lateral", label: "Feels lateral" },
-  { code: "value_off", label: "Value seems off" },
-  { code: "cant_trade_player", label: "Can't trade that player" },
+  { code: "not_realistic", label: "Not realistic — no one would accept this trade" },
+  { code: "wrong_partner", label: "Wrong partner — they wouldn't engage" },
+  { code: "lateral", label: "Lateral move — doesn't actually improve my team" },
+  { code: "value_off", label: "Value is way off — over or underpaying" },
+  { code: "cant_trade_player", label: "Don't want to give up this player" },
   { code: "other", label: "Other" },
 ];
 
 const V1_REASONS: ReasonOption[] = [
-  { code: "analysis_wrong", label: "Analysis is wrong" },
-  { code: "cites_untrue", label: "Cites something untrue" },
-  { code: "no_new_info", label: "No new information" },
-  { code: "contradicts", label: "Contradicts itself" },
-  { code: "not_specific", label: "Too generic" },
+  { code: "analysis_wrong", label: "Analysis is wrong — the system misread the trade" },
+  { code: "cites_untrue", label: "Cites things that aren't true" },
+  { code: "no_new_info", label: "Doesn't tell me anything I didn't already know" },
+  { code: "contradicts", label: "Contradicts itself or the grade" },
+  { code: "not_specific", label: "Not specific enough — too vague to act on" },
   { code: "other", label: "Other" },
 ];
 
@@ -145,7 +145,7 @@ export default function FeedbackThumbs({ surface, suggestionId, onSubmit }: Prop
                 type="button"
                 onClick={() => handleReason(r.code)}
                 disabled={state === "submitting"}
-                className={`flex min-h-[44px] items-center rounded border px-3 text-left text-sm transition-colors ${
+                className={`flex min-h-[44px] items-center rounded border px-3 py-2 text-left text-sm leading-snug whitespace-normal break-words transition-colors ${
                   selected
                     ? "border-[#d4a532] bg-[#d4a532]/10 text-[#d4a532]"
                     : "border-[#1a1e30] bg-transparent text-[#eeeef2] hover:border-[#2a2f44]"
