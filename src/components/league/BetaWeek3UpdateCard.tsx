@@ -51,7 +51,7 @@ export default function BetaWeek3UpdateCard() {
         </div>
       </motion.button>
 
-      <PlatformUpdateModal open={open} onClose={() => setOpen(false)} />
+      <PlatformUpdateModal open={open} onClose={() => setOpen(false)} date="May 4, 2026" />
     </>
   );
 }
