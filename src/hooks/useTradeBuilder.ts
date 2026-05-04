@@ -599,6 +599,7 @@ export function useTradeBuilder({
             tier: "",
             market_comparison: "",
             roster_warnings: (p.roster_warnings as string[]) || [],
+            suggestion_id: p.suggestion_id as string | undefined,
           } as unknown as SuggestedPackage;
         });
         setSuggestedPkgs(packages);
