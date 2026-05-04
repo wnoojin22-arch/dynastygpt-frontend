@@ -83,13 +83,6 @@ export default function DraftHQAnnouncementCard({ slug, leagueId }: { slug: stri
             Update: Now Live with Pick Insights + Rookie ADP from real drafts
           </p>
 
-          <p
-            className="text-secondary text-[13px] sm:text-[14px] leading-relaxed"
-            style={{ fontFamily: SANS, fontWeight: 400 }}
-          >
-            Your Picks — a roster-aware cheat sheet for every pick you hold. Likely-available players, target recommendations, and trade angles tailored to your draft slot. Plus format-aware ADP from 10,000+ real 2026 rookie drafts. Draft Board, League Draft Intel, and full mock draft simulation coming soon.
-          </p>
-
           {/* CTA button */}
           <div className="flex items-center justify-end mt-1">
             <span
