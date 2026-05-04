@@ -86,6 +86,12 @@ export default function SuggestLoadingModal({
           </div>
         )}
 
+        {/* Static feedback callout — sits above the rotating stage messages.
+            Does not rotate, does not fade. Drives thumbs engagement. */}
+        <div className="mb-5 rounded-md border-l-2 border-gold bg-gold/10 px-3 py-2.5 font-sans text-[13px] sm:text-sm font-semibold leading-snug text-gold-bright">
+          👍 / 👎 each suggestion when they load — your feedback shapes every batch.
+        </div>
+
         <div
           style={{
             fontFamily: SANS,

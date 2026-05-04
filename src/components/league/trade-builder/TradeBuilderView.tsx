@@ -7,6 +7,7 @@
  */
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useTradeBuilder } from "@/hooks/useTradeBuilder";
+import FeedbackIntroModal from "@/components/feedback/FeedbackIntroModal";
 import TradeBuilderDesktop from "./TradeBuilderDesktop";
 import TradeBuilderProvider from "./TradeBuilderProvider";
 import TradeBuilderUnified from "./TradeBuilderUnified";
@@ -26,10 +27,16 @@ export default function TradeBuilderView({
   if (isMobile) {
     return (
       <TradeBuilderProvider leagueId={leagueId} owner={owner} ownerId={ownerId}>
+        <FeedbackIntroModal />
         <TradeBuilderUnified />
       </TradeBuilderProvider>
     );
   }
 
-  return <TradeBuilderDesktop tb={tb} leagueId={leagueId} owner={owner} />;
+  return (
+    <>
+      <FeedbackIntroModal />
+      <TradeBuilderDesktop tb={tb} leagueId={leagueId} owner={owner} />
+    </>
+  );
 }
