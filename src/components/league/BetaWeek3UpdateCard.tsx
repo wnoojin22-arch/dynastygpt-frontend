@@ -16,19 +16,19 @@ export default function BetaWeek3UpdateCard() {
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35 }}
-        className="group relative block w-full overflow-hidden rounded-lg border border-border bg-gradient-to-b from-card to-[#0a0d15] text-left transition-all hover:border-gold/40 hover:shadow-[0_4px_24px_rgba(212,165,50,0.10)] cursor-pointer"
+        className="group relative block w-full rounded-lg border border-border bg-gradient-to-b from-card to-[#0a0d15] text-left transition-all hover:border-gold/40 hover:shadow-[0_4px_24px_rgba(212,165,50,0.10)] cursor-pointer"
       >
-        <div className="h-[2px] w-full bg-gradient-to-r from-gold-dark via-gold-bright to-gold-dark" />
+        <span className="absolute -top-2 right-3 z-10 flex">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-gold-bright opacity-60" />
+          <span className="relative inline-flex items-center rounded-full bg-gold-bright px-2 py-[3px] font-mono text-[8px] font-black tracking-[0.12em] text-[#06080d] shadow-[0_0_10px_rgba(212,165,50,0.7)]">
+            WEEKLY UPDATE
+          </span>
+        </span>
+        <div className="h-[2px] w-full overflow-hidden rounded-t-lg bg-gradient-to-r from-gold-dark via-gold-bright to-gold-dark" />
 
         <div className="flex items-center gap-3 px-4 py-3 sm:gap-4 sm:px-5 sm:py-4">
-          <span className="relative flex-shrink-0 rounded-sm bg-gold px-2 py-1 font-mono text-[8px] font-black tracking-[0.12em] text-[#06080d]">
+          <span className="flex-shrink-0 rounded-sm bg-gold px-2 py-1 font-mono text-[8px] font-black tracking-[0.12em] text-[#06080d]">
             WEEK 3 UPDATE
-            <span className="absolute -top-2 -right-2 flex">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-gold-bright opacity-75" />
-              <span className="relative inline-flex items-center rounded-full bg-gold-bright px-1.5 py-[2px] font-mono text-[7px] font-black tracking-[0.10em] text-[#06080d] shadow-[0_0_8px_rgba(212,165,50,0.6)]">
-                WEEKLY UPDATE
-              </span>
-            </span>
           </span>
 
           <div className="min-w-0 flex-1">
