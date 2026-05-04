@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useLeagueStore } from "@/lib/stores/league-store";
 import TradeBuilderProvider from "@/components/league/trade-builder/TradeBuilderProvider";
 import TradeBuilderUnified from "@/components/league/trade-builder/TradeBuilderUnified";
+import FeedbackIntroModal from "@/components/feedback/FeedbackIntroModal";
 import { useTrack } from "@/hooks/useTrack";
 
 export default function TradeAnalyzerPage() {
@@ -28,6 +29,7 @@ export default function TradeAnalyzerPage() {
 
   return (
     <TradeBuilderProvider leagueId={lid} owner={owner} ownerId={ownerId}>
+      <FeedbackIntroModal />
       <TradeBuilderUnified />
     </TradeBuilderProvider>
   );
