@@ -63,18 +63,26 @@ export default function PlatformUpdateModal({
               </p>
 
               <h2 className="font-display text-lg sm:text-xl tracking-tight text-gold mt-6 mb-3">
-                What&apos;s Live Now
+                Draft HQ — Now Live
               </h2>
 
               <p className="font-sans text-[14px] sm:text-[15px] leading-relaxed text-secondary mb-3">
-                <strong className="font-bold text-primary">ADP.</strong>{" "}
-                Now live, built on 10K+ real dynasty drafts and format-aware for your specific league. Whatever your scoring, league size, SF/1QB, TEP/non-TEP — the ADP you see reflects how players are actually drafted in leagues like yours, not a generic consensus board.
+                The first pieces of Draft HQ shipped this week. Find both inside Draft HQ on the home page.
               </p>
 
               <p className="font-sans text-[14px] sm:text-[15px] leading-relaxed text-secondary mb-3">
+                <strong className="font-bold text-primary">ADP.</strong>{" "}
+                Built on 10K+ real dynasty drafts and format-aware for your specific league. Whatever your scoring, league size, SF/1QB, TEP/non-TEP — the ADP you see reflects how players are actually drafted in leagues like yours, not a generic consensus board.
+              </p>
+
+              <p className="font-sans text-[14px] sm:text-[15px] leading-relaxed text-secondary mb-6">
                 <strong className="font-bold text-primary">My Picks.</strong>{" "}
                 Live as a v1 — early, rough, but in your hands for feedback. Looks at your draft picks and tells you who&apos;s likely to be available, what to consider doing with each pick based on your roster needs and window. It needs work and I know it. Wanted to get v1 out so you can use it during the rookie draft window and tell me what&apos;s missing or wrong. Hit the feedback button on anything that&apos;s off.
               </p>
+
+              <h2 className="font-display text-lg sm:text-xl tracking-tight text-gold mt-6 mb-3">
+                Also New This Week
+              </h2>
 
               <p className="font-sans text-[14px] sm:text-[15px] leading-relaxed text-secondary mb-6">
                 <strong className="font-bold text-primary">Thumbs Up / Thumbs Down on suggestions.</strong>{" "}
@@ -114,7 +122,7 @@ export default function PlatformUpdateModal({
               </p>
 
               <h2 className="font-display text-lg sm:text-xl tracking-tight text-gold mt-6 mb-3">
-                Draft HQ — Building Out
+                Draft HQ — What&apos;s Coming
               </h2>
 
               <p className="font-sans text-[14px] sm:text-[15px] leading-relaxed text-secondary mb-3">

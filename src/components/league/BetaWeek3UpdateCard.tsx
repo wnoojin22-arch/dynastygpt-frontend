@@ -21,8 +21,14 @@ export default function BetaWeek3UpdateCard() {
         <div className="h-[2px] w-full bg-gradient-to-r from-gold-dark via-gold-bright to-gold-dark" />
 
         <div className="flex items-center gap-3 px-4 py-3 sm:gap-4 sm:px-5 sm:py-4">
-          <span className="flex-shrink-0 rounded-sm bg-gold px-2 py-1 font-mono text-[8px] font-black tracking-[0.12em] text-[#06080d]">
+          <span className="relative flex-shrink-0 rounded-sm bg-gold px-2 py-1 font-mono text-[8px] font-black tracking-[0.12em] text-[#06080d]">
             WEEK 3 UPDATE
+            <span className="absolute -top-2 -right-2 flex">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-gold-bright opacity-75" />
+              <span className="relative inline-flex items-center rounded-full bg-gold-bright px-1.5 py-[2px] font-mono text-[7px] font-black tracking-[0.10em] text-[#06080d] shadow-[0_0_8px_rgba(212,165,50,0.6)]">
+                WEEKLY UPDATE
+              </span>
+            </span>
           </span>
 
           <div className="min-w-0 flex-1">
