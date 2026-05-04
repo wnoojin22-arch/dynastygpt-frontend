@@ -748,12 +748,29 @@ export default function LeagueHome() {
                 const u = upcomingDraft?.upcoming;
                 let line1 = "Draft not yet scheduled";
                 let line2: string | null = null;
-                if (u && u.start_time_ms) {
-                  const ms = u.start_time_ms - Date.now();
-                  if (ms > 0) {
-                    const days = Math.ceil(ms / 86_400_000);
-                    line1 = `${days} ${days === 1 ? "DAY" : "DAYS"}`;
-                    line2 = "until rookie draft";
+                if (u) {
+                  const now = Date.now();
+                  if (u.status === "drafting") {
+                    line1 = "Drafting now";
+                    line2 = "rookie draft in progress";
+                  } else if (u.status === "pre_draft") {
+                    if (u.start_time_ms && u.start_time_ms - now > 0) {
+                      const days = Math.ceil((u.start_time_ms - now) / 86_400_000);
+                      line1 = `${days} ${days === 1 ? "DAY" : "DAYS"}`;
+                      line2 = "until rookie draft";
+                    } else {
+                      line1 = "Date TBD";
+                      line2 = "rookie draft scheduled, time not set";
+                    }
+                  } else if (u.status === "complete" && u.last_picked_ms) {
+                    const daysAgo = Math.floor((now - u.last_picked_ms) / 86_400_000);
+                    if (daysAgo <= 0) {
+                      line1 = "Drafted today";
+                      line2 = "rookie draft just wrapped";
+                    } else {
+                      line1 = `Drafted ${daysAgo} ${daysAgo === 1 ? "day" : "days"} ago`;
+                      line2 = "rookie draft complete";
+                    }
                   }
                 }
                 return (

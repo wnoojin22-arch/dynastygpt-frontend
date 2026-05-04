@@ -152,6 +152,7 @@ export type UpcomingDraft = {
   season: string | null;
   status: string | null;
   start_time_ms: number | null;
+  last_picked_ms: number | null;
   rounds: number | null;
   teams: number | null;
   type: string | null;
