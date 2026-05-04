@@ -274,6 +274,11 @@ function HeaderBar({ owner, leagueName }: {
   owner: string | null; leagueName: string;
 }) {
   const [unread, setUnread] = useState(0);
+  const pathname = usePathname();
+  // Trade-builder pages render a fixed-position cart icon at right:12 on mobile.
+  // Shift the Feedback pill leftward on mobile only when on those routes so the
+  // cart sits to its right without overlapping. Desktop has its own layout.
+  const isTradeBuilderRoute = /\/l\/[^/]+\/(trades|trade-analyzer)\b/.test(pathname || "");
   useEffect(() => {
     const handler = (e: Event) => setUnread((e as CustomEvent<{ count: number }>).detail.count || 0);
     window.addEventListener("feedback-unread-count", handler);
@@ -328,7 +333,9 @@ function HeaderBar({ owner, leagueName }: {
           event from the widget. Compact (icon-only) on mobile. */}
       <button
         onClick={() => window.dispatchEvent(new Event("open-feedback"))}
-        className="flex items-center gap-1.5 cursor-pointer relative transition-all px-2 sm:px-3 py-1 sm:py-1"
+        className={`flex items-center gap-1.5 cursor-pointer relative transition-all px-2 sm:px-3 py-1 sm:py-1 ${
+          isTradeBuilderRoute ? "mr-11 sm:mr-0" : ""
+        }`}
         style={{
           borderRadius: 20,
           border: `1px solid ${C.gold}`, background: C.gold,
