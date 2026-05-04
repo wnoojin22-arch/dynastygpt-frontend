@@ -4,6 +4,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronUp, ChevronDown } from "lucide-react";
 import type { SuggestedPackage, TradeAsset, NegotiationInsight } from "../types";
+import FeedbackThumbs from "@/components/feedback/FeedbackThumbs";
 
 /* ── helpers ── */
 function acceptColor(s: number) {
@@ -229,6 +230,12 @@ export default function SuggestionCardMobile({ pkg }: { pkg: SuggestedPackage })
                   <p key={i} className="font-sans text-[12px] leading-relaxed text-[#b0b2c8]">{line}</p>
                 ))}
             </div>
+          </div>
+        )}
+
+        {pkg.suggestion_id && (
+          <div onPointerDownCapture={(e) => e.stopPropagation()}>
+            <FeedbackThumbs surface="v2_suggestion" suggestionId={pkg.suggestion_id} />
           </div>
         )}
       </div>

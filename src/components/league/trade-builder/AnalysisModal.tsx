@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { C, SANS, MONO, DISPLAY, fmt, posColor, gradeColor } from "../tokens";
 import AcceptanceGauge from "./AcceptanceGauge";
 import type { TradeEvaluation, PositionalImpact } from "./types";
+import FeedbackThumbs from "@/components/feedback/FeedbackThumbs";
 
 function _scrubLanguage(s: string): string {
   let out = s;
@@ -35,7 +36,7 @@ function parseInsight(text: string | null | undefined): { you: string; them: str
   return { you, them };
 }
 
-function AIInsightCard({ text }: { text: string | null | undefined }) {
+function AIInsightCard({ text, suggestionId }: { text: string | null | undefined; suggestionId?: string | null }) {
   if (!text) return null;
   const cleaned = _scrubLanguage(text.replace(/\*+/g, "").trim());
   if (!cleaned) return null;
@@ -63,6 +64,9 @@ function AIInsightCard({ text }: { text: string | null | undefined }) {
           <div key={i} style={{ fontFamily: SANS, fontSize: 14, fontWeight: 400,
             color: "#ffffff", lineHeight: 1.5 }}>{line}</div>
         ))}
+        {suggestionId && (
+          <FeedbackThumbs surface="v1_evaluate" suggestionId={suggestionId} />
+        )}
       </div>
     );
   }
@@ -98,6 +102,9 @@ function AIInsightCard({ text }: { text: string | null | undefined }) {
           <div style={{ fontFamily: SANS, fontSize: 15, fontWeight: 400,
             color: "#ffffff", lineHeight: 1.7 }}>{them}</div>
         </div>
+      )}
+      {suggestionId && (
+        <FeedbackThumbs surface="v1_evaluate" suggestionId={suggestionId} />
       )}
     </div>
   );
@@ -223,7 +230,7 @@ export default function AnalysisModal({ evaluation, owner, partner, onClose }: {
         )}
 
         {/* AI INSIGHT — GM verdict card, top of modal (handles bullets + legacy sections) */}
-        <AIInsightCard text={evaluation.ai_insight} />
+        <AIInsightCard text={evaluation.ai_insight} suggestionId={evaluation.suggestion_id} />
 
         {/* Recommendation banner — verdict left, acceptance circle + text right, one row */}
         <div style={{

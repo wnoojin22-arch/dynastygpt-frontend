@@ -24,6 +24,7 @@ import type { SuggestedPackage, NegotiationInsight } from "./types";
 import type { UseTradeBuilderReturn } from "@/hooks/useTradeBuilder";
 import { HowItWorksButton } from "./HowItWorksModal";
 import { useTrack } from "@/hooks/useTrack";
+import FeedbackThumbs from "@/components/feedback/FeedbackThumbs";
 
 const POSITIONS = ["QB", "RB", "WR", "TE"] as const;
 const WINDOWS = ["REBUILDER", "BALANCED", "WIN-NOW"] as const;
@@ -129,6 +130,10 @@ function PackageCard({ pkg, onBuild }: { pkg: SuggestedPackage; onBuild: () => v
 
       <button onClick={onBuild} style={{ width: "100%", padding: "8px 0", borderRadius: 6, border: "none", cursor: "pointer", fontFamily: DISPLAY, fontSize: 13, letterSpacing: "0.08em", background: `linear-gradient(135deg,${C.goldDark},${C.gold})`, color: "#000", transition: "opacity 0.15s" }}
         onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.85"; }} onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}>BUILD THIS TRADE</button>
+
+      {pkg.suggestion_id && (
+        <FeedbackThumbs surface="v2_suggestion" suggestionId={pkg.suggestion_id} />
+      )}
     </div>
   );
 }

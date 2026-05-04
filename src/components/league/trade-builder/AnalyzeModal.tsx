@@ -14,6 +14,7 @@ import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { C, SANS, MONO, SERIF, DISPLAY, fmt, posColor, gradeColor } from "../tokens";
 import type { TradeEvaluation, TradeAsset, GradeResult, AcceptanceResult } from "./types";
+import FeedbackThumbs from "@/components/feedback/FeedbackThumbs";
 
 // ── Design tokens specific to this modal ─────────────────────────────────
 
@@ -54,7 +55,7 @@ function parseInsight(text: string | null | undefined): { you: string; them: str
   return { you, them };
 }
 
-function AIInsightCard({ text }: { text: string | null | undefined }) {
+function AIInsightCard({ text, suggestionId }: { text: string | null | undefined; suggestionId?: string | null }) {
   const [expanded, setExpanded] = useState(false);
 
   if (!text) return null;
@@ -111,6 +112,9 @@ function AIInsightCard({ text }: { text: string | null | undefined }) {
               : `TAP TO EXPAND (+${lines.length - 1} MORE) ▼`}
           </div>
         )}
+        {suggestionId && (
+          <FeedbackThumbs surface="v1_evaluate" suggestionId={suggestionId} />
+        )}
       </div>
     );
   }
@@ -141,6 +145,9 @@ function AIInsightCard({ text }: { text: string | null | undefined }) {
         <div style={toggleLinkStyle} onClick={() => setExpanded((e) => !e)}>
           {expanded ? "TAP TO COLLAPSE ▲" : "TAP TO EXPAND ▼"}
         </div>
+      )}
+      {suggestionId && (
+        <FeedbackThumbs surface="v1_evaluate" suggestionId={suggestionId} />
       )}
     </div>
   );
@@ -467,7 +474,7 @@ export default function AnalyzeModal({ isOpen, onClose, evaluation, partner, own
               )}
 
               {/* ── 2c. AI INSIGHT — dual-section GM verdict ── */}
-              <AIInsightCard text={ev?.ai_insight} />
+              <AIInsightCard text={ev?.ai_insight} suggestionId={ev?.suggestion_id} />
 
               {/* ── 2d. Grade + Acceptance — right below insights ── */}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 32, marginBottom: 8 }}>

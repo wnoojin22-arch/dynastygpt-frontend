@@ -105,6 +105,7 @@ export interface TradeEvaluation {
   h2h_history?: H2HHistory | null;
   ai_insight?: string | null;
   personal_insights?: Array<{ text: string; tone: "positive" | "warning" | "neutral"; category: string }>;
+  suggestion_id?: string | null;
 }
 
 export interface SuggestedPackage {
@@ -124,6 +125,7 @@ export interface SuggestedPackage {
   tier?: string;
   market_comparison?: string;
   roster_warnings?: string[];
+  suggestion_id?: string;
 }
 
 export interface RosterPlayer {
