@@ -35,7 +35,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       persistOptions={{
         persister,
         maxAge: 24 * 60 * 60 * 1000, // persist cache for 24h
-        buster: "v5-draft-board-rbwr-cap", // bump to invalidate all caches
+        buster: "v6-rookie-countdown-states", // bump to invalidate all caches
       }}
     >
       {children}
