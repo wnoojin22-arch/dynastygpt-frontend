@@ -264,7 +264,7 @@ export function useTradeBuilder({
   const suggestAbortRef = useRef(false);
   const [activeSellAsset, setActiveSellAsset] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [chatCollapsed, setChatCollapsed] = useState(false);
+  const [chatCollapsed, setChatCollapsed] = useState(true);
   const [chatInjection, setChatInjection] = useState<string | null>(null);
   const buildingRef = useRef(false);
 
