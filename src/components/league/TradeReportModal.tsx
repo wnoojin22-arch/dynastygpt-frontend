@@ -727,20 +727,33 @@ export default function TradeReportModal({ leagueId, tradeId, onClose }: {
   const r = report as Record<string, unknown> | undefined;
   const hasReport = r && (r.side_a || r.sides);
 
-  // Fetch picks for both owners to get 2026 slot labels
+  // Fetch picks for both owners to get 2026 slot labels.
+  // Historical trades may name owners who've since left the league — the
+  // backend correctly 404s those, so we swallow it here and skip slot
+  // labeling for that side (departed owners have no current roster rank
+  // anyway, so labels can't be computed).
   const ownerA = (r?.side_a as any)?.owner as string | undefined;
   const ownerB = (r?.side_b as any)?.owner as string | undefined;
+  const fetchPicksOrNull = async (owner: string) => {
+    try { return await getPicks(leagueId, owner); }
+    catch (e: any) {
+      if (String(e?.message || "").includes("API 404")) return null;
+      throw e;
+    }
+  };
   const { data: picksA } = useQuery({
     queryKey: ["picks", leagueId, ownerA],
-    queryFn: () => getPicks(leagueId, ownerA!),
+    queryFn: () => fetchPicksOrNull(ownerA!),
     enabled: !!ownerA,
     staleTime: 60 * 60 * 1000,
+    retry: false,
   });
   const { data: picksB } = useQuery({
     queryKey: ["picks", leagueId, ownerB],
-    queryFn: () => getPicks(leagueId, ownerB!),
+    queryFn: () => fetchPicksOrNull(ownerB!),
     enabled: !!ownerB && ownerB !== ownerA,
     staleTime: 60 * 60 * 1000,
+    retry: false,
   });
 
   // Build slot lookup: "2026 round 2 (owner name)" → "2.07"
