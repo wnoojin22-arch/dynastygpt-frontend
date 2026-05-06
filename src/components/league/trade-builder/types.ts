@@ -122,6 +122,7 @@ export interface SuggestedPackage {
   combined_score: number;
   pitch: string;
   narrative?: string;
+  narration_bullets?: string[];
   tier?: string;
   market_comparison?: string;
   roster_warnings?: string[];
