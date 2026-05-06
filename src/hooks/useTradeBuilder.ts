@@ -539,14 +539,24 @@ export function useTradeBuilder({
         const findPosition = (body.find_position as string) || undefined;
         const partnerName = (body.partner as string) || undefined;
 
-        // V3 pipeline only handles Coach Mode. Sell / Acquire / Partner /
-        // Find-position route through V2 unchanged until V3 ships those modes.
+        // V3 routes:
+        //   - Coach Mode: no anchor, no partner, no position → V3 default flow
+        //   - Partner Mode: partner is set, no give/receive/position → V3 with
+        //     partner_only_user_id, single-partner search.
+        // Sell / Acquire / Find-position still route through V2 unchanged.
         const isCoachMode =
           !sellAsset &&
           !(sellAssets && sellAssets.length) &&
           !targetAsset &&
           !findPosition &&
           !partnerName;
+        const isPartnerMode =
+          !!partnerName &&
+          !sellAsset &&
+          !(sellAssets && sellAssets.length) &&
+          !targetAsset &&
+          !findPosition;
+        const useV3 = isCoachMode || isPartnerMode;
 
         // Step 1: Fire generate request. V3 (?pipeline=v3) returns the
         // result synchronously in one request — packages + narration.
@@ -555,7 +565,7 @@ export function useTradeBuilder({
         const { authHeaders: getHdrs } = await import("@/lib/api");
         const suggestHdrs = await getHdrs();
         const startRes = await fetch(
-          `${API}/api/league/${leagueId}/v2/trade-engine/generate${isCoachMode ? "?pipeline=v3" : ""}`,
+          `${API}/api/league/${leagueId}/v2/trade-engine/generate${useV3 ? "?pipeline=v3" : ""}`,
           {
             method: "POST",
             headers: suggestHdrs,
@@ -568,6 +578,7 @@ export function useTradeBuilder({
               partner: partnerName,
               find_position: findPosition || undefined,
               user_id: ownerId || undefined,
+              partner_user_id: isPartnerMode ? (partnerUid || undefined) : undefined,
             }),
           },
         );
@@ -724,7 +735,7 @@ export function useTradeBuilder({
         setSuggestLoading(false);
       }
     },
-    [owner, mode, leagueId, ownerId],
+    [owner, mode, leagueId, ownerId, partnerUid],
   );
 
   const handleSellAsset = useCallback(
