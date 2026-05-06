@@ -218,20 +218,25 @@ export default function SuggestionCardMobile({ pkg }: { pkg: SuggestedPackage })
         )}
 
         {/* DynastyGPT Rationale */}
-        {(pkg.narrative || pkg.pitch) && (
-          <div className="mt-3">
-            <span className="font-mono text-[8px] font-bold tracking-widest text-[#d4a532]">DYNASTYGPT RATIONALE</span>
-            <div className="mt-2 flex flex-col gap-2">
-              {(pkg.narrative || pkg.pitch || "")
-                .split(/\n|(?= • )/)
-                .map((s) => s.trim())
-                .filter(Boolean)
-                .map((line, i) => (
-                  <p key={i} className="font-sans text-[12px] leading-relaxed text-[#b0b2c8]">{line}</p>
+        {(() => {
+          const bullets = (pkg.narration_bullets && pkg.narration_bullets.length > 0)
+            ? pkg.narration_bullets.map((s) => s.replace(/^\s*•\s*/, "").trim()).filter(Boolean)
+            : (pkg.narrative || pkg.pitch || "").split(/\n|(?= • )/).map((s) => s.replace(/^\s*•\s*/, "").trim()).filter(Boolean);
+          if (bullets.length === 0) return null;
+          return (
+            <div className="mt-3">
+              <span className="font-mono text-[8px] font-bold tracking-widest text-[#d4a532]">DYNASTYGPT RATIONALE</span>
+              <ul className="mt-2 flex flex-col gap-2 list-none p-0 m-0">
+                {bullets.map((line, i) => (
+                  <li key={i} className="flex gap-2 font-sans text-[12px] leading-[1.5] text-[#b0b2c8]">
+                    <span className="text-[#d4a532] flex-shrink-0">•</span>
+                    <span className="flex-1 min-w-0">{line}</span>
+                  </li>
                 ))}
+              </ul>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {pkg.suggestion_id && (
           <div onPointerDownCapture={(e) => e.stopPropagation()}>
