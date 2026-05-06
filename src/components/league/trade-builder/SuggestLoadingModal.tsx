@@ -34,8 +34,10 @@ export default function SuggestLoadingModal({
   const showV3Banner = V3_BANNER_FLAG_ON && mode === "coach";
   const ETA = 90;
   // Cap visual progress at 95% so the bar keeps moving past the ETA without
-  // appearing "stuck at 100%".
-  const pct = Math.min(95, Math.round((elapsedSec / ETA) * 100));
+  // appearing "stuck at 100%". Floor at 3% so the bar is visible from t=0
+  // — combined with the shimmer overlay, this guarantees the loading screen
+  // always reads as alive even before the first elapsed tick lands.
+  const pct = Math.max(3, Math.min(95, Math.round((elapsedSec / ETA) * 100)));
   const stage =
     STAGES.find((s) => elapsedSec <= s.upTo) ?? STAGES[STAGES.length - 1];
 
@@ -122,6 +124,12 @@ export default function SuggestLoadingModal({
           {stage.sub}
         </div>
 
+        <style>{`
+          @keyframes tb-shimmer {
+            0%   { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+          }
+        `}</style>
         <div
           style={{
             width: "100%",
@@ -130,6 +138,7 @@ export default function SuggestLoadingModal({
             borderRadius: 3,
             overflow: "hidden",
             marginBottom: 10,
+            position: "relative",
           }}
         >
           <div
@@ -138,8 +147,20 @@ export default function SuggestLoadingModal({
               height: "100%",
               background: `linear-gradient(90deg, ${C.goldDark}, ${C.gold}, ${C.goldBright})`,
               transition: "width 0.8s ease-out",
+              position: "relative",
+              overflow: "hidden",
             }}
-          />
+          >
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                background: `linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.45) 50%, transparent 100%)`,
+                animation: "tb-shimmer 1.4s linear infinite",
+                willChange: "transform",
+              }}
+            />
+          </div>
         </div>
         <div
           style={{

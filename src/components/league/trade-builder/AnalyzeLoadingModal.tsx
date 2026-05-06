@@ -26,7 +26,7 @@ export default function AnalyzeLoadingModal() {
   }, []);
 
   const ETA = 25;
-  const pct = Math.min(95, Math.round((elapsed / ETA) * 100));
+  const pct = Math.max(3, Math.min(95, Math.round((elapsed / ETA) * 100)));
   const stage = STAGES.find((s) => elapsed <= s.upTo) ?? STAGES[STAGES.length - 1];
 
   return (
@@ -91,6 +91,12 @@ export default function AnalyzeLoadingModal() {
           {stage.sub}
         </div>
 
+        <style>{`
+          @keyframes tb-shimmer-analyze {
+            0%   { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+          }
+        `}</style>
         <div
           style={{
             width: "100%",
@@ -108,8 +114,20 @@ export default function AnalyzeLoadingModal() {
               borderRadius: 3,
               background: `linear-gradient(90deg, ${C.goldDark}, ${C.gold})`,
               transition: "width 0.8s ease",
+              position: "relative",
+              overflow: "hidden",
             }}
-          />
+          >
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                background: `linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.45) 50%, transparent 100%)`,
+                animation: "tb-shimmer-analyze 1.4s linear infinite",
+                willChange: "transform",
+              }}
+            />
+          </div>
         </div>
 
         <div
