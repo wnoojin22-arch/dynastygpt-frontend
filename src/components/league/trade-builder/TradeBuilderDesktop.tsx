@@ -472,8 +472,10 @@ export default function TradeBuilderDesktop({
             </div>
           )}
 
-          {/* Floating results when partner selected but no tray */}
-          {showResults && partner && !hasTray && (
+          {/* Floating results when partner is selected. Pops over the tray
+              if anything is in it — user explicitly clicked Suggest, so they
+              want to see results regardless of tray state. */}
+          {showResults && partner && (
             <div style={{ position: "fixed", inset: 0, zIndex: 90, display: "flex", alignItems: "center", justifyContent: "center" }}
               onClick={(ev) => { if (ev.target === ev.currentTarget) { handleClear(); } }}>
               <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.5)", backdropFilter: "blur(3px)" }}
