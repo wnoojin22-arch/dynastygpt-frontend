@@ -295,6 +295,21 @@ export function useTradeBuilder({
   const [suggestLoading, setSuggestLoading] = useState(false);
   const [suggestElapsedSec, setSuggestElapsedSec] = useState(0);
   const [suggestQuery, setSuggestQuery] = useState("");
+
+  // Client-side ticker so the loading bar always advances even when the
+  // backend path is sync (V3) and never sends elapsed_ms via polling.
+  // Server poll responses (V2) still override with authoritative timing.
+  useEffect(() => {
+    if (!suggestLoading) return;
+    const startedAt = Date.now();
+    const id = setInterval(() => {
+      setSuggestElapsedSec((prev) => {
+        const ticked = Math.floor((Date.now() - startedAt) / 1000);
+        return ticked > prev ? ticked : prev;
+      });
+    }, 1000);
+    return () => clearInterval(id);
+  }, [suggestLoading]);
   // Captured at fireSuggest time so the mode that's surfaced to the loading
   // overlay reflects what was REQUESTED, not what the user has since edited
   // in the tray. Cleared on cancel / partner / mode change.
