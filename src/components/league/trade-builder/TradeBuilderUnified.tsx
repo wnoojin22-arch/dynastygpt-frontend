@@ -1141,7 +1141,12 @@ export default function TradeBuilderUnified() {
           ANALYZE MODAL — portal, THE screenshot moment
           ══════════════════════════════════════════════════════════ */}
       {tb.suggestLoading && (
-        <SuggestLoadingModal elapsedSec={tb.suggestElapsedSec} query={tb.suggestQuery} onCancel={tb.cancelSuggest} />
+        <SuggestLoadingModal
+          elapsedSec={tb.suggestElapsedSec}
+          query={tb.suggestQuery}
+          onCancel={tb.cancelSuggest}
+          mode={tb.suggestMode}
+        />
       )}
       {tb.analyzing && <AnalyzeLoadingModal />}
       <AnalyzeModal
