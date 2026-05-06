@@ -543,20 +543,25 @@ export function useTradeBuilder({
         //   - Coach Mode: no anchor, no partner, no position → V3 default flow
         //   - Partner Mode: partner is set, no give/receive/position → V3 with
         //     partner_only_user_id, single-partner search.
-        // Sell / Acquire / Find-position still route through V2 unchanged.
+        //   - Sell Mode: sellAsset is set (with or without partner), no
+        //     target/position → V3 with sell_anchor_asset; partner optional.
+        // Acquire / Find-position still route through V2 unchanged.
+        const hasSellAnchor = !!sellAsset || !!(sellAssets && sellAssets.length);
         const isCoachMode =
-          !sellAsset &&
-          !(sellAssets && sellAssets.length) &&
+          !hasSellAnchor &&
           !targetAsset &&
           !findPosition &&
           !partnerName;
         const isPartnerMode =
           !!partnerName &&
-          !sellAsset &&
-          !(sellAssets && sellAssets.length) &&
+          !hasSellAnchor &&
           !targetAsset &&
           !findPosition;
-        const useV3 = isCoachMode || isPartnerMode;
+        const isSellMode =
+          hasSellAnchor &&
+          !targetAsset &&
+          !findPosition;
+        const useV3 = isCoachMode || isPartnerMode || isSellMode;
 
         // Step 1: Fire generate request. V3 (?pipeline=v3) returns the
         // result synchronously in one request — packages + narration.
@@ -578,7 +583,7 @@ export function useTradeBuilder({
               partner: partnerName,
               find_position: findPosition || undefined,
               user_id: ownerId || undefined,
-              partner_user_id: isPartnerMode ? (partnerUid || undefined) : undefined,
+              partner_user_id: (isPartnerMode || isSellMode) ? (partnerUid || undefined) : undefined,
             }),
           },
         );
