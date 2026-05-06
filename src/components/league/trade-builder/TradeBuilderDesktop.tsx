@@ -91,13 +91,22 @@ function PackageCard({ pkg, onBuild }: { pkg: SuggestedPackage; onBuild: () => v
       </div>
 
       {/* Narrative — the AI's league-first explanation */}
-      {pkg.narrative && (
-        <div style={{ fontFamily: SANS, fontSize: 13, color: C.secondary, padding: "10px 12px", background: C.elevated, borderRadius: 6, borderLeft: `3px solid ${C.gold}50`, marginBottom: 10, display: "flex", flexDirection: "column", gap: 6 }}>
-          {pkg.narrative.split(/\n|(?= • )/).map((s: string) => s.trim()).filter(Boolean).map((line: string, i: number) => (
-            <div key={i} style={{ lineHeight: 1.55 }}>{line}</div>
-          ))}
-        </div>
-      )}
+      {(() => {
+        const bullets = (pkg.narration_bullets && pkg.narration_bullets.length > 0)
+          ? pkg.narration_bullets.map((s) => s.replace(/^\s*•\s*/, "").trim()).filter(Boolean)
+          : (pkg.narrative || "").split(/\n|(?= • )/).map((s: string) => s.replace(/^\s*•\s*/, "").trim()).filter(Boolean);
+        if (bullets.length === 0) return null;
+        return (
+          <ul style={{ fontFamily: SANS, fontSize: 13, color: C.secondary, padding: "10px 12px", background: C.elevated, borderRadius: 6, borderLeft: `3px solid ${C.gold}50`, marginBottom: 10, listStyle: "none", margin: 0, display: "flex", flexDirection: "column", gap: 8 }}>
+            {bullets.map((line: string, i: number) => (
+              <li key={i} style={{ display: "flex", gap: 8, lineHeight: 1.5, paddingLeft: 0 }}>
+                <span style={{ color: C.gold, flexShrink: 0, lineHeight: 1.5 }}>•</span>
+                <span style={{ flex: 1, minWidth: 0 }}>{line}</span>
+              </li>
+            ))}
+          </ul>
+        );
+      })()}
 
       {/* Send / Receive */}
       <div style={{ display: "flex", gap: 8, marginBottom: 10, fontSize: 13, fontFamily: SANS }}>
