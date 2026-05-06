@@ -312,7 +312,7 @@ export default function TradeBuilderDesktop({
     partner, setPartner, myWindow, setMyWindow, theirWindow, setTheirWindow,
     mode, setMode, myRoster, theirRoster, ownerPicks, partnerPicks, otherOwners, myGrades, theirGrades,
     computedOW, computedPW, giveNames, receiveNames, evaluation, analyzing,
-    suggestedPkgs, suggestLoading, suggestElapsedSec, suggestQuery, activeSellAsset, error, setError,
+    suggestedPkgs, suggestLoading, suggestMode, suggestElapsedSec, suggestQuery, activeSellAsset, error, setError,
     showModal, setShowModal, chatCollapsed, setChatCollapsed, chatInjection,
     hasTray, showResults,
     toggleGive, toggleReceive, handleAnalyze, handleSellAsset, handleFindPosition,
@@ -477,7 +477,7 @@ export default function TradeBuilderDesktop({
         </div>
 
         {showModal && evaluation && <AnalysisModal evaluation={evaluation} owner={owner} partner={partner} onClose={() => setShowModal(false)} />}
-        {suggestLoading && <SuggestLoadingModal elapsedSec={suggestElapsedSec} query={suggestQuery} />}
+        {suggestLoading && <SuggestLoadingModal elapsedSec={suggestElapsedSec} query={suggestQuery} mode={suggestMode} />}
         {analyzing && <AnalyzeLoadingModal />}
       </div>
 

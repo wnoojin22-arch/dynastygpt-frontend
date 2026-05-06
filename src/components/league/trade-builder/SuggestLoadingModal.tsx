@@ -8,6 +8,8 @@
  */
 import React from "react";
 import { C, SANS, MONO, DISPLAY } from "../tokens";
+import V3LaunchBanner, { V3_BANNER_FLAG_ON } from "./V3LaunchBanner";
+import type { SuggestMode } from "@/hooks/useTradeBuilder";
 
 const STAGES: Array<{ upTo: number; label: string; sub: string }> = [
   { upTo: 5,   label: "Loading rosters",           sub: "Pulling your roster and partner roster from Sleeper" },
@@ -22,11 +24,14 @@ export default function SuggestLoadingModal({
   elapsedSec,
   query,
   onCancel,
+  mode,
 }: {
   elapsedSec: number;
   query?: string;
   onCancel?: () => void;
+  mode?: SuggestMode | null;
 }) {
+  const showV3Banner = V3_BANNER_FLAG_ON && mode === "coach";
   const ETA = 90;
   // Cap visual progress at 95% so the bar keeps moving past the ETA without
   // appearing "stuck at 100%".
@@ -85,6 +90,8 @@ export default function SuggestLoadingModal({
             {query}
           </div>
         )}
+
+        {showV3Banner && <V3LaunchBanner />}
 
         {/* Static feedback callout — sits above the rotating stage messages.
             Does not rotate, does not fade. Drives thumbs engagement. */}

@@ -17,7 +17,8 @@ import { ArrowLeft, X, ShoppingCart, Trash2 } from "lucide-react";
 import SwipeStack from "./SwipeStack";
 import TapToBuild from "./TapToBuild";
 import type { SuggestedPackage, TradeAsset } from "./types";
-import type { UseTradeBuilderReturn } from "@/hooks/useTradeBuilder";
+import type { SuggestMode, UseTradeBuilderReturn } from "@/hooks/useTradeBuilder";
+import V3LaunchBanner, { V3_BANNER_FLAG_ON } from "./V3LaunchBanner";
 import { useTradeBuilderStore } from "@/lib/stores/trade-builder-store";
 import { useOwnerClick, useIsOwnerCurrent } from "@/hooks/useOwnerClick";
 
@@ -55,8 +56,9 @@ function acceptColor(s: number) {
 }
 
 /* ── Loading skeleton ── */
-function LoadingSkeleton() {
+function LoadingSkeleton({ mode }: { mode?: SuggestMode | null }) {
   const [msgIndex, setMsgIndex] = useState(0);
+  const showV3Banner = V3_BANNER_FLAG_ON && mode === "coach";
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -68,6 +70,7 @@ function LoadingSkeleton() {
   return (
     <div className="flex-1 flex items-center justify-center px-6">
       <div className="w-full max-w-sm">
+        {showV3Banner && <V3LaunchBanner variant="mobile" />}
         {/* Skeleton card */}
         <div
           className="rounded-2xl border border-[#d4a53225] bg-[#10131d] p-6 space-y-5"
@@ -141,6 +144,7 @@ export default function TradeBuilderMobile({
     setMode,
     suggestedPkgs,
     suggestLoading,
+    suggestMode,
     suggestQuery,
     error,
     setError,
@@ -391,7 +395,7 @@ export default function TradeBuilderMobile({
       )}
 
       {/* ── STATE 2: LOADING ── */}
-      {mobileState === "loading" && <LoadingSkeleton />}
+      {mobileState === "loading" && <LoadingSkeleton mode={suggestMode} />}
 
       {/* ── STATE 3: SWIPE STACK ── */}
       {mobileState === "results" && suggestedPkgs.length > 0 && (

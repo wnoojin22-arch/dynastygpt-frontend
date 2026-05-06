@@ -15,6 +15,39 @@ const API = "";
 const MODES = ["conservative", "balanced", "aggressive"] as const;
 export type TradeMode = (typeof MODES)[number];
 
+/**
+ * Operational mode of the in-flight suggest request, captured from the
+ * outgoing body. Distinct from `mode` (style: conservative/balanced/aggressive).
+ *
+ * Detection (mirrors backend body shape):
+ *   coach          — empty body (no partner / no give / no receive / no position)
+ *   sell           — sell_asset(s) set, no i_receive
+ *   acquire        — i_receive set, no partner
+ *   partner        — partner set, no sell / no receive
+ *   improve        — sell_asset(s) AND i_receive
+ *   find_position  — find_position set
+ */
+export type SuggestMode =
+  | "coach"
+  | "sell"
+  | "acquire"
+  | "partner"
+  | "improve"
+  | "find_position";
+
+function detectSuggestMode(body: Record<string, unknown>): SuggestMode {
+  const hasSell = !!(body.sell_asset || (body.sell_assets as string[] | undefined)?.length);
+  const hasReceive = !!((body.i_receive as string[] | undefined)?.length);
+  const hasPartner = !!body.partner;
+  const hasFindPos = !!body.find_position;
+  if (hasFindPos) return "find_position";
+  if (hasSell && hasReceive) return "improve";
+  if (hasSell) return "sell";
+  if (hasReceive) return "acquire";
+  if (hasPartner) return "partner";
+  return "coach";
+}
+
 export interface UseTradeBuilderReturn {
   // Data
   myRoster: RosterPlayer[];
@@ -58,6 +91,7 @@ export interface UseTradeBuilderReturn {
   suggestLoading: boolean;
   suggestElapsedSec: number;
   suggestQuery: string;
+  suggestMode: SuggestMode | null;
   activeSellAsset: string | null;
   error: string | null;
   setError: (v: string | null) => void;
@@ -261,6 +295,10 @@ export function useTradeBuilder({
   const [suggestLoading, setSuggestLoading] = useState(false);
   const [suggestElapsedSec, setSuggestElapsedSec] = useState(0);
   const [suggestQuery, setSuggestQuery] = useState("");
+  // Captured at fireSuggest time so the mode that's surfaced to the loading
+  // overlay reflects what was REQUESTED, not what the user has since edited
+  // in the tray. Cleared on cancel / partner / mode change.
+  const [suggestMode, setSuggestMode] = useState<SuggestMode | null>(null);
   const suggestAbortRef = useRef(false);
   const [activeSellAsset, setActiveSellAsset] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -477,6 +515,7 @@ export function useTradeBuilder({
       setSuggestElapsedSec(0);
       setSuggestedPkgs([]);
       setSuggestQuery(query);
+      setSuggestMode(detectSuggestMode(body));
       setError(null);
       try {
         const sellAsset = (body.sell_asset as string) || undefined;
@@ -778,6 +817,7 @@ export function useTradeBuilder({
     suggestLoading,
     suggestElapsedSec,
     suggestQuery,
+    suggestMode,
     activeSellAsset,
     error,
     setError,
