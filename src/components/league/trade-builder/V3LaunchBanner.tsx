@@ -7,7 +7,9 @@
  * showing this banner there would mis-attribute feedback.
  *
  * Render gated on:
- *   1. process.env.NEXT_PUBLIC_V3_LAUNCH_BANNER_ENABLED === "true"
+ *   1. process.env.NEXT_PUBLIC_V3_LAUNCH_BANNER_ENABLED !== "false"
+ *      (defaults ON — set the env var to "false" to kill the banner without
+ *      a code change)
  *   2. caller passes mode === "coach"
  *
  * Both checks live at the consumer (SuggestLoadingModal / mobile
@@ -18,7 +20,7 @@ import React from "react";
 import { C, MONO, SANS } from "../tokens";
 
 export const V3_BANNER_FLAG_ON =
-  process.env.NEXT_PUBLIC_V3_LAUNCH_BANNER_ENABLED === "true";
+  process.env.NEXT_PUBLIC_V3_LAUNCH_BANNER_ENABLED !== "false";
 
 export default function V3LaunchBanner({ variant = "desktop" }: { variant?: "desktop" | "mobile" }) {
   const isMobile = variant === "mobile";
