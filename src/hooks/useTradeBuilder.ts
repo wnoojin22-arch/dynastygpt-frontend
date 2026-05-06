@@ -523,11 +523,14 @@ export function useTradeBuilder({
         const targetAsset = (body.i_receive as string[])?.[0] || undefined;
         const findPosition = (body.find_position as string) || undefined;
 
-        // Step 1: Fire async job
+        // Step 1: Fire generate request. V3 (?pipeline=v3) returns the
+        // result synchronously in one request — packages + narration.
+        // V2 (no query param) returns {job_id} that we poll. The router
+        // is the same URL; we detect the response shape after we read it.
         const { authHeaders: getHdrs } = await import("@/lib/api");
         const suggestHdrs = await getHdrs();
         const startRes = await fetch(
-          `${API}/api/league/${leagueId}/v2/trade-engine/generate`,
+          `${API}/api/league/${leagueId}/v2/trade-engine/generate?pipeline=v3`,
           {
             method: "POST",
             headers: suggestHdrs,
@@ -551,15 +554,29 @@ export function useTradeBuilder({
           setSuggestLoading(false);
           return;
         }
-        const { job_id } = await startRes.json();
-        if (!job_id) { setError("No job ID returned"); setSuggestLoading(false); return; }
+        const startJson = (await startRes.json()) as Record<string, unknown>;
 
-        // Step 2: Poll for result
+        // Sync (V3) response shape: packages array already present in body.
+        // The V3 router also sets job_id for traceability, so we detect sync
+        // by the presence of a packages array, not by absence of job_id.
+        let data: Record<string, unknown> | null = null;
+        if (Array.isArray(startJson.packages)) {
+          data = startJson;
+        }
+
+        // Async (V2 fallback) response: only job_id, no packages. Poll.
+        const job_id = startJson.job_id as string | undefined;
+        if (!data && !job_id) {
+          setError("No job ID or packages returned");
+          setSuggestLoading(false);
+          return;
+        }
+
+        // Step 2: Poll for result (V2 path only)
         // 90 attempts × 2s = 180s ceiling. Backend AI generation typically
         // takes 70-90s; raised from 120s so a single Claude 429 retry
         // (60s backoff) doesn't push us past the ceiling.
-        let data: Record<string, unknown> | null = null;
-        for (let attempt = 0; attempt < 90; attempt++) {
+        for (let attempt = 0; data === null && attempt < 90; attempt++) {
           if (suggestAbortRef.current) { setSuggestLoading(false); return; }
           await new Promise((r) => setTimeout(r, 2000));
           if (suggestAbortRef.current) { setSuggestLoading(false); return; }
@@ -610,6 +627,16 @@ export function useTradeBuilder({
           const receive = ((p.receive || []) as Array<Record<string, unknown>>).map(mapAsset);
           const balance = (p.sha_balance || {}) as Record<string, unknown>;
           const confidence = (p.confidence as number) || 0;
+          // V3 returns `narration` as an array of 2-3 bullets per package.
+          // V2 returns `rationale` as a single string. Prefer V3 bullets,
+          // fall back to V2 rationale, and expose the bullets separately
+          // so the UI can render either format.
+          const narrationArr = Array.isArray(p.narration)
+            ? (p.narration as unknown[]).map(String).filter(Boolean)
+            : [];
+          const narrativeText = narrationArr.length > 0
+            ? narrationArr.join("\n\n")
+            : ((p.rationale as string) || "");
           return {
             partner: p.partner as string,
             partner_user_id: (p.partner_user_id as string) ?? null,
@@ -633,8 +660,9 @@ export function useTradeBuilder({
             },
             negotiation_insights: [],
             combined_score: confidence,
-            pitch: (p.rationale as string) || "",
-            narrative: (p.rationale as string) || "",
+            pitch: (p.rationale as string) || narrativeText,
+            narrative: narrativeText,
+            narration_bullets: narrationArr.length > 0 ? narrationArr : undefined,
             tier: "",
             market_comparison: "",
             roster_warnings: (p.roster_warnings as string[]) || [],
