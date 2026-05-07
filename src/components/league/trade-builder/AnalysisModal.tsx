@@ -232,6 +232,30 @@ export default function AnalysisModal({ evaluation, owner, partner, onClose }: {
         {/* AI INSIGHT — GM verdict card, top of modal (handles bullets + legacy sections) */}
         <AIInsightCard text={evaluation.ai_insight} suggestionId={evaluation.suggestion_id} />
 
+        {/* MARKET REALITY — deterministic prose summary of value parity */}
+        {evaluation?.market_reality?.summary_line && (
+          <div style={{
+            margin: "12px 20px 0 20px",
+            padding: "12px 14px",
+            background: C.card,
+            border: `1px solid ${C.border}`,
+            borderRadius: 8,
+          }}>
+            <div style={{
+              fontFamily: MONO, fontSize: 10, fontWeight: 800,
+              letterSpacing: "0.12em", color: C.gold, marginBottom: 8,
+            }}>
+              MARKET REALITY
+            </div>
+            <div style={{
+              fontFamily: SANS, fontSize: 14, fontWeight: 400,
+              color: "#ffffff", lineHeight: 1.55,
+            }}>
+              {evaluation.market_reality.summary_line}
+            </div>
+          </div>
+        )}
+
         {/* Recommendation banner — verdict left, acceptance circle + text right, one row */}
         <div style={{
           padding: "14px 20px",
@@ -242,12 +266,24 @@ export default function AnalysisModal({ evaluation, owner, partner, onClose }: {
           gap: 20,
         }}>
           {/* Verdict word — the primary signal */}
-          <div style={{
-            fontFamily: DISPLAY, fontSize: 32, fontWeight: 900,
-            color: verdictColor, letterSpacing: "0.04em",
-            lineHeight: 1, alignSelf: "center", margin: 0, padding: 0,
-          }}>
-            {grade.verdict}
+          <div style={{ display: "flex", flexDirection: "column", alignSelf: "center", margin: 0, padding: 0 }}>
+            <div style={{
+              fontFamily: DISPLAY, fontSize: 32, fontWeight: 900,
+              color: verdictColor, letterSpacing: "0.04em",
+              lineHeight: 1, margin: 0, padding: 0,
+            }}>
+              {grade.verdict}
+            </div>
+            {evaluation?.annotation && (
+              <div style={{
+                marginTop: 4,
+                fontFamily: MONO, fontSize: 11, fontWeight: 700,
+                letterSpacing: "0.16em", textTransform: "uppercase",
+                color: "rgba(212,165,50,0.7)",
+              }}>
+                {grade.verdict} · {String(evaluation.annotation).replace(/_/g, " ")}
+              </div>
+            )}
           </div>
 
           {/* Acceptance circle + context text — horizontal beside verdict */}
