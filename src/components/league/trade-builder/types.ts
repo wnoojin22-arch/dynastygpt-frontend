@@ -106,6 +106,15 @@ export interface TradeEvaluation {
   ai_insight?: string | null;
   personal_insights?: Array<{ text: string; tone: "positive" | "warning" | "neutral"; category: string }>;
   suggestion_id?: string | null;
+  annotation?: string | null;
+  market_reality?: {
+    summary_line: string;
+    verdict: "below_market" | "fair_market" | "premium_price";
+    direction: "acquiring" | "selling" | "swap";
+    magnitude: "blockbuster" | "significant" | "slight" | "marginal" | "none";
+    headline_asset?: { name?: string; position?: string; tier?: string; side?: string };
+    secondary_asset?: { name?: string; position?: string; tier?: string } | null;
+  } | null;
 }
 
 export interface SuggestedPackage {

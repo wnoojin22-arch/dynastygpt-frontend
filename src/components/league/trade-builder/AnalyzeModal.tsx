@@ -476,9 +476,43 @@ export default function AnalyzeModal({ isOpen, onClose, evaluation, partner, own
               {/* ── 2c. AI INSIGHT — dual-section GM verdict ── */}
               <AIInsightCard text={ev?.ai_insight} suggestionId={ev?.suggestion_id} />
 
+              {/* ── 2c.1 MARKET REALITY — deterministic prose summary ── */}
+              {ev?.market_reality?.summary_line && (
+                <div style={{
+                  marginBottom: 14, padding: "12px 12px",
+                  background: C.card, border: `1px solid ${C.border}`,
+                  borderRadius: 8,
+                }}>
+                  <div style={{
+                    fontFamily: MONO, fontSize: 10, fontWeight: 800,
+                    letterSpacing: "0.12em", color: C.gold, marginBottom: 6,
+                  }}>
+                    MARKET REALITY
+                  </div>
+                  <div style={{
+                    fontFamily: SANS, fontSize: 13, fontWeight: 400,
+                    color: "#ffffff", lineHeight: 1.55,
+                  }}>
+                    {ev.market_reality.summary_line}
+                  </div>
+                </div>
+              )}
+
               {/* ── 2d. Grade + Acceptance — right below insights ── */}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 32, marginBottom: 8 }}>
-                <GradeBadge grade={grade} delay={0.2} />
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                  <GradeBadge grade={grade} delay={0.2} />
+                  {ev?.annotation && (
+                    <div style={{
+                      marginTop: 4,
+                      fontFamily: MONO, fontSize: 11, fontWeight: 700,
+                      letterSpacing: "0.16em", textTransform: "uppercase",
+                      color: "rgba(212,165,50,0.7)", textAlign: "center",
+                    }}>
+                      {(grade?.verdict || "").toUpperCase()} · {String(ev.annotation).replace(/_/g, " ")}
+                    </div>
+                  )}
+                </div>
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
                   <CircularGauge value={acc} size={110} delay={0.4} />
                 </div>
