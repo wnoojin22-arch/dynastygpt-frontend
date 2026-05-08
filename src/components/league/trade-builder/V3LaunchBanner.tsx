@@ -1,20 +1,15 @@
 "use client";
 
 /**
- * V3 launch banner — shown on the trade-suggest loading screen ONLY when
- * the in-flight request is Coach Mode. Other modes (sell / acquire /
- * partner-specific / find_position) continue to use the V2 engine, so
- * showing this banner there would mis-attribute feedback.
+ * V3 launch banner — shown on the trade-suggest loading screen across
+ * every suggest mode (coach / partner / sell / acquire / find_position),
+ * desktop and mobile. Copy is mode-agnostic so feedback covers any
+ * suggestion the user is about to see.
  *
- * Render gated on:
- *   1. process.env.NEXT_PUBLIC_V3_LAUNCH_BANNER_ENABLED !== "false"
- *      (defaults ON — set the env var to "false" to kill the banner without
- *      a code change)
- *   2. caller passes mode === "coach"
- *
- * Both checks live at the consumer (SuggestLoadingModal / mobile
- * LoadingSkeleton) so this component itself can be unconditionally rendered
- * once those gates pass.
+ * Render gated only on:
+ *   process.env.NEXT_PUBLIC_V3_LAUNCH_BANNER_ENABLED !== "false"
+ *   (defaults ON — set the env var to "false" to kill the banner without
+ *   a code change)
  */
 import React from "react";
 import { C, MONO, SANS } from "../tokens";
@@ -74,7 +69,7 @@ export default function V3LaunchBanner({ variant = "desktop" }: { variant?: "des
             textTransform: "uppercase",
           }}
         >
-          New trade engine · Coach Mode
+          New trade engine
         </span>
       </div>
       <p
@@ -86,9 +81,8 @@ export default function V3LaunchBanner({ variant = "desktop" }: { variant?: "des
           margin: 0,
         }}
       >
-        Coach Mode trade suggestions are powered by the new Trade Suggestion
-        Engine. Sell Mode and Acquire Mode upgrades coming soon. Use the
-        thumbs up/down to give feedback on the new engine.
+        These trades were built using the new trade engine. Please provide
+        feedback using thumbs up/down to help improve suggestions.
       </p>
     </div>
   );
