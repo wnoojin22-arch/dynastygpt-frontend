@@ -21,6 +21,9 @@ import { C, SANS, MONO, DISPLAY, fmt, posColor } from "../tokens";
 import { HowItWorksButton } from "./HowItWorksModal";
 import SwipeStack from "./SwipeStack";
 import { useTrack } from "@/hooks/useTrack";
+import MobileChatSheet from "./MobileChatSheet";
+
+const CHAT_V2_ENABLED = process.env.NEXT_PUBLIC_CHAT_V2_ENABLED === "true";
 
 // ── Position badge ───────────────────────────────────────────────────────
 
@@ -797,10 +800,16 @@ export default function TradeBuilderUnified() {
   // ── "What Would It Take?" state ──
   const [wwitLoading, setWwitLoading] = useState(false);
 
+  const [chatOpen, setChatOpen] = useState(false);
+
   const owners = tb.otherOwners || [];
   const hasPartner = !!tb.partner;
   const hasAssets = tb.giveNames.length > 0 || tb.receiveNames.length > 0;
   const showBuilder = hasPartner || hasAssets;
+
+  const chatQuickPrompts = showBuilder
+    ? ["Is this trade fair?", "How can I improve this?", "Will they accept?", "What should I add?"]
+    : ["What's the best trade I can make?", "Who overpays for picks?", "Who should I sell?", "What moves should I make before the draft?", "Who is my best trade partner?"];
 
   const currentOwner = useLeagueStore((s) => s.currentOwner) || "";
   const currentOwnerId = useLeagueStore((s) => s.currentOwnerId) || null;
@@ -1045,35 +1054,74 @@ export default function TradeBuilderUnified() {
               </span>
             </button>
 
-            {/* Start a Chat pill — DISABLED for maintenance */}
-            <div
-              aria-disabled="true"
-              style={{
-                padding: "14px 10px", borderRadius: 12,
-                border: `1.5px solid ${C.border}`,
-                background: `${C.dim}08`,
-                cursor: "not-allowed",
-                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                gap: 4, minHeight: 72,
-                position: "relative",
-                opacity: 0.85,
-              }}
-            >
-              <div style={{
-                position: "absolute", bottom: -7, left: "50%", transform: "translateX(-50%)",
-                fontFamily: MONO, fontSize: 7, fontWeight: 900, letterSpacing: "0.10em",
-                color: "#000", background: C.gold,
-                padding: "1px 6px", borderRadius: 3, whiteSpace: "nowrap",
-              }}>
-                IMPROVEMENTS COMING
+            {/* Start a Chat pill */}
+            {CHAT_V2_ENABLED ? (
+              <button
+                onClick={() => setChatOpen(true)}
+                style={{
+                  padding: "14px 10px", borderRadius: 12,
+                  border: `1.5px solid ${C.gold}60`,
+                  background: `${C.gold}08`,
+                  animation: "advisor-glow 2.5s ease-in-out infinite",
+                  cursor: "pointer",
+                  display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                  gap: 4, minHeight: 72,
+                  position: "relative",
+                }}
+              >
+                <div style={{
+                  position: "absolute", bottom: -7, left: "50%", transform: "translateX(-50%)",
+                  fontFamily: MONO, fontSize: 7, fontWeight: 900, letterSpacing: "0.10em",
+                  color: "#fff", background: C.red,
+                  padding: "1px 6px", borderRadius: 3, whiteSpace: "nowrap",
+                }}>
+                  BETA — Improving Daily
+                </div>
+                <div style={{
+                  position: "absolute", top: -7, right: 8,
+                  fontFamily: MONO, fontSize: 7, fontWeight: 900, letterSpacing: "0.10em",
+                  color: "#000", background: C.gold,
+                  padding: "1px 6px", borderRadius: 3,
+                }}>
+                  NEW
+                </div>
+                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", color: C.gold, lineHeight: 1 }}>
+                  START A CHAT
+                </span>
+                <span style={{ fontFamily: SANS, fontSize: 10, color: C.dim, lineHeight: 1.2, textAlign: "center" }}>
+                  Ask DynastyGPT about your roster, trades, or league
+                </span>
+              </button>
+            ) : (
+              <div
+                aria-disabled="true"
+                style={{
+                  padding: "14px 10px", borderRadius: 12,
+                  border: `1.5px solid ${C.border}`,
+                  background: `${C.dim}08`,
+                  cursor: "not-allowed",
+                  display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                  gap: 4, minHeight: 72,
+                  position: "relative",
+                  opacity: 0.85,
+                }}
+              >
+                <div style={{
+                  position: "absolute", bottom: -7, left: "50%", transform: "translateX(-50%)",
+                  fontFamily: MONO, fontSize: 7, fontWeight: 900, letterSpacing: "0.10em",
+                  color: "#000", background: C.gold,
+                  padding: "1px 6px", borderRadius: 3, whiteSpace: "nowrap",
+                }}>
+                  IMPROVEMENTS COMING
+                </div>
+                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", color: C.dim, lineHeight: 1 }}>
+                  AI CHAT
+                </span>
+                <span style={{ fontFamily: SANS, fontSize: 10, color: C.dim, lineHeight: 1.2, textAlign: "center" }}>
+                  Down for maintenance
+                </span>
               </div>
-              <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", color: C.dim, lineHeight: 1 }}>
-                AI CHAT
-              </span>
-              <span style={{ fontFamily: SANS, fontSize: 10, color: C.dim, lineHeight: 1.2, textAlign: "center" }}>
-                Down for maintenance
-              </span>
-            </div>
+            )}
           </div>
 
           {/* Error display */}
@@ -1172,26 +1220,65 @@ export default function TradeBuilderUnified() {
         }}
       />
 
-      {/* Floating Chat FAB — DISABLED for maintenance */}
-      {showBuilder && (
-        <div style={{ position: "fixed", bottom: 160, right: 16, zIndex: 9990, display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
-          <div
-            aria-disabled="true"
-            style={{
-              borderRadius: 28,
-              background: C.elevated,
-              border: `1.5px solid ${C.border}`, cursor: "not-allowed",
-              display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-              padding: "8px 14px",
-              gap: 1,
-              opacity: 0.85,
-            }}
-          >
-            <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, letterSpacing: "0.08em", color: C.dim, lineHeight: 1 }}>AI CHAT</span>
-            <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 900, color: C.gold, lineHeight: 1 }}>DOWN</span>
+      {/* Floating Chat FAB */}
+      {CHAT_V2_ENABLED ? (
+        showBuilder && !chatOpen && (
+          <div style={{ position: "fixed", bottom: 160, right: 16, zIndex: 9990, display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+            <style>{`@keyframes fabPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}`}</style>
+            <button
+              onClick={() => setChatOpen(true)}
+              style={{
+                borderRadius: 28,
+                background: `linear-gradient(135deg, ${C.goldDark}, ${C.gold})`,
+                border: `2px solid rgba(212,165,50,0.3)`, cursor: "pointer",
+                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                padding: "8px 18px",
+                boxShadow: `0 4px 20px ${C.gold}40, 0 0 40px ${C.gold}15`,
+                gap: 1,
+                animation: "fabPulse 2s ease-in-out infinite",
+              }}
+            >
+              <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.08em", color: "rgba(0,0,0,0.6)", lineHeight: 1 }}>CHAT WITH</span>
+              <span style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: "#000", lineHeight: 1 }}>AI</span>
+            </button>
+            <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.06em", color: C.red }}>BETA</span>
           </div>
-          <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, letterSpacing: "0.06em", color: C.dim, textAlign: "center", maxWidth: 110 }}>IMPROVEMENTS COMING</span>
-        </div>
+        )
+      ) : (
+        showBuilder && (
+          <div style={{ position: "fixed", bottom: 160, right: 16, zIndex: 9990, display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+            <div
+              aria-disabled="true"
+              style={{
+                borderRadius: 28,
+                background: C.elevated,
+                border: `1.5px solid ${C.border}`, cursor: "not-allowed",
+                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                padding: "8px 14px",
+                gap: 1,
+                opacity: 0.85,
+              }}
+            >
+              <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, letterSpacing: "0.08em", color: C.dim, lineHeight: 1 }}>AI CHAT</span>
+              <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 900, color: C.gold, lineHeight: 1 }}>DOWN</span>
+            </div>
+            <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, letterSpacing: "0.06em", color: C.dim, textAlign: "center", maxWidth: 110 }}>IMPROVEMENTS COMING</span>
+          </div>
+        )
+      )}
+
+      {/* Mobile Chat Sheet */}
+      {CHAT_V2_ENABLED && (
+        <MobileChatSheet
+          isOpen={chatOpen}
+          onClose={() => setChatOpen(false)}
+          leagueId={leagueId}
+          owner={currentOwner}
+          ownerId={currentOwnerId}
+          activeTrade={tb.evaluation}
+          suggestedPackages={tb.suggestedPkgs.length > 0 ? tb.suggestedPkgs : null}
+          quickPrompts={chatQuickPrompts}
+        />
       )}
     </div>
   );
