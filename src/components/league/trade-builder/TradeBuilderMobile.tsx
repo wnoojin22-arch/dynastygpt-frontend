@@ -58,7 +58,7 @@ function acceptColor(s: number) {
 /* ── Loading skeleton ── */
 function LoadingSkeleton({ mode }: { mode?: SuggestMode | null }) {
   const [msgIndex, setMsgIndex] = useState(0);
-  const showV3Banner = V3_BANNER_FLAG_ON && mode === "coach";
+  const showV3Banner = V3_BANNER_FLAG_ON;
 
   useEffect(() => {
     const interval = setInterval(() => {

@@ -31,7 +31,7 @@ export default function SuggestLoadingModal({
   onCancel?: () => void;
   mode?: SuggestMode | null;
 }) {
-  const showV3Banner = V3_BANNER_FLAG_ON && mode === "coach";
+  const showV3Banner = V3_BANNER_FLAG_ON;
   const ETA = 90;
   // Cap visual progress at 95% so the bar keeps moving past the ETA without
   // appearing "stuck at 100%". Floor at 3% so the bar is visible from t=0
