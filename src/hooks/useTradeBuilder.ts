@@ -539,29 +539,14 @@ export function useTradeBuilder({
         const findPosition = (body.find_position as string) || undefined;
         const partnerName = (body.partner as string) || undefined;
 
-        // V3 routes:
-        //   - Coach Mode: no anchor, no partner, no position → V3 default flow
-        //   - Partner Mode: partner is set, no give/receive/position → V3 with
-        //     partner_only_user_id, single-partner search.
-        //   - Sell Mode: sellAsset is set (with or without partner), no
-        //     target/position → V3 with sell_anchor_asset; partner optional.
-        // Acquire / Find-position still route through V2 unchanged.
+        // V3 routes everything except Find-Position ("click pos" / Shop) — that
+        // mode has no SHOP branch in trade_engine_v3.py yet, so it would
+        // silently degrade to Coach without the position constraint. Keep it
+        // on V2 until the V3 backend grows a SHOP branch.
+        const useV3 = !findPosition;
         const hasSellAnchor = !!sellAsset || !!(sellAssets && sellAssets.length);
-        const isCoachMode =
-          !hasSellAnchor &&
-          !targetAsset &&
-          !findPosition &&
-          !partnerName;
-        const isPartnerMode =
-          !!partnerName &&
-          !hasSellAnchor &&
-          !targetAsset &&
-          !findPosition;
-        const isSellMode =
-          hasSellAnchor &&
-          !targetAsset &&
-          !findPosition;
-        const useV3 = isCoachMode || isPartnerMode || isSellMode;
+        const isPartnerMode = !!partnerName && !hasSellAnchor && !targetAsset && !findPosition;
+        const isSellMode = hasSellAnchor && !targetAsset && !findPosition;
 
         // Step 1: Fire generate request. V3 (?pipeline=v3) returns the
         // result synchronously in one request — packages + narration.
