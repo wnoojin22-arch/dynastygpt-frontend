@@ -539,11 +539,7 @@ export function useTradeBuilder({
         const findPosition = (body.find_position as string) || undefined;
         const partnerName = (body.partner as string) || undefined;
 
-        // V3 routes everything except Find-Position ("click pos" / Shop) — that
-        // mode has no SHOP branch in trade_engine_v3.py yet, so it would
-        // silently degrade to Coach without the position constraint. Keep it
-        // on V2 until the V3 backend grows a SHOP branch.
-        const useV3 = !findPosition;
+        const useV3 = true;
         const hasSellAnchor = !!sellAsset || !!(sellAssets && sellAssets.length);
         const isPartnerMode = !!partnerName && !hasSellAnchor && !targetAsset && !findPosition;
         const isSellMode = hasSellAnchor && !targetAsset && !findPosition;
