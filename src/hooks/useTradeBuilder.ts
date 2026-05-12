@@ -535,14 +535,15 @@ export function useTradeBuilder({
       try {
         const sellAsset = (body.sell_asset as string) || undefined;
         const sellAssets = (body.sell_assets as string[]) || undefined;
-        const targetAsset = (body.i_receive as string[])?.[0] || undefined;
+        const targetAssets = ((body.i_receive as string[]) || []).filter(Boolean);
+        const hasTarget = targetAssets.length > 0;
         const findPosition = (body.find_position as string) || undefined;
         const partnerName = (body.partner as string) || undefined;
 
         const useV3 = true;
         const hasSellAnchor = !!sellAsset || !!(sellAssets && sellAssets.length);
-        const isPartnerMode = !!partnerName && !hasSellAnchor && !targetAsset && !findPosition;
-        const isSellMode = hasSellAnchor && !targetAsset && !findPosition;
+        const isPartnerMode = !!partnerName && !hasSellAnchor && !hasTarget && !findPosition;
+        const isSellMode = hasSellAnchor && !hasTarget && !findPosition;
 
         // Step 1: Fire generate request. V3 (?pipeline=v3) returns the
         // result synchronously in one request — packages + narration.
@@ -559,7 +560,8 @@ export function useTradeBuilder({
               owner,
               asset: sellAsset || undefined,
               assets: sellAssets || undefined,
-              target_asset: targetAsset || undefined,
+              target_asset: hasTarget ? targetAssets[0] : undefined,
+              target_assets: hasTarget ? targetAssets : undefined,
               mode,
               partner: partnerName,
               find_position: findPosition || undefined,
