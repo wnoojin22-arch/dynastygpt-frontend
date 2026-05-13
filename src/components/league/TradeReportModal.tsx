@@ -672,7 +672,7 @@ function FullReport({reportData,hindsightData,onClose,pickSlotMap}:{reportData:a
       </CollapsiblePill>
 
       {/* HINDSIGHT — collapsible */}
-      <CollapsiblePill label="HINDSIGHT GRADES" defaultOpen={false}>
+      <CollapsiblePill label="HINDSIGHT GRADES" defaultOpen={true}>
         {hasHindsight||hindsightStatus!=='confirmed'?(<>
           <div style={fp}>
             {[{label:`${myLabel}'S SIDE`,h:myH},{label:`${theirLabel}'S SIDE`,h:theirH}].map((side,idx)=>{
