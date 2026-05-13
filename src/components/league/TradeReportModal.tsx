@@ -59,6 +59,7 @@ function StatusTag({label,color,bg,border}:{label:string;color:string;bg:string;
 
 /* ═══ GRADE FACTOR CARD ═══ */
 function GradeFactorCard({factor}:{factor:any}){
+  const mobile=useIsMobile();
   const sm:Record<string,{color:string;bg:string;border:string;icon:string}>={
     elite:{color:C.goldBright,bg:'rgba(212,165,50,0.12)',border:'rgba(212,165,50,0.30)',icon:'★'},
     positive:{color:C.green,bg:'rgba(125,211,160,0.12)',border:'rgba(125,211,160,0.25)',icon:'✓'},
@@ -70,14 +71,23 @@ function GradeFactorCard({factor}:{factor:any}){
   const title=factor.category==='production'?'Asset Production':noSHA(factor.title);
   const detail=factor.category==='production'?noSHA(factor.detail):factor.detail?noSHA(factor.detail):null;
   return(<div style={{display:'flex',alignItems:'center',gap:6,paddingTop:4,paddingBottom:4,paddingLeft:8,paddingRight:8,borderRadius:5,background:s.bg,border:`1px solid ${s.border}`,marginBottom:3}}>
-    <span style={{fontSize:10,flexShrink:0,color:s.color,fontWeight:900,width:16,textAlign:'center'}}>{s.icon}</span>
-    <div style={{flex:1,minWidth:0}}><div style={{fontFamily:SANS,fontSize:11,fontWeight:700,color:s.color,lineHeight:1.2}}>{title}</div>{detail&&<div style={{fontFamily:SANS,fontSize:10,color:C.dim,marginTop:1,lineHeight:1.2}}>{detail}</div>}</div>
-    {factor.value&&<span style={{fontFamily:MONO,fontSize:11,fontWeight:900,color:s.color,flexShrink:0}}>{factor.value}</span>}
+    <span style={{fontSize:mobile?10:12,flexShrink:0,color:s.color,fontWeight:900,width:16,textAlign:'center'}}>{s.icon}</span>
+    <div style={{flex:1,minWidth:0}}><div style={{fontFamily:SANS,fontSize:mobile?11:13,fontWeight:700,color:s.color,lineHeight:1.2}}>{title}</div>{detail&&<div style={{fontFamily:SANS,fontSize:mobile?10:12,color:C.dim,marginTop:1,lineHeight:1.2}}>{detail}</div>}</div>
+    {factor.value&&<span style={{fontFamily:MONO,fontSize:mobile?11:13,fontWeight:900,color:s.color,flexShrink:0}}>{factor.value}</span>}
   </div>);
 }
 
 /* ═══ ASSET CARD — ported from Shadynasty ═══ */
 function AssetCard({asset,allAssets,gradeFactors,allTrades,sideOwner,pickSlotMap}:{asset:any;allAssets?:any[];gradeFactors?:any[];allTrades?:any[];sideOwner?:string;pickSlotMap?:Record<string,string>}){
+  const mobile=useIsMobile();
+  // Always collapsed by default on every viewport. Tap/click the header row
+  // toggles. PlayerName already stopPropagation()s so name clicks still open
+  // the player card without collapsing the parent.
+  const [open,setOpen]=useState(false);
+  // Typography rhythm: bigger on desktop, current micro-sizes on mobile.
+  const lblSize=mobile?9:11;
+  const valSize=mobile?10:13;
+  const subSize=mobile?8:9;
   const openCard = usePlayerCardStore.getState().openPlayerCard;
   const isPick=asset.type==='pick';const prod=asset.production;const isCut=asset.roster_status?.status==='not_rostered';
   const isTraded=asset.roster_status?.status==='traded_away';const chain=asset.chain||[];const hasChain=chain.length>0;
@@ -145,17 +155,22 @@ function AssetCard({asset,allAssets,gradeFactors,allTrades,sideOwner,pickSlotMap
   })():null;
 
   return(<div style={{paddingTop:5,paddingBottom:5,paddingLeft:8,paddingRight:8,borderRadius:5,background:C.elevated,border:`1px solid ${C.border}`,display:'flex',flexDirection:'column',gap:2}}>
-    {/* Line 1: [Pos badge] [Name] [Age] + tags */}
-    <div style={{display:'flex',alignItems:'center',gap:5,flexWrap:'wrap'}}>
+    {/* Line 1: [Pos badge] [Name] [Age] + tags + chevron — click toggles open/closed.
+        Desktop bumps the header text since this row is the default visible state
+        when DETAILS opens and the previous sizes felt cramped. */}
+    <div onClick={()=>setOpen(!open)} style={{display:'flex',alignItems:'center',gap:5,flexWrap:'wrap',cursor:'pointer',userSelect:'none'}}>
       {isPick&&<StatusTag label="PICK" color={C.gold} bg={C.goldDim} border={C.goldBorder}/>}
-      {position&&!isPick&&<span style={{fontFamily:MONO,fontSize:8,fontWeight:800,color:posColor(position),padding:'1px 4px',borderRadius:3,background:`${posColor(position)}15`,border:`1px solid ${posColor(position)}25`}}>{position}</span>}
-      {isPick?<span style={{fontFamily:SANS,fontSize:13,fontWeight:700,color:C.primary}}>{cleanPickName(asset.name,asset.resolved_slot,pickSlotMap)}</span>:<PlayerName name={asset.name} style={{fontFamily:SANS,fontSize:13,fontWeight:700,color:isCut?C.red:C.primary,cursor:'pointer'}} />}
-      {age&&<span style={{fontFamily:MONO,fontSize:10,color:C.dim}}>({Math.round(age)})</span>}
+      {position&&!isPick&&<span style={{fontFamily:MONO,fontSize:mobile?8:10,fontWeight:800,color:posColor(position),padding:'1px 4px',borderRadius:3,background:`${posColor(position)}15`,border:`1px solid ${posColor(position)}25`}}>{position}</span>}
+      {isPick?<span style={{fontFamily:SANS,fontSize:mobile?13:15,fontWeight:700,color:C.primary}}>{cleanPickName(asset.name,asset.resolved_slot,pickSlotMap)}</span>:<PlayerName name={asset.name} style={{fontFamily:SANS,fontSize:mobile?13:15,fontWeight:700,color:isCut?C.red:C.primary,cursor:'pointer'}} />}
+      {age&&<span style={{fontFamily:MONO,fontSize:mobile?10:12,color:C.dim}}>({Math.round(age)})</span>}
       {hasChain&&<StatusTag label="FLIPPED" color={C.orange} bg="rgba(224,156,107,0.12)" border="rgba(224,156,107,0.25)"/>}
       {isCut&&!hasChain&&<StatusTag label="CUT" color={C.red} bg="rgba(228,114,114,0.12)" border="rgba(228,114,114,0.25)"/>}
       {isTraded&&!hasChain&&<StatusTag label="TRADED" color={C.blue} bg="rgba(107,184,224,0.12)" border="rgba(107,184,224,0.25)"/>}
-      {isPick&&(()=>{const yrM=asset.name.match(/(\d{4})/);const yr=yrM?parseInt(yrM[1]):0;const now=new Date().getFullYear();if(yr>now) return <StatusTag label="PENDING" color="#d4a017" bg="rgba(212,160,23,0.12)" border="rgba(212,160,23,0.25)"/>;if(yr<=now&&(!asset.resolved_player||asset.resolved_player==='Not yet drafted')) return <StatusTag label="UNRESOLVED" color="#d4a017" bg="rgba(212,160,23,0.12)" border="rgba(212,160,23,0.25)"/>;return null;})()}
+      {isPick&&(()=>{const yrM=asset.name.match(/(\d{4})/);const yr=yrM?parseInt(yrM[1]):0;const now=new Date().getFullYear();if(yr>now) return <StatusTag label="PENDING" color="#d4a017" bg="rgba(212,160,23,0.12)" border="rgba(212,160,23,0.25)"/>;if(yr<=now&&!hasChain&&(!asset.resolved_player||asset.resolved_player==='Not yet drafted')) return <StatusTag label="UNRESOLVED" color="#d4a017" bg="rgba(212,160,23,0.12)" border="rgba(212,160,23,0.25)"/>;return null;})()}
+      <span style={{marginLeft:'auto',fontFamily:MONO,fontSize:mobile?12:14,color:C.dim,paddingLeft:6,flexShrink:0}}>{open?'▴':'▾'}</span>
     </div>
+    {open&&(<>
+
 
     {/* Pick resolution */}
     {isPick&&asset.resolved_player&&<div style={{fontFamily:MONO,fontSize:9,color:C.dim,paddingLeft:2}}>{asset.resolved_slot&&<span style={{color:C.secondary}}>{asset.resolved_slot} → </span>}{asset.resolved_player==="Not yet drafted"?"Not yet drafted":<span style={{color:C.primary,fontWeight:600}}>{asset.resolved_player}</span>}</div>}
@@ -200,45 +215,46 @@ function AssetCard({asset,allAssets,gradeFactors,allTrades,sideOwner,pickSlotMap
       <div style={{display:'flex',flexDirection:'column',gap:3,marginTop:3}}>
         {/* Total points */}
         <div style={{display:'inline-flex',alignItems:'center',gap:4,padding:'3px 8px',borderRadius:4,background:'rgba(176,178,200,0.08)',border:'1px solid rgba(176,178,200,0.15)'}}>
-          <span style={{fontFamily:MONO,fontSize:9,fontWeight:700,color:C.secondary}}>Total Pts Since Trade</span>
-          <span style={{fontFamily:MONO,fontSize:10,fontWeight:900,color:C.primary}}>{showProd.total_points?.toFixed(0)}</span>
-          <span style={{fontFamily:MONO,fontSize:8,color:C.dim}}>({showProd.games_on_roster} weeks on roster)</span>
+          <span style={{fontFamily:MONO,fontSize:lblSize,fontWeight:700,color:C.secondary}}>Total Pts Since Trade</span>
+          <span style={{fontFamily:MONO,fontSize:valSize,fontWeight:900,color:C.primary}}>{showProd.total_points?.toFixed(0)}</span>
+          <span style={{fontFamily:MONO,fontSize:subSize,color:C.dim}}>({showProd.games_on_roster} weeks on roster)</span>
         </div>
         {/* Career PPG */}
         {careerPpg>0&&(
           <div style={{display:'inline-flex',alignItems:'center',gap:4,padding:'3px 8px',borderRadius:4,background:'rgba(176,178,200,0.06)',border:'1px solid rgba(176,178,200,0.12)'}}>
-            <span style={{fontFamily:MONO,fontSize:9,fontWeight:700,color:C.dim}}>Career PPG</span>
-            <span style={{fontFamily:MONO,fontSize:10,fontWeight:900,color:C.secondary}}>{careerPpg.toFixed(1)}</span>
-            <span style={{fontFamily:MONO,fontSize:8,color:C.dim}}>all-time avg when they play</span>
+            <span style={{fontFamily:MONO,fontSize:lblSize,fontWeight:700,color:C.dim}}>Career PPG</span>
+            <span style={{fontFamily:MONO,fontSize:valSize,fontWeight:900,color:C.secondary}}>{careerPpg.toFixed(1)}</span>
+            <span style={{fontFamily:MONO,fontSize:subSize,color:C.dim}}>all-time avg when they play</span>
           </div>
         )}
         {/* PPG Since Trade */}
         {ppgSinceTrade!=null&&ppgSinceTrade>0&&(
           <div style={{display:'inline-flex',alignItems:'center',gap:4,padding:'3px 8px',borderRadius:4,background:`${stC}10`,border:`1px solid ${stC}25`}}>
-            <span style={{fontFamily:MONO,fontSize:9,fontWeight:700,color:C.secondary}}>PPG Since Trade</span>
-            <span style={{fontFamily:MONO,fontSize:10,fontWeight:900,color:stC}}>{ppgSinceTrade.toFixed(1)}</span>
-            <span style={{fontFamily:MONO,fontSize:8,color:C.dim}}>avg when they play on your roster</span>
+            <span style={{fontFamily:MONO,fontSize:lblSize,fontWeight:700,color:C.secondary}}>PPG Since Trade</span>
+            <span style={{fontFamily:MONO,fontSize:valSize,fontWeight:900,color:stC}}>{ppgSinceTrade.toFixed(1)}</span>
+            <span style={{fontFamily:MONO,fontSize:subSize,color:C.dim}}>avg when they play on your roster</span>
           </div>
         )}
         {/* PPG Rostered */}
         {ppgRostered!=null&&(
           <div style={{display:'inline-flex',alignItems:'center',gap:4,padding:'3px 8px',borderRadius:4,background:`${rC}10`,border:`1px solid ${rC}25`}}>
-            <span style={{fontFamily:MONO,fontSize:9,fontWeight:700,color:C.secondary}}>PPG Rostered</span>
-            <span style={{fontFamily:MONO,fontSize:10,fontWeight:900,color:rC}}>{ppgRostered.toFixed(1)}</span>
-            <span style={{fontFamily:MONO,fontSize:8,color:C.dim}}>every week including injuries &amp; byes</span>
+            <span style={{fontFamily:MONO,fontSize:lblSize,fontWeight:700,color:C.secondary}}>PPG Rostered</span>
+            <span style={{fontFamily:MONO,fontSize:valSize,fontWeight:900,color:rC}}>{ppgRostered.toFixed(1)}</span>
+            <span style={{fontFamily:MONO,fontSize:subSize,color:C.dim}}>every week including injuries &amp; byes</span>
           </div>
         )}
         {/* Position Impact pill */}
         {posImpact&&posImpact.impact!=null&&Math.abs(posImpact.impact)>=0.1&&(
           <div style={{display:'inline-flex',alignItems:'center',gap:4,padding:'3px 8px',borderRadius:4,background:posImpact.impact>=0?'rgba(125,211,160,0.10)':'rgba(228,114,114,0.10)',border:`1px solid ${posImpact.impact>=0?'rgba(125,211,160,0.25)':'rgba(228,114,114,0.25)'}`}}>
-            <span style={{fontFamily:MONO,fontSize:9,fontWeight:700,color:C.secondary}}>{(position||posImpact?.position||'POS')} Impact</span>
-            <span style={{fontFamily:MONO,fontSize:10,color:C.dim}}>{posImpact.avg_without?.toFixed(1)}</span>
-            <span style={{fontFamily:MONO,fontSize:9,color:C.dim}}>→</span>
-            <span style={{fontFamily:MONO,fontSize:10,fontWeight:800,color:C.secondary}}>{posImpact.avg_with?.toFixed(1)}</span>
-            <span style={{fontFamily:MONO,fontSize:10,fontWeight:900,color:posImpact.impact>=0?C.green:C.red}}>({posImpact.impact>=0?'+':''}{posImpact.impact.toFixed(1)})</span>
+            <span style={{fontFamily:MONO,fontSize:lblSize,fontWeight:700,color:C.secondary}}>{(position||posImpact?.position||'POS')} Impact</span>
+            <span style={{fontFamily:MONO,fontSize:valSize,color:C.dim}}>{posImpact.avg_without?.toFixed(1)}</span>
+            <span style={{fontFamily:MONO,fontSize:lblSize,color:C.dim}}>→</span>
+            <span style={{fontFamily:MONO,fontSize:valSize,fontWeight:800,color:C.secondary}}>{posImpact.avg_with?.toFixed(1)}</span>
+            <span style={{fontFamily:MONO,fontSize:valSize,fontWeight:900,color:posImpact.impact>=0?C.green:C.red}}>({posImpact.impact>=0?'+':''}{posImpact.impact.toFixed(1)})</span>
           </div>
         )}
       </div>);})()}
+    </>)}
   </div>);
 }
 
@@ -375,7 +391,7 @@ function FullReport({reportData,hindsightData,onClose,pickSlotMap}:{reportData:a
   return(<>
     {/* HEADER — compact, close button top-left */}
     <div style={{paddingTop:mobile?5:10,paddingBottom:mobile?5:10,paddingLeft:mobile?10:20,paddingRight:mobile?10:20,display:'flex',alignItems:'center',background:`linear-gradient(135deg, ${C.gold}06, transparent 60%)`,gap:mobile?8:10,borderBottom:`1px solid ${C.border}`}}>
-      <div onClick={onClose} style={{width:mobile?32:36,height:mobile?32:36,borderRadius:mobile?16:18,background:C.elevated,border:`1px solid ${C.border}`,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',fontSize:mobile?16:18,color:C.primary,fontFamily:MONO,flexShrink:0,fontWeight:700}}>×</div>
+      <div onClick={onClose} style={{width:mobile?32:36,height:mobile?32:36,borderRadius:mobile?16:18,background:mobile?C.goldDim:C.elevated,border:`1px solid ${mobile?C.goldBorder:C.border}`,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',fontSize:mobile?18:18,color:mobile?C.gold:C.primary,fontFamily:MONO,flexShrink:0,fontWeight:900,lineHeight:1}}>×</div>
       <div style={{width:3,height:mobile?24:30,borderRadius:2,background:C.gold,flexShrink:0}}/>
       <div style={{minWidth:0,flex:1}}>
         <div style={{display:'flex',alignItems:'center',gap:mobile?4:8,flexWrap:'wrap'}}>
@@ -580,6 +596,14 @@ function FullReport({reportData,hindsightData,onClose,pickSlotMap}:{reportData:a
           );})}
         </div>
       </div>
+
+      {/* Powered by — mobile-only, bottom of GRADE tab. Desktop has it in the top-right of the modal wrapper. */}
+      {mobile&&<div style={{display:'flex',justifyContent:'center',marginTop:14,marginBottom:8}}>
+        <div style={{display:'flex',alignItems:'center',gap:4,paddingTop:3,paddingBottom:3,paddingLeft:10,paddingRight:10,borderRadius:12,background:'rgba(212,165,50,0.06)',border:'1px solid rgba(212,165,50,0.22)'}}>
+          <span style={{fontFamily:SANS,fontSize:9,fontWeight:600,color:'#d4a532'}}>powered by</span>
+          <span style={{fontFamily:SANS,fontSize:10,fontWeight:900,color:'#eeeef2'}}>DynastyGPT<span style={{color:'#d4a532'}}>.com</span></span>
+        </div>
+      </div>}
     </>)}
 
     {/* ═══════ TAB 2: DETAILS — collapsible pills, always 1fr 1fr ═══════ */}
@@ -589,20 +613,20 @@ function FullReport({reportData,hindsightData,onClose,pickSlotMap}:{reportData:a
         <div style={fp}>
           {[{label:`${myLabel} RECEIVES`,td:myTD,assets:myAssets,total:myTotal},{label:`${theirLabel} RECEIVES`,td:theirTD,assets:theirAssets,total:theirTotal}].map((side,idx)=>(
             <div key={idx} style={idx===0?colL:colR}>
-              <div style={{fontFamily:MONO,fontSize:12,fontWeight:800,letterSpacing:'0.10em',color:'#5eead4',marginBottom:6}}>{side.label}</div>
+              <div style={{fontFamily:MONO,fontSize:mobile?12:14,fontWeight:800,letterSpacing:'0.10em',color:'#5eead4',marginBottom:6}}>{side.label}</div>
               <GradeBox score={side.td.score||50} verdict={side.td.verdict||'No Data'} mobile={mobile}/>
               <div style={{marginTop:8,display:'flex',flexDirection:'column',gap:2}}>
                 {side.assets.map((a:any,i:number)=>(
-                  <div key={i} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:mobile?'3px 6px':'5px 8px',borderRadius:4,background:C.elevated,minWidth:0}}>
+                  <div key={i} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:mobile?'3px 6px':'6px 10px',borderRadius:4,background:C.elevated,minWidth:0}}>
                     <div style={{display:'flex',alignItems:'center',gap:3,minWidth:0,flex:1}}>
                       {a.type==='pick'&&<StatusTag label="PK" color={C.gold} bg={C.goldDim} border={C.goldBorder}/>}
-                      {a.position&&a.type!=='pick'&&<span style={{fontFamily:MONO,fontSize:12,fontWeight:800,color:posColor(a.position),padding:'1px 3px',borderRadius:2,background:`${posColor(a.position)}15`,flexShrink:0}}>{a.position}</span>}
-                      <span style={{fontFamily:SANS,fontSize:13,fontWeight:600,color:C.primary,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',minWidth:0}}>{cleanPickName(a.name,a.resolved_slot,pickSlotMap)}</span>
+                      {a.position&&a.type!=='pick'&&<span style={{fontFamily:MONO,fontSize:mobile?12:14,fontWeight:800,color:posColor(a.position),padding:'1px 3px',borderRadius:2,background:`${posColor(a.position)}15`,flexShrink:0}}>{a.position}</span>}
+                      <span style={{fontFamily:SANS,fontSize:mobile?13:15,fontWeight:600,color:C.primary,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',minWidth:0}}>{cleanPickName(a.name,a.resolved_slot,pickSlotMap)}</span>
                     </div>
-                    <span style={{fontFamily:MONO,fontSize:11,fontWeight:700,color:C.secondary,flexShrink:0,marginLeft:4}}>{fmt(a.value_at_trade?.value)}</span>
+                    <span style={{fontFamily:MONO,fontSize:mobile?11:13,fontWeight:700,color:C.secondary,flexShrink:0,marginLeft:4}}>{fmt(a.value_at_trade?.value)}</span>
                   </div>
                 ))}
-                <div style={{fontFamily:MONO,fontSize:11,color:C.dim,textAlign:'right',marginTop:2}}>= <span style={{color:C.primary,fontWeight:700}}>{fmt(side.total)}</span></div>
+                <div style={{fontFamily:MONO,fontSize:mobile?11:13,color:C.dim,textAlign:'right',marginTop:2}}>= <span style={{color:C.primary,fontWeight:700}}>{fmt(side.total)}</span></div>
               </div>
             </div>
           ))}
@@ -619,12 +643,12 @@ function FullReport({reportData,hindsightData,onClose,pickSlotMap}:{reportData:a
               const detailPillColor=hindsightStatus==='pending'?C.gold:'#d4a017';
               return(
               <div key={idx} style={idx===0?colL:colR}>
-                <div style={{fontFamily:MONO,fontSize:12,fontWeight:800,letterSpacing:'0.10em',color:C.gold,marginBottom:6}}>
+                <div style={{fontFamily:MONO,fontSize:mobile?12:14,fontWeight:800,letterSpacing:'0.10em',color:C.gold,marginBottom:6}}>
                   {side.label}
-                  {detailPill&&<span style={{fontFamily:MONO,fontSize:8,fontWeight:800,letterSpacing:'0.08em',color:detailPillColor,background:`${detailPillColor}18`,padding:'2px 6px',borderRadius:3,border:`1px solid ${detailPillColor}30`,marginLeft:8}}>{detailPill}</span>}
+                  {detailPill&&<span style={{fontFamily:MONO,fontSize:mobile?8:10,fontWeight:800,letterSpacing:'0.08em',color:detailPillColor,background:`${detailPillColor}18`,padding:'2px 6px',borderRadius:3,border:`1px solid ${detailPillColor}30`,marginLeft:8}}>{detailPill}</span>}
                 </div>
-                <GradeBox score={hindsightStatus==='pending'?0:(side.h.score||0)} verdict={detailVerdict} confidence={hindsightStatus==='confirmed'?side.h.confidence:undefined} mobile={mobile}/>
-                {hindsightStatus!=='confirmed'&&<div style={{fontFamily:SANS,fontSize:10,color:C.dim,marginTop:4,lineHeight:1.3}}>Grade updates as production accumulates and picks resolve.</div>}
+                {hindsightStatus==='confirmed'&&side.h?.status!=='pending'&&<GradeBox score={side.h.score||0} verdict={detailVerdict} confidence={side.h.confidence} mobile={mobile}/>}
+                {hindsightStatus!=='confirmed'&&<div style={{fontFamily:SANS,fontSize:mobile?10:12,color:C.dim,marginTop:4,lineHeight:1.3}}>Grade updates as production accumulates and picks resolve.</div>}
               </div>
             );})}
           </div>
@@ -637,18 +661,20 @@ function FullReport({reportData,hindsightData,onClose,pickSlotMap}:{reportData:a
               <div key={idx} style={{...(idx===0?colL:colR),paddingTop:6,paddingBottom:6,paddingLeft:8,paddingRight:8,borderRadius:5,background:C.card,border:`1px solid ${C.border}`}}>
                 {kf.length>0?kf.map((f:string,i:number)=>(
                   <div key={i} style={{display:'flex',alignItems:'flex-start',gap:6,padding:'3px 0',borderBottom:i<kf.length-1?`1px solid ${C.white08}`:'none'}}>
-                    <span style={{fontSize:8,color:C.green,flexShrink:0,marginTop:3}}>●</span>
-                    <span style={{fontFamily:SANS,fontSize:12,color:C.secondary,lineHeight:1.4}}>{f}</span>
+                    <span style={{fontSize:mobile?8:10,color:C.green,flexShrink:0,marginTop:3}}>●</span>
+                    <span style={{fontFamily:SANS,fontSize:mobile?12:14,color:C.secondary,lineHeight:1.4}}>{f}</span>
                   </div>
-                )):<span style={{fontFamily:MONO,fontSize:10,color:C.dim,letterSpacing:'0.06em'}}>No factors</span>}
+                )):<span style={{fontFamily:MONO,fontSize:mobile?10:12,color:C.dim,letterSpacing:'0.06em'}}>No factors</span>}
               </div>
             ))}
           </div>}
         </>):(<div style={{padding:'12px',textAlign:'center'}}><span style={{fontFamily:MONO,fontSize:11,fontWeight:700,letterSpacing:'0.06em',color:C.goldBright}}>Hindsight grades unlock over time</span></div>)}
       </CollapsiblePill>
 
-      {/* ASSETS ACQUIRED — collapsible per owner */}
-      <CollapsiblePill label={`ASSETS ACQUIRED (${myAssets.length + theirAssets.length})`} defaultOpen={false}>
+      {/* ASSETS ACQUIRED — open by default on every viewport so users land on
+          the assets when they switch to DETAILS. Individual asset cards inside
+          stay collapsed — tap a card header to expand its stats. */}
+      <CollapsiblePill label={`ASSETS ACQUIRED (${myAssets.length + theirAssets.length})`} defaultOpen={true}>
         <div style={fp}>
           {[{label:`${myLabel} RECEIVED`,assets:myAssets,gf:myGradeFactors,owner:myName},{label:`${theirLabel} RECEIVED`,assets:theirAssets,gf:theirGradeFactors,owner:theirName}].map(({label,assets,gf,owner},idx)=>(
             <div key={idx} style={idx===0?colL:colR}>
@@ -673,14 +699,14 @@ function FullReport({reportData,hindsightData,onClose,pickSlotMap}:{reportData:a
                   return(
                   <div key={i} style={{marginBottom:i<assets.length-1?12:0}}>
                     <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:4,minWidth:0}}>
-                      <span style={{fontFamily:SANS,fontSize:13,fontWeight:700,color:C.primary,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',minWidth:0}}>{cleanPickName(a.name,a.resolved_slot,pickSlotMap)}</span>
-                      <span style={{fontFamily:MONO,fontSize:12,fontWeight:800,color:ic,paddingTop:2,paddingBottom:2,paddingLeft:8,paddingRight:8,borderRadius:4,background:ri.impact>=0?'rgba(125,211,160,0.12)':'rgba(228,114,114,0.12)',flexShrink:0}}>{ri.impact>=0?'+':''}{ri.impact.toFixed(1)} PPG</span>
+                      <span style={{fontFamily:SANS,fontSize:mobile?13:15,fontWeight:700,color:C.primary,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',minWidth:0}}>{cleanPickName(a.name,a.resolved_slot,pickSlotMap)}</span>
+                      <span style={{fontFamily:MONO,fontSize:mobile?12:14,fontWeight:800,color:ic,paddingTop:2,paddingBottom:2,paddingLeft:8,paddingRight:8,borderRadius:4,background:ri.impact>=0?'rgba(125,211,160,0.12)':'rgba(228,114,114,0.12)',flexShrink:0}}>{ri.impact>=0?'+':''}{ri.impact.toFixed(1)} PPG</span>
                     </div>
-                    <div style={{fontFamily:MONO,fontSize:10,color:C.dim,display:'flex',gap:16}}>
+                    <div style={{fontFamily:MONO,fontSize:mobile?10:12,color:C.dim,display:'flex',gap:16}}>
                       <span>With: <span style={{color:C.green,fontWeight:700}}>{ri.avg_with?.toFixed(1)}</span>{ri.total_weeks_with!=null&&` (${ri.total_weeks_with}wk)`}</span>
                       <span>Without: <span style={{color:C.red,fontWeight:700}}>{ri.avg_without?.toFixed(1)}</span>{ri.total_weeks_without!=null&&` (${ri.total_weeks_without}wk)`}</span>
                     </div>
-                    {uniqRep.length>0&&<div style={{fontFamily:SANS,fontSize:10,color:C.dim,marginTop:3}}>Replaced by: <span style={{color:C.secondary}}>{uniqRep.join(', ')}</span></div>}
+                    {uniqRep.length>0&&<div style={{fontFamily:SANS,fontSize:mobile?10:12,color:C.dim,marginTop:3}}>Replaced by: <span style={{color:C.secondary}}>{uniqRep.join(', ')}</span></div>}
                   </div>
                 );}):(<span style={{fontFamily:MONO,fontSize:12,color:C.dim}}>—</span>)}
               </div>
@@ -779,17 +805,13 @@ export default function TradeReportModal({ leagueId, tradeId, onClose }: {
     <div onClick={onClose} style={{position:'fixed',inset:0,zIndex:9999,background:'rgba(0,0,0,0.85)',backdropFilter:'blur(8px)',display:'flex',alignItems:mobile?'flex-end':'center',justifyContent:'center',animation:'fadeIn 0.2s ease'}}>
       <div onClick={(e)=>e.stopPropagation()} style={{
         width:mobile?'100vw':'92vw',maxWidth:mobile?'100vw':880,
-        height:mobile?'calc(100vh - 56px)':undefined,maxHeight:mobile?undefined:'92vh',
-        borderRadius:mobile?'12px 12px 0 0':12,overflowY:'auto',background:C.bg,
+        height:mobile?'100vh':undefined,maxHeight:mobile?undefined:'92vh',
+        borderRadius:mobile?0:12,overflowY:'auto',background:C.bg,
         border:mobile?'none':`1px solid ${C.border}`,
         animation:mobile?'modalSlideUp 0.25s ease':'modalSlideIn 0.25s ease',
         position:'relative',paddingBottom:mobile?'calc(16px + env(safe-area-inset-bottom, 0px))':0,
         overscrollBehavior:'contain',WebkitOverflowScrolling:'touch',
       }}>
-        {/* Close handle — mobile: drag handle only, × is in FullReport header (top-left) */}
-        {mobile&&<div style={{display:'flex',alignItems:'center',justifyContent:'center',paddingTop:8,paddingBottom:4}}>
-          <div style={{width:36,height:4,borderRadius:2,background:C.borderLt}}/>
-        </div>}
         {/* Powered by — desktop only */}
         {!mobile&&<div style={{position:'absolute',top:10,right:16,zIndex:10}}><div style={{display:'flex',alignItems:'center',gap:4,paddingTop:3,paddingBottom:3,paddingLeft:10,paddingRight:10,borderRadius:12,background:'rgba(212,165,50,0.06)',border:'1px solid rgba(212,165,50,0.22)'}}><span style={{fontFamily:SANS,fontSize:9,fontWeight:600,color:'#d4a532'}}>powered by</span><span style={{fontFamily:SANS,fontSize:10,fontWeight:900,color:'#eeeef2'}}>DynastyGPT<span style={{color:'#d4a532'}}>.com</span></span></div></div>}
         {isLoading?<LoadingSequence/>:hasReport?<FullReport reportData={r} hindsightData={hindsight} onClose={onClose} pickSlotMap={pickSlotMap}/>:(

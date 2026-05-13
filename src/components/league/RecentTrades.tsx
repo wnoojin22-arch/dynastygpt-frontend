@@ -6,6 +6,7 @@ import { C, SANS, MONO, getVerdictStyle, gradeColor } from "./tokens";
 import { TradeAssetList } from "./TradeAssets";
 import TradeReportModal from "./TradeReportModal";
 import { useOwnerClick, useIsOwnerCurrent } from "@/hooks/useOwnerClick";
+import { shouldShowVerdict } from "@/lib/utils";
 
 /* ═══════════════════════════════════════════════════════════════
    RECENT TRADES — compact sidebar widget with picks + side verdicts
@@ -57,10 +58,9 @@ export default function RecentTrades({ trades, basePath, leagueId, limit = 7 }: 
             // Verdict: WON, LOST, EVEN, or ROBBERY only
             const vs = t.verdict ? getVerdictStyle(t.verdict) : null;
 
-            // Hindsight: confirmed (548+ days) or Pending
-            const tradeDate = t.date ? new Date(t.date) : null;
-            const daysAgo = tradeDate ? Math.floor((Date.now() - tradeDate.getTime()) / (1000 * 60 * 60 * 24)) : 0;
-            const hindsightConfirmed = daysAgo >= 548;
+            // Hindsight: shouldShowVerdict (365-day rule) or Pending. Single source
+            // of truth shared with LeagueTradesView + MyTradesView via @/lib/utils.
+            const hindsightConfirmed = shouldShowVerdict(t.date);
             const hsVerdict = hindsightConfirmed ? ((t as any).hindsight_verdict || null) : null;
             const hsStyle = hsVerdict ? getVerdictStyle(hsVerdict) : null;
 

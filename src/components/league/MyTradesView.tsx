@@ -11,6 +11,7 @@ import PlayerName from "./PlayerName";
 import { useOwnerClick, useIsOwnerCurrent } from "@/hooks/useOwnerClick";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useTrack } from "@/hooks/useTrack";
+import { shouldShowVerdict } from "@/lib/utils";
 
 /* ═══════════════════════════════════════════════════════════════
    TOKENS — matched to Shadynasty
@@ -104,13 +105,6 @@ function fmtDate(d: string | undefined): string {
   return dt.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
 }
 
-function isHindsightDisplayable(dateStr: string | null | undefined, isChamp: boolean): boolean {
-  if (isChamp) return true;
-  if (!dateStr) return false;
-  const days = (Date.now() - new Date(dateStr).getTime()) / (1000 * 60 * 60 * 24);
-  return days >= 548;
-}
-
 function mapVerdict(v: string | null | undefined): string {
   if (!v) return "";
   const lo = v.toLowerCase();
@@ -126,15 +120,6 @@ function verdictColor(label: string): string {
   if (label === "ROBBERY") return "#ff4444";
   if (label === "EVEN") return C.secondary;
   return C.dim;
-}
-
-function hindsightLabel(dateStr: string | null | undefined, isChamp: boolean, verdict: string | null | undefined): { label: string; color: string } {
-  if (isHindsightDisplayable(dateStr, isChamp)) {
-    const mapped = mapVerdict(verdict);
-    if (!mapped) return { label: "—", color: C.dim };
-    return { label: mapped, color: verdictColor(mapped) };
-  }
-  return { label: "Pending", color: C.dim };
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -541,7 +526,7 @@ export default function MyTradesView({ leagueId, owner: ownerProp, ownerId }: { 
                                 );
                               })()}
                               {(() => {
-                                const isConfirmed = t.hindsight_status === 'confirmed';
+                                const isConfirmed = shouldShowVerdict(t.date);
                                 const hv = isConfirmed ? mapVerdict(t.hindsight_verdict) : '';
                                 const hc = hv ? verdictColor(hv) : C.dim;
                                 const label = isConfirmed && hv ? hv : 'Pending';
@@ -606,7 +591,7 @@ export default function MyTradesView({ leagueId, owner: ownerProp, ownerId }: { 
                               );
                             })()}
                             {(() => {
-                              const isConfirmed = t.hindsight_status === 'confirmed';
+                              const isConfirmed = shouldShowVerdict(t.date);
                               const hv = isConfirmed ? mapVerdict(t.hindsight_verdict) : '';
                               const hc = hv ? verdictColor(hv) : C.dim;
                               const label = isConfirmed && hv ? hv : 'Pending';
