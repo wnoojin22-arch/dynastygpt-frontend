@@ -118,13 +118,14 @@ function AssetCard({asset,allAssets,gradeFactors,allTrades,sideOwner,pickSlotMap
     return{...c,fullGave,fullGot,partner:flipTrade?(flipTrade.side_a?.owner?.toLowerCase()===ownerLower?flipTrade.side_b?.owner:flipTrade.side_a?.owner):c.flipped_to};
   }):[];
 
-  // Dedupe by trade_id
+  // Dedupe by trade_id — show every distinct flip event for this asset.
+  // (Backend caps chain depth at 3 so this is bounded.)
   const shownFlipTrades=new Set<string>();
   const visibleFlips=flipPackages.filter((fp:any)=>{
     if(shownFlipTrades.has(fp.trade_id))return false;
     shownFlipTrades.add(fp.trade_id);
     return true;
-  }).slice(0,1);
+  });
 
   // Flip profit parsing from grade factors
   const flipProfitFactor=(gradeFactors||[]).find((f:any)=>{
@@ -144,15 +145,8 @@ function AssetCard({asset,allAssets,gradeFactors,allTrades,sideOwner,pickSlotMap
   const _ppgA=hasProd&&showProd.games_started>0?(showProd.total_points/showProd.games_started):null;
   const _ppgR=hasProd&&showProd.games_on_roster>0?(showProd.total_points/showProd.games_on_roster):null;
 
-  // Flip destination — compact description
-  const flipDest=visibleFlips.length>0?(()=>{
-    const fp=visibleFlips[0];
-    const got=fp.fullGot||[];
-    if(got.length===0)return null;
-    if(got.length===1)return`Packaged for ${got[0]}`;
-    const hasPlayer=got.some((g:string)=>!g.match(/^\d{4}\s/));
-    return hasPlayer?`Packaged for ${got[0]} + ${got.length-1} more`:'Packaged for picks';
-  })():null;
+  // (Old `flipDest` one-liner pill replaced by the chain block rendered
+  // below — see "Flip chain block".)
 
   return(<div style={{paddingTop:5,paddingBottom:5,paddingLeft:8,paddingRight:8,borderRadius:5,background:C.elevated,border:`1px solid ${C.border}`,display:'flex',flexDirection:'column',gap:2}}>
     {/* Line 1: [Pos badge] [Name] [Age] + tags + chevron — click toggles open/closed.
@@ -175,11 +169,51 @@ function AssetCard({asset,allAssets,gradeFactors,allTrades,sideOwner,pickSlotMap
     {/* Pick resolution */}
     {isPick&&asset.resolved_player&&<div style={{fontFamily:MONO,fontSize:9,color:C.dim,paddingLeft:2}}>{asset.resolved_slot&&<span style={{color:C.secondary}}>{asset.resolved_slot} → </span>}{asset.resolved_player==="Not yet drafted"?"Not yet drafted":<span style={{color:C.primary,fontWeight:600}}>{asset.resolved_player}</span>}</div>}
 
-    {/* Flip pill */}
-    {flipDest&&(
-      <div style={{display:'inline-flex',alignItems:'center',gap:4,padding:'2px 8px',borderRadius:4,background:'rgba(224,156,107,0.10)',border:'1px solid rgba(224,156,107,0.25)',marginTop:2}}>
-        <span style={{fontFamily:MONO,fontSize:9,color:C.orange,fontWeight:800}}>↗</span>
-        <span style={{fontFamily:MONO,fontSize:10,fontWeight:700,color:C.orange}}>{flipDest}</span>
+    {/* Flip chain block — replaces the bare "Packaged for X" pill.
+        For every flip event the asset was part of, show the partner, date,
+        every asset received in return, and the SHA delta (green/red). No
+        production data on chain assets in this pass — chain entries only
+        carry names from the backend (Path A in audit). */}
+    {visibleFlips.length>0&&(
+      <div className="mt-2 flex flex-col gap-2">
+        {visibleFlips.map((fp:any,fi:number)=>{
+          const got=(fp.fullGot||fp.got_back||[]).filter(Boolean);
+          const profit=typeof fp.flip_profit==='number'?fp.flip_profit:null;
+          const partner=fp.partner||fp.flipped_to||'unknown';
+          const dateStr=fp.date?String(fp.date).slice(0,10):'';
+          return(
+            <div key={fi} className="rounded border border-accent-orange/25 bg-[rgba(224,156,107,0.08)] px-2.5 py-2 flex flex-col gap-1.5">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <span className="font-mono text-[10px] font-extrabold tracking-wider text-accent-orange uppercase">↗ Flipped to {partner}</span>
+                {dateStr&&<span className="font-mono text-[10px] text-dim">{dateStr}</span>}
+              </div>
+              {got.length>0&&(
+                <div className="flex flex-col gap-0.5">
+                  {got.map((g:string,gi:number)=>{
+                    const isPickAsset=/\b\d{4}\b/.test(g);
+                    const clean=g.replace(/\s*\([^)]*\)/g,'');
+                    return(
+                      <div key={gi} className="flex items-center gap-1.5 min-w-0">
+                        <span className="font-mono text-[9px] font-extrabold text-accent-orange shrink-0">{isPickAsset?'PK':'›'}</span>
+                        {isPickAsset?(
+                          <span className="font-sans text-sm text-secondary truncate">{clean}</span>
+                        ):(
+                          <PlayerName name={clean} className="font-sans text-sm font-semibold text-primary cursor-pointer truncate" />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              {profit!==null&&Math.abs(profit)>0&&(
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="font-mono text-[10px] font-extrabold tracking-wider text-dim uppercase">Net Value</span>
+                  <span className={`font-mono text-xs font-extrabold ${profit>=0?'text-accent-green':'text-accent-red'}`}>{profit>=0?'+':''}{fmt(profit)}</span>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     )}
 
@@ -324,6 +358,10 @@ function FullReport({reportData,hindsightData,onClose,pickSlotMap}:{reportData:a
   const tradeDate=reportData.trade_date?new Date(reportData.trade_date):null;
   const daysAgo=tradeDate?Math.floor((Date.now()-tradeDate.getTime())/(1000*60*60*24)):0;
   const hindsightStatus:('confirmed'|'too_soon'|'pending')=daysAgo>=548?'confirmed':daysAgo>=365?'too_soon':'pending';
+  // Live confidence (matches hindsight_grader.py:260-265 thresholds). Computed
+  // from current trade age rather than the stored hindsight_confidence column
+  // so it stays accurate as a trade ages past its last grading run.
+  const hindsightConfidence:('LOW'|'MED'|'HIGH')=daysAgo>=730?'HIGH':daysAgo>=365?'MED':'LOW';
 
 
   // Assets — from MY perspective (what I received = mySide.assets)
@@ -499,7 +537,7 @@ function FullReport({reportData,hindsightData,onClose,pickSlotMap}:{reportData:a
 
       {/* ── HINDSIGHT section — full bordered box ── */}
       <div style={{margin:mobile?'6px 6px 0':'10px 16px 0',borderRadius:8,border:`1px solid ${C.gold}30`,overflow:'hidden'}}>
-        <SectionDivider label={hindsightStatus==='confirmed'?'HINDSIGHT':'TRENDING'} accent={C.gold}/>
+        <SectionDivider label={`HINDSIGHT — ${hindsightConfidence} CONFIDENCE`} accent={C.gold}/>
         <div style={{display:'flex',flexDirection:'row'}}>
           {[
             {label:myLabel,header:`${myLabel}'S SIDE`,h:myH,bullets:myBullets,champ:myChamp,assets:myAssets,sideData:mySide},

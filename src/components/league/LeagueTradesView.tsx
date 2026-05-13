@@ -10,6 +10,7 @@ import { useOwnerClick, useIsOwnerCurrent } from "@/hooks/useOwnerClick";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useTrack } from "@/hooks/useTrack";
 import { shouldShowVerdict } from "@/lib/utils";
+import TradeRow, { isEmptyTrade as isEmptyTradeRow } from "./TradeRow";
 
 /* ═══════════════════════════════════════════════════════════════
    LEAGUE TRADES VIEW — Shadynasty "League Trade History" pattern
@@ -41,7 +42,9 @@ function hindsightLabel(dateStr: string | null | undefined, verdict: string | nu
 function mapVerdict(v: string | null | undefined): string {
   if (!v) return "";
   const lo = v.toLowerCase();
-  if (lo === "robbery" || lo === "victim") return "ROBBERY";
+  // Robbery is asymmetric — winner is ROBBERY, loser is the VICTIM (rendered LOST).
+  if (lo === "robbery") return "ROBBERY";
+  if (lo === "victim") return "LOST";
   if (lo === "won" || lo === "slight edge") return "WON";
   if (lo === "lost" || lo === "slight loss") return "LOST";
   if (lo === "win-win" || lo === "push" || lo === "both lost") return "EVEN";
@@ -225,77 +228,17 @@ export default function LeagueTradesView({ leagueId }: { leagueId: string }) {
       </div>
 
       {/* TRADE ROWS */}
-      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, overflow: "hidden" }}>
-        <div style={{ maxHeight: 640, overflowY: "auto" }}>
-          {filtered.map((t) => {
-            const vs = t.verdict ? getVerdictStyle(t.verdict) : null;
-            const aLetter = t.side_a_letter || letterFromVerdict(t.side_a_verdict);
-            const bLetter = t.side_b_letter || letterFromVerdict(t.side_b_verdict);
-            const aColor = gradeColor(aLetter);
-            const bColor = gradeColor(bLetter);
-            const aAssets = assetStr(t.players_sent, t.picks_sent);
-            const bAssets = assetStr(t.players_received, t.picks_received);
-
-            // Skip waiver/FAAB transactions (no assets on either side)
-            if (isEmptyTrade(t.players_sent, t.picks_sent) && isEmptyTrade(t.players_received, t.picks_received)) return null;
-
-            const hasGrade = !!(aLetter || bLetter);
-
-            return (
-              <div key={t.trade_id}
-                onClick={() => { track("trade_modal_opened", { league_id: leagueId, trade_id: t.trade_id }); setReportTradeId(t.trade_id); }}
-                style={{
-                  padding: mobile ? "10px 10px" : "12px 16px", borderBottom: `1px solid ${C.white08}`,
-                  borderLeft: `3px solid ${vs?.color || "transparent"}`,
-                  cursor: "pointer",
-                }}>
-                {/* Row 1: Date · Owners · Grades */}
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: mobile ? 6 : 8 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: mobile ? 6 : 8, minWidth: 0 }}>
-                    <span style={{ fontFamily: MONO, fontSize: mobile ? 9 : 10, fontWeight: 700, color: C.dim, flexShrink: 0 }}>{t.date?.slice(0, 10)}</span>
-                    <div style={{ display: "flex", alignItems: "center", gap: 4, minWidth: 0 }}>
-                      {(() => {
-                        const oCur = isOwnerCurrent(t.owner);
-                        const cCur = isOwnerCurrent(t.counter_party);
-                        return (<>
-                          <span onClick={(e) => { e.stopPropagation(); onOwnerClick(t.owner); }} style={{ fontFamily: SANS, fontSize: mobile ? 11 : 13, fontWeight: 700, color: C.primary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", cursor: oCur ? "pointer" : "default", borderBottom: oCur ? `1px dotted ${C.border}` : "none" }}>{t.owner}</span>
-                          <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>⇄</span>
-                          <span onClick={(e) => { e.stopPropagation(); onOwnerClick(t.counter_party); }} style={{ fontFamily: SANS, fontSize: mobile ? 11 : 13, fontWeight: 700, color: C.secondary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", cursor: cCur ? "pointer" : "default", borderBottom: cCur ? `1px dotted ${C.border}` : "none" }}>{t.counter_party}</span>
-                        </>);
-                      })()}
-                    </div>
-                  </div>
-                  {/* Grade badges */}
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-                    {(() => {
-                      const h = hindsightLabel(t.date, t.hindsight_verdict);
-                      const isPending = h.color === C.dim;
-                      return (
-                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
-                          <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: "0.06em", color: isPending ? C.dim : h.color }}>HINDSIGHT</span>
-                          <span style={{ fontFamily: MONO, fontSize: mobile ? 9 : 10, fontWeight: 800, color: h.color, padding: "2px 8px", borderRadius: 3, background: isPending ? C.elevated : `${h.color}15`, border: `1px solid ${isPending ? C.border : `${h.color}30`}`, lineHeight: 1 }}>{h.label}</span>
-                        </div>
-                      );
-                    })()}
-
-                  </div>
-                </div>
-                {/* Row 2: Assets exchanged */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: mobile ? 6 : 10, alignItems: "start" }}>
-                  <div>
-                    <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.dim, letterSpacing: "0.06em", marginBottom: 2 }}>{t.owner.split(" ")[0].toUpperCase()} GAVE</div>
-                    <div style={{ fontFamily: SANS, fontSize: mobile ? 10 : 11, color: C.secondary, lineHeight: 1.5 }}><InlineAssets players={t.players_sent} picks={t.picks_sent} /></div>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", paddingTop: 12 }}><span style={{ fontFamily: MONO, fontSize: 12, color: `${C.gold}40` }}>⇄</span></div>
-                  <div>
-                    <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.dim, letterSpacing: "0.06em", marginBottom: 2 }}>{t.counter_party.split(" ")[0].toUpperCase()} GAVE</div>
-                    <div style={{ fontFamily: SANS, fontSize: mobile ? 10 : 11, color: C.secondary, lineHeight: 1.5 }}><InlineAssets players={t.players_received} picks={t.picks_received} /></div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+      <div className="max-h-[640px] overflow-y-auto flex flex-col gap-3 pr-1">
+        {filtered.map((t) => {
+          if (isEmptyTradeRow(t)) return null;
+          return (
+            <TradeRow
+              key={t.trade_id}
+              trade={t}
+              onClick={() => { track("trade_modal_opened", { league_id: leagueId, trade_id: t.trade_id }); setReportTradeId(t.trade_id); }}
+            />
+          );
+        })}
       </div>
 
       {reportTradeId && <TradeReportModal leagueId={leagueId} tradeId={reportTradeId} onClose={() => setReportTradeId(null)} />}

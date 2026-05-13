@@ -238,6 +238,16 @@ export interface GradedTrade {
   hindsight_status: string | null;
   hindsight_label: string | null;
   is_championship_trade: boolean;
+  // Per-side hindsight (added in backend e4f1399 — uid-keyed so each side
+  // shows its own verdict regardless of enriched_trades row order).
+  side_a_user_id?: string | null;
+  side_b_user_id?: string | null;
+  side_a_hindsight_verdict?: string | null;
+  side_a_hindsight_score?: number | null;
+  side_a_hindsight_confidence?: string | null;
+  side_b_hindsight_verdict?: string | null;
+  side_b_hindsight_score?: number | null;
+  side_b_hindsight_confidence?: string | null;
 }
 
 export interface TradeGradeResponse {
