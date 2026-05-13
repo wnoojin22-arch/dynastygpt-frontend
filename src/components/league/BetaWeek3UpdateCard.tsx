@@ -4,15 +4,26 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import PlatformUpdateModal from "@/components/modals/PlatformUpdateModal";
+import { useTrack } from "@/hooks/useTrack";
 
-export default function BetaWeek3UpdateCard() {
+const ARTICLE_TITLE = "Weekly Update: New Trade Suggestion & Trade Grading Engine";
+
+export default function BetaWeek3UpdateCard({ leagueId }: { leagueId?: string }) {
   const [open, setOpen] = useState(false);
+  const track = useTrack();
 
   return (
     <>
       <motion.button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          track("platform_update_opened", {
+            league_id: leagueId || undefined,
+            article_title: ARTICLE_TITLE,
+            week: 4,
+          });
+          setOpen(true);
+        }}
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35 }}

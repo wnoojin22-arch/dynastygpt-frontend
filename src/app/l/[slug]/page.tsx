@@ -802,7 +802,7 @@ export default function LeagueHome() {
         <AnimatedSection className="order-0 lg:col-start-1">
           <SectionLabel title="PLATFORM UPDATE" />
           <div className="mb-3">
-            <BetaWeek3UpdateCard />
+            <BetaWeek3UpdateCard leagueId={lid || ""} />
           </div>
           <DraftHQAnnouncementCard slug={slug} leagueId={lid || ""} />
         </AnimatedSection>
