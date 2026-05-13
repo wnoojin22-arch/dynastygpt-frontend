@@ -59,86 +59,93 @@ export default function PlatformUpdateModal({
               </h1>
 
               <p className="font-sans text-[14px] sm:text-[15px] leading-relaxed text-secondary mb-6">
-                Couple of weeks since the last update. Here&apos;s what shipped, what&apos;s broken, and what&apos;s next.
+                A week and a half since the last update. Two big systems got rebuilt this stretch. Both are live in beta now.
               </p>
 
               <h2 className="font-display text-lg sm:text-xl tracking-tight text-gold mt-6 mb-3">
-                Draft HQ — Now Live
+                Trade Engine — Rebuilt
               </h2>
 
               <p className="font-sans text-[14px] sm:text-[15px] leading-relaxed text-secondary mb-3">
-                The first pieces of Draft HQ shipped this week. Find both inside Draft HQ on the home page.
+                The old engine computed a target value for the player(s) you wanted and searched a partner&apos;s roster for packages hitting that value. Reasonable but generic — every trade got the same math regardless of who was sending what or who was on the other side. You&apos;d get a package that &ldquo;matched on value&rdquo; but didn&apos;t always feel right.
               </p>
 
               <p className="font-sans text-[14px] sm:text-[15px] leading-relaxed text-secondary mb-3">
-                <strong className="font-bold text-primary">ADP.</strong>{" "}
-                Built on 10K+ real dynasty drafts and format-aware for your specific league. Whatever your scoring, league size, SF/1QB, TEP/non-TEP — the ADP you see reflects how players are actually drafted in leagues like yours, not a generic consensus board.
+                The new engine grounds every suggestion in actual market data. Over six million dynasty trades sit underneath, and for every player and pick that flows through the engine, there&apos;s a market profile built from real trades involving that asset. Not theoretical values — what actual leagues paid, who paid it, and what came back.
+              </p>
+
+              <p className="font-sans text-[14px] sm:text-[15px] leading-relaxed text-secondary mb-3">
+                What that means in practice: the engine scans each partner&apos;s full roster against your needs and surfaces packages that mirror trades that have actually happened. If a Ja&apos;Marr Chase typically goes for &ldquo;elite RB plus a first&rdquo; in your scoring format, those archetypes show up. If your league trades picks at a 15% premium versus the rest of the dynasty world, the engine picks that up. It reads behavioral signals about your partners — a contender with weak WR depth gets different package suggestions than a rebuilder hoarding picks.
               </p>
 
               <p className="font-sans text-[14px] sm:text-[15px] leading-relaxed text-secondary mb-6">
-                <strong className="font-bold text-primary">My Picks.</strong>{" "}
-                Live as a v1 — early, rough, but in your hands for feedback. Looks at your draft picks and tells you who&apos;s likely to be available, what to consider doing with each pick based on your roster needs and window. It needs work and I know it. Wanted to get v1 out so you can use it during the rookie draft window and tell me what&apos;s missing or wrong. Hit the feedback button on anything that&apos;s off.
+                <strong className="font-bold text-primary">Up front:</strong>{" "}
+                it will never be perfect. Engines that promise the optimal trade are lying. These are conversation starters with real precedent. Use them as a starting point, not a verdict.
               </p>
 
               <h2 className="font-display text-lg sm:text-xl tracking-tight text-gold mt-6 mb-3">
-                Also New This Week
+                Trade Grading — Rebuilt
               </h2>
 
+              <p className="font-sans text-[14px] sm:text-[15px] leading-relaxed text-secondary mb-3">
+                The old hindsight grader scored each trade as a single zero-sum number. One side &ldquo;won,&rdquo; the other &ldquo;lost.&rdquo; Intuitive on the surface, but it falls apart in real dynasty trades where both sides can legitimately win — one team needed a WR and got production, the other flipped a pick for a QB who became a starter. Both came out ahead in their context. The old grader couldn&apos;t say that.
+              </p>
+
+              <p className="font-sans text-[14px] sm:text-[15px] leading-relaxed text-secondary mb-3">
+                The new grader scores each side independently. Components like production return, chain value, and flip profit get computed for your side based on what YOU did with the assets you received — fully independent of what the other side did with theirs. You can both win. You can both lose. You can land somewhere in the middle.
+              </p>
+
+              <p className="font-sans text-[14px] sm:text-[15px] leading-relaxed text-secondary mb-3">
+                A few other changes that came with the rebuild:
+              </p>
+
+              <p className="font-sans text-[14px] sm:text-[15px] leading-relaxed text-secondary mb-3">
+                Verdicts use plainer language now — Won, Lost, Even. The old &ldquo;Push&rdquo; label was vague.
+              </p>
+
+              <p className="font-sans text-[14px] sm:text-[15px] leading-relaxed text-secondary mb-3">
+                You see grades way sooner. A trade gets graded after 90 days instead of waiting 18 months. In the trade log, trades under a year still show as &ldquo;Pending&rdquo; to keep that view clean — open the trade detail and you&apos;ll see the actual grade with a confidence label (Low, Medium, High) for how mature it is.
+              </p>
+
+              <p className="font-sans text-[14px] sm:text-[15px] leading-relaxed text-secondary mb-3">
+                Grades update every sync. They&apos;re living, not frozen — as production comes in, picks get used, players get flipped, the grade reflects the latest state.
+              </p>
+
               <p className="font-sans text-[14px] sm:text-[15px] leading-relaxed text-secondary mb-6">
-                <strong className="font-bold text-primary">Thumbs Up / Thumbs Down on suggestions.</strong>{" "}
-                Two seconds of feedback per trade tells me more than any survey. The reason picker on 👎 helps me pinpoint exactly what&apos;s broken. Every tap directly shapes the next version of the engine. Please use it.
+                <strong className="font-bold text-primary">Up front on this one too:</strong>{" "}
+                hindsight grading is hard and this version still has rough edges. The grader has to make calls about asset chains, production attribution, and championship context. I&apos;ve tested it against plenty of real trades and the grades are landing right, but there&apos;s no way I&apos;ve covered every weird dynasty scenario. If you see a verdict that feels obviously wrong on one of your trades, please flag it — that&apos;s exactly the feedback that makes it better.
               </p>
 
               <h2 className="font-display text-lg sm:text-xl tracking-tight text-gold mt-6 mb-3">
-                Trade Suggestions — Rebuilding This Week
+                What&apos;s Next
               </h2>
 
               <p className="font-sans text-[14px] sm:text-[15px] leading-relaxed text-secondary mb-3">
-                The biggest thing on my plate. The survey was clear: some of you said suggestions are sharp, plenty said hit-or-miss. I agree, and I&apos;m not patching this — I&apos;m rebuilding it.
+                With those two cores rebuilt, focus shifts to draft. Within the next day or so, Draft HQ is getting an update that adds two pieces:
               </p>
 
               <p className="font-sans text-[14px] sm:text-[15px] leading-relaxed text-secondary mb-3">
-                When suggestions miss, they miss in specific ways. Telling a contender to ship picks for an aging vet. Suggesting two no-name rookie WRs in exchange for a coveted young RB. Recommending trades the partner would never accept. The fix isn&apos;t a better prompt — it&apos;s a foundational rebuild.
+                A Draft Board that attempts to predict how your draft will play out — pick by pick, based on ADP, your specific league&apos;s history, and individual owner tendencies.
+              </p>
+
+              <p className="font-sans text-[14px] sm:text-[15px] leading-relaxed text-secondary mb-3">
+                Owner Intel for each leaguemate — their draft tendencies, what positions they prioritize, where they reach, where they wait. Useful both for predicting their picks and for finding trade angles around draft day.
               </p>
 
               <p className="font-sans text-[14px] sm:text-[15px] leading-relaxed text-secondary mb-6">
-                This is where my time is going this week. Trade suggestions are the foundation of a lot of what DynastyGPT does, and the rest of the platform compounds from getting this right.
+                Draft season is in full swing, so I&apos;m shipping this fast. It won&apos;t be perfect on day one and I&apos;ll iterate as feedback comes in — but for anyone prepping for a draft this month, I want something in your hands now rather than polished in three weeks.
               </p>
 
               <h2 className="font-display text-lg sm:text-xl tracking-tight text-gold mt-6 mb-3">
-                AI Trade Advisor — Still Offline
-              </h2>
-
-              <p className="font-sans text-[14px] sm:text-[15px] leading-relaxed text-secondary mb-6">
-                Coming back when the new suggestion engine is ready, with the same foundation underneath. Pulling it down was the right call — the hallucinations weren&apos;t acceptable for a tool you&apos;re trusting with real trade decisions.
-              </p>
-
-              <h2 className="font-display text-lg sm:text-xl tracking-tight text-gold mt-6 mb-3">
-                Trade Grades — Next Up After Suggestions
-              </h2>
-
-              <p className="font-sans text-[14px] sm:text-[15px] leading-relaxed text-secondary mb-6">
-                Once suggestions are in a good place, trade grades are next. They&apos;re inconsistent right now and I know it. The grades you see today depend on a few factors that aren&apos;t always weighted right, which is why the same trade can sometimes feel graded differently than it should. Taking a deep look at the whole grading model is on the roadmap — not this week, but soon after suggestions ship.
-              </p>
-
-              <h2 className="font-display text-lg sm:text-xl tracking-tight text-gold mt-6 mb-3">
-                Draft HQ — What&apos;s Coming
+                Keep the Feedback Coming
               </h2>
 
               <p className="font-sans text-[14px] sm:text-[15px] leading-relaxed text-secondary mb-3">
-                ADP and My Picks are the foundation. What&apos;s coming next:
-              </p>
-
-              <p className="font-sans text-[14px] sm:text-[15px] leading-relaxed text-secondary mb-3">
-                A simulated draft board for your league — see how your draft is likely to play out before it happens, with picks projected based on ADP from similar leagues plus your own league&apos;s history and individual owner tendencies.
-              </p>
-
-              <p className="font-sans text-[14px] sm:text-[15px] leading-relaxed text-secondary mb-3">
-                A full mock simulator with a trade layer — run a mock with your actual leaguemates picking based on how they behave. At any point, explore moving up or back. The simulator tells you which owners would realistically engage and what they&apos;d take. Accept a hypothetical trade and keep the mock running from your new slot.
+                Thumbs up / thumbs down on trade suggestions and analyzed trades is the highest-signal feedback I get. Two seconds of a tap tells me more than any survey, and the reason picker on a 👎 helps me pinpoint exactly what&apos;s broken. Every tap shapes the next version of the engine.
               </p>
 
               <p className="font-sans text-[14px] sm:text-[15px] leading-relaxed text-secondary mb-6">
-                That&apos;s the roadmap for Draft HQ. Trade suggestions come first, but the draft pieces are next in queue.
+                Beyond that, shoot me a note on anything — things that feel off, things you love, anything missing that could make the site better. Chances are I can make it happen.
               </p>
 
               <p className="font-sans text-[14px] sm:text-[15px] font-semibold text-primary">
