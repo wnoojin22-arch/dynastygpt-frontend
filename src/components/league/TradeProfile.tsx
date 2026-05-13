@@ -4,6 +4,7 @@ import React, { useState, useMemo, useEffect, ReactNode } from "react";
 import PlayerName from "./PlayerName";
 import { useLeagueStore } from "@/lib/stores/league-store";
 import { useTrack } from "@/hooks/useTrack";
+import { shouldShowVerdict } from "@/lib/utils";
 import {
   TrendingUp, TrendingDown, Minus, Trophy, Target, Shield,
   AlertTriangle, ArrowUpRight, ArrowDownRight, Clock,
@@ -83,23 +84,13 @@ function verdictColor(v: string | null): { color: string; bg: string } {
   return { color: "#9596a5", bg: "rgba(149,150,165,0.10)" };
 }
 
-function isHindsightDisplayable(dateStr: string | null, isChamp: boolean): boolean {
-  if (isChamp) return true;
-  if (!dateStr) return false;
-  const days = (Date.now() - new Date(dateStr).getTime()) / (1000 * 60 * 60 * 24);
-  return days >= 548;
-}
-
-function hindsightLabel(dateStr: string | null, isChamp: boolean, verdict: string | null | undefined): { label: string; color: string } {
-  if (isHindsightDisplayable(dateStr, isChamp)) {
-    const v = verdict || "—";
-    const vc = verdictColor(v);
-    return { label: v, color: vc.color };
-  }
-  if (!dateStr) return { label: "Pending", color: "#9596a5" };
-  const days = (Date.now() - new Date(dateStr).getTime()) / (1000 * 60 * 60 * 24);
-  if (days >= 365) return { label: "Too Soon", color: "#9596a5" };
-  return { label: "Pending", color: "#9596a5" };
+// List-row hindsight gate uses shouldShowVerdict (365-day rule) — shared across
+// LeagueTradesView, MyTradesView, RecentTrades, TradeProfile via @/lib/utils.
+function hindsightLabel(dateStr: string | null, verdict: string | null | undefined): { label: string; color: string } {
+  if (!shouldShowVerdict(dateStr)) return { label: "Pending", color: "#9596a5" };
+  const v = verdict || "—";
+  const vc = verdictColor(v);
+  return { label: v, color: vc.color };
 }
 
 function formatDate(d: string | null): string {
@@ -835,7 +826,7 @@ export default function TradeProfile({ ownerName, profile }: {
           <div className="max-h-[400px] overflow-y-auto">
             {filteredTrades.slice(0, showAllTrades ? undefined : 10).map((t: any, i: number) => {
               const vc = verdictColor(t.verdict);
-              const hl = hindsightLabel(t.date, t.is_championship_trade || false, t.hindsight_verdict);
+              const hl = hindsightLabel(t.date, t.hindsight_verdict);
               return (
                 <div key={`${t.trade_id}-${i}`} className="px-4 py-3 border-b border-white/[0.04] hover:bg-elevated/40 transition-colors"
                   style={{ borderLeft: `3px solid ${hl.color === "#9596a5" ? vc.color : hl.color}` }}>

@@ -9,6 +9,7 @@ import PlayerName from "./PlayerName";
 import { useOwnerClick, useIsOwnerCurrent } from "@/hooks/useOwnerClick";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useTrack } from "@/hooks/useTrack";
+import { shouldShowVerdict } from "@/lib/utils";
 
 /* ═══════════════════════════════════════════════════════════════
    LEAGUE TRADES VIEW — Shadynasty "League Trade History" pattern
@@ -27,23 +28,14 @@ interface Trade {
   hindsight_confidence?: string | null; is_championship_trade?: boolean;
 }
 
-function isHindsightDisplayable(dateStr: string | null | undefined, isChamp: boolean): boolean {
-  if (isChamp) return true;
-  if (!dateStr) return false;
-  const days = (Date.now() - new Date(dateStr).getTime()) / (1000 * 60 * 60 * 24);
-  return days >= 548;
-}
-
-function hindsightLabel(dateStr: string | null | undefined, isChamp: boolean, verdict: string | null | undefined): { label: string; color: string } {
-  if (isHindsightDisplayable(dateStr, isChamp)) {
-    const v = verdict || "—";
-    const vs = getVerdictStyle(v);
-    return { label: vs?.label || v, color: vs?.color || C.dim };
-  }
-  if (!dateStr) return { label: "Pending", color: C.dim };
-  const days = (Date.now() - new Date(dateStr).getTime()) / (1000 * 60 * 60 * 24);
-  if (days >= 365) return { label: "Too Soon", color: C.dim };
-  return { label: "Pending", color: C.dim };
+// List-row hindsight gating uses shouldShowVerdict (365-day rule) — single
+// source of truth shared across LeagueTradesView / MyTradesView / RecentTrades.
+// The TradeReportModal continues to show its own living-grade pill on tap.
+function hindsightLabel(dateStr: string | null | undefined, verdict: string | null | undefined): { label: string; color: string } {
+  if (!shouldShowVerdict(dateStr)) return { label: "Pending", color: C.dim };
+  const v = verdict || "—";
+  const vs = getVerdictStyle(v);
+  return { label: vs?.label || v, color: vs?.color || C.dim };
 }
 
 function mapVerdict(v: string | null | undefined): string {
@@ -276,7 +268,7 @@ export default function LeagueTradesView({ leagueId }: { leagueId: string }) {
                   {/* Grade badges */}
                   <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
                     {(() => {
-                      const h = hindsightLabel(t.date, t.is_championship_trade || false, t.hindsight_verdict);
+                      const h = hindsightLabel(t.date, t.hindsight_verdict);
                       const isPending = h.color === C.dim;
                       return (
                         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
