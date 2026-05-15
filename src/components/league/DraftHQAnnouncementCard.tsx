@@ -41,7 +41,7 @@ export default function DraftHQAnnouncementCard({ slug, leagueId }: { slug: stri
               animation: "draftHQPulse 2s ease infinite",
             }}
           >
-            NEW — LIVE NOW
+            UPDATED
           </span>
         </div>
 
@@ -73,14 +73,14 @@ export default function DraftHQAnnouncementCard({ slug, leagueId }: { slug: stri
             className="text-primary leading-[1.18] tracking-tight text-[18px] sm:text-[20px]"
             style={{ fontFamily: DISPLAY }}
           >
-            New: Draft HQ
+            DraftHQ: Draft Board & Intel Now Live
           </h3>
 
           <p
             className="text-primary text-[13px] sm:text-[14px] leading-snug"
             style={{ fontFamily: SANS, fontWeight: 700 }}
           >
-            Update: Now Live with Pick Insights + Rookie ADP from real drafts
+            Get pick insights, draft board with pick predictions, league intel, and Rookie ADP from real drafts
           </p>
 
           {/* CTA button */}
