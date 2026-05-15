@@ -26,21 +26,6 @@ const TABS = [
   { id: "intel",       label: "DRAFT INTEL" },
 ];
 
-const COMING_SOON_COPY: Record<string, { title: string; body: string }> = {
-  "your-picks": {
-    title: "Your Picks",
-    body: "Personalized strategy for every pick you own. Likely available rookies, trade-up partners with realistic costs from real trades, trade-back scenarios, sell signals — all built around YOUR roster, YOUR league, YOUR picks. Launching this draft season.",
-  },
-  "draft-board": {
-    title: "Draft Board",
-    body: "Every pick in your draft, every owner. See likely targets, biggest roster needs, and trade-up signals across the entire draft order. Spot the picks worth approaching and the ones worth avoiding before draft day. Launching this draft season.",
-  },
-  "intel": {
-    title: "Draft Intel",
-    body: "Reconnaissance on your league. Owner cards showing roster strengths, position needs, draft-day trade history, and trade flags. League-wide tendencies — does your league reach on RBs? Let QBs slide? — pulled from your actual draft history. Launching this draft season.",
-  },
-};
-
 const POS_COLOR: Record<Pos, string> = {
   QB: "#e47272", RB: "#6bb8e0", WR: "#7dd3a0", TE: "#e09c6b",
 };
@@ -2677,67 +2662,6 @@ function Rookies({ lid }: { lid: string }) {
 }
 
 // ═════════════════════════════════════════════════════════════════════════
-// COMING SOON — locked tab panel (soft launch)
-// ═════════════════════════════════════════════════════════════════════════
-function ComingSoon({ tabId }: { tabId: string }) {
-  const isMobile = useIsMobile();
-  const copy = COMING_SOON_COPY[tabId];
-  if (!copy) return null;
-  return (
-    <div style={{ padding: isMobile ? "20px 0 40px" : "32px 0 60px" }}>
-      <div style={{
-        position: "relative", overflow: "hidden",
-        background: `linear-gradient(180deg, ${C.goldGlow} 0%, ${C.card} 70%)`,
-        border: `1px solid ${C.goldBorder}`, borderRadius: isMobile ? 10 : 14,
-        padding: isMobile ? "26px 18px" : "44px 36px",
-      }}>
-        {/* Top accent stripe */}
-        <div style={{
-          position: "absolute", top: 0, left: 0, right: 0, height: 3,
-          background: `linear-gradient(90deg, transparent 0%, ${C.gold} 50%, transparent 100%)`,
-          backgroundSize: "200% 100%",
-          animation: "rk-shimmer 3.6s linear infinite",
-        }} />
-        {/* Soft glow blob */}
-        <div style={{
-          position: "absolute", top: -120, right: -120, width: 320, height: 320,
-          borderRadius: "50%",
-          background: `radial-gradient(circle, ${C.gold}18 0%, transparent 60%)`,
-          pointerEvents: "none",
-        }} />
-        <div style={{ position: "relative", maxWidth: 680 }}>
-          <div style={{
-            display: "inline-flex", alignItems: "center", gap: 8,
-            padding: "5px 11px", borderRadius: 999,
-            background: `${C.gold}15`, border: `1px solid ${C.goldBorder}`,
-            marginBottom: isMobile ? 12 : 18,
-          }}>
-            <span style={{
-              width: 6, height: 6, borderRadius: "50%", background: C.gold,
-              boxShadow: `0 0 8px ${C.gold}`,
-            }} />
-            <span style={{
-              fontFamily: MONO, fontSize: isMobile ? 10 : 11, fontWeight: 800, color: C.gold,
-              letterSpacing: "0.16em",
-            }}>IN FLIGHT</span>
-          </div>
-          <div style={{
-            fontFamily: SANS, fontSize: isMobile ? 26 : 36, fontWeight: 900, color: C.primary,
-            letterSpacing: "-0.01em", lineHeight: 1.05, marginBottom: isMobile ? 12 : 16,
-            background: `linear-gradient(180deg, ${C.primary} 0%, ${C.gold} 220%)`,
-            WebkitBackgroundClip: "text", backgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-          }}>{copy.title}</div>
-          <div style={{
-            fontFamily: SANS, fontSize: isMobile ? 13.5 : 16, color: C.secondary, lineHeight: 1.65,
-          }}>{copy.body}</div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ═════════════════════════════════════════════════════════════════════════
 // PAGE
 // ═════════════════════════════════════════════════════════════════════════
 export default function DraftHQPage() {
@@ -2793,18 +2717,8 @@ export default function DraftHQPage() {
         <GlowTabs tabs={TABS} active={tab} onChange={setTab} />
         {tab === "rookies"     && <Rookies    lid={currentLeagueId || ""} />}
         {tab === "your-picks"  && <YourPicks  lid={currentLeagueId || ""} owner={currentOwner} ownerId={currentOwnerId} />}
-        {tab === "draft-board" && (
-          process.env.NEXT_PUBLIC_DRAFT_BOARD_LOCAL === "true" ||
-          currentLeagueId === "1326743821593116672"
-            ? <DraftBoard lid={currentLeagueId || ""} currentOwnerId={currentOwnerId} />
-            : <ComingSoon tabId="draft-board" />
-        )}
-        {tab === "intel"       && (
-          process.env.NODE_ENV === "development" ||
-          currentLeagueId === "1326743821593116672"
-            ? <DraftIntel lid={currentLeagueId || ""} currentOwnerId={currentOwnerId} />
-            : <ComingSoon tabId="intel" />
-        )}
+        {tab === "draft-board" && <DraftBoard lid={currentLeagueId || ""} currentOwnerId={currentOwnerId} />}
+        {tab === "intel"       && <DraftIntel lid={currentLeagueId || ""} currentOwnerId={currentOwnerId} />}
     </div>
   );
 }
