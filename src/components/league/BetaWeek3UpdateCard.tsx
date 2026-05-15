@@ -33,11 +33,8 @@ export default function BetaWeek3UpdateCard({ leagueId }: { leagueId?: string })
           <span className="relative inline-flex items-center rounded-full bg-accent-red-bright px-2 py-[3px] font-mono text-[8px] font-black tracking-[0.12em] text-white shadow-[0_0_10px_rgba(255,68,68,0.7)]">
             NEW
           </span>
-          <span className="relative inline-flex">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-gold-bright opacity-60" />
-            <span className="relative inline-flex items-center rounded-full bg-gold-bright px-2 py-[3px] font-mono text-[8px] font-black tracking-[0.12em] text-[#06080d] shadow-[0_0_10px_rgba(212,165,50,0.7)]">
-              WEEKLY UPDATE
-            </span>
+          <span className="relative inline-flex items-center rounded-full bg-gold-bright px-2 py-[3px] font-mono text-[8px] font-black tracking-[0.12em] text-[#06080d] shadow-[0_0_10px_rgba(212,165,50,0.7)]">
+            WEEKLY UPDATE
           </span>
         </span>
         <div className="h-[2px] w-full overflow-hidden rounded-t-lg bg-gradient-to-r from-gold-dark via-gold-bright to-gold-dark" />

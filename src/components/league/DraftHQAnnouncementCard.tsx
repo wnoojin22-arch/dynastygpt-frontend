@@ -29,16 +29,15 @@ export default function DraftHQAnnouncementCard({ slug, leagueId }: { slug: stri
           border: `1px solid ${C.border}`,
         }}
       >
-        {/* Badge — NEW (gold) */}
-        <style>{`@keyframes draftHQPulse{0%,100%{box-shadow:0 0 6px rgba(212,165,50,0.4)}50%{box-shadow:0 0 16px rgba(212,165,50,0.85),0 0 30px rgba(212,165,50,0.35)}}`}</style>
+        {/* Badge — UPDATED (red) */}
         <div className="absolute top-2 right-2 z-10 flex items-center gap-1.5">
           <span
             className="px-2.5 py-1 rounded-full text-[8px] font-black tracking-[0.10em]"
             style={{
               fontFamily: MONO,
-              color: "#06080d",
-              background: C.gold,
-              animation: "draftHQPulse 2s ease infinite",
+              color: "#ffffff",
+              background: C.redBright,
+              boxShadow: "0 0 10px rgba(255,68,68,0.7)",
             }}
           >
             UPDATED
