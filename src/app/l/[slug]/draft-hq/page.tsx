@@ -1642,8 +1642,8 @@ function buildTendencyParagraphs(t: any): { headline: string | null; body: strin
   const disc = t.adp_discipline;
   if (disc != null) {
     const a = Math.abs(disc);
-    if (a <= 10) headline = "This league drafts on script.";
-    else if (a <= 22) headline = "This league mostly drafts on script.";
+    if (a <= 3) headline = "This league drafts on script.";
+    else if (a <= 10) headline = "This league mostly drafts on script.";
     else headline = "This league drafts off the cuff.";
   }
 
@@ -1662,7 +1662,7 @@ function buildTendencyParagraphs(t: any): { headline: string | null; body: strin
     const biasIsAggressive = biasMeaningful && rm <= -1;
 
     // S1
-    let s1 = a <= 10
+    let s1 = a <= 3
       ? `Across ${sampleStr} in ${seasonsStr}, this league drafted players within ${a.toFixed(1)} spots of where the broader dynasty market valued them`
       : `Across ${sampleStr} in ${seasonsStr}, this league drafted players an average of ${a.toFixed(1)} spots away from where the broader dynasty market valued them`;
     if (biasMeaningful) {
@@ -1671,12 +1671,12 @@ function buildTendencyParagraphs(t: any): { headline: string | null; body: strin
     s1 += ".";
 
     // S2
-    let s2 = a <= 10
+    let s2 = a <= 3
       ? "That's well inside the disciplined range"
-      : a <= 22
+      : a <= 10
         ? "That's normal scatter"
         : "That's beyond the chaos threshold";
-    s2 += " (under ±10 is disciplined, ±10-22 is normal, beyond ±22 is chaotic)";
+    s2 += " (under ±3 is disciplined, ±3-10 is normal, beyond ±10 is chaotic)";
     if (biasMeaningful) {
       s2 += biasIsAggressive ? " with a measurable aggressive bias" : " with a measurable patient bias";
     }
@@ -1684,9 +1684,9 @@ function buildTendencyParagraphs(t: any): { headline: string | null; body: strin
 
     // S3
     let s3: string;
-    if (a <= 10) {
+    if (a <= 3) {
       s3 = "Practical takeaway: ADP is a reliable signal here. Reaches and slides are rare, so a player available significantly past consensus is a real value, not a likely overrate.";
-    } else if (a <= 22) {
+    } else if (a <= 10) {
       if (biasMeaningful && biasIsAggressive) {
         s3 = "Practical takeaway: expect names to come off the board a bit earlier than dynasty rankings suggest. Targets you have ranked at your slot may already be gone.";
       } else if (biasMeaningful) {
