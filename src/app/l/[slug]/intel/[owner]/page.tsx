@@ -176,9 +176,31 @@ export default function OwnerDetailPage({ params }: { params: Promise<{ owner: s
 
       {/* ROSTER */}
       {tab === "roster" && (
-        <DCard label="ROSTER" right={<span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>{roster?.roster_size || 0} players</span>}>
+        <DCard
+          label="ROSTER"
+          right={
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              {roster?.total_proj_pts != null && (
+                <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>
+                  Proj <span style={{ color: C.primary, fontWeight: 700 }}>{Math.round(roster.total_proj_pts).toLocaleString()}</span>
+                  <span style={{ color: C.dim }}> · Starters </span>
+                  <span style={{ color: C.primary, fontWeight: 700 }}>{Math.round(roster.starter_proj_pts || 0).toLocaleString()}</span>
+                </span>
+              )}
+              <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>{roster?.roster_size || 0} players</span>
+            </div>
+          }
+        >
           {roster ? (
             <div>
+              {/* Column headers — small, muted, single row above all positions */}
+              <div style={{ display: "grid", gridTemplateColumns: "1.6fr 0.5fr 0.5fr 0.5fr 0.5fr", alignItems: "center", gap: 8, padding: "4px 6px", borderBottom: `1px solid ${C.border}` }}>
+                <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: "0.08em", color: C.dim }}>PLAYER</span>
+                <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: "0.08em", color: C.dim, textAlign: "right" }}>SHA</span>
+                <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: "0.08em", color: C.dim, textAlign: "center" }}>RANK</span>
+                <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: "0.08em", color: C.dim, textAlign: "center" }}>KTC</span>
+                <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: "0.08em", color: C.dim, textAlign: "right" }}>PROJ {roster.projections_format?.season || 2026}</span>
+              </div>
               {(["QB", "RB", "WR", "TE"] as const).map((pos) => {
                 const players = roster.by_position?.[pos] || [];
                 if (!players.length) return null;
@@ -189,7 +211,7 @@ export default function OwnerDetailPage({ params }: { params: Promise<{ owner: s
                       <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>{players.length} players</span>
                     </div>
                     {players.map((p: RosterPlayer) => (
-                      <div key={p.name_clean} style={{ display: "grid", gridTemplateColumns: "1.6fr 0.5fr 0.5fr 0.5fr", alignItems: "center", gap: 8, padding: "4px 6px", borderBottom: `1px solid ${C.white08}`, borderLeft: `3px solid ${POS[pos]}` }}>
+                      <div key={p.name_clean} style={{ display: "grid", gridTemplateColumns: "1.6fr 0.5fr 0.5fr 0.5fr 0.5fr", alignItems: "center", gap: 8, padding: "4px 6px", borderBottom: `1px solid ${C.white08}`, borderLeft: `3px solid ${POS[pos]}` }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 6, overflow: "hidden" }}>
                           <span style={{ fontSize: 12, fontWeight: 600, color: C.primary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</span>
                           {p.age && <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim, flexShrink: 0 }}>{p.age}y</span>}
@@ -197,6 +219,7 @@ export default function OwnerDetailPage({ params }: { params: Promise<{ owner: s
                         <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.gold, textAlign: "right" }}>{fmt(p.sha_value)}</span>
                         <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim, textAlign: "center" }}>{p.sha_pos_rank || "—"}</span>
                         <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim, textAlign: "center" }}>{p.ktc_value ? fmt(p.ktc_value) : "—"}</span>
+                        <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: p.proj_pts != null ? C.primary : C.dim, textAlign: "right" }}>{p.proj_pts != null ? p.proj_pts.toFixed(1) : "—"}</span>
                       </div>
                     ))}
                   </div>
