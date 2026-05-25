@@ -928,11 +928,11 @@ function DashboardView({ lid, owner, ownerId }: { lid: string; owner: string; ow
               <div>
                 {/* Column headers */}
                 <div className="max-sm:!grid-cols-[1.8fr_0.6fr_0.55fr]" style={{
-                  display: "grid", gridTemplateColumns: "1.8fr 0.6fr 0.55fr 0.45fr 0.45fr",
+                  display: "grid", gridTemplateColumns: "1.8fr 0.6fr 0.55fr 0.45fr 0.45fr 0.5fr",
                   padding: "0 8px 5px", marginBottom: 2,
                 }}>
-                  {["PLAYER", "VALUE", "POS RK", "30D", "TRADE MKT"].map((h) => (
-                    <span key={h} className={h === "30D" || h === "TRADE MKT" ? "hidden sm:block" : ""} style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.06em", color: C.dim, textAlign: h === "PLAYER" ? "left" : "center" }}>{h}</span>
+                  {["PLAYER", "VALUE", "POS RK", "30D", "TRADE MKT", "PROJ 2026"].map((h) => (
+                    <span key={h} className={h === "30D" || h === "TRADE MKT" || h === "PROJ 2026" ? "hidden sm:block" : ""} style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.06em", color: C.dim, textAlign: h === "PLAYER" ? "left" : (h === "PROJ 2026" ? "right" : "center") }}>{h}</span>
                   ))}
                 </div>
 
@@ -976,7 +976,7 @@ function DashboardView({ lid, owner, ownerId }: { lid: string; owner: string; ow
                         const isHovered = hoveredPlayer === `${pos}-${idx}`;
                         return (
                           <div key={p.name_clean} className="max-sm:!grid-cols-[1.8fr_0.6fr_0.55fr]" style={{
-                            display: "grid", gridTemplateColumns: "1.8fr 0.6fr 0.55fr 0.45fr 0.45fr",
+                            display: "grid", gridTemplateColumns: "1.8fr 0.6fr 0.55fr 0.45fr 0.45fr 0.5fr",
                             padding: "4px 8px",
                             borderLeft: isTop ? `3px solid ${C.gold}` : `3px solid transparent`,
                             borderBottom: `1px solid ${C.white08}`,
@@ -1008,6 +1008,9 @@ function DashboardView({ lid, owner, ownerId }: { lid: string; owner: string; ow
                             </span>
                             <span className="hidden sm:block" onClick={(e) => { e.stopPropagation(); if (mkt != null) openPlayerCard(p.name, "market"); }} style={{ fontFamily: MONO, fontSize: 10, textAlign: "center", alignSelf: "center", color: mktColor, fontWeight: mkt != null ? 700 : 400, cursor: mkt != null ? "pointer" : "default", borderRadius: 3, padding: "1px 3px", transition: "background 0.12s" }} onMouseEnter={(e) => { if (mkt != null) (e.currentTarget as HTMLElement).style.background = `${mktColor}15`; }} onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
                               {mktLabel}
+                            </span>
+                            <span className="hidden sm:block" style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, textAlign: "right", alignSelf: "center", color: p.proj_pts != null ? C.primary : C.dim }}>
+                              {p.proj_pts != null ? p.proj_pts.toFixed(1) : "—"}
                             </span>
                           </div>
                         );
