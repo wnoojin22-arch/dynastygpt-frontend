@@ -23,6 +23,10 @@ export interface RosterPlayer {
   dynasty_value: number;
   redraft_value: number;
   mkt_vs_pct: number | null;
+  /** Projected fantasy points for the league's scoring format (season).
+   *  Phase B §3.3 — populated by /roster endpoint. `null` when the player
+   *  has no projection row (rare; usually missing for K/DEF or undrafted). */
+  proj_pts?: number | null;
 }
 
 export interface PlayerSignal {
@@ -100,6 +104,10 @@ export interface RosterResponse {
   owner: string;
   total_sha: number;
   starter_sha: number;
+  /** Phase B §3.3 — sum of every rostered player's proj_pts (skips nulls). */
+  total_proj_pts?: number;
+  starter_proj_pts?: number;
+  projections_format?: { scoring_type: string; pass_td_pts: number; te_premium: number; season: number };
   roster_size: number;
   positional_grades: Record<string, string>;
   starters: RosterPlayer[];
@@ -346,6 +354,15 @@ export interface LeagueIntelOwner {
   trade_count: number;
   positional_needs: string[];
   positional_strengths: string[];
+}
+
+export interface LeagueMode {
+  is_new_league: boolean;
+  raw_is_new_league: boolean;
+  seasons_count: number;
+  enriched_trades_count: number;
+  kill_switch_active: boolean;
+  thresholds: { seasons_min: number; enriched_trades_min: number };
 }
 
 // ── Positional Power ────────────────────────────────────────────────────
