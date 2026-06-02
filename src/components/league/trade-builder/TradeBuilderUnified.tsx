@@ -1153,6 +1153,7 @@ export default function TradeBuilderUnified() {
         isOpen={ui.showAnalyzeModal}
         onClose={ctx.closeAnalyze}
         evaluation={tb.evaluation}
+        starterImpact={tb.starterImpact}
         partner={tb.partner}
         owner={currentOwner}
         onCounter={() => {

@@ -13,7 +13,7 @@ import React, { useRef, useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { C, SANS, MONO, SERIF, DISPLAY, fmt, posColor, gradeColor } from "../tokens";
-import type { TradeEvaluation, TradeAsset, GradeResult, AcceptanceResult } from "./types";
+import type { TradeEvaluation, TradeAsset, GradeResult, AcceptanceResult, StarterImpactResponse, StarterImpactSide, DataFreshness } from "./types";
 import FeedbackThumbs from "@/components/feedback/FeedbackThumbs";
 
 // ── Design tokens specific to this modal ─────────────────────────────────
@@ -279,18 +279,177 @@ function SectionLabel({ text }: { text: string }) {
   );
 }
 
+// ── Starter Impact (Phase 4) ─────────────────────────────────────────────
+// Renders projected starter-points before vs after the trade, per position,
+// with delta. Insight string comes from the backend (Sonnet). Display-only —
+// has nothing to do with SHA / verdict / acceptance. Renders nothing when
+// the endpoint returned null/error or both sides are unavailable.
+
+function FreshnessBadge({ freshness }: { freshness: DataFreshness }) {
+  if (freshness === "live") return null;
+  const label = freshness === "snapshot" ? "LAST SYNC" : "ROSTER UNAVAILABLE";
+  const color = freshness === "snapshot" ? C.dim : C.red;
+  return (
+    <span style={{
+      display: "inline-block", marginLeft: 8, padding: "2px 6px",
+      fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: "0.06em",
+      color, border: `1px solid ${color}40`, borderRadius: 3,
+    }}>
+      {label}
+    </span>
+  );
+}
+
+function StarterImpactSideCard({ side, label }: { side: StarterImpactSide; label: string }) {
+  // Position rows + total — pull union of positions across before/after.
+  const before: Record<string, number> = (side.before || {}) as Record<string, number>;
+  const after: Record<string, number> = (side.after || {}) as Record<string, number>;
+  const delta: Record<string, number> = (side.delta || { total: 0 }) as Record<string, number>;
+
+  const positions = Array.from(new Set([
+    ...Object.keys(before),
+    ...Object.keys(after),
+  ])).filter((p) => p !== "total_starter_pts" && p !== "total").sort();
+
+  const totalBefore = before.total_starter_pts ?? 0;
+  const totalAfter = after.total_starter_pts ?? 0;
+  const totalDelta = delta.total ?? 0;
+
+  const fmtNum = (n: number | undefined): string =>
+    n === undefined || n === null ? "—" : n.toFixed(1);
+  const fmtDelta = (n: number): string => {
+    if (Math.abs(n) < 0.05) return "0.0";
+    return (n > 0 ? "+" : "") + n.toFixed(1);
+  };
+  const deltaColor = (n: number): string => {
+    if (Math.abs(n) < 0.05) return C.dim;
+    return n > 0 ? C.green : C.red;
+  };
+
+  return (
+    <div style={{
+      background: M.card, border: `1px solid ${C.border}`, borderRadius: 6,
+      padding: "10px 12px", flex: 1, minWidth: 0,
+    }}>
+      <div style={{
+        fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.secondary,
+        letterSpacing: "0.06em", marginBottom: 8, display: "flex", alignItems: "center",
+        flexWrap: "wrap",
+      }}>
+        {label}
+        <FreshnessBadge freshness={side.data_freshness} />
+      </div>
+      {side.error || !side.before ? (
+        <div style={{ fontFamily: SANS, fontSize: 11, color: C.dim, fontStyle: "normal" }}>
+          {side.error || "Roster data unavailable for this side."}
+        </div>
+      ) : (
+        <>
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "auto 1fr 1fr 1fr",
+            gap: "4px 10px",
+            alignItems: "center",
+          }}>
+            <span />
+            <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim, textAlign: "right", letterSpacing: "0.06em" }}>BEFORE</span>
+            <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim, textAlign: "right", letterSpacing: "0.06em" }}>AFTER</span>
+            <span style={{ fontFamily: MONO, fontSize: 9, color: C.dim, textAlign: "right", letterSpacing: "0.06em" }}>Δ</span>
+            {positions.map((pos) => {
+              const b = (before as Record<string, number>)[pos];
+              const a = (after as Record<string, number>)[pos];
+              const d = (delta as Record<string, number>)[pos] ?? 0;
+              return (
+                <React.Fragment key={pos}>
+                  <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: posColor(pos) }}>{pos}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 11, color: C.secondary, textAlign: "right" }}>{fmtNum(b)}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 11, color: C.secondary, textAlign: "right" }}>{fmtNum(a)}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: deltaColor(d), textAlign: "right" }}>{fmtDelta(d)}</span>
+                </React.Fragment>
+              );
+            })}
+            <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.primary, paddingTop: 6, borderTop: `1px solid ${C.border}` }}>TOTAL</span>
+            <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.primary, textAlign: "right", paddingTop: 6, borderTop: `1px solid ${C.border}` }}>{fmtNum(totalBefore)}</span>
+            <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.primary, textAlign: "right", paddingTop: 6, borderTop: `1px solid ${C.border}` }}>{fmtNum(totalAfter)}</span>
+            <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: deltaColor(totalDelta), textAlign: "right", paddingTop: 6, borderTop: `1px solid ${C.border}` }}>{fmtDelta(totalDelta)}</span>
+          </div>
+          {side.picks?.picks_in?.length ? (
+            <div style={{ fontFamily: SANS, fontSize: 10, color: C.dim, marginTop: 8 }}>
+              + {side.picks.picks_in.join(", ")} <span style={{ fontStyle: "normal", opacity: 0.7 }}>(future)</span>
+            </div>
+          ) : null}
+        </>
+      )}
+    </div>
+  );
+}
+
+function StarterImpactSection({
+  data, ownerName, partnerName,
+}: { data: StarterImpactResponse | null | undefined; ownerName: string; partnerName: string }) {
+  if (!data) return null;
+  const { side_a, side_b, insight } = data;
+  // If both sides are completely unavailable AND no insight, hide the section
+  // entirely — no value to show an empty card.
+  if (
+    !side_a?.before && !side_b?.before
+    && !side_a?.error && !side_b?.error
+    && !insight?.side_a && !insight?.side_b
+  ) {
+    return null;
+  }
+
+  const aInsight = insight?.side_a;
+  const bInsight = insight?.side_b;
+
+  return (
+    <div style={{ marginBottom: 20 }}>
+      <SectionLabel text="STARTER IMPACT — 2026" />
+      <div style={{ fontFamily: SANS, fontSize: 11, color: C.dim, marginBottom: 8 }}>
+        Projected starting-lineup points per side, before and after the deal.
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ display: "flex", flexDirection: "row", gap: 10, flexWrap: "wrap" }}>
+          <StarterImpactSideCard side={side_a} label={`YOU — ${ownerName.toUpperCase()}`} />
+          <StarterImpactSideCard side={side_b} label={`PARTNER — ${partnerName.toUpperCase()}`} />
+        </div>
+        {(aInsight || bInsight) && (
+          <div style={{
+            background: M.card, border: `1px solid ${C.gold}30`, borderRadius: 6,
+            padding: "10px 12px",
+          }}>
+            {aInsight && (
+              <div style={{ marginBottom: bInsight ? 10 : 0 }}>
+                <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.gold, letterSpacing: "0.06em", marginBottom: 4 }}>YOU</div>
+                <div style={{ fontFamily: SANS, fontSize: 12, lineHeight: 1.5, color: C.primary }}>{aInsight}</div>
+              </div>
+            )}
+            {bInsight && (
+              <div>
+                <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.gold, letterSpacing: "0.06em", marginBottom: 4 }}>PARTNER</div>
+                <div style={{ fontFamily: SANS, fontSize: 12, lineHeight: 1.5, color: C.primary }}>{bInsight}</div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Main Modal ───────────────────────────────────────────────────────────
 
 interface AnalyzeModalProps {
   isOpen: boolean;
   onClose: () => void;
   evaluation: TradeEvaluation | null;
+  starterImpact?: StarterImpactResponse | null;
   partner: string;
   owner: string;
   onCounter?: () => void;
 }
 
-export default function AnalyzeModal({ isOpen, onClose, evaluation, partner, owner, onCounter }: AnalyzeModalProps) {
+export default function AnalyzeModal({ isOpen, onClose, evaluation, starterImpact, partner, owner, onCounter }: AnalyzeModalProps) {
   const contentRef = useRef<HTMLDivElement>(null);
   const [sharing, setSharing] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -712,6 +871,13 @@ export default function AnalyzeModal({ isOpen, onClose, evaluation, partner, own
                   </div>
                 );
               })()}
+
+              {/* ── 8. Starter Impact (Phase 4 — Trade Analyzer only) ── */}
+              <StarterImpactSection
+                data={starterImpact}
+                ownerName={owner}
+                partnerName={partner}
+              />
 
               {/* AI Insight moved to top of modal (see AIInsightCard above) */}
 

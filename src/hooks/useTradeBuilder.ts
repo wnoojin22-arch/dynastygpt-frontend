@@ -9,6 +9,7 @@ import type {
   TradeEvaluation,
   SuggestedPackage,
   NegotiationInsight,
+  StarterImpactResponse,
 } from "@/components/league/trade-builder/types";
 
 const API = "";
@@ -84,6 +85,8 @@ export interface UseTradeBuilderReturn {
   setReceiveNames: React.Dispatch<React.SetStateAction<string[]>>;
   evaluation: TradeEvaluation | null;
   setEvaluation: (v: TradeEvaluation | null) => void;
+  starterImpact: StarterImpactResponse | null;
+  setStarterImpact: (v: StarterImpactResponse | null) => void;
   showModal: boolean;
   setShowModal: (v: boolean) => void;
   analyzing: boolean;
@@ -289,6 +292,7 @@ export function useTradeBuilder({
   const [giveNames, setGiveNames] = useState<string[]>([]);
   const [receiveNames, setReceiveNames] = useState<string[]>([]);
   const [evaluation, setEvaluation] = useState<TradeEvaluation | null>(null);
+  const [starterImpact, setStarterImpact] = useState<StarterImpactResponse | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [suggestedPkgs, setSuggestedPkgs] = useState<SuggestedPackage[]>([]);
@@ -427,6 +431,7 @@ export function useTradeBuilder({
     setGiveNames([]);
     setReceiveNames([]);
     setEvaluation(null);
+    setStarterImpact(null);
     setShowModal(false);
     setSuggestedPkgs([]);
     setSuggestQuery("");
@@ -447,6 +452,7 @@ export function useTradeBuilder({
   const toggleGive = useCallback((n: string) => {
     setGiveNames((p) => (p.includes(n) ? p.filter((x) => x !== n) : [...p, n]));
     setEvaluation(null);
+    setStarterImpact(null);
     setShowModal(false);
     setSuggestedPkgs([]);
   }, []);
@@ -455,6 +461,7 @@ export function useTradeBuilder({
       p.includes(n) ? p.filter((x) => x !== n) : [...p, n],
     );
     setEvaluation(null);
+    setStarterImpact(null);
     setShowModal(false);
   }, []);
 
@@ -463,10 +470,28 @@ export function useTradeBuilder({
     if (!partner || !giveNames.length || !receiveNames.length) return;
     setAnalyzing(true);
     setError(null);
+    setStarterImpact(null);
+
+    // Split give/receive names into player names vs pick strings using the
+    // already-loaded rosters (picks have position="PICK"). Pick strings carry
+    // 0 starter pts on the BE; mixing them into gives_names would just create
+    // unresolved-name noise.
+    const pickSet = new Set<string>([
+      ...myRoster.filter((p) => p.position === "PICK").map((p) => p.name),
+      ...theirRoster.filter((p) => p.position === "PICK").map((p) => p.name),
+    ]);
+    const giveOnlyPlayers = giveNames.filter((n) => !pickSet.has(n));
+    const givePicks = giveNames.filter((n) => pickSet.has(n));
+    const receiveOnlyPlayers = receiveNames.filter((n) => !pickSet.has(n));
+    const receivePicks = receiveNames.filter((n) => pickSet.has(n));
+
+    // Fire the V1 evaluate (grade/SHA/acceptance) + the new starter-impact
+    // endpoint in parallel. Starter-impact is display-only; failure must NOT
+    // block the modal from rendering the rest.
     try {
       const { authHeaders } = await import("@/lib/api");
       const hdrs = await authHeaders();
-      const res = await fetch(
+      const evalPromise = fetch(
         `${API}/api/league/${leagueId}/trade-builder/evaluate`,
         {
           method: "POST",
@@ -488,6 +513,39 @@ export function useTradeBuilder({
           }),
         },
       );
+
+      // Starter-impact requires both owner_user_ids. Without partnerUid (rare —
+      // historical-name partner with no canonical match) we skip silently.
+      const canFireStarterImpact = !!(ownerId && partnerUid);
+      const starterImpactPromise: Promise<StarterImpactResponse | null> = canFireStarterImpact
+        ? fetch(
+            `${API}/api/league/${leagueId}/trade-analyzer/starter-impact`,
+            {
+              method: "POST",
+              headers: hdrs,
+              body: JSON.stringify({
+                side_a: {
+                  owner_user_id: ownerId,
+                  gives_names: giveOnlyPlayers,
+                  receives_names: receiveOnlyPlayers,
+                  picks: receivePicks,
+                },
+                side_b: {
+                  owner_user_id: partnerUid,
+                  gives_names: receiveOnlyPlayers,
+                  receives_names: giveOnlyPlayers,
+                  picks: givePicks,
+                },
+                season: 2026,
+              }),
+            },
+          )
+            .then(async (r) => (r.ok ? ((await r.json()) as StarterImpactResponse) : null))
+            .catch(() => null)
+        : Promise.resolve(null);
+
+      const [res, si] = await Promise.all([evalPromise, starterImpactPromise]);
+
       if (!res.ok) {
         const text = await res.text();
         let msg = "Failed";
@@ -497,6 +555,7 @@ export function useTradeBuilder({
         const data = await res.json();
         const ev = data as TradeEvaluation;
         setEvaluation(ev);
+        if (si) setStarterImpact(si);
         setShowModal(true);
         const g = ev.owner_grade;
         const acc = ev.acceptance?.acceptance_likelihood;
@@ -520,6 +579,11 @@ export function useTradeBuilder({
     theirWindow,
     leagueId,
     ownerId,
+    partnerUid,
+    myRoster,
+    theirRoster,
+    ownerPicks,
+    partnerPicks,
   ]);
 
   // Suggest — calls V2 trade engine
@@ -808,6 +872,7 @@ export function useTradeBuilder({
     setGiveNames([]);
     setReceiveNames([]);
     setEvaluation(null);
+    setStarterImpact(null);
     setShowModal(false);
     setActiveSellAsset(null);
     setError(null);
@@ -862,6 +927,8 @@ export function useTradeBuilder({
     setReceiveNames,
     evaluation,
     setEvaluation,
+    starterImpact,
+    setStarterImpact,
     showModal,
     setShowModal,
     analyzing,
