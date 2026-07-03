@@ -403,6 +403,11 @@ const U = (uid: string) => `/api/user/${uid}`;
 export const getUserLeagues = (uid: string) => get<{ user_id: string; display_name: string; leagues: { league_id: string; league_name: string; season: string; display_name: string }[] }>(`${U(uid)}/leagues`);
 export const getUserTrades = (uid: string, leagueId?: string) => get<{ trades: unknown[] }>(`${U(uid)}/trades${leagueId ? `?league_id=${leagueId}` : ""}`);
 export const getUserProfile = (uid: string) => get<{ user_id: string; display_name: string; leagues: unknown[]; total_trades: number }>(`${U(uid)}/profile`);
+export const setActiveLeague = (clerkUserId: string, leagueId: string) =>
+  post<{ success: boolean; active_league_id: string }>(
+    `/api/user/set-active-league`,
+    { clerk_user_id: clerkUserId, league_id: leagueId },
+  );
 
 // ── Global Player Rankings (format-adjusted when league_id passed) ──
 export const getGlobalPlayerRankings = (leagueId?: string) =>

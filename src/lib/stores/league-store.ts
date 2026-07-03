@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-interface SavedLeague {
+export interface SavedLeague {
   id: string;
   slug: string;
   name: string;
