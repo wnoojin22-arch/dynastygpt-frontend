@@ -4,6 +4,7 @@ import type {
   SimulateResponse,
 } from "@/app/l/[slug]/mock-draft/contracts";
 import { buildChalkLockedPicks } from "./mock-draft-chalk-lock";
+import { useLeagueStore } from "./league-store";
 
 /**
  * Mock draft store — single source of truth for the interactive draft flow.
@@ -406,4 +407,21 @@ export const useMockDraftStore = create<MockDraftStore>((set, get) => ({
  */
 export function useMockDraftPositionalGradeDeltas(): PostDraftPositionalGrades | null {
   return useMockDraftStore((s) => s.sim?.post_draft_positional_grades ?? null);
+}
+
+// ── Reset on league switch ────────────────────────────────────────────────
+// A mock-draft sim/state pinned to League A is nonsense in League B — every
+// slot map, chalk lock, and trade ledger references League-A-specific
+// owners + prospects. Wipe on switch so the fresh league page starts clean.
+// Guard: only fires when both previous and current currentLeagueId are set
+// AND they differ — this skips the initial null → first-league hydration
+// so we don't clobber legitimate startup state.
+// See docs/audits/MULTI_LEAGUE_AUDIT_2026-07-03.md (gap J).
+if (typeof window !== "undefined") {
+  useLeagueStore.subscribe((state, prev) => {
+    const cur = state.currentLeagueId;
+    const before = prev.currentLeagueId;
+    if (!cur || !before || cur === before) return;
+    useMockDraftStore.getState().resetDraft();
+  });
 }
