@@ -487,7 +487,7 @@ export default function TradeBuilderDesktop({
           )}
         </div>
 
-        {showModal && evaluation && <AnalysisModal evaluation={evaluation} owner={owner} partner={partner} onClose={() => setShowModal(false)} />}
+        {showModal && evaluation && <AnalysisModal evaluation={evaluation} starterImpact={tb.starterImpact} owner={owner} partner={partner} onClose={() => setShowModal(false)} />}
         {suggestLoading && <SuggestLoadingModal elapsedSec={suggestElapsedSec} query={suggestQuery} mode={suggestMode} />}
         {analyzing && <AnalyzeLoadingModal />}
       </div>
