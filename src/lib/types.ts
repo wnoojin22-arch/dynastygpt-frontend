@@ -479,12 +479,16 @@ export interface GlobalPlayerRanking {
   sha_pos_rank: string;
   dynasty_rank: number | null;
   redraft_rank: number | null;
+  /** Projected season fantasy points for the league's scoring format
+   *  (or default PPR/4pt/no-TEP when no league_id is supplied). */
+  proj_pts?: number | null;
 }
 
 export interface GlobalPlayerRankingsResponse {
   count: number;
   snapshot_date: string | null;
   players: GlobalPlayerRanking[];
+  projections_format?: { scoring_type: string; pass_td_pts: number; te_premium: number; season: number };
 }
 
 // ── League Report Card ─────────────────────────────────────────────────

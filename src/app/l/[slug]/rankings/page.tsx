@@ -716,7 +716,7 @@ function PlayerRankings({ lid }: { lid: string }) {
 
       {/* Table header */}
       <div style={{
-        display: "grid", gridTemplateColumns: "0.8fr 4fr 1.2fr 1.5fr",
+        display: "grid", gridTemplateColumns: "0.8fr 4fr 1.2fr 1.2fr 1.5fr",
         alignItems: "center", gap: 8, padding: "6px 16px",
         position: "sticky", top: 0, zIndex: 2,
         background: C.panel, borderBottom: `1px solid ${C.border}`,
@@ -724,6 +724,7 @@ function PlayerRankings({ lid }: { lid: string }) {
         <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.08em", color: C.dim }}>RK</span>
         <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.08em", color: C.dim }}>PLAYER</span>
         <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.08em", color: C.dim, textAlign: "center" }}>POS RK</span>
+        <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.08em", color: C.dim, textAlign: "center" }}>PROJ PTS</span>
         <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.08em", color: C.gold, textAlign: "right" }}>{valKey}</span>
       </div>
 
@@ -757,7 +758,7 @@ function PlayerRankings({ lid }: { lid: string }) {
                 <div className="rk-dense"
                   onClick={() => openPlayerCard(p.player_name)}
                   style={{
-                    display: "grid", gridTemplateColumns: "0.8fr 4fr 1.2fr 1.5fr",
+                    display: "grid", gridTemplateColumns: "0.8fr 4fr 1.2fr 1.2fr 1.5fr",
                     alignItems: "center", gap: 8, padding: "10px 20px", cursor: "pointer",
                     background: isEven ? C.card : "transparent",
                     borderBottom: `1px solid ${C.white08}`,
@@ -789,6 +790,10 @@ function PlayerRankings({ lid }: { lid: string }) {
                   {/* Pos Rank */}
                   <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: C.secondary, textAlign: "center" }}>
                     {p.sha_pos_rank || "\u2014"}
+                  </span>
+                  {/* PROJ PTS \u2014 Phase B item 3. Format-aware on the server. */}
+                  <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: p.proj_pts != null ? C.primary : C.dim, textAlign: "center" }}>
+                    {p.proj_pts != null ? p.proj_pts.toFixed(1) : "\u2014"}
                   </span>
                   {/* Value */}
                   <span style={{ fontFamily: MONO, fontSize: 15, fontWeight: 800, color: C.gold, textAlign: "right" }}>

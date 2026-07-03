@@ -13,6 +13,7 @@ export interface TradeAsset {
   sha_positional_rank: string;
   sha_pos_rank_num: number;
   error: string | null;
+  proj_pts?: number | null;
 }
 
 export interface TradeSide {
@@ -115,6 +116,70 @@ export interface TradeEvaluation {
     headline_asset?: { name?: string; position?: string; tier?: string; side?: string };
     secondary_asset?: { name?: string; position?: string; tier?: string } | null;
   } | null;
+  projections?: {
+    give_pts: number;
+    receive_pts: number;
+    delta: number;
+    season: number;
+    format: { scoring_type: string; pass_td_pts: number; te_premium: number };
+  } | null;
+}
+
+/* ─── Starter Impact (Phase 3/4 — Trade Analyzer only) ───────────── */
+
+export type DataFreshness = "live" | "snapshot" | "unavailable";
+
+export interface StarterImpactPositionBlock {
+  total_starter_pts: number;
+  [pos: string]: number;
+}
+
+export interface StarterImpactLineupChange {
+  starters_added: string[];
+  starters_lost: string[];
+  depth_only_changes: Record<string, string>;
+}
+
+export interface StarterImpactPicks {
+  picks_in: string[];
+  picks_out: string[];
+}
+
+export interface StarterImpactLineupSlot {
+  slot: string;
+  player_id: string;
+  position: string | null;
+  proj_pts: number;
+}
+
+export interface StarterImpactSide {
+  owner_user_id: string;
+  data_freshness: DataFreshness;
+  error?: string | null;
+  season?: number;
+  format?: {
+    scoring_type: string;
+    is_superflex: boolean;
+    te_premium: number;
+    pass_td_pts: number;
+    lineup_slots: string[];
+  };
+  before: StarterImpactPositionBlock | null;
+  after: StarterImpactPositionBlock | null;
+  delta: ({ total: number } & Record<string, number>) | null;
+  lineup_changes: StarterImpactLineupChange | null;
+  picks: StarterImpactPicks;
+  before_lineup?: StarterImpactLineupSlot[];
+  after_lineup?: StarterImpactLineupSlot[];
+  unresolved_names?: string[];
+}
+
+export interface StarterImpactResponse {
+  league_id: string;
+  season: number;
+  side_a: StarterImpactSide;
+  side_b: StarterImpactSide;
+  insight: { side_a: string | null; side_b: string | null };
 }
 
 export interface SuggestedPackage {
