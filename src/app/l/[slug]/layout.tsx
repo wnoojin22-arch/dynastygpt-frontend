@@ -9,6 +9,7 @@ import { useTrack } from "@/hooks/useTrack";
 import PlayerCardModal from "@/components/league/PlayerCardModal";
 import OwnerQuickViewModal from "@/components/league/OwnerQuickViewModal";
 import FeedbackWidget from "@/components/feedback/FeedbackWidget";
+import LeagueSwitcher from "@/components/league/LeagueSwitcher";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getOwners, getOverview, getRankings, syncLeague, getLeagueBySlug, getUserLeagues } from "@/lib/api";
 import { Home, LayoutGrid, Search, Zap, BarChart3, Database, MessageSquare } from "lucide-react";
@@ -321,6 +322,10 @@ function HeaderBar({ owner, leagueName }: {
           );
         })()}
       </div>
+
+      {/* League switcher — renders null when the user has ≤1 league so
+          single-league users see no dropdown UI at all. */}
+      <LeagueSwitcher />
 
       {owner && (
         <span className="text-xs sm:text-sm" style={{ fontFamily: DISPLAY, color: C.secondary, letterSpacing: "-0.3px" }}>{owner}</span>
