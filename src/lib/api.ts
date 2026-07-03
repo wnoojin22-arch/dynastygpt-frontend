@@ -2,7 +2,7 @@ import type {
   RosterResponse, PicksResponse, StandingEntry, RankingEntry,
   OwnerProfile, OwnerRecord, Championships, Tendencies, OwnerNeeds,
   GradedTrade, TradeGradeResponse, Rival, TradePartner,
-  TrendingResponse, OwnerTrendingResponse, RosterValueChangeResponse, LeagueIntelOwner,
+  TrendingResponse, OwnerTrendingResponse, RosterValueChangeResponse, LeagueIntelOwner, LeagueMode,
   PositionalPowerEntry, HeadToHeadResponse, TradeChain,
   PlayerSignal, PlayerCard, PlayerTrend, ValueHistoryPoint,
   LeagueOverview, SyncResponse, FranchiseIntel, OwnerListItem,
@@ -294,7 +294,7 @@ export const getGmVerdict = (id: string, owner: string, userId?: string | null) 
 export const getActions = (id: string, owner: string, userId?: string | null) => get<{ stop: string[]; start: string[]; keep: string[] }>(`${L(id)}/intel/${O(owner, userId)}/actions`);
 
 // ── League Intel ─────────────────────────────────────────────────────────
-export const getLeagueIntel = (id: string) => get<{ owners: LeagueIntelOwner[] }>(`${L(id)}/league-intel`);
+export const getLeagueIntel = (id: string) => get<{ owners: LeagueIntelOwner[]; league_mode: LeagueMode | null }>(`${L(id)}/league-intel`);
 
 // ── Welcome articles (read-only from ai_insights cache) ─────────────────
 export interface WelcomeArticle {
