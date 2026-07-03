@@ -17,6 +17,7 @@ interface LeagueState {
 
   setLeague: (id: string, slug: string, name: string) => void;
   setOwner: (owner: string, userId?: string | null) => void;
+  setSavedLeagues: (leagues: SavedLeague[]) => void;
   clearLeague: () => void;
 }
 
@@ -44,6 +45,25 @@ export const useLeagueStore = create<LeagueState>()(
         savedLeagues: savedLeagues.map((l) =>
           l.id === currentLeagueId ? { ...l, owner, ownerId: userId ?? null } : l
         ),
+      });
+    },
+
+    setSavedLeagues: (leagues) => {
+      // Bulk-replace the list of leagues this user belongs to. Called after
+      // a fresh /api/user/{uid}/leagues fetch. Preserves owner/ownerId for
+      // leagues we already had — the server response only tells us the user's
+      // display_name in each league, not necessarily the owner selection state.
+      const existing = get().savedLeagues;
+      const byId = new Map(existing.map((l) => [l.id, l]));
+      set({
+        savedLeagues: leagues.map((l) => {
+          const prev = byId.get(l.id);
+          return {
+            ...l,
+            owner: l.owner ?? prev?.owner ?? null,
+            ownerId: l.ownerId ?? prev?.ownerId ?? null,
+          };
+        }),
       });
     },
 

@@ -10,7 +10,7 @@ import PlayerCardModal from "@/components/league/PlayerCardModal";
 import OwnerQuickViewModal from "@/components/league/OwnerQuickViewModal";
 import FeedbackWidget from "@/components/feedback/FeedbackWidget";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { getOwners, getOverview, getRankings, syncLeague, getLeagueBySlug } from "@/lib/api";
+import { getOwners, getOverview, getRankings, syncLeague, getLeagueBySlug, getUserLeagues } from "@/lib/api";
 import { Home, LayoutGrid, Search, Zap, BarChart3, Database, MessageSquare } from "lucide-react";
 
 /* ═══════════════════════════════════════════════════════════════
@@ -380,7 +380,7 @@ export default function LeagueLayout({ children }: { children: React.ReactNode }
   const router = useRouter();
   const queryClient = useQueryClient();
   const { user, isLoaded } = useUser();
-  const { currentLeagueId, currentLeagueSlug, currentOwner, setLeague, setOwner, savedLeagues } = useLeagueStore();
+  const { currentLeagueId, currentLeagueSlug, currentOwner, setLeague, setOwner, savedLeagues, setSavedLeagues } = useLeagueStore();
   const slug = pathname.split("/")[2] || "";
   const [syncing, setSyncing] = useState(false);
   const hydrating = useRef(false);
@@ -434,7 +434,46 @@ export default function LeagueLayout({ children }: { children: React.ReactNode }
       .finally(() => { hydrating.current = false; });
   }, [slug, currentLeagueId, setLeague, setOwner, currentOwner]);
 
+  // ── Fetch the full list of leagues this user belongs to.
+  // Populates `savedLeagues` in the store so the LeagueSwitcher can render
+  // and the gate below can check membership (rather than Clerk metadata match).
+  // Fires as soon as we know the Sleeper user id — independent of the URL's
+  // currentLeagueId so it's ready before the gate runs.
+  const {
+    data: userLeaguesData,
+    isLoading: userLeaguesLoading,
+    isError: userLeaguesError,
+  } = useQuery({
+    queryKey: ["userLeagues", gateSleeperUserId],
+    queryFn: () => getUserLeagues(gateSleeperUserId!),
+    enabled: !!gateSleeperUserId && !DEV_BYPASS_ACTIVE,
+    staleTime: 5 * 60 * 1000, // 5 min — league membership rarely changes mid-session
+    retry: 1,
+  });
+
+  useEffect(() => {
+    if (!userLeaguesData?.leagues) return;
+    const uid = userLeaguesData.user_id;
+    const slugify = (n: string) =>
+      (n || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+    setSavedLeagues(
+      userLeaguesData.leagues.map((l) => ({
+        id: l.league_id,
+        slug: slugify(l.league_name),
+        name: l.league_name,
+        owner: l.display_name || null,
+        ownerId: uid || null,
+      }))
+    );
+  }, [userLeaguesData, setSavedLeagues]);
+
   // ── Gate: redirect if user lacks access ──
+  // New behavior (Phase A1 multi-league): allow ANY league the user is an
+  // owner in, not just their Clerk-locked `approved_league_id`. Membership
+  // is sourced from the `getUserLeagues` fetch above.
+  // Fallback: if that fetch fails, fall back to the strict Clerk-metadata
+  // match so a URL-hacked league can't slip through during backend outage.
+  // See docs/audits/MULTI_LEAGUE_AUDIT_2026-07-03.md (gap I).
   useEffect(() => {
     if (gateChecked) return; // gate already passed, don't re-evaluate
     if (!isLoaded && !DEV_BYPASS_ACTIVE) return; // wait for Clerk session
@@ -442,9 +481,22 @@ export default function LeagueLayout({ children }: { children: React.ReactNode }
     if (!currentLeagueId) return; // wait for hydration
     if (!gateSleeperUserId) { router.replace("/onboarding"); return; }
     if (!gateApprovedLeagueId) { router.replace("/dashboard"); return; }
-    if (gateApprovedLeagueId !== currentLeagueId) { router.replace("/dashboard"); return; }
+    // Wait until the user-leagues fetch resolves. Refusing to gate while it's
+    // loading keeps a URL-hacked bad league from rendering even briefly.
+    if (userLeaguesLoading) return;
+    if (userLeaguesError || !userLeaguesData?.leagues) {
+      // Backend outage — fall back to the old strict metadata match.
+      if (gateApprovedLeagueId !== currentLeagueId) { router.replace("/dashboard"); return; }
+      setGateChecked(true);
+      return;
+    }
+    const isMember = userLeaguesData.leagues.some((l) => l.league_id === currentLeagueId);
+    if (!isMember) { router.replace("/dashboard"); return; }
     setGateChecked(true);
-  }, [isLoaded, currentLeagueId, gateSleeperUserId, gateApprovedLeagueId, router]);
+  }, [
+    isLoaded, currentLeagueId, gateSleeperUserId, gateApprovedLeagueId, router,
+    userLeaguesLoading, userLeaguesError, userLeaguesData, gateChecked,
+  ]);
 
   const { data: overview } = useQuery({
     queryKey: ["overview", currentLeagueId],
