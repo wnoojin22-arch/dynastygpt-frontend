@@ -2,7 +2,7 @@ import type {
   RosterResponse, PicksResponse, StandingEntry, RankingEntry,
   OwnerProfile, OwnerRecord, Championships, Tendencies, OwnerNeeds,
   GradedTrade, TradeGradeResponse, Rival, TradePartner,
-  TrendingResponse, OwnerTrendingResponse, RosterValueChangeResponse, LeagueIntelOwner,
+  TrendingResponse, OwnerTrendingResponse, RosterValueChangeResponse, LeagueIntelOwner, LeagueMode,
   PositionalPowerEntry, HeadToHeadResponse, TradeChain,
   PlayerSignal, PlayerCard, PlayerTrend, ValueHistoryPoint,
   LeagueOverview, SyncResponse, FranchiseIntel, OwnerListItem,
@@ -294,7 +294,7 @@ export const getGmVerdict = (id: string, owner: string, userId?: string | null) 
 export const getActions = (id: string, owner: string, userId?: string | null) => get<{ stop: string[]; start: string[]; keep: string[] }>(`${L(id)}/intel/${O(owner, userId)}/actions`);
 
 // ── League Intel ─────────────────────────────────────────────────────────
-export const getLeagueIntel = (id: string) => get<{ owners: LeagueIntelOwner[] }>(`${L(id)}/league-intel`);
+export const getLeagueIntel = (id: string) => get<{ owners: LeagueIntelOwner[]; league_mode: LeagueMode | null }>(`${L(id)}/league-intel`);
 
 // ── Welcome articles (read-only from ai_insights cache) ─────────────────
 export interface WelcomeArticle {
@@ -403,10 +403,10 @@ const U = (uid: string) => `/api/user/${uid}`;
 export const getUserLeagues = (uid: string) => get<{ user_id: string; display_name: string; leagues: { league_id: string; league_name: string; season: string; display_name: string }[] }>(`${U(uid)}/leagues`);
 export const getUserTrades = (uid: string, leagueId?: string) => get<{ trades: unknown[] }>(`${U(uid)}/trades${leagueId ? `?league_id=${leagueId}` : ""}`);
 export const getUserProfile = (uid: string) => get<{ user_id: string; display_name: string; leagues: unknown[]; total_trades: number }>(`${U(uid)}/profile`);
-export const setActiveLeague = (clerkUserId: string, leagueId: string) =>
+export const setActiveLeague = (clerkUserId: string, sleeperUserId: string, leagueId: string) =>
   post<{ success: boolean; active_league_id: string }>(
     `/api/user/set-active-league`,
-    { clerk_user_id: clerkUserId, league_id: leagueId },
+    { clerk_user_id: clerkUserId, sleeper_user_id: sleeperUserId, league_id: leagueId },
   );
 
 // ── Global Player Rankings (format-adjusted when league_id passed) ──

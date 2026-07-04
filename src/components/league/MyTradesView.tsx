@@ -11,6 +11,8 @@ import PlayerName from "./PlayerName";
 import { useOwnerClick, useIsOwnerCurrent } from "@/hooks/useOwnerClick";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useTrack } from "@/hooks/useTrack";
+import { useLeagueMode } from "@/hooks/useLeagueMode";
+import { Locked } from "@/components/Locked";
 import { shouldShowVerdict } from "@/lib/utils";
 
 /* ═══════════════════════════════════════════════════════════════
@@ -159,6 +161,7 @@ export default function MyTradesView({ leagueId, owner: ownerProp, ownerId }: { 
   const track = useTrack();
   const onOwnerClick = useOwnerClick();
   const isOwnerCurrent = useIsOwnerCurrent();
+  const leagueMode = useLeagueMode(leagueId);
   const [historyTab, setHistoryTab] = useState<'log' | 'profile'>('log');
   const [reportTradeId, setReportTradeId] = useState<string | null>(null);
   const openTradeReport = (tradeId: string) => {
@@ -718,7 +721,10 @@ export default function MyTradesView({ leagueId, owner: ownerProp, ownerId }: { 
       {/* ═══════════════════════════════════════════════════════════
            TRADER PROFILE TAB — powered by behavioral_profile service
            ═══════════════════════════════════════════════════════════ */}
-      {historyTab === 'profile' && (() => {
+      {historyTab === 'profile' && leagueMode?.is_new_league ? (
+        <Locked title="Trader Profile locked" />
+      ) : null}
+      {historyTab === 'profile' && !leagueMode?.is_new_league && (() => {
         const p = profileData as Record<string, unknown> | undefined;
         const trading = (p?.trading || {}) as Record<string, unknown>;
         const meta = (p?.meta || {}) as Record<string, unknown>;

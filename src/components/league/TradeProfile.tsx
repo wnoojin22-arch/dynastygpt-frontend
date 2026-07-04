@@ -4,6 +4,8 @@ import React, { useState, useMemo, useEffect, ReactNode } from "react";
 import PlayerName from "./PlayerName";
 import { useLeagueStore } from "@/lib/stores/league-store";
 import { useTrack } from "@/hooks/useTrack";
+import { useLeagueMode } from "@/hooks/useLeagueMode";
+import { Locked } from "@/components/Locked";
 import { shouldShowVerdict } from "@/lib/utils";
 import {
   TrendingUp, TrendingDown, Minus, Trophy, Target, Shield,
@@ -335,10 +337,23 @@ export default function TradeProfile({ ownerName, profile }: {
 }) {
   const lid = useLeagueStore((s) => s.currentLeagueId);
   const track = useTrack();
+  const leagueMode = useLeagueMode(lid);
   useEffect(() => { if (lid) track("trade_profile_viewed", { league_id: lid, owner: ownerName }); }, [lid, ownerName]); // eslint-disable-line react-hooks/exhaustive-deps
   const [verdictFilter, setVerdictFilter] = useState<VerdictFilter>("ALL");
   const [yearFilter, setYearFilter] = useState("ALL");
   const [showAllTrades, setShowAllTrades] = useState(false);
+
+  // New-league lock: hide the whole Trade Profile body — inherently
+  // behavioral (badges, position tendencies, timing, momentum, "How to
+  // Beat Them", partner charts). Comes back automatically the moment the
+  // league crosses the trade / seasons threshold in get_league_mode.
+  if (leagueMode?.is_new_league) {
+    return (
+      <div className="flex flex-col gap-5">
+        <Locked />
+      </div>
+    );
+  }
 
   const trading = (profile.trading || {}) as Record<string, any>;
   const meta = (profile.meta || {}) as Record<string, any>;

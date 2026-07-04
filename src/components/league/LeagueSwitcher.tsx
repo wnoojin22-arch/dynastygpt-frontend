@@ -75,15 +75,21 @@ export default function LeagueSwitcher() {
 
   const handleSwitch = async (target: SavedLeague) => {
     if (target.id === currentLeagueId || switching) return;
-    if (!user?.id) {
-      setError("Not signed in");
+    // The endpoint keys off sleeper_user_id (stable) rather than clerk_user_id
+    // (which drifts if Clerk re-mints an id — see the 2026-07-03 400 regression
+    // documented in docs/audits/MULTI_LEAGUE_AUDIT_2026-07-03.md). Read the
+    // Sleeper id from Clerk unsafeMetadata — the same source of truth the
+    // layout uses for its getUserLeagues fetch.
+    const sleeperUserId = user?.unsafeMetadata?.sleeper_user_id as string | undefined;
+    if (!user?.id || !sleeperUserId) {
+      setError("No Sleeper account linked");
       return;
     }
     setError(null);
     setSwitching(true);
     setOpen(false);
     try {
-      await setActiveLeague(user.id, target.id);
+      await setActiveLeague(user.id, sleeperUserId, target.id);
       // Ensure Clerk's client-side snapshot picks up the new
       // unsafeMetadata.approved_league_id we just wrote server-side.
       // Without this, a race between our redirect + Clerk's stale metadata
