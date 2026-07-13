@@ -16,7 +16,6 @@ import { RecentTrades, PlayerName } from "@/components/league";
 import PlayerHeadshot from "@/components/league/PlayerHeadshot";
 import WelcomeArticleCard from "@/components/league/WelcomeArticleCard";
 import DraftHQAnnouncementCard from "@/components/league/DraftHQAnnouncementCard";
-import BetaWeek3UpdateCard from "@/components/league/BetaWeek3UpdateCard";
 import TradeDBReleaseBanner from "@/components/league/TradeDBReleaseBanner";
 import { useTrack } from "@/hooks/useTrack";
 import { useOwnerClick } from "@/hooks/useOwnerClick";
@@ -798,12 +797,9 @@ export default function LeagueHome() {
       {/* ═══════════════ ③ MAIN CONTENT — left rail (Beta Guide + News) | Market Pulse ═══════════════ */}
       <div className="max-w-[1200px] mx-auto px-4 sm:px-8 pt-4 pb-8 grid grid-cols-1 lg:grid-cols-[76fr_24fr] gap-x-6 gap-y-3 items-start">
 
-        {/* ── PLATFORM UPDATE — Week 3 update + Draft HQ feature launch ── */}
+        {/* ── PLATFORM UPDATE — Draft HQ feature launch ── */}
         <AnimatedSection className="order-0 lg:col-start-1">
           <SectionLabel title="PLATFORM UPDATE" />
-          <div className="mb-3">
-            <BetaWeek3UpdateCard leagueId={lid || ""} />
-          </div>
           <DraftHQAnnouncementCard slug={slug} leagueId={lid || ""} />
         </AnimatedSection>
 
