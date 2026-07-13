@@ -6,6 +6,8 @@ import { getRivalries } from "@/lib/api";
 import { C, SANS, MONO, DISPLAY, SERIF, fmt } from "./tokens";
 import { useOwnerClick, useIsOwnerCurrent } from "@/hooks/useOwnerClick";
 import { useTrack } from "@/hooks/useTrack";
+import { useLeagueMode } from "@/hooks/useLeagueMode";
+import { Locked } from "@/components/Locked";
 
 /* ═══════════════════════════════════════════════════════════════
    RIVALS VIEW — Shadynasty "Rival Intelligence" pattern
@@ -126,17 +128,30 @@ export default function RivalsView({ leagueId, owner, ownerId }: {
   const onOwnerClick = useOwnerClick();
   const isOwnerCurrent = useIsOwnerCurrent();
   const track = useTrack();
+  const leagueMode = useLeagueMode(leagueId);
   useEffect(() => { if (leagueId) track("rivals_view_opened", { league_id: leagueId }); }, [leagueId]); // eslint-disable-line react-hooks/exhaustive-deps
   const [expanded, setExpanded] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["rivals", leagueId, owner],
     queryFn: () => getRivalries(leagueId, owner, ownerId),
-    enabled: !!owner,
+    enabled: !!owner && !leagueMode?.is_new_league,
   });
 
   if (!owner) return (
     <div style={{ padding: 32, textAlign: "center", fontFamily: MONO, fontSize: 12, color: C.dim }}>Select an owner.</div>
+  );
+  // New-league lock: Rivalries is inherently head-to-head — the empty
+  // state below is meaningless until the league has some trade history.
+  // Comes back automatically once the league crosses the get_league_mode gate.
+  if (leagueMode?.is_new_league) return (
+    <div style={{ padding: "12px 14px" }}>
+      <Locked
+        title="Rivalries locked"
+        reason="Rivalries unlock once your league has more trade history."
+        minTrades={10}
+      />
+    </div>
   );
   if (isLoading) return (
     <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
