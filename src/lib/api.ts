@@ -360,6 +360,60 @@ export type WaiverRecsResponse = {
 export const getWaiverRecs = (id: string, owner: string, userId?: string | null, limit = 25) =>
   get<WaiverRecsResponse>(`${L(id)}/waiver-recs/${O(owner, userId)}?limit=${limit}`);
 
+// Full free-agent browse — lightweight list of all available players.
+export type WaiverAllPlayer = {
+  sleeper_id: string;
+  player_name: string;
+  position: string;
+  team: string;
+  pos_rank: string | null;
+  sha_value: number;
+  sha_adjusted: number;
+  projected_ppg: number;
+  injury_status: string | null;
+  injury_body_part: string | null;
+  depth_chart_order: number | null;
+  // Value ladder
+  dynasty_value: number | null;
+  dynasty_pos_rank: string | null;
+  redraft_value: number | null;
+  redraft_pos_rank: string | null;
+  // Bio
+  age: number | null;
+  years_exp: number | null;
+  height: string | null;
+  weight: string | null;
+  college: string | null;
+  // Schedule / weekly — enriched 2026-07-23 with NFL opponent per week.
+  // pts is null on weeks with no projection (bye or unranked); opp is
+  // null on bye week or when nfl_schedule row missing.
+  weekly_ppg: Record<string, { pts: number | null; opp: string | null }>;
+  bye_week: number | null;
+  // Handcuff-for-opponent flag
+  handcuff_for: {
+    player_name: string;
+    injury_status: string;
+    rostered_by: string;
+    team: string;
+    position: string;
+  } | null;
+};
+export type WaiversAllResponse = {
+  format: { is_superflex: boolean; scoring_type: string; pass_td_pts: number; te_premium: number };
+  season: number | null;
+  rookie_draft_complete: boolean;
+  counts: {
+    universe: number;
+    rostered_filtered: number;
+    season_killer_dropped: number;
+    draft_pool_hidden: number;
+    returned: number;
+  };
+  players: WaiverAllPlayer[];
+};
+export const getWaiversAll = (id: string) =>
+  get<WaiversAllResponse>(`${L(id)}/waivers-all`);
+
 // ── Rivalries ────────────────────────────────────────────────────────────
 export const getRivalries = (id: string, owner: string, userId?: string | null) => get<{ rivals: Rival[] }>(`${L(id)}/rivalries/${O(owner, userId)}`);
 export const getHeadToHead = (id: string, o1: string, o2: string, uid1?: string | null, uid2?: string | null) => get<HeadToHeadResponse>(`${L(id)}/head-to-head/${O(o1, uid1)}/${O(o2, uid2)}`);
