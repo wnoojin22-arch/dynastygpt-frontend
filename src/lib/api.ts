@@ -57,14 +57,15 @@ async function _needsTokenRefresh(res: Response): Promise<boolean> {
 async function get<T>(path: string): Promise<T> {
   const headers = await authHeaders();
   const res = await fetch(`${API}${path}`, { headers });
-  // On 401 or 403 "Token expired": force a fresh Clerk token and retry once.
-  // If the retry still fails, surface the error to the caller — pages
-  // decide their own UX. Do NOT auto-redirect to /sign-in: a single
-  // endpoint 401ing does not mean the session is dead, and blind redirects
-  // cause loops when Clerk sees a valid session and bounces back.
+  // On 401 or 403 "Token expired": force a fresh Clerk token and retry once
   if (await _needsTokenRefresh(res)) {
     const freshHeaders = await authHeaders(true);
     const retry = await fetch(`${API}${path}`, { headers: freshHeaders });
+    if (await _needsTokenRefresh(retry)) {
+      // Token refresh didn't help — session is truly expired
+      if (typeof window !== "undefined") window.location.href = "/sign-in";
+      throw new Error("Session expired");
+    }
     if (!retry.ok) {
       const text = await retry.text();
       _logApiError(path, retry.status, text.slice(0, 500));
@@ -84,11 +85,14 @@ async function post<T>(path: string, body?: unknown): Promise<T> {
   const headers = await authHeaders();
   const payload = body ? JSON.stringify(body) : undefined;
   const res = await fetch(`${API}${path}`, { method: "POST", headers, body: payload });
-  // Same policy as get(): retry once with a fresh token, then surface
-  // the error to the caller. No blind sign-in redirects.
+  // On 401 or 403 "Token expired": force a fresh Clerk token and retry once
   if (await _needsTokenRefresh(res)) {
     const freshHeaders = await authHeaders(true);
     const retry = await fetch(`${API}${path}`, { method: "POST", headers: freshHeaders, body: payload });
+    if (await _needsTokenRefresh(retry)) {
+      if (typeof window !== "undefined") window.location.href = "/sign-in";
+      throw new Error("Session expired");
+    }
     if (!retry.ok) {
       const text = await retry.text();
       _logApiError(path, retry.status, text.slice(0, 500));
@@ -279,87 +283,6 @@ export const getOwnerRecord = (id: string, owner: string, userId?: string | null
 export const getChampionships = (id: string, owner: string, userId?: string | null) => get<Championships>(`${L(id)}/championships/${O(owner, userId)}`);
 export const getOwnerNeeds = (id: string, owner: string, userId?: string | null) => get<{ needs: OwnerNeeds[] }>(`${L(id)}/owner-needs/${O(owner, userId)}`);
 
-// ── Waiver-wire recommendations (Rank 1, in-season basics package) ───────
-// Response shape lives in docs/ships/in-season-basics-waiver-recs.md.
-// Layer 2 (insurance) and Layer 3 (faab) fields on each rec are nullable
-// stubs that will populate when those layers land — do not add rework here.
-export type DroppableCandidate = {
-  player_id: string;
-  player_name: string;
-  position: string;
-  team: string;
-  sha_value: number;
-  sha_adjusted: number;
-  projected_ppg: number;
-  reason: "worst_value" | "position_surplus";
-};
-export type WaiverRec = {
-  sleeper_id: string;
-  player_name: string;
-  position: string;
-  team: string;
-  // Waivers V2 headline: projected PPG + PORP (Projected Points Over
-  // Positional Replacement). Replacement = best FA at position OUTSIDE
-  // the top-N rec set (BE constant _PORP_TOP_N = 3).
-  projected_ppg: number;
-  replacement_ppg: number;
-  porp: number;
-  // SHA demoted to secondary (dynasty stash relevance).
-  sha_value: number;
-  sha_adjusted: number;
-  priority_tag: string;
-  position_need: "deficit" | "adequate" | "surplus";
-  pos_rank: string | null;              // e.g. "TE14", from player_values.sha_pos_rank
-  injury_status: string | null;
-  injury_body_part: string | null;
-  depth_chart_order: number | null;
-  // Drop fields anchor on droppable_candidates[0] (the default worst).
-  suggested_drop: DroppableCandidate | null;
-  net_delta: number;                    // projected_ppg - default_drop.projected_ppg (0 when no_drop_needed)
-  marginal: boolean;                    // porp <= 0
-  no_drop_needed: boolean;
-  insurance: unknown | null;
-  // Waivers V2 Layer 3: typical FAAB cost for this rec, blended with
-  // honest labels. Null when the league is priority (no bid data).
-  faab: {
-    typical_pct: number;                // % of team budget
-    source: "league_avg" | "fleet_avg";
-    n_bids: number;                     // sample size backing the estimate
-    budget: number;
-  } | null;
-};
-export type WaiverRecsResponse = {
-  owner: string;
-  owner_user_id: string | null;
-  league_id: string;
-  season: number | null;
-  format: { is_superflex: boolean; scoring_type: string; pass_td_pts: number; te_premium: number };
-  positional_needs: Record<string, "deficit" | "adequate" | "surplus">;
-  rookie_draft_complete: boolean;
-  draft_pool_hidden: number;
-  open_bench_slots: number;
-  protected_from_drop: { top_n_count: number; handcuff_count: number };
-  droppable_candidates: DroppableCandidate[];  // Waivers V2 strip above table
-  faab_context: {
-    is_faab_league: boolean;
-    budget: number;
-  };
-  counts: {
-    universe: number;
-    rostered_filtered_from_universe: number;
-    season_killer_dropped: number;
-    draft_pool_hidden: number;
-    positive_delta: number;
-    marginal: number;
-    returned: number;
-  };
-  recommendations: WaiverRec[];
-  notes: string[];
-  generated_at: string;
-};
-export const getWaiverRecs = (id: string, owner: string, userId?: string | null, limit = 25) =>
-  get<WaiverRecsResponse>(`${L(id)}/waiver-recs/${O(owner, userId)}?limit=${limit}`);
-
 // ── Rivalries ────────────────────────────────────────────────────────────
 export const getRivalries = (id: string, owner: string, userId?: string | null) => get<{ rivals: Rival[] }>(`${L(id)}/rivalries/${O(owner, userId)}`);
 export const getHeadToHead = (id: string, o1: string, o2: string, uid1?: string | null, uid2?: string | null) => get<HeadToHeadResponse>(`${L(id)}/head-to-head/${O(o1, uid1)}/${O(o2, uid2)}`);
@@ -480,112 +403,6 @@ const U = (uid: string) => `/api/user/${uid}`;
 export const getUserLeagues = (uid: string) => get<{ user_id: string; display_name: string; leagues: { league_id: string; league_name: string; season: string; display_name: string }[] }>(`${U(uid)}/leagues`);
 export const getUserTrades = (uid: string, leagueId?: string) => get<{ trades: unknown[] }>(`${U(uid)}/trades${leagueId ? `?league_id=${leagueId}` : ""}`);
 export const getUserProfile = (uid: string) => get<{ user_id: string; display_name: string; leagues: unknown[]; total_trades: number }>(`${U(uid)}/profile`);
-
-// Portfolio home — one-shot card payload for the redesigned /dashboard.
-export type PortfolioCard = {
-  league_id: string;
-  slug: string;
-  league_name: string;
-  team_name: string | null;
-  // Raw Sleeper login handle. Populated from the standings fan-out; null when
-  // that fetch fell back to the DB `owners.display_name` label. FE renders
-  // this as a secondary line only when it differs from `team_name`.
-  sleeper_username: string | null;
-  season: string | number | null;
-  format: {
-    num_teams: number | null;
-    is_superflex: boolean | null;
-    scoring_type: string | null;
-    te_premium: number;
-    label: string;
-  };
-  record: {
-    wins: number;
-    losses: number;
-    ties: number;
-    points_for: number;
-  } | null;
-  rank: {
-    dynasty_rank: number | null;
-    dynasty_score: number | null;
-    dynasty_tier: string | null;
-    dynasty_percentile: number | null;
-    of_teams: number | null;
-  };
-  odds: {
-    playoff_pct: number | null;
-    title_pct: number | null;
-    bye_pct: number | null;
-    expected_wins: number | null;
-    as_of_week: number | null;
-    computed_at: string | null;
-    awaiting_projections: boolean;
-  };
-};
-export type Portfolio = {
-  user_id: string;
-  display_name: string | null;
-  leagues: PortfolioCard[];
-};
-export const getPortfolio = (uid: string) => get<Portfolio>(`${U(uid)}/portfolio`);
-
-export type CrossLeagueProfile = {
-  user_id: string;
-  totals: {
-    leagues: number;
-    trades: number;
-    decided_verdicts: number;
-    verdicts_win_rate: number | null;
-  };
-  // Career record + titles from season_results. `record_source` marks whether
-  // wins/losses came from the current season's live standings or from the
-  // most-recent completed season fallback (pre-season case).
-  record: {
-    wins: number;
-    losses: number;
-    record_source: "current" | "last_completed";
-    seasons_counted: number;
-    championships: number;
-    seasons_on_record: number;
-    record_by_league: Array<{
-      league_id: string;
-      season: number | string;
-      wins: number;
-      losses: number;
-    }>;
-  };
-  archetype: {
-    primary: string | null;
-    confidence: number | null;
-    early_read: boolean;
-    description: string;
-  };
-  positional_tilt: {
-    buys: string[];
-    sells: string[];
-    net_flow: Record<string, number>;
-    counts: { bought: Record<string, number>; sold: Record<string, number> };
-  };
-  cadence: {
-    peak_months: number[];
-    longest_gap_days: number | null;
-    trades_last_30d: number;
-    active_leagues_last_30d: number;
-  };
-  // Team-state windows powered by the shared `competitive_window.classify_window`
-  // (BE — same function drives the league dashboard's owner_profiles path).
-  // `active_leagues` = contender + balanced + rebuilder — exposes the count of
-  // leagues that have active-season odds available for classification, so the
-  // hero strip can render "N active leagues" without recomputing.
-  windows: {
-    contender: number;
-    rebuilder: number;
-    balanced: number;
-    active_leagues: number;
-  };
-};
-export const getCrossLeagueProfile = (uid: string) =>
-  get<CrossLeagueProfile>(`${U(uid)}/cross-league-profile`);
 export const setActiveLeague = (clerkUserId: string, sleeperUserId: string, leagueId: string) =>
   post<{ success: boolean; active_league_id: string }>(
     `/api/user/set-active-league`,
