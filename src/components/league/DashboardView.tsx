@@ -845,6 +845,36 @@ function DashboardView({ lid, owner, ownerId }: { lid: string; owner: string; ow
       <div className="mobile-stack" style={{ display: "grid", gridTemplateColumns: "55fr 45fr", gap: 10, alignItems: "stretch" }}>
         <DynastyScoreCard lid={lid} owner={owner} ownerId={ownerId} />
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr", gap: 10, alignItems: "stretch" }}>
+          {/* Pulse keyframe reused by the WAIVERS NEW badge below.
+              Same shape as DashboardMobile.tsx dhqMobNewPulse. */}
+          <style>{`@keyframes waiversNewPulse{0%,100%{box-shadow:0 0 4px rgba(212,165,50,0.5)}50%{box-shadow:0 0 10px rgba(212,165,50,0.9)}}`}</style>
+          {/* WAIVERS — first tile per 2026-07-24 reorder. NEW badge
+              until the in-season basics package (matchup preview,
+              start/sit, injury watch) lands and the tag comes off. */}
+          <div
+            onClick={() => router.push(`/l/${currentLeagueSlug}/waivers`)}
+            className="cursor-pointer transition-all duration-200 hover:scale-[1.03]"
+            style={{
+              position: "relative",
+              background: `linear-gradient(135deg, ${C.card} 0%, rgba(224,156,107,0.06) 100%)`,
+              border: `1px solid rgba(224,156,107,0.20)`,
+              borderTop: `2px solid ${C.orange}`,
+              borderRadius: 8,
+              padding: "12px 16px",
+              display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3,
+              boxShadow: `0 4px 24px rgba(224,156,107,0.06), inset 0 1px 0 rgba(224,156,107,0.08)`,
+            }}
+          >
+            <span style={{
+              position: "absolute", top: -6, right: -4,
+              fontFamily: MONO, fontSize: 8, fontWeight: 900, letterSpacing: "0.08em",
+              color: "#06080d", background: C.gold,
+              padding: "2px 6px", borderRadius: 3,
+              animation: "waiversNewPulse 2s ease infinite",
+            }}>NEW</span>
+            <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.orange, letterSpacing: "0.10em", textAlign: "center" }}>WAIVERS</span>
+            <span style={{ fontFamily: SANS, fontSize: 9, color: C.dim, textAlign: "center", lineHeight: 1.3 }}>Free-agent adds ranked for your roster</span>
+          </div>
           {/* BUILD TRADE */}
           <div
             onClick={() => router.push(`/l/${currentLeagueSlug}/trades`)}
@@ -912,25 +942,6 @@ function DashboardView({ lid, owner, ownerId }: { lid: string; owner: string; ow
           >
             <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.green, letterSpacing: "0.10em", textAlign: "center" }}>SCOUTING REPORTS</span>
             <span style={{ fontFamily: SANS, fontSize: 9, color: C.dim, textAlign: "center", lineHeight: 1.3 }}>Know your league before you trade</span>
-          </div>
-          {/* WAIVERS — first entry of the in-season basics package.
-              Matchup preview, start/sit, and injury watch will join
-              this row/section as they ship. */}
-          <div
-            onClick={() => router.push(`/l/${currentLeagueSlug}/waivers`)}
-            className="cursor-pointer transition-all duration-200 hover:scale-[1.03]"
-            style={{
-              background: `linear-gradient(135deg, ${C.card} 0%, rgba(224,156,107,0.06) 100%)`,
-              border: `1px solid rgba(224,156,107,0.20)`,
-              borderTop: `2px solid ${C.orange}`,
-              borderRadius: 8,
-              padding: "12px 16px",
-              display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3,
-              boxShadow: `0 4px 24px rgba(224,156,107,0.06), inset 0 1px 0 rgba(224,156,107,0.08)`,
-            }}
-          >
-            <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.orange, letterSpacing: "0.10em", textAlign: "center" }}>WAIVERS</span>
-            <span style={{ fontFamily: SANS, fontSize: 9, color: C.dim, textAlign: "center", lineHeight: 1.3 }}>Free-agent adds ranked for your roster</span>
           </div>
         </div>
       </div>

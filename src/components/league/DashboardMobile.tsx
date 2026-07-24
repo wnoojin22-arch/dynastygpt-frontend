@@ -348,11 +348,11 @@ export default function DashboardMobile({ lid, owner, ownerId }: { lid: string; 
       <style>{`@keyframes dhqMobNewPulse{0%,100%{box-shadow:0 0 4px rgba(212,165,50,0.5)}50%{box-shadow:0 0 10px rgba(212,165,50,0.9)}}`}</style>
       <div className="grid grid-cols-3 gap-2 px-3">
         {[
+          { label: "WAIVERS", sub: "Free-agent adds", icon: UserPlus, color: C.orange, route: "waivers", isNew: true },
           { label: "BUILD TRADE", sub: "Find your next move", icon: Plus, color: C.gold, route: "trades" },
           { label: "DRAFT HQ", sub: "Rookie ADP — live", icon: FileText, color: C.gold, route: "draft-hq", isNew: false },
           { label: "FRANCHISE", sub: "Where you stand", icon: Activity, color: C.green, route: "intel?tab=my-franchise" },
           { label: "SCOUTING", sub: "Scout opponents", icon: Search, color: C.blue, route: "intel?tab=opponents" },
-          { label: "WAIVERS", sub: "Free-agent adds", icon: UserPlus, color: C.orange, route: "waivers" },
           { label: "DRAFT ROOM", sub: "Picks & grades", icon: FileText, color: "#b39ddb", route: "draft" },
           { label: "RANKINGS", sub: "Full league", icon: BarChart3, color: C.orange, route: "rankings" },
         ].map((btn) => {
