@@ -257,7 +257,7 @@ function PortfolioSidebar({ pathname }: { pathname: string }) {
     isNew?: boolean;
   }[] = [
     { id: "home",     label: "Home",     icon: <Home size={20} />,       href: "/dashboard" },
-    { id: "tradedb",  label: "TradeDB",  icon: <Database size={20} />,   href: TRADEDB_URL,  external: true, isNew: true },
+    { id: "tradedb",  label: "TradeDB",  icon: <Database size={20} />,   href: TRADEDB_URL,  external: true },
     { id: "players",  label: "Players",  icon: <Users size={20} />,      href: PLAYERS_URL,  external: true },
     { id: "rankings", label: "Rankings", icon: <BarChart3 size={20} />,  href: RANKINGS_URL, external: true },
   ];
@@ -350,7 +350,7 @@ function PortfolioBottomTabBar({ pathname }: { pathname: string }) {
     isNew?: boolean;
   }[] = [
     { id: "home",     label: "HOME",     icon: <Home size={20} />,       href: "/dashboard" },
-    { id: "tradedb",  label: "TRADEDB",  icon: <Database size={20} />,   href: TRADEDB_URL,  external: true, isNew: true },
+    { id: "tradedb",  label: "TRADEDB",  icon: <Database size={20} />,   href: TRADEDB_URL,  external: true },
     { id: "players",  label: "PLAYERS",  icon: <Users size={20} />,      href: PLAYERS_URL,  external: true },
     { id: "rankings", label: "RANKINGS", icon: <BarChart3 size={20} />,  href: RANKINGS_URL, external: true },
   ];
