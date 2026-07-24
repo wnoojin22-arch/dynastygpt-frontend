@@ -39,3 +39,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Local run artifacts (script logs, beta data exports, audit output)
+/backfill_*.log
+/beta_apps_*.csv
+/beta_audit_*.json

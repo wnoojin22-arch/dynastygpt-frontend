@@ -460,6 +460,25 @@ export const getTrending = (id: string, days = 7) => get<TrendingResponse>(`${L(
 export const getOwnerTrending = (id: string, owner: string, userId?: string | null, days = 7) => get<OwnerTrendingResponse>(`${L(id)}/trending/${O(owner, userId)}?days=${days}`);
 export const getRosterValueChange = (id: string, owner: string, userId?: string | null, days = 30) => get<RosterValueChangeResponse>(`${L(id)}/roster-value-change/${O(owner, userId)}?days=${days}`);
 
+/** All owners' 30d format-adjusted roster-value deltas — feeds the League
+ *  Home rail's TRENDING OWNERS strip. Sorted delta desc (risers first). */
+export type LeagueValueChange = {
+  owner: string;
+  owner_user_id: string | null;
+  roster_id: number | string | null;
+  current_total: number;
+  previous_total: number;
+  delta: number;
+};
+export type LeagueValueChangesResponse = {
+  league_id: string;
+  window_days: number;
+  format: string;
+  owners: LeagueValueChange[];
+};
+export const getLeagueValueChanges = (id: string, days = 30) =>
+  get<LeagueValueChangesResponse>(`${L(id)}/league-value-changes?days=${days}`);
+
 // ── Player ───────────────────────────────────────────────────────────────
 export const getPlayerSignals = (id: string) => get<{ signals: PlayerSignal[] }>(`${L(id)}/player-signals`);
 export const batchPlayerSignals = (id: string, players: string[]) => post<{ signals: { player: string; signal: string; sha_value: number; reasons: string[] }[] }>(`${L(id)}/player-signals/batch`, { players });
@@ -565,6 +584,12 @@ export type PortfolioCard = {
     dynasty_tier: string | null;
     dynasty_percentile: number | null;
     of_teams: number | null;
+    // Roster-strength (SHA) rank via league_rankings — same source the
+    // sidebar #N badge + League Home PowerRankings strip consume. Null
+    // on completed-season leagues (FE hides the DYNASTYGPT RANK pill
+    // when null; the COMPLETED badge + final-record row carry the card).
+    sha_rank: number | null;
+    sha_of_teams: number | null;
   };
   odds: {
     playoff_pct: number | null;

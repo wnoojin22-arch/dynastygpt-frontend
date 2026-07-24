@@ -124,13 +124,33 @@ function Skel({ h = 20, w = "100%" }: { h?: number; w?: string | number }) {
    ═══════════════════════════════════════════════════════════════ */
 function MarketIntelSection({ feed, loading }: { feed: any; loading: boolean }) {
   const [expanded, setExpanded] = useState<string | null>(null);
-  const items = (feed?.market_feed || []) as any[];
-  const totalTrades = items.reduce((s: number, i: any) => s + (i.recent_trades || i.trades_90d || 0), 0);
+  // Section renamed 2026-07-23: TRADE HEAT · YOUR PLAYERS. Content is
+  // top-5-by-30d-trade-count from Billy's roster (matching-league scope),
+  // tiebreak by SHA value. All 90d fallbacks killed — that was the bug
+  // that displayed a 90d number under a "last 60 days" label. Roadmapped:
+  // the trades_7d pipeline (migration + populator + backfill + endpoint +
+  // FE) as an in-season upgrade; 30d is right for offseason. See
+  // docs/ROADMAP.md Deferred section.
+  const allItems = (feed?.market_feed || []) as any[];
+  // Sort by trades_30d desc, tiebreak sha_value desc. Top 5.
+  const items = [...allItems]
+    .sort((a: any, b: any) => {
+      const dt = (b.trades_30d ?? 0) - (a.trades_30d ?? 0);
+      if (dt !== 0) return dt;
+      return (b.sha_value ?? 0) - (a.sha_value ?? 0);
+    })
+    .slice(0, 5);
+  const totalTrades = items.reduce((s: number, i: any) => s + (i.trades_30d ?? 0), 0);
   const SANS = "-apple-system, 'Inter', system-ui, sans-serif";
+  const subtitleRight = (
+    <span style={{ fontFamily: MONO, fontSize: 9, color: C.secondary }}>
+      last 30 days · matching-league scope
+    </span>
+  );
 
   if (loading) {
     return (
-      <DCard label="Real trades · your players" right={<span style={{ fontFamily: MONO, fontSize: 9, color: C.dim, animation: "pulse 1.5s ease infinite" }}>Scanning matching leagues...</span>}>
+      <DCard label="TRADE HEAT · YOUR PLAYERS" right={<span style={{ fontFamily: MONO, fontSize: 9, color: C.dim, animation: "pulse 1.5s ease infinite" }}>Scanning matching leagues...</span>}>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {Array.from({ length: 4 }).map((_, i) => <Skel key={i} h={36} />)}
         </div>
@@ -140,28 +160,26 @@ function MarketIntelSection({ feed, loading }: { feed: any; loading: boolean }) 
 
   if (!items.length) {
     return (
-      <DCard label="Real trades · your players" right={<span style={{ fontFamily: MONO, fontSize: 9, color: C.dim }}>No recent activity</span>}>
-        <p style={{ fontFamily: SANS, fontSize: 12, color: C.dim, padding: 8 }}>No recent market activity for your roster in matching formats.</p>
+      <DCard label="TRADE HEAT · YOUR PLAYERS" right={subtitleRight}>
+        <p style={{ fontFamily: SANS, fontSize: 12, color: C.dim, padding: 8 }}>No 30-day trade activity on your roster in matching formats.</p>
       </DCard>
     );
   }
 
   return (
-    <DCard label="Real trades · your players" right={
-      <span style={{ fontFamily: MONO, fontSize: 9, color: C.secondary }}>
-        {feed?.players_with_activity || 0} players · {feed?.format || ""} · last {feed?.days || 90} days
-      </span>
-    }>
-      {/* Subtitle — credibility line */}
+    <DCard label="TRADE HEAT · YOUR PLAYERS" right={subtitleRight}>
+      {/* Subtitle — credibility line. 30-day total across the top-5
+          rows (sum of the same trades_30d counts rendered per row). */}
       <div style={{ fontFamily: SANS, fontSize: 11, color: C.dim, padding: "0 8px 6px", borderBottom: `1px solid ${C.white08}`, marginBottom: 4 }}>
-        {totalTrades} trades across matching leagues
+        {totalTrades} trades across matching leagues · last 30 days
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-        {items.slice(0, 8).map((item: any) => {
+        {items.map((item: any) => {
           const isExpanded = expanded === item.player;
           const pc = POS[item.position] || C.dim;
           const mostRecent = item.trades?.[0]?.days_ago;
+          const count30d = item.trades_30d ?? 0;
           return (
             <div key={item.player}>
               <div
@@ -185,10 +203,10 @@ function MarketIntelSection({ feed, loading }: { feed: any; loading: boolean }) 
                 <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.gold }}>{item.pos_rank || ""}</span>
                 <span style={{
                   fontFamily: MONO, fontSize: 9, fontWeight: 800, padding: "2px 6px", borderRadius: 3,
-                  color: (item.recent_trades || item.trades_90d || 0) >= 5 ? C.green : (item.recent_trades || item.trades_90d || 0) >= 3 ? C.gold : C.secondary,
-                  background: (item.recent_trades || item.trades_90d || 0) >= 5 ? "rgba(125,211,160,0.12)" : (item.recent_trades || item.trades_90d || 0) >= 3 ? C.goldDim : C.white08,
+                  color: count30d >= 5 ? C.green : count30d >= 3 ? C.gold : C.secondary,
+                  background: count30d >= 5 ? "rgba(125,211,160,0.12)" : count30d >= 3 ? C.goldDim : C.white08,
                 }}>
-                  {item.recent_trades || item.trades_90d || 0} trades
+                  {count30d} trades
                 </span>
                 <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim, transition: "transform 0.15s", transform: isExpanded ? "rotate(90deg)" : "rotate(0)" }}>▸</span>
               </div>
@@ -594,7 +612,7 @@ function DashboardView({ lid, owner, ownerId }: { lid: string; owner: string; ow
   // ── New queries for enhanced dashboard ──
   const { data: tendencies } = useQuery({ queryKey: ["tendencies", lid, owner], queryFn: () => getOwnerTendencies(lid, owner, ownerId), enabled: !!lid && !!owner, staleTime: 600000 });
   const { data: franchiseIntel } = useQuery({ queryKey: ["franchise-intel", lid, owner], queryFn: () => getFranchiseIntel(lid, owner, ownerId), enabled: !!lid && !!owner, staleTime: 600000 });
-  const { data: marketFeed, isLoading: loadingMarket } = useQuery({ queryKey: ["market-feed", lid, owner], queryFn: () => getMarketFeed(lid, owner, ownerId, 60), enabled: !!lid && !!owner, staleTime: 1800000 });
+  const { data: marketFeed, isLoading: loadingMarket } = useQuery({ queryKey: ["market-feed", lid, owner, 30], queryFn: () => getMarketFeed(lid, owner, ownerId, 30), enabled: !!lid && !!owner, staleTime: 1800000 });
   const { data: coachesCorner } = useQuery({ queryKey: ["coaches-corner", lid, owner], queryFn: () => getCoachesCorner(lid, owner, ownerId), enabled: !!lid && !!owner, staleTime: 600000 });
 
   // Match owner in rankings — exact first, then startsWith fallback for disambiguated names like "I am Sam (#1)"
@@ -826,7 +844,7 @@ function DashboardView({ lid, owner, ownerId }: { lid: string; owner: string; ow
           ══════════════════════════════════════════════════════════ */}
       <div className="mobile-stack" style={{ display: "grid", gridTemplateColumns: "55fr 45fr", gap: 10, alignItems: "stretch" }}>
         <DynastyScoreCard lid={lid} owner={owner} ownerId={ownerId} />
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 10, alignItems: "stretch" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr", gap: 10, alignItems: "stretch" }}>
           {/* BUILD TRADE */}
           <div
             onClick={() => router.push(`/l/${currentLeagueSlug}/trades`)}
@@ -894,6 +912,25 @@ function DashboardView({ lid, owner, ownerId }: { lid: string; owner: string; ow
           >
             <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.green, letterSpacing: "0.10em", textAlign: "center" }}>SCOUTING REPORTS</span>
             <span style={{ fontFamily: SANS, fontSize: 9, color: C.dim, textAlign: "center", lineHeight: 1.3 }}>Know your league before you trade</span>
+          </div>
+          {/* WAIVERS — first entry of the in-season basics package.
+              Matchup preview, start/sit, and injury watch will join
+              this row/section as they ship. */}
+          <div
+            onClick={() => router.push(`/l/${currentLeagueSlug}/waivers`)}
+            className="cursor-pointer transition-all duration-200 hover:scale-[1.03]"
+            style={{
+              background: `linear-gradient(135deg, ${C.card} 0%, rgba(224,156,107,0.06) 100%)`,
+              border: `1px solid rgba(224,156,107,0.20)`,
+              borderTop: `2px solid ${C.orange}`,
+              borderRadius: 8,
+              padding: "12px 16px",
+              display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3,
+              boxShadow: `0 4px 24px rgba(224,156,107,0.06), inset 0 1px 0 rgba(224,156,107,0.08)`,
+            }}
+          >
+            <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.orange, letterSpacing: "0.10em", textAlign: "center" }}>WAIVERS</span>
+            <span style={{ fontFamily: SANS, fontSize: 9, color: C.dim, textAlign: "center", lineHeight: 1.3 }}>Free-agent adds ranked for your roster</span>
           </div>
         </div>
       </div>

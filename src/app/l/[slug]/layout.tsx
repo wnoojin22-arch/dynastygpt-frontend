@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import React, { useState, useCallback, useEffect, useRef, useId } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useUser, SignOutButton } from "@clerk/nextjs";
 import { useLeagueStore } from "@/lib/stores/league-store";
@@ -27,30 +27,41 @@ const C = {
   green: "#7dd3a0", red: "#e47272", blue: "#6bb8e0", orange: "#e09c6b",
 };
 const SANS = "-apple-system, 'SF Pro Display', 'Inter', 'Segoe UI', system-ui, sans-serif";
-const MONO = "'JetBrains Mono', 'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace";
-const DISPLAY = "'Archivo Black', sans-serif";
 const SERIF = "'Playfair Display', Georgia, serif";
 
 /* ═══════════════════════════════════════════════════════════════
    SHIELD LOGO
    ═══════════════════════════════════════════════════════════════ */
 function ShieldLogo({ size = 28 }: { size?: number }) {
+  // useId() gives us a unique gradient-id prefix per React instance so
+  // two ShieldLogo mounts on the same page (desktop sidebar + mobile
+  // header) don't share `<linearGradient id="...">` and can each
+  // resolve their own `url(#…)` references. The old hardcoded
+  // `nav-gs1`/`nav-gs2` collided across the two mounts — the desktop
+  // sidebar renders first with `hidden sm:flex` (still in the DOM,
+  // just display:none on mobile), which won the ID race for the URL
+  // lookups and left the mobile shape with no resolvable gradient.
+  // Result: only the crown squiggle rendered (its stroke is a plain
+  // hex, not a url ref); the shield outline and letter never appeared.
+  const uid = useId().replace(/[:]/g, "");
+  const outerId = `shield-outer-${uid}`;
+  const letterId = `shield-letter-${uid}`;
   return (
     <svg width={size} height={size * 1.12} viewBox="0 0 52 58" xmlns="http://www.w3.org/2000/svg"
       style={{ filter: "drop-shadow(0 0 12px rgba(212,165,50,0.3))" }}>
       <defs>
-        <linearGradient id="nav-gs1" x1="0" y1="0" x2="1" y2="1">
+        <linearGradient id={outerId} x1="0" y1="0" x2="1" y2="1">
           <stop offset="0%" stopColor="#8b6914"/><stop offset="30%" stopColor="#d4a532"/>
           <stop offset="50%" stopColor="#f5e6a3"/><stop offset="70%" stopColor="#d4a532"/>
           <stop offset="100%" stopColor="#8b6914"/>
         </linearGradient>
-        <linearGradient id="nav-gs2" x1="0" y1="0" x2="0" y2="1">
+        <linearGradient id={letterId} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="#f5e6a3"/><stop offset="100%" stopColor="#b8860b"/>
         </linearGradient>
       </defs>
-      <path d="M26,2 L48,14 L48,34 Q48,50 26,56 Q4,50 4,34 L4,14 Z" fill="none" stroke="url(#nav-gs1)" strokeWidth="2.5"/>
-      <path d="M26,8 L42,17 L42,33 Q42,46 26,51 Q10,46 10,33 L10,17 Z" fill="url(#nav-gs1)" opacity="0.08"/>
-      <text x="26" y="40" textAnchor="middle" fontFamily={SERIF} fontWeight="900" fontStyle="italic" fontSize="32" fill="url(#nav-gs2)">D</text>
+      <path d="M26,2 L48,14 L48,34 Q48,50 26,56 Q4,50 4,34 L4,14 Z" fill="none" stroke={`url(#${outerId})`} strokeWidth="2.5"/>
+      <path d="M26,8 L42,17 L42,33 Q42,46 26,51 Q10,46 10,33 L10,17 Z" fill={`url(#${outerId})`} opacity="0.08"/>
+      <text x="26" y="40" textAnchor="middle" fontFamily={SERIF} fontWeight="900" fontStyle="italic" fontSize="32" fill={`url(#${letterId})`}>D</text>
       <g transform="translate(14, 3)">
         <path d="M0,10 L4,2 L8,7 L12,0 L16,7 L20,2 L24,10" fill="none" stroke="#f5e6a3" strokeWidth="1.2" strokeLinejoin="round"/>
         <circle cx="4" cy="2" r="1.5" fill="#f5e6a3"/><circle cx="12" cy="0" r="1.8" fill="#f5e6a3"/><circle cx="20" cy="2" r="1.5" fill="#f5e6a3"/>
@@ -62,13 +73,30 @@ function ShieldLogo({ size = 28 }: { size?: number }) {
 /* ═══════════════════════════════════════════════════════════════
    NAV ITEMS — 5 items, no sub-nav
    ═══════════════════════════════════════════════════════════════ */
-const NAV_ITEMS: { id: string; label: string; path: string; icon: React.ReactNode; external?: boolean; isNew?: boolean }[] = [
-  { id: "home",      label: "Home",      path: "",           icon: <Home size={20} /> },
-  { id: "dashboard", label: "Dashboard", path: "/dashboard", icon: <LayoutGrid size={20} /> },
-  { id: "trades",    label: "Trades",    path: "/trades",    icon: <Zap size={20} /> },
-  { id: "intel",     label: "Intel",     path: "/intel",     icon: <Search size={20} /> },
-  { id: "rankings",  label: "Rankings",  path: "/rankings",  icon: <BarChart3 size={20} /> },
-  { id: "tradedb",   label: "TradeDB",   path: "https://dynastygpt.com/tradedb", icon: <Database size={20} />, external: true, isNew: true },
+const NAV_ITEMS: {
+  id: string; label: string; path: string; icon: React.ReactNode;
+  external?: boolean; isNew?: boolean;
+  // `promoted` marks the primary-nav entries (MY TEAM · LEAGUE HOME).
+  // They render taller, with a larger icon + label and a more emphatic
+  // active state so the user always knows which page they're on. See
+  // IconSidebar / BottomTabBar below for the visual treatment.
+  promoted?: boolean;
+  // `mobileLabel` is the shortened label used by the mobile bottom
+  // tab bar so "LEAGUE HOME" doesn't wrap or truncate at a 6-item /
+  // ~390px viewport. Falls back to `label` when unset.
+  mobileLabel?: string;
+}[] = [
+  // Top-of-stack primary nav. `path: "/team"` renders `/l/[slug]/team`;
+  // the sidebar's initial route landing after portfolio-card click and
+  // LeagueSwitcher navigation. `path: "/home"` renders League Home.
+  { id: "team",     label: "MY TEAM",     mobileLabel: "TEAM",   path: "/team",     icon: <LayoutGrid size={24} />, promoted: true },
+  { id: "home",     label: "LEAGUE HOME", mobileLabel: "LEAGUE", path: "/home",     icon: <Home       size={24} />, promoted: true },
+  // Secondary nav.
+  { id: "trades",   label: "Trades",      path: "/trades",   icon: <Zap size={20} /> },
+  { id: "intel",    label: "Intel",       path: "/intel",    icon: <Search size={20} /> },
+  { id: "rankings", label: "Rankings",    path: "/rankings", icon: <BarChart3 size={20} /> },
+  { id: "tradedb",  label: "TradeDB",     path: "https://dynastygpt.com/tradedb",
+    icon: <Database size={20} />, external: true, isNew: true },
 ];
 
 /* ═══════════════════════════════════════════════════════════════
@@ -103,8 +131,15 @@ function IconSidebar({ basePath, pathname, owner, shaRank }: {
         </div>
       )}
 
-      {/* Nav items */}
-      {NAV_ITEMS.map((item) => {
+      {/* Nav items. Promoted items (MY TEAM · LEAGUE HOME) render at
+          the top of the stack with heavier weight — larger icons, a
+          two-line label, and a dramatic active state that borrows from
+          the feature-card treatment in DashboardView.tsx:830-846
+          (`bg-gradient-to-br from-card via-card to-gold-glow`, gold left
+          rail, gold-bright text, shadow). A hairline separator sits
+          between the promoted pair and the secondary nav so the primary
+          choice reads unmistakably at a glance. */}
+      {NAV_ITEMS.map((item, i) => {
         const href = item.external ? item.path : `${basePath}${item.path}`;
         const isActive = item.external
           ? false
@@ -112,44 +147,84 @@ function IconSidebar({ basePath, pathname, owner, shaRank }: {
             ? pathname === basePath || pathname === basePath + "/"
             : pathname.startsWith(href);
         const isHov = hovered === item.id;
+        const isPromoted = !!item.promoted;
+
+        // Section separator between promoted and secondary nav. Fires
+        // exactly once — before the first non-promoted item after any
+        // promoted ones.
+        const prev = i > 0 ? NAV_ITEMS[i - 1] : null;
+        const showSeparator = !isPromoted && prev?.promoted;
+
+        // Promoted active/inactive treatments — feature-card style.
+        const promotedShell = isActive
+          ? "bg-gradient-to-br from-elevated via-elevated to-gold-glow border-l-[3px] border-l-gold shadow-[0_0_16px_rgba(212,165,50,0.16)]"
+          : isHov
+            ? "bg-elevated/80 border-l-[3px] border-l-transparent"
+            : "bg-transparent border-l-[3px] border-l-transparent";
+
+        const regularShell = isActive
+          ? "bg-elevated border-l-2 border-gold"
+          : isHov
+            ? "bg-elevated/80 border-l-2 border-transparent"
+            : "border-l-2 border-transparent";
 
         return (
-          <div key={item.id}
-            onClick={() => {
-              if (item.external) {
-                if (item.id === "tradedb") {
-                  track("tradedb_nav_clicked", {
-                    league_id: currentLeagueId,
-                    owner_name: owner,
-                    surface: "desktop_sidebar",
-                  });
-                }
-                window.location.href = href;
-              } else {
-                router.push(href);
-              }
-            }}
-            onMouseEnter={() => setHovered(item.id)}
-            onMouseLeave={() => setHovered(null)}
-            className={`relative flex flex-col items-center gap-1 w-[54px] py-2.5 rounded-md cursor-pointer transition-all
-              ${isActive ? "bg-elevated border-l-2 border-gold" : isHov ? "bg-elevated/80 border-l-2 border-transparent" : "border-l-2 border-transparent"}`}
-          >
-            {item.isNew && (
-              <span
-                className="absolute top-1 right-1 px-1 rounded-[3px] font-mono text-[7px] font-black tracking-wider text-bg bg-gold leading-[11px]"
-                style={{ boxShadow: "0 0 8px rgba(212,165,50,0.55)" }}
-              >
-                NEW
-              </span>
+          <React.Fragment key={item.id}>
+            {showSeparator && (
+              <div
+                aria-hidden="true"
+                className="w-9 h-px my-1.5 bg-border-lt"
+              />
             )}
-            <span className={`transition-colors ${isActive ? "text-gold" : isHov ? "text-primary" : "text-dim"}`}>
-              {item.icon}
-            </span>
-            <span className={`font-sans text-[8px] font-bold tracking-wide text-center leading-tight
-              ${isActive || isHov ? "text-primary" : "text-dim"}`}>
-              {item.label}
-            </span>
-          </div>
+            <div
+              onClick={() => {
+                if (item.external) {
+                  if (item.id === "tradedb") {
+                    track("tradedb_nav_clicked", {
+                      league_id: currentLeagueId,
+                      owner_name: owner,
+                      surface: "desktop_sidebar",
+                    });
+                  }
+                  window.location.href = href;
+                } else {
+                  router.push(href);
+                }
+              }}
+              onMouseEnter={() => setHovered(item.id)}
+              onMouseLeave={() => setHovered(null)}
+              className={`relative flex flex-col items-center gap-1 cursor-pointer rounded-md transition-all
+                ${isPromoted
+                  ? `w-[60px] py-3 gap-1.5 ${promotedShell}`
+                  : `w-[54px] py-2.5 ${regularShell}`}`}
+            >
+              {item.isNew && (
+                <span
+                  className="absolute top-1 right-1 px-1 rounded-[3px] font-mono text-[7px] font-black tracking-wider text-bg bg-gold leading-[11px]"
+                  style={{ boxShadow: "0 0 8px rgba(212,165,50,0.55)" }}
+                >
+                  NEW
+                </span>
+              )}
+              <span
+                className={`transition-colors ${
+                  isPromoted
+                    ? isActive ? "text-gold-bright" : isHov ? "text-primary" : "text-dim"
+                    : isActive ? "text-gold" : isHov ? "text-primary" : "text-dim"
+                }`}
+              >
+                {item.icon}
+              </span>
+              <span
+                className={`font-sans text-center leading-tight transition-colors
+                  ${isPromoted
+                    ? `text-[9px] font-black tracking-[0.06em] ${isActive ? "text-gold-bright" : isHov ? "text-primary" : "text-secondary"}`
+                    : `text-[8px] font-bold tracking-wide ${isActive || isHov ? "text-primary" : "text-dim"}`}`}
+              >
+                {item.label}
+              </span>
+            </div>
+          </React.Fragment>
         );
       })}
 
@@ -243,7 +318,7 @@ function BottomTabBar({ basePath, pathname }: { basePath: string; pathname: stri
             >
               {isActive
                 ? (() => {
-                    const Icon = { home: Home, dashboard: LayoutGrid, trades: Zap, intel: Search, rankings: BarChart3, tradedb: Database }[item.id]!;
+                    const Icon = { team: LayoutGrid, home: Home, trades: Zap, intel: Search, rankings: BarChart3, tradedb: Database }[item.id]!;
                     return <Icon size={22} />;
                   })()
                 : item.icon
@@ -253,7 +328,7 @@ function BottomTabBar({ basePath, pathname }: { basePath: string; pathname: stri
               className={`font-sans font-bold tracking-wide text-center leading-tight ${isActive ? "text-gold" : "text-dim"}`}
               style={{ fontSize: 9 }}
             >
-              {item.label}
+              {item.mobileLabel || item.label}
             </span>
             {isActive && (
               <div
@@ -271,14 +346,14 @@ function BottomTabBar({ basePath, pathname }: { basePath: string; pathname: stri
 /* ═══════════════════════════════════════════════════════════════
    HEADER BAR — with Resync button
    ═══════════════════════════════════════════════════════════════ */
-function HeaderBar({ owner, leagueName }: {
-  owner: string | null; leagueName: string;
+function HeaderBar({ leagueName }: {
+  leagueName: string;
 }) {
   const [unread, setUnread] = useState(0);
   const pathname = usePathname();
   // Trade-builder pages render a fixed-position cart icon at right:12 on mobile.
-  // Shift the Feedback pill leftward on mobile only when on those routes so the
-  // cart sits to its right without overlapping. Desktop has its own layout.
+  // Shift the Feedback trigger leftward on mobile only when on those routes so
+  // the cart sits to its right without overlapping. Desktop has its own layout.
   const isTradeBuilderRoute = /\/l\/[^/]+\/(trades|trade-analyzer)\b/.test(pathname || "");
   useEffect(() => {
     const handler = (e: Event) => setUnread((e as CustomEvent<{ count: number }>).detail.count || 0);
@@ -286,61 +361,48 @@ function HeaderBar({ owner, leagueName }: {
     return () => window.removeEventListener("feedback-unread-count", handler);
   }, []);
   return (
-    <div style={{
-      height: 48, background: C.panel, borderBottom: `1px solid ${C.border}`,
-      display: "flex", alignItems: "center", gap: 14, flexShrink: 0,
-    }}
-      className="px-3 sm:px-5"
-    >
-      {/* Shield logo — mobile only (sidebar hidden) */}
-      <div className="sm:hidden shrink-0">
-        <ShieldLogo size={22} />
-      </div>
-
-      {/* League Name */}
-      <div className="flex items-baseline leading-none shrink-0">
-        {(() => {
-          const name = leagueName || "DynastyGPT";
-          const words = name.replace(/\s+League$/i, "").split(/\s+/);
-          const dynIdx = words.findIndex((w) => w.toLowerCase() === "dynasty");
-          if (dynIdx >= 0) {
-            const before = words.slice(0, dynIdx).join(" ");
-            return (
-              <>
-                {before && <span className="text-sm sm:text-lg" style={{ fontFamily: DISPLAY, color: "#fff", letterSpacing: "-0.5px", marginRight: 4 }}>{before.toUpperCase()}</span>}
-                <span className="text-sm sm:text-lg" style={{ fontFamily: DISPLAY, letterSpacing: "-0.5px", background: "linear-gradient(180deg, #f5e6a3, #d4a532, #8b6914)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>DYNASTY</span>
-              </>
-            );
-          }
-          const first = words[0] || "";
-          const rest = words.slice(1).join(" ");
-          return (
-            <>
-              <span className="text-sm sm:text-lg" style={{ fontFamily: DISPLAY, color: "#fff", letterSpacing: "-0.5px", marginRight: rest ? 4 : 0 }}>{first.toUpperCase()}</span>
-              {rest && <span className="text-sm sm:text-lg" style={{ fontFamily: DISPLAY, letterSpacing: "-0.5px", background: "linear-gradient(180deg, #f5e6a3, #d4a532, #8b6914)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>{rest.toUpperCase()}</span>}
-            </>
-          );
-        })()}
-      </div>
-
-      {/* League switcher — renders null when the user has ≤1 league so
-          single-league users see no dropdown UI at all. */}
-      <LeagueSwitcher />
-
-      {owner && (
-        <span className="text-xs sm:text-sm" style={{ fontFamily: DISPLAY, color: C.secondary, letterSpacing: "-0.3px" }}>{owner}</span>
-      )}
+    // Container treatment copied verbatim from dashboard/page.tsx:405
+    // (BrandHeader). That header renders at correct height with all
+    // children on one centered line; this one must match.
+    <div className="h-12 bg-panel border-b border-border shrink-0 flex items-center gap-4 px-3 sm:px-5">
+      {/* League name + switcher — the LeagueSwitcher component now owns
+          the name rendering (with the gold DYNASTY gradient), the
+          chevron trigger, the "SWITCH LEAGUES" hint, AND the dropdown
+          panel. Panel opens directly below the name. Single-active-
+          league users get just the plain name (no chevron, no hint).
+          The owner/team name span that used to sit here is intentionally
+          gone — Billy: "WE DO NOT NEED TEAM NAME IN THE HEADER". */}
+      <LeagueSwitcher leagueName={leagueName} />
 
       <div style={{ flex: 1 }} />
 
-      {/* Feedback trigger — header pill on all sizes. Dispatches open-feedback;
-          FeedbackWidget panel handles the rest. Unread count comes via window
-          event from the widget. Compact (icon-only) on mobile. */}
+      {/* Feedback trigger — MOBILE. Bare gold glyph, 18px visible, in
+          a 40×40 invisible tap target so it satisfies mobile hit-size
+          without a visible pill. Tap target is w-10 h-10 which fits
+          inside the 48px header with 4px clear above/below when the
+          outer container center-aligns it (matches BrandHeader
+          treatment at dashboard/page.tsx:405). */}
       <button
         onClick={() => window.dispatchEvent(new Event("open-feedback"))}
-        className={`flex items-center gap-1.5 cursor-pointer relative transition-all px-2 sm:px-3 py-1 sm:py-1 ${
-          isTradeBuilderRoute ? "mr-11 sm:mr-0" : ""
+        className={`sm:hidden flex items-center justify-center cursor-pointer relative bg-transparent border-0 p-0 w-10 h-10 ${
+          isTradeBuilderRoute ? "mr-11" : ""
         }`}
+        style={{ background: "transparent", border: "none", padding: 0, flexShrink: 0 }}
+        aria-label="Feedback"
+      >
+        <MessageSquare size={18} style={{ color: C.gold, display: "block" }} />
+        {unread > 0 && (
+          <span
+            className="absolute top-1 right-1 min-w-[12px] h-3 flex items-center justify-center rounded-full text-white text-[8px] font-bold leading-none px-0.5"
+            style={{ background: C.red, border: `1px solid ${C.panel}` }}
+          >
+            {unread}
+          </span>
+        )}
+      </button>
+      <button
+        onClick={() => window.dispatchEvent(new Event("open-feedback"))}
+        className="hidden sm:flex items-center gap-1.5 cursor-pointer relative transition-all px-3 py-1"
         style={{
           borderRadius: 20,
           border: `1px solid ${C.gold}`, background: C.gold,
@@ -352,7 +414,7 @@ function HeaderBar({ owner, leagueName }: {
         onMouseLeave={(e) => { e.currentTarget.style.filter = "none"; }}
       >
         <MessageSquare size={12} style={{ color: "#06080d" }} />
-        <span className="hidden sm:inline" style={{ fontSize: 11, fontWeight: 800, color: "#06080d", fontFamily: SANS, letterSpacing: 0.3 }}>Feedback</span>
+        <span style={{ fontSize: 11, fontWeight: 800, color: "#06080d", fontFamily: SANS, letterSpacing: 0.3 }}>Feedback</span>
         {unread > 0 && (
           <span
             className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 flex items-center justify-center rounded-full text-white text-[10px] font-bold leading-none px-1"
@@ -468,6 +530,10 @@ export default function LeagueLayout({ children }: { children: React.ReactNode }
         name: l.league_name,
         owner: l.display_name || null,
         ownerId: uid || null,
+        // Sleeper season string ("2026", "2025"…). Powers the switcher's
+        // active-only filter so a wrapped 2025 league doesn't clutter
+        // the dropdown alongside live 2026 leagues.
+        season: l.season || undefined,
       }))
     );
   }, [userLeaguesData, setSavedLeagues]);
@@ -573,7 +639,6 @@ export default function LeagueLayout({ children }: { children: React.ReactNode }
         {/* ── Main Area (Header + Content) ── */}
         <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
           <HeaderBar
-            owner={currentOwner}
             leagueName={overview?.name || ""}
           />
 

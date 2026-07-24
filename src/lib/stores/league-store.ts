@@ -7,6 +7,13 @@ export interface SavedLeague {
   name: string;
   owner: string | null;
   ownerId: string | null;
+  // Season string ("2026", "2025"…) sourced from the Sleeper league record.
+  // Optional because older persisted entries (v1 shape) never populated it.
+  // The switcher filters on `season === CURRENT_NFL_SEASON` to hide
+  // completed leagues from the dropdown — a season-string match beats
+  // adding a `status` column just for this. Missing/undefined is treated
+  // as inactive.
+  season?: string;
 }
 
 interface LeagueState {

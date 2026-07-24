@@ -180,7 +180,10 @@ function DashboardContent() {
 
   const openLeague = (card: PortfolioCard) => {
     setLeague(card.league_id, card.slug, card.league_name);
-    router.push(`/l/${card.slug}?league_id=${card.league_id}`);
+    // Card click lands on MY TEAM (`/team`) per the 2026-07-23 routing
+    // change. Bare `/l/[slug]` also redirects to `/team`, so a stale
+    // browser tab keeps working.
+    router.push(`/l/${card.slug}/team?league_id=${card.league_id}`);
   };
 
   const headline = sleeperUsername ?? portfolio.display_name ?? "";
@@ -188,6 +191,12 @@ function DashboardContent() {
   return (
     <div className="flex h-screen overflow-hidden bg-bg text-primary font-sans">
       <PortfolioSidebar pathname={pathname ?? "/dashboard"} />
+      {/* Mobile bottom nav — parity with the league layout's BottomTabBar
+          (l/[slug]/layout.tsx:247). Same anatomy: fixed bottom, black/95
+          bg + backdrop-blur, gold pill on active, safe-area padding.
+          Sidebar is `hidden sm:flex`; this is `sm:hidden` so both never
+          render at once. */}
+      <PortfolioBottomTabBar pathname={pathname ?? "/dashboard"} />
 
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         <BrandHeader owner={headline} />
@@ -204,7 +213,11 @@ function DashboardContent() {
             />
 
             <section>
-              <SectionLabel title="YOUR LEAGUES" badge={`${portfolio.leagues.length}`} />
+              <SectionLabel
+                title="YOUR LEAGUES"
+                badge={`${portfolio.leagues.length}`}
+                subtitle="tap any card to enter"
+              />
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
                 {portfolio.leagues.map((card) => (
                   <CompactLeagueCard
@@ -321,6 +334,69 @@ function PortfolioSidebar({ pathname }: { pathname: string }) {
   );
 }
 
+// ── Portfolio mobile bottom-tab bar — anatomy copied from the league
+// layout's BottomTabBar at l/[slug]/layout.tsx:247-329 (fixed bottom,
+// black/95 backdrop-blur, gold pill on active, safe-area padding).
+// Same 4 items as PortfolioSidebar so the mobile user always has the
+// primary nav within thumb reach.
+function PortfolioBottomTabBar({ pathname }: { pathname: string }) {
+  const router = useRouter();
+  const NAV: {
+    id: string;
+    label: string;
+    icon: React.ReactNode;
+    href: string;
+    external?: boolean;
+    isNew?: boolean;
+  }[] = [
+    { id: "home",     label: "HOME",     icon: <Home size={20} />,       href: "/dashboard" },
+    { id: "tradedb",  label: "TRADEDB",  icon: <Database size={20} />,   href: TRADEDB_URL,  external: true, isNew: true },
+    { id: "players",  label: "PLAYERS",  icon: <Users size={20} />,      href: PLAYERS_URL,  external: true },
+    { id: "rankings", label: "RANKINGS", icon: <BarChart3 size={20} />,  href: RANKINGS_URL, external: true },
+  ];
+
+  return (
+    <div
+      className="fixed bottom-0 left-0 right-0 z-50 h-14 bg-black/95 backdrop-blur-md border-t border-border sm:hidden pb-safe flex items-center justify-around px-2 shadow-[0_-2px_20px_rgba(0,0,0,0.5)]"
+    >
+      {NAV.map((item) => {
+        const isActive = !item.external && pathname === item.href;
+        return (
+          <button
+            key={item.id}
+            onClick={() => {
+              if (item.external) window.location.href = item.href;
+              else router.push(item.href);
+            }}
+            className={`flex flex-col items-center justify-center gap-0.5 flex-1 h-full relative transition-all duration-200 ${isActive ? "scale-105" : ""}`}
+          >
+            {/* Active pill — matches BottomTabBar's gold pill treatment. */}
+            {isActive && (
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3 h-[3px] rounded-full bg-gold shadow-[0_2px_8px_rgba(212,165,50,0.4)]" />
+            )}
+            {item.isNew && (
+              <span className="absolute top-1 right-2 px-1 rounded-[3px] font-mono text-[7px] font-black tracking-wider text-bg bg-gold leading-[11px] shadow-[0_0_8px_rgba(212,165,50,0.55)]">
+                NEW
+              </span>
+            )}
+            <span
+              className={`transition-colors ${isActive ? "text-gold scale-110" : "text-dim"}`}
+              style={{ lineHeight: 0 }}
+            >
+              {item.icon}
+            </span>
+            <span
+              className={`font-sans text-[9px] font-bold tracking-wide text-center leading-tight ${isActive ? "text-gold" : "text-dim"}`}
+            >
+              {item.label}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 // ── Brand header — full DGPT wordmark (D-shield on mobile, gradient
 // DYNASTYGPT wordmark, owner handle, powered-by badge). Same idiom
 // as l/[slug]/layout.tsx HeaderBar.
@@ -423,92 +499,200 @@ function HeroPanel({
         </span>
       </div>
 
-      {/* Two-column body at lg; stack below with a horizontal divider. */}
-      <div className="relative grid grid-cols-1 lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,1fr)] divide-y lg:divide-y-0 lg:divide-x divide-border">
-        {/* LEFT — identity + continuous stat bar.
-            Padding copied from feature-card DashboardView.tsx:830-846
-            `padding: "12px 16px"` at the compact end, opened to 20px on
-            desktop for headline breathing room. */}
-        <div className="px-5 sm:px-6 lg:px-8 py-4 sm:py-5 flex flex-col gap-3 min-w-0">
-          {/* Eyebrow — pulsing gold dot mirrors ticker dot at page.tsx:356. */}
-          <div className="flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-gold shadow-[0_0_8px_rgba(212,165,50,0.55)] animate-pulse" />
-            <span className="font-mono text-[10px] font-black tracking-[0.20em] text-gold">
-              SLEEPER MANAGER · FLEET-WIDE
-            </span>
-          </div>
+      {/* Single-column body — mobile padding halved from V6.
+          Body vertical padding: py-2.5 sm:py-4 (was py-4 sm:py-5).
+          Column gap on mobile: gap-1.5 (was gap-3).
+          Values sourced from DashboardView.tsx:376 Manager Ranks tile
+          `padding: "6px 8px"` on the tightest mobile end. */}
+      <div className="relative px-4 sm:px-6 lg:px-8 py-2.5 sm:py-4 flex flex-col gap-1.5 sm:gap-3 min-w-0">
+        {/* Eyebrow — pulsing gold dot mirrors ticker dot at page.tsx:356. */}
+        <div className="flex items-center gap-2">
+          <span className="w-1.5 h-1.5 rounded-full bg-gold shadow-[0_0_8px_rgba(212,165,50,0.55)] animate-pulse" />
+          <span className="font-mono text-[10px] font-black tracking-[0.20em] text-gold">
+            SLEEPER MANAGER · FLEET-WIDE
+          </span>
+        </div>
 
-          {/* Headline — landing HeroRow.tsx:33-42 exact classes; Playfair
-              swapped for font-display (Archivo Black). */}
-          <h1 className="font-display text-[clamp(38px,4.6vw,54px)] font-bold leading-[0.95] tracking-[-0.035em] text-primary truncate">
-            {headline}
-          </h1>
+        {/* Headline — landing HeroRow.tsx:37 renders `clamp(38px,4.6vw,54px)`
+            → 38px on a 390px viewport (its billboard scale for marketing).
+            Portfolio is an app surface — smaller mobile step so the hero
+            doesn't own the whole viewport. Mobile 28px + tighter leading
+            (leading-[0.9] vs 0.95); sm+ uses the landing clamp verbatim. */}
+        <h1 className="font-display text-[28px] leading-[0.9] tracking-[-0.035em] sm:text-[clamp(38px,4.6vw,54px)] sm:leading-[0.95] font-bold text-primary truncate">
+          {headline}
+        </h1>
 
-          {/* Continuous stat bar — same-line label+value pairs, hairline
-              dividers between. Idiom lifted from DashboardView.tsx:723-773. */}
-          <div className="mt-1 pt-3 border-t border-border flex flex-wrap items-center gap-y-2">
-            <LineStat label="LEAGUES" value={String(totals?.leagues ?? "—")} />
-            <LineDiv />
+        {/* Stat row — two renders, one CSS-hidden per viewport.
+            DESKTOP: single-line divider-separated LineStat pairs
+                     (idiom from DashboardView.tsx:723-773).
+            MOBILE:  2-col self-bordered stat tiles, matches the
+                     landing DataGrid mobile pattern at
+                     DataGrid.tsx:129 (`grid-cols-1 sm:grid-cols-2 gap-3`)
+                     which reads "as a structured dashboard, not a
+                     continuous content slab" per its comment. */}
+
+        {/* ── Desktop stat row ── */}
+        <div className="hidden sm:flex mt-1 pt-3 border-t border-border flex-wrap items-center gap-y-2">
+          <LineStat label="LEAGUES" value={String(totals?.leagues ?? "—")} />
+          <LineDiv />
+          <LineStat
+            label="GRADED TRADES"
+            value={String(totals?.decided_verdicts ?? "—")}
+            sub={totals ? `of ${totals.trades}` : undefined}
+          />
+          <LineDiv />
+          <LineStat
+            label="ALL-TIME"
+            value={record ? `${record.wins}-${record.losses}` : "—"}
+            sub={seasons > 0 ? `${seasons} seasons` : undefined}
+          />
+          <LineDiv />
+          <LineStat
+            label="CHAMPIONSHIPS"
+            value={record ? `${record.championships}×` : "—"}
+            accent={record && record.championships > 0 ? "gold" : "dim"}
+            icon={
+              <Trophy
+                size={13}
+                className={
+                  record && record.championships > 0
+                    ? "text-gold-bright"
+                    : "text-dim"
+                }
+                strokeWidth={2.5}
+              />
+            }
+          />
+          <LineDiv />
+          {showDaysToKickoff ? (
             <LineStat
-              label="GRADED TRADES"
-              value={String(totals?.decided_verdicts ?? "—")}
-              sub={totals ? `of ${totals.trades}` : undefined}
+              label="DAYS TO KICKOFF"
+              value={String(daysToKickoff)}
+              sub="NFL 2026"
+              accent="gold"
             />
-            <LineDiv />
+          ) : (
             <LineStat
-              label="ALL-TIME"
-              value={record ? `${record.wins}-${record.losses}` : "—"}
-              sub={seasons > 0 ? `${seasons} seasons` : undefined}
-            />
-            <LineDiv />
-            <LineStat
-              label="CHAMPIONSHIPS"
-              value={record ? `${record.championships}×` : "—"}
-              accent={record && record.championships > 0 ? "gold" : "dim"}
-              icon={
-                <Trophy
-                  size={13}
-                  className={
-                    record && record.championships > 0
-                      ? "text-gold-bright"
-                      : "text-dim"
-                  }
-                  strokeWidth={2.5}
-                />
+              label="TRADES · 30D"
+              value={String(cadence?.trades_last_30d ?? "—")}
+              sub={
+                cadence && cadence.active_leagues_last_30d > 0
+                  ? `${cadence.active_leagues_last_30d} active`
+                  : undefined
               }
             />
-            <LineDiv />
-            {showDaysToKickoff ? (
-              <LineStat
-                label="DAYS TO KICKOFF"
-                value={String(daysToKickoff)}
-                sub="NFL 2026"
-                accent="gold"
-              />
-            ) : (
-              <LineStat
-                label="TRADES · 30D"
-                value={String(cadence?.trades_last_30d ?? "—")}
-                sub={
-                  cadence && cadence.active_leagues_last_30d > 0
-                    ? `${cadence.active_leagues_last_30d} active`
-                    : undefined
-                }
-              />
-            )}
-          </div>
+          )}
         </div>
 
-        {/* RIGHT — behavioral viz. */}
-        <div
-          className="
-            px-5 sm:px-6 py-4 sm:py-5 flex flex-col gap-4 min-w-0
-            bg-[radial-gradient(ellipse_500px_400px_at_70%_50%,rgba(212,165,50,0.05),transparent_65%)]
-          "
-        >
-          <TiltBarViz tilt={tilt} />
+        {/* ── Mobile stat grid — tightened per V8 density pass.
+            Grid gap `gap-1.5` (was gap-2). Divider `mt-0 pt-2`
+            (was mt-1 pt-3). Tiles use Manager Ranks' `padding: "6px 8px"`
+            values (DashboardView.tsx:376). ── */}
+        <div className="sm:hidden mt-0 pt-2 border-t border-border grid grid-cols-2 gap-1.5">
+          <MobileStat label="LEAGUES" value={String(totals?.leagues ?? "—")} />
+          <MobileStat
+            label="GRADED TRADES"
+            value={String(totals?.decided_verdicts ?? "—")}
+            sub={totals ? `of ${totals.trades}` : undefined}
+          />
+          <MobileStat
+            label="ALL-TIME"
+            value={record ? `${record.wins}-${record.losses}` : "—"}
+            sub={seasons > 0 ? `${seasons} seasons` : undefined}
+          />
+          <MobileStat
+            label="CHAMPIONSHIPS"
+            value={record ? `${record.championships}×` : "—"}
+            accent={record && record.championships > 0 ? "gold" : "dim"}
+            icon={
+              <Trophy
+                size={13}
+                className={
+                  record && record.championships > 0
+                    ? "text-gold-bright"
+                    : "text-dim"
+                }
+                strokeWidth={2.5}
+              />
+            }
+          />
+          {showDaysToKickoff ? (
+            <MobileStat
+              label="DAYS TO KICKOFF"
+              value={String(daysToKickoff)}
+              sub="NFL 2026"
+              accent="gold"
+              wide
+            />
+          ) : (
+            <MobileStat
+              label="TRADES · 30D"
+              value={String(cadence?.trades_last_30d ?? "—")}
+              sub={
+                cadence && cadence.active_leagues_last_30d > 0
+                  ? `${cadence.active_leagues_last_30d} active`
+                  : undefined
+              }
+              wide
+            />
+          )}
+        </div>
+
+        {/* Windows — slim strip beneath the stat row. Divider tightened
+            to `mt-1 pt-2` (was mt-2 pt-3). */}
+        <div className="mt-1 pt-2 border-t border-border">
           <WindowsSegmentBar windows={windows} />
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Mobile stat tile — density copied from the Manager Ranks tile
+// at DashboardView.tsx:376 (`padding: "6px 8px"`, background elevated,
+// border 1px border). Wide variant spans both columns of the 2-col
+// grid (used for the wrap-alone 5th stat).
+function MobileStat({
+  label,
+  value,
+  sub,
+  accent = "primary",
+  icon,
+  wide = false,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  accent?: "primary" | "gold" | "dim";
+  icon?: React.ReactNode;
+  wide?: boolean;
+}) {
+  const valueColor =
+    accent === "gold" ? "text-gold-bright"
+    : accent === "dim" ? "text-dim"
+    : "text-primary";
+  return (
+    // px-2 py-1 — one step tighter than Manager Ranks (6px 8px) to hit
+    // the V8 density target on 390px viewports.
+    <div
+      className={`rounded-md border border-border bg-elevated px-2 py-1 ${wide ? "col-span-2" : ""}`}
+    >
+      <div className="flex items-center gap-1">
+        {icon && <span className="shrink-0">{icon}</span>}
+        <span className="font-mono text-[9px] font-black tracking-[0.14em] text-dim leading-none">
+          {label}
+        </span>
+      </div>
+      {/* Label→value gap tight to 2px. */}
+      <div className="mt-0.5 flex items-baseline gap-1">
+        <span className={`font-mono text-[14px] font-black leading-none tabular-nums -tracking-[0.01em] ${valueColor}`}>
+          {value}
+        </span>
+        {sub && (
+          <span className="font-mono text-[9px] text-dim">
+            {sub}
+          </span>
+        )}
       </div>
     </div>
   );
@@ -572,100 +756,12 @@ function LineDiv() {
 
 // ── Positional tilt — horizontal buys/sells bars per position ────
 // Left half = BOUGHT (position color, full opacity), right half = SOLD
-// (same color, dimmer). Widths normalized against the largest count
-// across the four positions. Matches the league dashboard's "bar
-// language" idiom (fairness index at page.tsx:490-513, component bars
-// in DashboardView.tsx:479-484).
-function TiltBarViz({
-  tilt,
-}: {
-  tilt: CrossLeagueProfile["positional_tilt"] | undefined;
-}) {
-  const POSITIONS: {
-    pos: "QB" | "RB" | "WR" | "TE";
-    bar: string;
-    text: string;
-  }[] = [
-    { pos: "QB", bar: "bg-accent-red",    text: "text-accent-red" },
-    { pos: "RB", bar: "bg-accent-blue",   text: "text-accent-blue" },
-    { pos: "WR", bar: "bg-accent-green",  text: "text-accent-green" },
-    { pos: "TE", bar: "bg-accent-orange", text: "text-accent-orange" },
-  ];
+// Positional tilt removed from the hero per Portfolio V7 review
+// (buys/sells is trade-behavior insight, not front-door identity —
+// belongs on Owner Intel). The BE still returns `positional_tilt`
+// on cross_league_profile; downstream Owner Intel surfaces will
+// consume it directly.
 
-  const maxCount = tilt
-    ? Math.max(
-        1,
-        ...POSITIONS.flatMap((p) => [
-          tilt.counts?.bought?.[p.pos] ?? 0,
-          tilt.counts?.sold?.[p.pos] ?? 0,
-        ]),
-      )
-    : 0;
-  const hasAny = maxCount > 1;
-
-  return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between gap-2">
-        <span className="font-mono text-[10px] font-black tracking-[0.14em] text-gold">
-          POSITIONAL TILT
-        </span>
-        <span className="font-mono text-[9px] text-dim tracking-[0.10em]">
-          BOUGHT · SOLD
-        </span>
-      </div>
-      {!hasAny ? (
-        <div className="font-mono text-[10px] text-dim py-2">
-          No positional signal yet — trade more to reveal your tilt.
-        </div>
-      ) : (
-        <div className="flex flex-col gap-2">
-          {POSITIONS.map(({ pos, bar, text }) => {
-            const b = tilt!.counts?.bought?.[pos] ?? 0;
-            const s = tilt!.counts?.sold?.[pos] ?? 0;
-            const bPct = b > 0 ? Math.max(6, (b / maxCount) * 100) : 0;
-            const sPct = s > 0 ? Math.max(6, (s / maxCount) * 100) : 0;
-            return (
-              <div key={pos} className="flex items-center gap-2">
-                <span
-                  className={`font-mono text-[10px] font-black tracking-[0.10em] w-6 shrink-0 ${text}`}
-                >
-                  {pos}
-                </span>
-                {/* Bought (left) */}
-                <div className="flex-1 flex items-center gap-1.5 min-w-0">
-                  <div className="flex-1 h-2 bg-border rounded-full overflow-hidden">
-                    {/* Data-driven width — same convention as
-                        league-dashboard fairness bars. */}
-                    <div
-                      className={`h-full rounded-full ${b > 0 ? bar : ""}`}
-                      style={{ width: `${bPct}%` }}
-                    />
-                  </div>
-                  <span className="font-mono text-[10px] font-bold tabular-nums text-primary w-4 text-right shrink-0">
-                    {b}
-                  </span>
-                </div>
-                <span className="font-mono text-[10px] text-dim shrink-0">·</span>
-                {/* Sold (right) */}
-                <div className="flex-1 flex items-center gap-1.5 min-w-0">
-                  <div className="flex-1 h-2 bg-border rounded-full overflow-hidden">
-                    <div
-                      className={`h-full rounded-full ${s > 0 ? `${bar} opacity-50` : ""}`}
-                      style={{ width: `${sPct}%` }}
-                    />
-                  </div>
-                  <span className="font-mono text-[10px] font-bold tabular-nums text-primary w-4 text-right shrink-0">
-                    {s}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
 
 // ── Competitive windows — single stacked segment bar. Data comes from
 // the shared classifier (BE `competitive_window.classify_window` on the
@@ -710,7 +806,8 @@ function WindowsSegmentBar({
   ].filter((s) => s.count > 0);
 
   return (
-    <div className="flex flex-col gap-2">
+    // gap tightened from gap-2 to gap-1.5 (6px) for the density pass.
+    <div className="flex flex-col gap-1.5">
       <div className="flex items-center justify-between gap-2">
         <span className="font-mono text-[10px] font-black tracking-[0.14em] text-gold">
           COMPETITIVE WINDOWS
@@ -721,8 +818,9 @@ function WindowsSegmentBar({
       </div>
 
       {/* Stacked segment bar. Data-driven segment widths — same
-          convention as league-dashboard fairness bars at page.tsx:507. */}
-      <div className="h-3 rounded-full overflow-hidden flex bg-border shadow-[inset_0_0_0_1px_rgba(212,165,50,0.06)]">
+          convention as league-dashboard fairness bars at page.tsx:507.
+          Bar height h-2 (was h-3) for the density pass. */}
+      <div className="h-2 rounded-full overflow-hidden flex bg-border shadow-[inset_0_0_0_1px_rgba(212,165,50,0.06)]">
         {segments.map((s) => (
           <div
             key={s.key}
@@ -732,8 +830,8 @@ function WindowsSegmentBar({
         ))}
       </div>
 
-      {/* Legend */}
-      <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+      {/* Legend — gap-x-3 (was gap-x-4), gap-y-1 (was gap-y-1.5). */}
+      <div className="flex flex-wrap gap-x-3 gap-y-1">
         {segments.map((s) => (
           <div key={s.key} className="flex items-center gap-1.5">
             <span className={`w-2 h-2 rounded-sm ${s.bar}`} />
@@ -766,14 +864,12 @@ function CompactLeagueCard({
     (card.record?.ties ?? 0);
   const isCompletedSeason =
     card.season != null && String(card.season) !== CURRENT_NFL_SEASON;
-  const inSeason = !isCompletedSeason && gamesPlayed > 0;
-  const state = isCompletedSeason ? "FINAL" : inSeason ? "RANK" : "PROJECTED";
-  const statePillClass =
-    state === "FINAL"
-      ? "bg-elevated text-dim border-border-lt"
-      : state === "RANK"
-        ? "bg-accent-green/10 text-accent-green border-accent-green/25"
-        : "bg-gold-dim text-gold border-gold-border";
+  // DYNASTYGPT RANK pill — single gold treatment for every active-season
+  // card. Hidden entirely on completed seasons (BE returns null sha_rank
+  // for those; the COMPLETED body dim + record row already carry the state).
+  // Backlog: completed cards upgrade to a `FINAL POSITION #X` pill once
+  // season_results.finish coverage is real. See docs/ROADMAP.md.
+  const showRankPill = !isCompletedSeason && card.rank.sha_rank != null;
 
   const formatChips = card.format.label
     .split(" ")
@@ -785,22 +881,31 @@ function CompactLeagueCard({
   const oddsMode: "live" | "final" | "awaiting" =
     !oddsAwaiting ? "live" : isCompletedSeason ? "final" : "awaiting";
 
+  // Completed-season cards read as archival: dim the body, drop the gold
+  // top-border (this isn't a live league), swap the hover to a subtle
+  // border shift instead of the gold-glow lift.
+  const shellClass = isCompletedSeason
+    ? "border border-border border-t border-t-border-lt bg-card opacity-60 hover:opacity-80 hover:border-border-lt shadow-none"
+    : "bg-gradient-to-br from-card via-card to-gold-glow border border-gold-border border-t-2 border-t-gold shadow-[0_2px_16px_rgba(212,165,50,0.05)] hover:border-gold hover:shadow-[0_4px_22px_rgba(212,165,50,0.12)] hover:scale-[1.01]";
+
   return (
     <button
       onClick={onOpen}
-      className="
-        group text-left rounded-lg overflow-hidden w-full
-        bg-gradient-to-br from-card via-card to-gold-glow
-        border border-gold-border border-t-2 border-t-gold
-        shadow-[0_2px_16px_rgba(212,165,50,0.05)]
-        hover:border-gold hover:shadow-[0_4px_22px_rgba(212,165,50,0.12)]
-        hover:scale-[1.01] transition-all duration-200
+      className={`
+        group text-left rounded-lg overflow-hidden w-full transition-all duration-200
         p-4 flex flex-col gap-3
-      "
+        ${shellClass}
+      `}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex items-start gap-2">
-          <div className="mt-1.5 h-1.5 w-1.5 rounded-full bg-gold shrink-0 shadow-[0_0_6px_rgba(212,165,50,0.6)]" />
+          <div
+            className={`mt-1.5 h-1.5 w-1.5 rounded-full shrink-0 ${
+              isCompletedSeason
+                ? "bg-dim"
+                : "bg-gold shadow-[0_0_6px_rgba(212,165,50,0.6)]"
+            }`}
+          />
           <div className="min-w-0">
             <div className="font-display text-[14px] text-primary truncate tracking-tight leading-tight">
               {card.league_name}
@@ -810,7 +915,13 @@ function CompactLeagueCard({
             </div>
           </div>
         </div>
-        <span className="shrink-0 font-mono text-[11px] text-gold-bright opacity-60 group-hover:opacity-100 transition-opacity">
+        <span
+          className={`shrink-0 font-mono text-[11px] transition-opacity ${
+            isCompletedSeason
+              ? "text-dim opacity-60"
+              : "text-gold-bright opacity-60 group-hover:opacity-100"
+          }`}
+        >
           →
         </span>
       </div>
@@ -826,21 +937,26 @@ function CompactLeagueCard({
         ))}
       </div>
 
-      <div className="flex items-baseline gap-2">
-        <span
-          className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 border font-mono text-[9px] font-black tracking-[0.14em] ${statePillClass}`}
-        >
-          {state}
-        </span>
-        <span className="font-mono text-[22px] font-black text-primary leading-none">
-          #{card.rank.dynasty_rank ?? "—"}
-        </span>
-        {card.rank.of_teams != null && (
-          <span className="font-mono text-[10px] text-dim">
-            of {card.rank.of_teams}
+      {showRankPill && (
+        <div className="flex items-baseline gap-2">
+          {/* DYNASTYGPT RANK pill — single gold treatment. Font-mono
+              9px 0.14em tracking matches the existing state-pill idiom
+              (feature-card gold-dim / gold-border / gold in
+              DashboardView.tsx:830-846 and the Manager Ranks label at
+              DashboardView.tsx:377). */}
+          <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 border font-mono text-[9px] font-black tracking-[0.14em] bg-gold-dim text-gold border-gold-border">
+            DYNASTYGPT RANK
           </span>
-        )}
-      </div>
+          <span className="font-mono text-[22px] font-black text-primary leading-none">
+            #{card.rank.sha_rank}
+          </span>
+          {card.rank.sha_of_teams != null && (
+            <span className="font-mono text-[10px] text-dim">
+              of {card.rank.sha_of_teams}
+            </span>
+          )}
+        </div>
+      )}
 
       {oddsMode === "live" && (
         <div className="grid grid-cols-2 gap-2 pt-1 border-t border-border">
@@ -1001,16 +1117,33 @@ function MarketCard({
 }
 
 // ── Section label ────────────────────────────────────────────────
-function SectionLabel({ title, badge }: { title: string; badge?: string }) {
+function SectionLabel({
+  title,
+  badge,
+  subtitle,
+}: {
+  title: string;
+  badge?: string;
+  subtitle?: string;
+}) {
   return (
     <div className="mb-4">
-      <div className="flex items-center gap-3 mb-2">
+      <div className="flex items-baseline gap-3 mb-2 flex-wrap">
         <h2 className="font-sans text-[11px] font-black tracking-[0.16em] text-primary uppercase">
           {title}
         </h2>
         {badge && (
           <span className="font-mono text-[8px] font-black tracking-[0.14em] px-2 py-0.5 rounded-full bg-gold-dim text-gold border border-gold-border">
             {badge}
+          </span>
+        )}
+        {subtitle && (
+          // Subtitle mirrors the site's small-mono affordance idiom
+          // (e.g. league dashboard's ticker item labels). Visible on
+          // every viewport — mobile especially where whole-card tap
+          // isn't self-evident.
+          <span className="font-mono text-[10px] text-dim tracking-[0.06em] normal-case">
+            · {subtitle}
           </span>
         )}
       </div>
