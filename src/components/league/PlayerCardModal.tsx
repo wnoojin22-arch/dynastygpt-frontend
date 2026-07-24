@@ -303,6 +303,77 @@ function OverviewTab({ pc, seasons, history }: { pc?: PlayerCard; seasons: Seaso
         </div>
       )}
 
+      {/* This-season weekly schedule + projections — opponent per week
+          via nfl_schedule, points via player_projections (pts_ppr).
+          Grid identical in shape to Waivers V2 ElitePanel's schedule
+          strip; keeps the format cohesive across surfaces. Horizontally
+          scrolls on tight viewports. */}
+      {pc.weekly_schedule && pc.weekly_schedule.length > 0 && (() => {
+        const rows = pc.weekly_schedule;
+        const total = rows.reduce((s, r) => s + (r.pts ?? 0), 0);
+        return (
+          <div>
+            <div style={{
+              display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8,
+            }}>
+              <SectionLabel text="WEEKLY SCHEDULE & PROJECTIONS" />
+              <span style={{ fontFamily: MONO, fontSize: 11, color: C.dim }}>
+                Season total{" "}
+                <span style={{ color: C.gold, fontWeight: 700, marginLeft: 4 }}>{total.toFixed(1)}</span>
+              </span>
+            </div>
+            <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+              <div style={{
+                display: "grid",
+                gridTemplateColumns: `repeat(${rows.length}, minmax(48px, 1fr))`,
+                gap: 3, minWidth: 48 * rows.length,
+              }}>
+                {rows.map((r) => {
+                  // nfl_schedule is authoritative: a week with no opp is
+                  // this player's team's bye. Only treat as bye if the
+                  // schedule was populated at all (guard against empty
+                  // pre-seed state showing every cell as "BYE").
+                  const hasAnySchedule = rows.some((x) => x.opp != null);
+                  const isBye = hasAnySchedule && r.opp == null;
+                  const hasPts = r.pts != null && r.pts > 0;
+                  const isHome = r.opp?.startsWith("vs");
+                  const oppColor = isBye ? C.orange
+                    : r.opp ? (isHome ? C.secondary : C.dim)
+                    : C.dim;
+                  return (
+                    <div key={r.week} style={{
+                      padding: "4px 3px",
+                      background: isBye ? "rgba(224,156,107,0.10)" : C.card,
+                      border: `1px solid ${isBye ? "rgba(224,156,107,0.30)" : C.border}`,
+                      borderRadius: 3, textAlign: "center", minWidth: 0,
+                    }}>
+                      <div style={{
+                        fontFamily: MONO, fontSize: 8, color: C.dim, letterSpacing: "0.06em",
+                      }}>
+                        WK{r.week}
+                      </div>
+                      <div style={{
+                        fontFamily: MONO, fontSize: 9, fontWeight: 700, color: oppColor,
+                        marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                      }}>
+                        {isBye ? "BYE" : r.opp ?? "—"}
+                      </div>
+                      <div style={{
+                        fontFamily: MONO, fontSize: 11, fontWeight: 700,
+                        color: isBye ? C.orange : hasPts ? C.primary : C.dim,
+                        marginTop: 2,
+                      }}>
+                        {isBye ? "—" : hasPts ? r.pts!.toFixed(1) : "—"}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* PPG by season — rank-colored bars like Shadynasty */}
       {seasons.length > 0 && (() => {
         const maxPPG = Math.max(...seasons.map(ss => ss.ppg), 1);

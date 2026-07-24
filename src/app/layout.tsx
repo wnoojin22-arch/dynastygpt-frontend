@@ -13,9 +13,25 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://app.dynastygpt.com"),
   title: "DynastyGPT — AI-Powered Dynasty Intelligence",
   description:
     "The smartest dynasty fantasy football analytics platform. AI-powered trade analysis, roster intelligence, and owner profiling for your league.",
+  // Every route on app.dynastygpt.com is auth-gated. Marketing + TradeDB
+  // live on dynastygpt.com (separate project). Blanket noindex here stops
+  // sign-in / onboarding pages from accumulating in Google's
+  // "crawled — currently not indexed" bucket. Belt-and-braces:
+  // public/robots.txt disallows /, and next.config.ts sets X-Robots-Tag.
+  robots: {
+    index: false,
+    follow: false,
+    nocache: true,
+    googleBot: {
+      index: false,
+      follow: false,
+      noimageindex: true,
+    },
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

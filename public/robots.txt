@@ -1,0 +1,4 @@
+# app.dynastygpt.com is an auth-gated SaaS surface.
+# Public marketing + TradeDB live at dynastygpt.com (separate Vercel project).
+User-agent: *
+Disallow: /

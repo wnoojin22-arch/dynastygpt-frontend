@@ -64,6 +64,11 @@ export interface PlayerCard {
   current_owner: string | null;
   acquisition: { method: string; from?: string; date?: string; trade_id?: string; round?: number; pick?: number; year?: number } | null;
   season_stats: SeasonStat[];
+  weekly_schedule?: Array<{
+    week: number;
+    opp: string | null;   // "@KC" | "vs BUF" | null (bye or missing schedule row)
+    pts: number | null;   // null when no projection available
+  }>;
   snapshot_date: string;
 }
 

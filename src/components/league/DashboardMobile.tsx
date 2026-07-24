@@ -11,7 +11,7 @@ import {
   getMarketFeed, getCoachesCorner, getRosterValueChange,
 } from "@/lib/api";
 import type { DynastyScoreResponse } from "@/lib/api";
-import { Plus, FileText, ChevronRight, ChevronDown, Activity, Search, X, BarChart3 } from "lucide-react";
+import { Plus, FileText, ChevronRight, ChevronDown, Activity, Search, X, BarChart3, UserPlus } from "lucide-react";
 import { useTradeBuilderStore } from "@/lib/stores/trade-builder-store";
 import { usePlayerCardStore } from "@/lib/stores/player-card-store";
 import { motion, AnimatePresence } from "framer-motion";
@@ -180,7 +180,7 @@ export default function DashboardMobile({ lid, owner, ownerId }: { lid: string; 
     queryFn: async () => { const d = await getAllDynastyScores(lid); return d.scores; },
     enabled: !!lid, staleTime: 1800000,
   });
-  const { data: marketFeed, isLoading: loadingMarket } = useQuery({ queryKey: ["market-feed", lid, owner], queryFn: () => getMarketFeed(lid, owner, ownerId, 60), enabled: !!lid && !!owner, staleTime: 1800000 });
+  const { data: marketFeed, isLoading: loadingMarket } = useQuery({ queryKey: ["market-feed", lid, owner, 30], queryFn: () => getMarketFeed(lid, owner, ownerId, 30), enabled: !!lid && !!owner, staleTime: 1800000 });
   const { data: coachesCorner } = useQuery({ queryKey: ["coaches-corner", lid, owner], queryFn: () => getCoachesCorner(lid, owner, ownerId), enabled: !!lid && !!owner, staleTime: 600000 });
   const { data: rosterValueChange } = useQuery({ queryKey: ["roster-value-change", lid, owner], queryFn: () => getRosterValueChange(lid, owner, ownerId), enabled: !!lid && !!owner, staleTime: 1800000 });
   const { data: tendencies } = useQuery({ queryKey: ["tendencies", lid, owner], queryFn: () => getOwnerTendencies(lid, owner, ownerId), enabled: !!lid && !!owner, staleTime: 600000 });
@@ -219,7 +219,13 @@ export default function DashboardMobile({ lid, owner, ownerId }: { lid: string; 
     : null;
   const percentile = myScore?.percentile;
   const topPct = percentile != null ? Math.max(1, 100 - percentile) : null;
-  const globalManagers = percentile != null ? Math.round(myScore!.score > 0 ? 92847 : 0) : null;
+  // Use REAL total_scored from the /dynasty-score API — desktop
+  // DashboardView.tsx:337 does the same. The old hardcoded 92847
+  // was drift bait: any owner whose league was scored against a
+  // different-sized global pool got a wrong rank on mobile even
+  // when desktop was right. Duke Nukem was the smoking gun (mobile
+  // rank ≠ desktop rank for the same league/team).
+  const globalManagers = (myScore as any)?.total_scored || null;
   const globalRank = topPct != null && globalManagers ? Math.max(1, Math.round((topPct / 100) * globalManagers)) : null;
   const bullets = (myScore?.bullets || []).slice(0, 4);
 
@@ -346,6 +352,7 @@ export default function DashboardMobile({ lid, owner, ownerId }: { lid: string; 
           { label: "DRAFT HQ", sub: "Rookie ADP — live", icon: FileText, color: C.gold, route: "draft-hq", isNew: false },
           { label: "FRANCHISE", sub: "Where you stand", icon: Activity, color: C.green, route: "intel?tab=my-franchise" },
           { label: "SCOUTING", sub: "Scout opponents", icon: Search, color: C.blue, route: "intel?tab=opponents" },
+          { label: "WAIVERS", sub: "Free-agent adds", icon: UserPlus, color: C.orange, route: "waivers" },
           { label: "DRAFT ROOM", sub: "Picks & grades", icon: FileText, color: "#b39ddb", route: "draft" },
           { label: "RANKINGS", sub: "Full league", icon: BarChart3, color: C.orange, route: "rankings" },
         ].map((btn) => {
@@ -378,7 +385,7 @@ export default function DashboardMobile({ lid, owner, ownerId }: { lid: string; 
         })}
       </div>
 
-      {/* ── 4. REAL TRADES · YOUR PLAYERS — pill ── */}
+      {/* ── 4. TRADE HEAT · YOUR PLAYERS — pill ── */}
       <RealTradesPill marketFeed={marketFeed} loading={loadingMarket} nav={nav} sleeperIdMap={sleeperIdMap} />
 
       {/* ── 5. YOUR MOVES — pill ── */}
@@ -460,7 +467,10 @@ export default function DashboardMobile({ lid, owner, ownerId }: { lid: string; 
 
 
 /* ══════════════════════════════════════════════════════════════
-   REAL TRADES · YOUR PLAYERS — Expandable pill
+   TRADE HEAT · YOUR PLAYERS — Expandable pill (mobile)
+   Same content contract as desktop MarketIntelSection: 30-day window,
+   sort by trades_30d desc / sha_value desc tiebreak, top 5. All 90d
+   fallbacks killed. See DashboardView.tsx MarketIntelSection.
    ══════════════════════════════════════════════════════════════ */
 function RealTradesPill({ marketFeed, loading, nav, sleeperIdMap }: { marketFeed: any; loading: boolean; nav: (p: string) => void; sleeperIdMap: Record<string, string> }) {
   const [open, setOpen] = useState(false);
@@ -470,13 +480,16 @@ function RealTradesPill({ marketFeed, loading, nav, sleeperIdMap }: { marketFeed
 
   const items: any[] = useMemo(() => {
     const feed = (marketFeed?.market_feed || []) as any[];
-    return feed
-      .filter((p: any) => (p.recent_trades || p.trades_90d || 0) >= 3)
-      .sort((a: any, b: any) => (b.recent_trades || b.trades_90d || 0) - (a.recent_trades || a.trades_90d || 0))
-      .slice(0, 12);
+    return [...feed]
+      .sort((a: any, b: any) => {
+        const dt = (b.trades_30d ?? 0) - (a.trades_30d ?? 0);
+        if (dt !== 0) return dt;
+        return (b.sha_value ?? 0) - (a.sha_value ?? 0);
+      })
+      .slice(0, 5);
   }, [marketFeed]);
 
-  const totalTrades = items.reduce((s: number, i: any) => s + (i.recent_trades || i.trades_90d || 0), 0);
+  const totalTrades = items.reduce((s: number, i: any) => s + (i.trades_30d ?? 0), 0);
   if (loading || !items.length) return null;
 
   return (
@@ -493,10 +506,10 @@ function RealTradesPill({ marketFeed, loading, nav, sleeperIdMap }: { marketFeed
       >
         <div>
           <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: "0.10em", color: C.gold }}>
-            REAL TRADES · YOUR PLAYERS
+            TRADE HEAT · YOUR PLAYERS
           </div>
           <div style={{ fontFamily: SANS, fontSize: 10, color: C.dim, marginTop: 2 }}>
-            {totalTrades} trades across matching leagues
+            {totalTrades} trades across matching leagues · last 30 days
           </div>
         </div>
         <motion.div animate={{ rotate: open ? 180 : 0 }} transition={{ duration: 0.2 }}>
@@ -520,7 +533,7 @@ function RealTradesPill({ marketFeed, loading, nav, sleeperIdMap }: { marketFeed
                 const pos = item.position || "";
                 const rank = item.pos_rank || item.sha_pos_rank || "";
                 const value = Math.round(item.sha_value || 0);
-                const tradeCount = item.recent_trades || item.trades_90d || 0;
+                const tradeCount = item.trades_30d ?? 0;
                 return (
                   <motion.button
                     key={name}
