@@ -98,10 +98,13 @@ export default function ScoutingReport({ leagueId, owner, ownerId }: {
   leagueId: string; owner: string; ownerId?: string | null;
 }) {
   const track = useTrack();
+  // Platform rule #1: uid is required. Backend refuses display-name resolution
+  // so we gate the request on ownerId — never fire with a null uid or the
+  // response is a guaranteed 404.
   const { data, isLoading, error } = useQuery({
-    queryKey: ["scouting-report", leagueId, owner],
+    queryKey: ["scouting-report", leagueId, owner, ownerId],
     queryFn: () => getScoutingReport(leagueId, owner, ownerId),
-    enabled: !!owner && !!leagueId,
+    enabled: !!ownerId && !!leagueId,
     staleTime: 10 * 60 * 1000,
   });
   useEffect(() => { if (data && leagueId) track("scouting_report_viewed", { league_id: leagueId, owner_viewed: owner }); }, [data, leagueId, owner]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -110,6 +113,12 @@ export default function ScoutingReport({ leagueId, owner, ownerId }: {
   const raw = data as Record<string, unknown> | undefined;
   let narrative = "";
   let intel: Array<{ label: string; detail: string }> = [];
+  // Coverage line — honesty label emitted by the positional-mode branch on
+  // new leagues (below the 30-trade gate). Surfaces which mode of intel the
+  // reader is seeing so a light-history report doesn't read as if it drew
+  // from behavioral data.
+  const coverage = (raw && typeof raw === "object" ? (raw.coverage as Record<string, unknown> | undefined) : undefined);
+  const coverageMessage = typeof coverage?.message === "string" ? coverage.message : "";
 
   function extractFromObj(obj: Record<string, unknown>): boolean {
     // Direct structured: {narrative, intel}
@@ -160,6 +169,11 @@ export default function ScoutingReport({ leagueId, owner, ownerId }: {
       </div>
 
       <div className="px-5 py-4">
+        {coverageMessage && (
+          <p className="font-sans text-[10px] text-dim mb-3 leading-relaxed">
+            {coverageMessage}
+          </p>
+        )}
         {isLoading ? (
           <div className="flex flex-col gap-2.5">
             {[1, 2, 3].map((i) => (
@@ -167,13 +181,13 @@ export default function ScoutingReport({ leagueId, owner, ownerId }: {
             ))}
           </div>
         ) : error ? (
-          <p className="font-sans text-sm text-dim italic">
+          <p className="font-sans text-sm text-dim">
             AI scouting report will be available after the league has been fully analyzed.
           </p>
         ) : narrative ? (
           <CollapsibleNarrative narrative={narrative} intel={intel} />
         ) : (
-          <p className="font-sans text-sm text-dim italic">
+          <p className="font-sans text-sm text-dim">
             Scouting report is being generated. Check back shortly.
           </p>
         )}
