@@ -17,13 +17,15 @@ import PlayerHeadshot from "@/components/league/PlayerHeadshot";
 import WelcomeArticleCard from "@/components/league/WelcomeArticleCard";
 import PowerRankings from "@/components/league/PowerRankings";
 import TrendingOwners from "@/components/league/TrendingOwners";
-// Ship-time gate. Rail is hidden until player_values.sleeper_id
-// backfill runs in tomorrow's 14:00-16:00 UTC window and the
-// trending-owners endpoint smoke-tests non-zero 30d deltas. Setting
-// this to false does BOTH jobs — component never mounts, so its
-// internal React Query fetch never fires. Un-hide after Billy signs
-// off on the post-backfill smoke on Big Jer.
-const SHOW_TRENDING_OWNERS_RAIL = false;
+// Rail ENABLED 2026-07-24 after sleeper_id backfill + Big Jer smoke.
+// Backfill filled 71,708 rows (89% of 80,571); remaining 8,863 are
+// genuine unresolvables (players in snapshots with no player_db match
+// at that name_clean+position). Big Jer 30d smoke returned 200 with
+// real per-owner deltas — Definitely Mayebe top riser (+666.4),
+// The Dark Knights bottom faller (-945.6). Expected fleet-wide bias
+// toward "falling" from the passthrough → blended snapshot transition
+// on 2026-07-23 — self-heals as the 30d window rolls off the fix day.
+const SHOW_TRENDING_OWNERS_RAIL = true;
 import TradeDBReleaseBanner from "@/components/league/TradeDBReleaseBanner";
 import { useTrack } from "@/hooks/useTrack";
 import { useOwnerClick } from "@/hooks/useOwnerClick";
