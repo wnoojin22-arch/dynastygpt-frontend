@@ -96,7 +96,7 @@ const NAV_ITEMS: {
   { id: "intel",    label: "Intel",       path: "/intel",    icon: <Search size={20} /> },
   { id: "rankings", label: "Rankings",    path: "/rankings", icon: <BarChart3 size={20} /> },
   { id: "tradedb",  label: "TradeDB",     path: "https://dynastygpt.com/tradedb",
-    icon: <Database size={20} />, external: true, isNew: true },
+    icon: <Database size={20} />, external: true },
 ];
 
 /* ═══════════════════════════════════════════════════════════════
