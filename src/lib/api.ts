@@ -160,6 +160,11 @@ export const getUpcomingDraft = (id: string) => get<{ upcoming: UpcomingDraft | 
 export type HeroSummary = {
   num_seasons: number;
   current_champion: { season: number; owner: string } | null;
+  // Added 2026-08-10 with the fleet-cadence restoration. Reflects the
+  // last full bulletproof_sync pass — NOT the hourly trades cron (which
+  // doesn't bump leagues.last_synced_at). Fed to the <LeagueFreshness />
+  // chip; may be null on leagues that predate the sync-tracking column.
+  last_synced_at: string | null;
 };
 export const getHeroSummary = (id: string) => get<HeroSummary>(`${L(id)}/hero-summary`);
 
