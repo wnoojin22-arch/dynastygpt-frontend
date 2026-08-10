@@ -12,7 +12,7 @@ import {
   getOverview, getLeagueIntel, getReportCard, getMarketPulse,
   getUpcomingDraft, getHeroSummary,
 } from "@/lib/api";
-import { RecentTrades, PlayerName } from "@/components/league";
+import { RecentTrades, PlayerName, LeagueFreshness } from "@/components/league";
 import PlayerHeadshot from "@/components/league/PlayerHeadshot";
 import WelcomeArticleCard from "@/components/league/WelcomeArticleCard";
 import PowerRankings from "@/components/league/PowerRankings";
@@ -709,9 +709,15 @@ export default function LeagueHome() {
           <div className="max-w-[1200px] mx-auto px-4 sm:px-10 py-3 sm:py-4 grid grid-cols-1 sm:grid-cols-[3fr_2fr] gap-3 sm:gap-6 items-center">
             {/* Left — League identity */}
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-              <h1 className="text-lg sm:text-2xl text-primary tracking-tight leading-tight mb-1.5" style={{ fontFamily: DISPLAY }}>
-                {leagueName}
-              </h1>
+              <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                <h1 className="text-lg sm:text-2xl text-primary tracking-tight leading-tight" style={{ fontFamily: DISPLAY }}>
+                  {leagueName}
+                </h1>
+                {/* Freshness chip — reflects last full bulletproof_sync pass.
+                    See src/components/league/LeagueFreshness.tsx for threshold
+                    treatment (dim / gold >48h / red >7d). */}
+                <LeagueFreshness lastSyncedAt={heroSummary?.last_synced_at} />
+              </div>
 
               {/* Desktop: tag + description. Mobile: compact stat row. */}
               {personality && reportCard && (
