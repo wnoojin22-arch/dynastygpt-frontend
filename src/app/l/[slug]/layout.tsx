@@ -10,8 +10,9 @@ import PlayerCardModal from "@/components/league/PlayerCardModal";
 import OwnerQuickViewModal from "@/components/league/OwnerQuickViewModal";
 import FeedbackWidget from "@/components/feedback/FeedbackWidget";
 import LeagueSwitcher from "@/components/league/LeagueSwitcher";
+import { LeagueFreshness } from "@/components/league/LeagueFreshness";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { getOwners, getOverview, getRankings, syncLeague, getLeagueBySlug, getUserLeagues } from "@/lib/api";
+import { getOwners, getOverview, getRankings, syncLeague, getLeagueBySlug, getUserLeagues, getHeroSummary } from "@/lib/api";
 import { Home, LayoutGrid, Search, Zap, BarChart3, Database, MessageSquare } from "lucide-react";
 
 /* ═══════════════════════════════════════════════════════════════
@@ -346,8 +347,9 @@ function BottomTabBar({ basePath, pathname }: { basePath: string; pathname: stri
 /* ═══════════════════════════════════════════════════════════════
    HEADER BAR — with Resync button
    ═══════════════════════════════════════════════════════════════ */
-function HeaderBar({ leagueName }: {
+function HeaderBar({ leagueName, lastSyncedAt }: {
   leagueName: string;
+  lastSyncedAt: string | null | undefined;
 }) {
   const [unread, setUnread] = useState(0);
   const pathname = usePathname();
@@ -373,6 +375,13 @@ function HeaderBar({ leagueName }: {
           The owner/team name span that used to sit here is intentionally
           gone — Billy: "WE DO NOT NEED TEAM NAME IN THE HEADER". */}
       <LeagueSwitcher leagueName={leagueName} />
+
+      {/* Freshness chip — mounts here so it travels every league page.
+          Renders "Never synced" red pill on null (invisible-when-most-
+          stale is the failure mode this chip exists to kill). */}
+      <div className="hidden sm:inline-flex" style={{ alignItems: "center" }}>
+        <LeagueFreshness lastSyncedAt={lastSyncedAt} />
+      </div>
 
       <div style={{ flex: 1 }} />
 
@@ -581,6 +590,15 @@ export default function LeagueLayout({ children }: { children: React.ReactNode }
     enabled: !!currentLeagueId,
     staleTime: 60 * 60 * 1000,
   });
+  // hero-summary drives the freshness chip in HeaderBar (travels every
+  // league page). Keep it lightweight and cache-friendly — the endpoint
+  // is a single fetchval, and the chip is the only consumer here.
+  const { data: heroSummary } = useQuery({
+    queryKey: ["hero-summary", currentLeagueId],
+    queryFn: () => getHeroSummary(currentLeagueId!),
+    enabled: !!currentLeagueId,
+  });
+
   const { data: rankings } = useQuery({
     queryKey: ["rankings", currentLeagueId],
     queryFn: () => getRankings(currentLeagueId!),
@@ -597,6 +615,7 @@ export default function LeagueLayout({ children }: { children: React.ReactNode }
       queryClient.invalidateQueries({ queryKey: ["overview", currentLeagueId] });
       queryClient.invalidateQueries({ queryKey: ["owners", currentLeagueId] });
       queryClient.invalidateQueries({ queryKey: ["rankings", currentLeagueId] });
+      queryClient.invalidateQueries({ queryKey: ["hero-summary", currentLeagueId] });
       queryClient.invalidateQueries({ queryKey: ["roster"] });
       queryClient.invalidateQueries({ queryKey: ["picks"] });
       queryClient.invalidateQueries({ queryKey: ["league-intel", currentLeagueId] });
@@ -640,6 +659,7 @@ export default function LeagueLayout({ children }: { children: React.ReactNode }
         <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
           <HeaderBar
             leagueName={overview?.name || ""}
+            lastSyncedAt={heroSummary?.last_synced_at}
           />
 
           <main className="pb-16 sm:pb-0" style={{ flex: 1, overflowY: "auto", overflowX: "hidden", minHeight: 0, minWidth: 0 }}>

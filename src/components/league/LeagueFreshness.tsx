@@ -27,11 +27,33 @@
 import React from "react";
 
 export function LeagueFreshness({ lastSyncedAt }: { lastSyncedAt: string | null | undefined }) {
-  if (!lastSyncedAt) return null;
+  // Null/invalid → render a RED "Never synced" pill, NOT nothing. The whole
+  // point of this chip is to kill invisible-when-most-stale; a missing value
+  // is the loudest signal, so it MUST be visible.
+  const nullPill = (label: string) => (
+    <span
+      style={{
+        fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+        fontSize: 9,
+        fontWeight: 700,
+        letterSpacing: "0.06em",
+        color: "#e57373",
+        border: "1px solid #e5737340",
+        borderRadius: 3,
+        padding: "2px 6px",
+        display: "inline-block",
+        textTransform: "uppercase",
+        whiteSpace: "nowrap",
+      }}
+    >
+      {label}
+    </span>
+  );
+  if (!lastSyncedAt) return nullPill("Never synced");
 
   const now = Date.now();
   const then = new Date(lastSyncedAt).getTime();
-  if (Number.isNaN(then)) return null;
+  if (Number.isNaN(then)) return nullPill("Sync unknown");
   const ageHours = (now - then) / (1000 * 60 * 60);
   const ageDays = ageHours / 24;
 
