@@ -8,7 +8,7 @@
  * and derived values (totals, balance, suggest context).
  */
 import React, { createContext, useContext, useReducer, useMemo, useCallback } from "react";
-import { useTradeBuilder, type UseTradeBuilderReturn } from "@/hooks/useTradeBuilder";
+import { useTradeBuilder, useTradePreview, type UseTradeBuilderReturn } from "@/hooks/useTradeBuilder";
 import type { SuggestedPackage } from "./types";
 
 // ── UI State (reducer-managed) ───────────────────────────────────────────
@@ -94,11 +94,14 @@ interface TradeBuilderContextValue {
   ui: UIState;
   dispatch: React.Dispatch<UIAction>;
 
-  // Derived
-  sendTotal: number;
-  getTotal: number;
-  balance: number;
-  balancePct: number;
+  // Derived — all four totals are BE-authoritative and NULL while /evaluate
+  // is in-flight or before the first response. Downstream must render "—"
+  // (never fall back to client math — that IS the bug class this fix killed).
+  sendTotal: number | null;
+  getTotal: number | null;
+  balance: number | null;
+  balancePct: number | null;
+  totalsLoading: boolean;
   canAnalyze: boolean;
   suggestContext: SuggestContext;
 
@@ -133,17 +136,31 @@ export default function TradeBuilderProvider({
   const tb = useTradeBuilder({ leagueId, owner, ownerId });
   const [ui, dispatch] = useReducer(uiReducer, initialUIState);
 
-  // Derived values
-  const sendTotal = useMemo(
-    () => tb.myRoster.filter((p) => tb.giveNames.includes(p.name)).reduce((s, p) => s + p.sha_value, 0),
-    [tb.myRoster, tb.giveNames],
-  );
-  const getTotal = useMemo(
-    () => tb.theirRoster.filter((p) => tb.receiveNames.includes(p.name)).reduce((s, p) => s + p.sha_value, 0),
-    [tb.theirRoster, tb.receiveNames],
-  );
-  const balance = getTotal - sendTotal;
-  const balancePct = sendTotal > 0 ? Math.round((balance / sendTotal) * 100) : 0;
+  // BE-authoritative preview — same /evaluate the AnalysisModal fires.
+  // Debounced 300ms in the hook. Returns null totals while in-flight so
+  // no stale/wrong value ever renders. See useTradePreview docblock for
+  // the Aug 3 chip-bug case study this fix closes.
+  const preview = useTradePreview({
+    leagueId,
+    owner,
+    ownerId,
+    partner: tb.partner,
+    giveNames: tb.giveNames,
+    receiveNames: tb.receiveNames,
+    mode: tb.mode,
+    myWindow: tb.myWindow,
+    theirWindow: tb.theirWindow,
+  });
+
+  // Null-safe derived values. Downstream renders "—" when either total
+  // is null; DO NOT reintroduce a client-side sum fallback here.
+  const sendTotal = preview.giveTotal;
+  const getTotal = preview.getTotal;
+  const balance = sendTotal != null && getTotal != null ? getTotal - sendTotal : null;
+  const balancePct = sendTotal != null && getTotal != null && sendTotal > 0
+    ? Math.round(((getTotal - sendTotal) / sendTotal) * 100)
+    : null;
+  const totalsLoading = preview.loading;
   const canAnalyze = !!tb.partner && tb.giveNames.length > 0 && tb.receiveNames.length > 0 && !tb.analyzing;
   const suggestContext = useMemo(
     () => detectSuggestContext(tb.partner, tb.giveNames, tb.receiveNames),
@@ -184,6 +201,7 @@ export default function TradeBuilderProvider({
       getTotal,
       balance,
       balancePct,
+      totalsLoading,
       canAnalyze,
       suggestContext,
       loadPackage,
@@ -191,7 +209,7 @@ export default function TradeBuilderProvider({
       closeAnalyze,
       selectPartner,
     }),
-    [tb, ui, sendTotal, getTotal, balance, balancePct, canAnalyze, suggestContext, loadPackage, openAnalyze, closeAnalyze, selectPartner],
+    [tb, ui, sendTotal, getTotal, balance, balancePct, totalsLoading, canAnalyze, suggestContext, loadPackage, openAnalyze, closeAnalyze, selectPartner],
   );
 
   return (

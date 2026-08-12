@@ -126,13 +126,24 @@ export interface UseTradeBuilderReturn {
 const toBackend = (w: string) => (w === "WIN-NOW" ? "CONTENDER" : w);
 const toDisplay = (w: string) => (w === "CONTENDER" ? "WIN-NOW" : w);
 
-// Debounced backend call to /trade-builder/evaluate, returns just the
-// acceptance %. Single source of truth shared between TradeBuilderUnified
-// (BuilderLayer header) and TapToBuild (mobile quick-build header) so both
-// surfaces show the SAME number as AnalysisModal — no client-side estimator
-// divergence. Honesty over responsiveness: stale value clears immediately on
-// any input change, "—%" renders during debounce + in-flight.
-export function useAcceptancePreview(opts: {
+// Debounced backend call to /trade-builder/evaluate.
+//
+// PLATFORM CONVENTION (added 2026-08-12 with the Class-of-2017 chip fix):
+// value math is BE-authoritative. This hook fires the same /evaluate the
+// full AnalysisModal fires, and exposes the acceptance % AND the SHA
+// side totals from `sha_balance.i_give/i_receive.sha_total_raw`. Any UI
+// that shows a side total must consume `giveTotal` / `getTotal` from
+// here — never reconstruct by filtering rosters against selected names
+// and summing client-side. That reconstruction was the root cause of
+// the Class-of-2017 chip bug (Aug 3 report): FE label vs roster.name
+// mismatch dropped the first added pick to 0 SHA, leaving subsequent
+// picks stacked on top of a wrong baseline.
+//
+// Honesty over responsiveness: `null` renders during debounce + in-
+// flight, and `null` MUST render as "—" downstream rather than fall
+// back to a client-side estimate. If you're tempted to add a fallback,
+// don't — the fallback IS the class of bug we just killed.
+export function useTradePreview(opts: {
   leagueId: string;
   owner: string;
   ownerId?: string | null;
@@ -142,9 +153,16 @@ export function useAcceptancePreview(opts: {
   mode: string;
   myWindow: string | null;
   theirWindow: string | null;
-}): { value: number | null; loading: boolean } {
+}): {
+  acceptance: number | null;
+  giveTotal: number | null;
+  getTotal: number | null;
+  loading: boolean;
+} {
   const { leagueId, owner, ownerId, partner, giveNames, receiveNames, mode, myWindow, theirWindow } = opts;
-  const [value, setValue] = useState<number | null>(null);
+  const [acceptance, setAcceptance] = useState<number | null>(null);
+  const [giveTotal, setGiveTotal] = useState<number | null>(null);
+  const [getTotal, setGetTotal] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -153,12 +171,23 @@ export function useAcceptancePreview(opts: {
 
   useEffect(() => {
     abortRef.current?.abort();
-    if (!partner || giveNames.length === 0 || receiveNames.length === 0) {
-      setValue(null);
+    // No partner OR both sides empty → clear everything. If only one side
+    // has assets we still fire /evaluate so at least THAT side's total is
+    // BE-authoritative; the balance-bar renders will guard on both being
+    // present before drawing the bar itself.
+    if (!partner || (giveNames.length === 0 && receiveNames.length === 0)) {
+      setAcceptance(null);
+      setGiveTotal(null);
+      setGetTotal(null);
       setLoading(false);
       return;
     }
-    setValue(null);
+    // Clear stale values immediately so downstream "—" placeholder shows
+    // during the debounce + in-flight window. Never let stale numbers
+    // hang while user edits.
+    setAcceptance(null);
+    setGiveTotal(null);
+    setGetTotal(null);
     setLoading(true);
 
     const ac = new AbortController();
@@ -188,18 +217,32 @@ export function useAcceptancePreview(opts: {
         );
         if (ac.signal.aborted) return;
         if (!res.ok) {
-          setValue(null);
+          setAcceptance(null);
+          setGiveTotal(null);
+          setGetTotal(null);
           setLoading(false);
           return;
         }
-        const data = (await res.json()) as { acceptance?: { acceptance_likelihood?: number } };
+        const data = (await res.json()) as {
+          acceptance?: { acceptance_likelihood?: number };
+          sha_balance?: {
+            i_give?: { sha_total_raw?: number };
+            i_receive?: { sha_total_raw?: number };
+          };
+        };
         if (ac.signal.aborted) return;
         const al = data.acceptance?.acceptance_likelihood;
-        setValue(typeof al === "number" ? al : null);
+        const gi = data.sha_balance?.i_give?.sha_total_raw;
+        const gr = data.sha_balance?.i_receive?.sha_total_raw;
+        setAcceptance(typeof al === "number" ? al : null);
+        setGiveTotal(typeof gi === "number" ? gi : null);
+        setGetTotal(typeof gr === "number" ? gr : null);
         setLoading(false);
       } catch (e) {
         if ((e as { name?: string })?.name === "AbortError") return;
-        setValue(null);
+        setAcceptance(null);
+        setGiveTotal(null);
+        setGetTotal(null);
         setLoading(false);
       }
     }, 300);
@@ -211,7 +254,21 @@ export function useAcceptancePreview(opts: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leagueId, owner, ownerId, sig]);
 
-  return { value, loading };
+  return { acceptance, giveTotal, getTotal, loading };
+}
+
+/**
+ * @deprecated Use `useTradePreview` — returns SHA side totals alongside
+ * acceptance so the balance bar can consume BE-authoritative values
+ * instead of client-side name-matched reconstruction. Kept as a thin
+ * shim on the acceptance field until callers migrate.
+ */
+export function useAcceptancePreview(opts: Parameters<typeof useTradePreview>[0]): {
+  value: number | null;
+  loading: boolean;
+} {
+  const { acceptance, loading } = useTradePreview(opts);
+  return { value: acceptance, loading };
 }
 
 function buildRoster(data: unknown, picksData?: unknown): RosterPlayer[] {

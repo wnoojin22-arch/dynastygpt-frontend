@@ -173,3 +173,12 @@ If ANY step is missing, the league is INCOMPLETE. Log it. Fix it. Do not ship in
 - Never build auto-sync, auto-refresh, or any feature that fires expensive endpoints on page load
 - Never assume a fix deployed — verify the running code matches the fix
 - Before editing any component, search the entire codebase for the component that is ACTUALLY rendering the UI being discussed. Never assume the component name matches the feature name. Search for the visible text string (e.g. 'BUILD THIS TRADE') to find the real render location before touching any code.
+
+## 14. DISPLAY-LAYER VALUE RULE
+
+FE displays BE-computed values. **The FE never reconstructs a value by matching display strings against a roster and summing client-side.** This is the display-layer analog of Section 2's user_id rule: display names change across surfaces (owner suffixes on picks, canonical vs formatted labels, smart quotes), so any "filter roster by name → reduce sha_value" pattern will silently drop assets when the label doesn't match. The user sees a wrong number.
+
+- Trade builder totals (SEND / GET / balance bar / gap %) MUST consume `sha_balance.i_give.sha_total_raw` and `sha_balance.i_receive.sha_total_raw` from the `/trade-builder/evaluate` response. The `useTradePreview` hook (`src/hooks/useTradeBuilder.ts`) is the single source of truth for these totals.
+- While `/evaluate` is in-flight or before the first response, totals render as `"—"` — never a client-side sum, not even as a fallback. The fallback IS the bug class.
+- Chip lists (which assets are staged) may still filter-by-name for display purposes only; if a chip fails to render due to label mismatch that's a visibly-missing chip, not a silently-wrong number, and the sum stays correct because the BE re-derives it from canonical names in the payload.
+- Reference incident: 2026-08-03 Class-of-2017 chip bug (Green Bowl Packers session). Olave + 2027 R1 read as "Olave alone" because the R1 pick label pushed to `giveNames` didn't match the roster entry's `name`. Later picks stacked on the wrong baseline, producing inverted per-pick contributions. Full trace: `TradeBuilderProvider.tsx` client filter-reduce → deleted.

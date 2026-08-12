@@ -10,7 +10,7 @@ import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
 import { getRoster, getPicks } from "@/lib/api";
-import { useAcceptancePreview } from "@/hooks/useTradeBuilder";
+import { useTradePreview } from "@/hooks/useTradeBuilder";
 import type { SuggestedPackage, RosterPlayer } from "./types";
 
 /* ── helpers ── */
@@ -203,19 +203,11 @@ export default function TapToBuild({
     return list.sort((a, b) => b.sha_value - a.sha_value);
   }, [activeTab, ownerRosterProp, partnerRoster, posFilter]);
 
-  const getVal = useCallback(
-    (name: string, roster: RosterPlayer[]) => roster.find((r) => r.name.toLowerCase() === name.toLowerCase())?.sha_value || 0,
-    [],
-  );
-
-  const giveTotal = useMemo(() => giveNames.reduce((s, n) => s + getVal(n, ownerRosterProp), 0), [giveNames, ownerRosterProp, getVal]);
-  const recvTotal = useMemo(() => receiveNames.reduce((s, n) => s + getVal(n, partnerRoster), 0), [receiveNames, partnerRoster, getVal]);
-
-  const maxBar = Math.max(giveTotal, recvTotal, 1);
-  const gapPct = giveTotal > 0 ? ((recvTotal - giveTotal) / giveTotal) * 100 : 0;
-  const barColor = recvTotal > giveTotal ? "#7dd3a0" : recvTotal < giveTotal ? "#e47272" : "#d4a532";
-
-  const acceptanceP = useAcceptancePreview({
+  // Preview totals — same /evaluate call the AnalysisModal fires. NEVER
+  // reconstruct a sum by filtering rosters against selected names — that
+  // was the Aug 3 Class-of-2017 chip bug (mismatched pick label dropped
+  // the added pick to 0 SHA). Guarded null displays as "—".
+  const preview = useTradePreview({
     leagueId,
     owner,
     ownerId,
@@ -226,8 +218,19 @@ export default function TapToBuild({
     myWindow,
     theirWindow,
   });
-  const acceptance = acceptanceP.value;
+  const giveTotal = preview.giveTotal;
+  const recvTotal = preview.getTotal;
+  const acceptance = preview.acceptance;
   const accClr = acceptance != null ? acceptColor(acceptance) : "#9596a580";
+
+  const haveTotals = giveTotal != null && recvTotal != null;
+  const _give = giveTotal ?? 0;
+  const _recv = recvTotal ?? 0;
+  const maxBar = Math.max(_give, _recv, 1);
+  const gapPct = haveTotals && _give > 0 ? ((_recv - _give) / _give) * 100 : null;
+  const barColor = haveTotals && _recv > _give ? "#7dd3a0"
+    : haveTotals && _recv < _give ? "#e47272"
+    : "#d4a532";
 
   const toggleAsset = useCallback((name: string) => {
     if (activeTab === "yours") {
@@ -300,23 +303,33 @@ export default function TapToBuild({
           </div>
         </div>
 
-        {/* Balance bar — single bar showing direction */}
-        {(giveTotal > 0 || recvTotal > 0) && (
+        {/* Balance bar — direction-showing bar. Render whenever either side has
+             any staged assets; if totals are still in-flight (null), show "—"
+             placeholders. NEVER reconstruct a client-side sum here. */}
+        {(giveNames.length > 0 || receiveNames.length > 0) && (
           <div className="px-4 py-1">
             <div className="flex items-center gap-2">
-              <span className="font-mono text-[9px] font-bold text-[#e47272]">{fmt(giveTotal)}</span>
+              <span className={`font-mono text-[9px] font-bold ${giveTotal != null ? "text-[#e47272]" : "text-[#9596a5]"}`}>
+                {giveTotal != null ? fmt(giveTotal) : "—"}
+              </span>
               <div className="flex-1 h-1.5 rounded-full bg-[#171b28] overflow-hidden relative">
-                <motion.div
-                  className="absolute left-0 top-0 bottom-0 rounded-full"
-                  style={{ background: barColor }}
-                  animate={{ width: `${(Math.max(giveTotal, recvTotal) / maxBar) * 100}%` }}
-                  transition={{ type: "spring", damping: 20, stiffness: 200 }}
-                />
+                {haveTotals && (
+                  <motion.div
+                    className="absolute left-0 top-0 bottom-0 rounded-full"
+                    style={{ background: barColor }}
+                    animate={{ width: `${(Math.max(_give, _recv) / maxBar) * 100}%` }}
+                    transition={{ type: "spring", damping: 20, stiffness: 200 }}
+                  />
+                )}
               </div>
-              <span className="font-mono text-[9px] font-bold text-[#7dd3a0]">{fmt(recvTotal)}</span>
+              <span className={`font-mono text-[9px] font-bold ${recvTotal != null ? "text-[#7dd3a0]" : "text-[#9596a5]"}`}>
+                {recvTotal != null ? fmt(recvTotal) : "—"}
+              </span>
               <span className="font-mono text-[10px] font-black px-1.5 py-0.5 rounded"
-                style={{ color: barColor, background: `${barColor}15` }}>
-                {gapPct >= 0 ? "+" : ""}{gapPct.toFixed(0)}%
+                style={gapPct != null
+                  ? { color: barColor, background: `${barColor}15` }
+                  : { color: "#9596a5", background: "#9596a515" }}>
+                {gapPct != null ? `${gapPct >= 0 ? "+" : ""}${gapPct.toFixed(0)}%` : "—%"}
               </span>
             </div>
           </div>
@@ -420,10 +433,10 @@ export default function TapToBuild({
               SUGGEST
             </button>
           )}
-          {/* Gap label */}
-          {(giveTotal > 0 || recvTotal > 0) && (
-            <span className="font-mono text-[10px] font-black shrink-0" style={{ color: barColor }}>
-              {gapPct >= 0 ? "+" : ""}{gapPct.toFixed(0)}%
+          {/* Gap label — same null-guard as the top balance bar. */}
+          {(giveNames.length > 0 || receiveNames.length > 0) && (
+            <span className="font-mono text-[10px] font-black shrink-0" style={{ color: gapPct != null ? barColor : "#9596a5" }}>
+              {gapPct != null ? `${gapPct >= 0 ? "+" : ""}${gapPct.toFixed(0)}%` : "—%"}
             </span>
           )}
           {/* ANALYZE */}
