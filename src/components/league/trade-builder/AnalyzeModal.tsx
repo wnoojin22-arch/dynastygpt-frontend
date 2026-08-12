@@ -514,8 +514,14 @@ export default function AnalyzeModal({ isOpen, onClose, evaluation, starterImpac
   const acc = acceptance?.acceptance_likelihood ?? 0;
   const giveAssets = ev?.i_give || [];
   const getAssets = ev?.i_receive || [];
-  const giveTotal = ev?.sha_balance?.i_give?.sha_total_raw ?? giveAssets.reduce((s, a) => s + a.sha, 0);
-  const getTotal = ev?.sha_balance?.i_receive?.sha_total_raw ?? getAssets.reduce((s, a) => s + a.sha, 0);
+  // BE-authoritative — no client-side sum fallback. If the evaluate
+  // response hasn't landed yet, totals are 0 and the modal will just
+  // not draw the balance bar (the modal only opens after AnalyzeTrade
+  // fires, which awaits the same evaluate). Restoring the old
+  // reduce-fallback reintroduces the Class-of-2017 chip-bug class —
+  // don't. See useTradePreview for the convention.
+  const giveTotal = ev?.sha_balance?.i_give?.sha_total_raw ?? 0;
+  const getTotal = ev?.sha_balance?.i_receive?.sha_total_raw ?? 0;
   const gap = getTotal - giveTotal;
   const gapPct = giveTotal > 0 ? Math.round((gap / giveTotal) * 100) : 0;
   const insights = ev?.negotiation_insights || [];

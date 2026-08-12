@@ -433,13 +433,17 @@ function windowBadge(w: string | undefined) {
 
 // ── Builder Layer (mobile trade builder — live negotiation feel) ─────────
 
-function BuilderLayer({ tb, ctx, owners, giveAssets, getAssets, sendTotal, getTotal, balance, balancePct, balanceColor, canAnalyze, suggestContext, activeTab, setActiveTab, posFilter, setPosFilter, roster, filtered, selectedNames, toggleFn, partnerWindow, acceptancePreview }: {
+function BuilderLayer({ tb, ctx, owners, giveAssets, getAssets, sendTotal, getTotal, balance, balancePct, balanceColor, totalsLoading, canAnalyze, suggestContext, activeTab, setActiveTab, posFilter, setPosFilter, roster, filtered, selectedNames, toggleFn, partnerWindow, acceptancePreview }: {
   tb: ReturnType<typeof useTradeBuilderContext>["tb"];
   ctx: ReturnType<typeof useTradeBuilderContext>;
   owners: Array<{ name: string }>;
   giveAssets: Array<{ name: string; position: string; sha_value: number }>;
   getAssets: Array<{ name: string; position: string; sha_value: number }>;
-  sendTotal: number; getTotal: number; balance: number; balancePct: number; balanceColor: string;
+  // BE-authoritative preview totals — null while /evaluate is in-flight or
+  // before the first response. NEVER fall back to a client-side sum here:
+  // that reconstruction pattern was the Aug 3 chip bug (see useTradePreview).
+  sendTotal: number | null; getTotal: number | null; balance: number | null; balancePct: number | null; balanceColor: string;
+  totalsLoading: boolean;
   canAnalyze: boolean; suggestContext: string;
   activeTab: "yours" | "theirs"; setActiveTab: (t: "yours" | "theirs") => void;
   posFilter: string; setPosFilter: (p: string) => void;
@@ -450,9 +454,17 @@ function BuilderLayer({ tb, ctx, owners, giveAssets, getAssets, sendTotal, getTo
   acceptancePreview: number | null;
 }) {
   const win = windowBadge(partnerWindow);
-  const maxBar = Math.max(sendTotal, getTotal, 1);
-  const barColor = getTotal > sendTotal ? "#7dd3a0" : getTotal < sendTotal ? "#e47272" : "#d4a532";
-  const gapPct = sendTotal > 0 ? ((getTotal - sendTotal) / sendTotal) * 100 : 0;
+  // Null-safe derived values from BE-authoritative totals. When either side
+  // total is null (in-flight, no partner, empty sides), render dim/em-dash
+  // placeholders in the balance bar. Local vars fall back to 0 ONLY for the
+  // "should the bar even render?" gate and the maxBar denominator; the
+  // actual numeric displays guard on null explicitly.
+  const haveTotals = sendTotal != null && getTotal != null;
+  const _send = sendTotal ?? 0;
+  const _get = getTotal ?? 0;
+  const maxBar = Math.max(_send, _get, 1);
+  const barColor = haveTotals && _get > _send ? "#7dd3a0" : haveTotals && _get < _send ? "#e47272" : "#d4a532";
+  const gapPct = balancePct;
   const acceptance = acceptancePreview;
   const accClr = acceptance != null ? acceptColor(acceptance) : C.dim;
 
@@ -552,31 +564,50 @@ function BuilderLayer({ tb, ctx, owners, giveAssets, getAssets, sendTotal, getTo
           </div>
         </div>
 
-        {/* ── Live balance bar ── */}
-        {(sendTotal > 0 || getTotal > 0) ? (
+        {/* ── Live balance bar ──
+             Render whenever either side has ANY assets staged (using the
+             assets arrays, not the totals — totals may still be null
+             mid-flight). When totals are null, show em-dash placeholders
+             rather than reconstructing a client-side sum. */}
+        {(giveAssets.length > 0 || getAssets.length > 0) ? (
           <div style={{ padding: "3px 12px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.red, flexShrink: 0 }}>{fmt(sendTotal)}</span>
+              <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: sendTotal != null ? C.red : C.dim, flexShrink: 0 }}>
+                {sendTotal != null ? fmt(sendTotal) : "—"}
+              </span>
               <div style={{ flex: 1, height: 5, borderRadius: 3, background: "#171b28", overflow: "hidden", position: "relative" }}>
-                <motion.div
-                  style={{ position: "absolute", top: 0, bottom: 0, left: 0, borderRadius: 3, background: barColor }}
-                  animate={{ width: `${(Math.max(sendTotal, getTotal) / maxBar) * 100}%` }}
-                  transition={{ type: "spring", damping: 20, stiffness: 200 }}
-                />
+                {haveTotals && (
+                  <motion.div
+                    style={{ position: "absolute", top: 0, bottom: 0, left: 0, borderRadius: 3, background: barColor }}
+                    animate={{ width: `${(Math.max(_send, _get) / maxBar) * 100}%` }}
+                    transition={{ type: "spring", damping: 20, stiffness: 200 }}
+                  />
+                )}
               </div>
-              <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.green, flexShrink: 0 }}>{fmt(getTotal)}</span>
-              <motion.span
-                key={Math.round(gapPct)}
-                initial={{ scale: 1.2 }}
-                animate={{ scale: 1 }}
-                transition={{ duration: 0.15 }}
-                style={{
-                  fontFamily: MONO, fontSize: 10, fontWeight: 900, color: barColor,
-                  background: `${barColor}15`, padding: "1px 5px", borderRadius: 4, flexShrink: 0,
-                }}
-              >
-                {gapPct >= 0 ? "+" : ""}{gapPct.toFixed(0)}%
-              </motion.span>
+              <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: getTotal != null ? C.green : C.dim, flexShrink: 0 }}>
+                {getTotal != null ? fmt(getTotal) : "—"}
+              </span>
+              {gapPct != null ? (
+                <motion.span
+                  key={Math.round(gapPct)}
+                  initial={{ scale: 1.2 }}
+                  animate={{ scale: 1 }}
+                  transition={{ duration: 0.15 }}
+                  style={{
+                    fontFamily: MONO, fontSize: 10, fontWeight: 900, color: barColor,
+                    background: `${barColor}15`, padding: "1px 5px", borderRadius: 4, flexShrink: 0,
+                  }}
+                >
+                  {gapPct >= 0 ? "+" : ""}{gapPct.toFixed(0)}%
+                </motion.span>
+              ) : (
+                <span style={{
+                  fontFamily: MONO, fontSize: 10, fontWeight: 900, color: C.dim,
+                  background: `${C.dim}15`, padding: "1px 5px", borderRadius: 4, flexShrink: 0,
+                }}>
+                  —%
+                </span>
+              )}
             </div>
           </div>
         ) : (
@@ -703,10 +734,11 @@ function BuilderLayer({ tb, ctx, owners, giveAssets, getAssets, sendTotal, getTo
         background: "rgba(6,8,13,0.95)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
         borderTop: `1px solid rgba(212,165,50,0.15)`,
       }}>
-        {/* Gap label */}
-        {(sendTotal > 0 || getTotal > 0) && (
-          <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 900, color: barColor, flexShrink: 0 }}>
-            {gapPct >= 0 ? "+" : ""}{gapPct.toFixed(0)}%
+        {/* Gap label — gate on any staged assets so it shows during in-flight
+             /evaluate too; render "—%" when totals aren't back yet. */}
+        {(giveAssets.length > 0 || getAssets.length > 0) && (
+          <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 900, color: gapPct != null ? barColor : C.dim, flexShrink: 0 }}>
+            {gapPct != null ? `${gapPct >= 0 ? "+" : ""}${gapPct.toFixed(0)}%` : "—%"}
           </span>
         )}
         {/* SUGGEST TRADES — always visible when assets selected */}
@@ -783,7 +815,7 @@ function BuilderLayer({ tb, ctx, owners, giveAssets, getAssets, sendTotal, getTo
 
 export default function TradeBuilderUnified() {
   const ctx = useTradeBuilderContext();
-  const { tb, ui, dispatch, sendTotal, getTotal, balance, balancePct, canAnalyze, suggestContext } = ctx;
+  const { tb, ui, dispatch, sendTotal, getTotal, balance, balancePct, totalsLoading, canAnalyze, suggestContext } = ctx;
   const [activeTab, setActiveTab] = useState<"yours" | "theirs">("yours");
   const [posFilter, setPosFilter] = useState<string>("ALL");
   const track = useTrack();
@@ -921,12 +953,19 @@ export default function TradeBuilderUnified() {
   const selectedNames = activeTab === "yours" ? tb.giveNames : tb.receiveNames;
   const toggleFn = activeTab === "yours" ? tb.toggleGive : tb.toggleReceive;
 
-  // Give/Get assets for display
+  // Give/Get assets — DISPLAY chip list only (which items to render).
+  // Sums come from BE (sendTotal/getTotal via useTradePreview). If a chip's
+  // label mismatches its roster entry the chip won't appear here at all,
+  // but the sum will still be correct because the BE re-computes from the
+  // canonical names sent in the /evaluate payload.
   const giveAssets = tb.myRoster.filter((p) => tb.giveNames.includes(p.name));
   const getAssets = tb.theirRoster.filter((p) => tb.receiveNames.includes(p.name));
 
-  // Balance bar color
-  const balanceColor = balancePct > 5 ? C.green : balancePct < -5 ? C.red : C.gold;
+  // Balance bar color — null balancePct means totals are in-flight; render neutral.
+  const balanceColor = balancePct == null ? C.gold
+    : balancePct > 5 ? C.green
+    : balancePct < -5 ? C.red
+    : C.gold;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", background: C.bg }}>
@@ -1117,6 +1156,7 @@ export default function TradeBuilderUnified() {
           tb={tb} ctx={ctx} owners={owners}
           giveAssets={giveAssets} getAssets={getAssets}
           sendTotal={sendTotal} getTotal={getTotal} balance={balance} balancePct={balancePct} balanceColor={balanceColor}
+          totalsLoading={totalsLoading}
           canAnalyze={canAnalyze} suggestContext={suggestContext}
           activeTab={activeTab} setActiveTab={setActiveTab}
           posFilter={posFilter} setPosFilter={setPosFilter}
