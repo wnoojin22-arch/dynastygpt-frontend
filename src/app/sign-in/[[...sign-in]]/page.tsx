@@ -1,4 +1,5 @@
 import { SignIn } from "@clerk/nextjs";
+import { safeReturnTo } from "@/lib/redirect";
 
 /* ═══════════════════════════════════════════════════════════════
    DESIGN SYSTEM — matched to dynastygpt.com
@@ -93,7 +94,22 @@ const clerkAppearance = {
 /* ═══════════════════════════════════════════════════════════════
    PAGE
    ═══════════════════════════════════════════════════════════════ */
-export default function SignInPage() {
+// Next.js 15+ passes searchParams as a Promise on server components.
+// `return_to` is set by the /l/* middleware redirect for signed-out
+// visitors clicking into a league URL — see src/middleware.ts.
+type SearchParams = Promise<{ return_to?: string | string[] }>;
+
+export default async function SignInPage({
+  searchParams,
+}: {
+  searchParams?: SearchParams;
+}) {
+  const params = searchParams ? await searchParams : {};
+  const rawReturnTo = Array.isArray(params.return_to)
+    ? params.return_to[0]
+    : params.return_to;
+  const safe = safeReturnTo(rawReturnTo);
+  const redirectUrl = safe ?? "/dashboard";
   return (
     <div style={{
       minHeight: "100vh", background: BG,
@@ -240,7 +256,7 @@ export default function SignInPage() {
         {/* Clerk card */}
         <SignIn
           appearance={clerkAppearance}
-          forceRedirectUrl="/dashboard"
+          forceRedirectUrl={redirectUrl}
         />
 
         <p style={{
