@@ -117,8 +117,65 @@ export { authHeaders };
 
 const L = (id: string) => `/api/league/${id}`;
 const E = (s: string) => encodeURIComponent(s);
-/** Prefer user_id for API calls; fall back to display name */
-const O = (owner: string, userId?: string | null) => E(userId || owner);
+
+// ── O() display-name-fallback instrumentation (2026-08-13) ─────────────
+//
+// The URL builder below prefers user_id when the caller passes one,
+// otherwise URL-encodes the display name into the path segment. That
+// fallback is the 404 vector for owners whose name contains `/` (encoded
+// %2F breaks path routing at the CF edge before the handler runs — see
+// TradeReportModal / TapToBuild fixes shipping in this same commit for
+// the three known-always sites).
+//
+// ~49 other call sites in the FE PASS a userId variable but that variable
+// can be null at runtime (store hydration race, unknown/synthetic owner).
+// We do NOT know today which of those 49 actually hit the fallback in
+// real traffic — this instrumentation measures it as Wide/Layer B
+// sizing input (see docs/design/fe-identity-hardening.md).
+//
+// Behavior: unchanged. Fallback still fires. Only side effect is a
+// console.warn plus a fire-and-forget POST to /api/error-log with
+// metadata.kind="owner_id_fallback", deduped per session per (page +
+// owner) so the log doesn't flood on repeated renders.
+
+const _fallbackLoggedThisSession = new Set<string>();
+
+async function _logOwnerIdFallback(owner: string) {
+  try {
+    const page = typeof window !== "undefined" ? window.location.pathname : "";
+    const key = `${page}|${owner}`;
+    if (_fallbackLoggedThisSession.has(key)) return;
+    _fallbackLoggedThisSession.add(key);
+    // Truncated stack — identifies which api.ts function fired the
+    // fallback. Minified in prod but still groupable.
+    const stack = (new Error()).stack?.split("\n").slice(2, 6).join(" | ") || "";
+    if (typeof console !== "undefined" && console.warn) {
+      console.warn(
+        `[owner-id-fallback] display-name-in-URL path (page=${page}, owner=${owner})`,
+      );
+    }
+    const headers = await authHeaders();
+    fetch(`${API}/api/error-log`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        page,
+        endpoint: "[owner-id-fallback]",
+        error_message: `owner=${owner.slice(0, 80)} | stack=${stack.slice(0, 400)}`,
+        status_code: 0,
+        metadata: { kind: "owner_id_fallback", owner: owner.slice(0, 80) },
+      }),
+    }).catch(() => {});
+  } catch { /* silent */ }
+}
+
+/** Prefer user_id for API calls; fall back to display name.
+ *  When the fallback fires, `_logOwnerIdFallback` records it for
+ *  post-hoc measurement without changing behavior. */
+const O = (owner: string, userId?: string | null): string => {
+  if (!userId) _logOwnerIdFallback(owner);
+  return E(userId || owner);
+};
 
 // ── Sync & League ────────────────────────────────────────────────────────
 export const syncLeague = (id: string) => get<SyncResponse>(`${L(id)}/sync`);

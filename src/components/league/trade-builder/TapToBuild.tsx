@@ -164,17 +164,24 @@ export default function TapToBuild({
   onBack: () => void;
 }) {
   const partnerName = pkg.partner || "";
+  // `partner_user_id` is on SuggestedPackage (types.ts:187) — thread it
+  // through so the URL builder emits a uid path segment instead of the
+  // encoded display name. Owners with a `/` in the name (e.g.
+  // "Keepin Up W/ The Joneses") 404 without this — the encoded %2F
+  // breaks path routing at CF/edge before the handler runs.
+  // Narrow-fix 2026-08-13 (docs/design/fe-identity-hardening.md).
+  const partnerUserId = pkg.partner_user_id || null;
   const win = windowColor(partnerWindow);
 
   const { data: partnerRosterData } = useQuery({
-    queryKey: ["roster", leagueId, partnerName],
-    queryFn: () => getRoster(leagueId, partnerName),
+    queryKey: ["roster", leagueId, partnerName, partnerUserId],
+    queryFn: () => getRoster(leagueId, partnerName, partnerUserId),
     enabled: !!partnerName,
     staleTime: 300000,
   });
   const { data: partnerPicksData } = useQuery({
-    queryKey: ["picks", leagueId, partnerName],
-    queryFn: () => getPicks(leagueId, partnerName),
+    queryKey: ["picks", leagueId, partnerName, partnerUserId],
+    queryFn: () => getPicks(leagueId, partnerName, partnerUserId),
     enabled: !!partnerName,
     staleTime: 300000,
   });

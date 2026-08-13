@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getTradeReport, getTradeHindsight, getPicks } from "@/lib/api";
+import { getTradeReport, getTradeHindsight, getPicks, getOwners } from "@/lib/api";
 import { C, SANS, MONO, DISPLAY, SERIF, fmt, gradeColor, posColor } from "./tokens";
 import PlayerName from "./PlayerName";
 import { usePlayerCardStore } from "@/lib/stores/player-card-store";
@@ -798,23 +798,59 @@ export default function TradeReportModal({ leagueId, tradeId, onClose }: {
   // anyway, so labels can't be computed).
   const ownerA = (r?.side_a as any)?.owner as string | undefined;
   const ownerB = (r?.side_b as any)?.owner as string | undefined;
-  const fetchPicksOrNull = async (owner: string) => {
-    try { return await getPicks(leagueId, owner); }
+
+  // Resolve display-name → platform_user_id via the league's current
+  // owners list so the picks fetch below emits a uid path segment
+  // instead of the encoded display name. Owners with a `/` in the name
+  // (e.g. "Keepin Up W/ The Joneses") 404 without this — the encoded
+  // %2F breaks path routing at CF/edge before the handler runs.
+  // The lookup is case-insensitive and quote-normalized to match the
+  // BE's _match_owner behavior (data.py:70-85). Departed-owner names
+  // (i.e. side.owner from an old enriched_trades row that no longer
+  // appears in current owners) resolve to null; the endpoint still
+  // 404s in that case, which fetchPicksOrNull swallows — same behavior
+  // as before, just no accidental %2F-triggered 404 on top of it.
+  // Narrow-fix 2026-08-13 (docs/design/fe-identity-hardening.md).
+  const { data: ownersData } = useQuery({
+    queryKey: ["owners", leagueId],
+    queryFn: () => getOwners(leagueId),
+    enabled: !!leagueId,
+    staleTime: 60 * 60 * 1000,
+  });
+  const ownerUidLookup = React.useMemo(() => {
+    const map: Record<string, string> = {};
+    const normalize = (s: string) =>
+      s.toLowerCase().replace(/[‘’“”]/g, "'").trim();
+    for (const o of (ownersData?.owners || [])) {
+      if (o.platform_user_id) map[normalize(o.name)] = o.platform_user_id;
+    }
+    return map;
+  }, [ownersData]);
+  const uidFor = (ownerName: string | undefined) => {
+    if (!ownerName) return null;
+    const norm = ownerName.toLowerCase().replace(/[‘’“”]/g, "'").trim();
+    return ownerUidLookup[norm] ?? null;
+  };
+
+  const fetchPicksOrNull = async (owner: string, uid: string | null) => {
+    try { return await getPicks(leagueId, owner, uid); }
     catch (e: any) {
       if (String(e?.message || "").includes("API 404")) return null;
       throw e;
     }
   };
+  const uidA = uidFor(ownerA);
+  const uidB = uidFor(ownerB);
   const { data: picksA } = useQuery({
-    queryKey: ["picks", leagueId, ownerA],
-    queryFn: () => fetchPicksOrNull(ownerA!),
+    queryKey: ["picks", leagueId, ownerA, uidA],
+    queryFn: () => fetchPicksOrNull(ownerA!, uidA),
     enabled: !!ownerA,
     staleTime: 60 * 60 * 1000,
     retry: false,
   });
   const { data: picksB } = useQuery({
-    queryKey: ["picks", leagueId, ownerB],
-    queryFn: () => fetchPicksOrNull(ownerB!),
+    queryKey: ["picks", leagueId, ownerB, uidB],
+    queryFn: () => fetchPicksOrNull(ownerB!, uidB),
     enabled: !!ownerB && ownerB !== ownerA,
     staleTime: 60 * 60 * 1000,
     retry: false,
