@@ -32,13 +32,21 @@ async function authHeaders(skipCache = false): Promise<Record<string, string>> {
   return headers;
 }
 
-// Fire-and-forget error log — never throws, never blocks
-function _logApiError(path: string, status: number, msg: string) {
+// Fire-and-forget error log — never throws, never blocks.
+//
+// Includes the Bearer header when a Clerk session exists (2026-08-13):
+// previously this call went out anon, so every beta_errors row had
+// clerk_user_id=NULL, and the 2026-08-13 signed-out-invitee incident
+// had to be diagnosed via signup-timestamp archaeology. With this,
+// the /api/error-log handler (routers/events.py:148) can read
+// request.state.clerk_user_id and stamp the row correctly.
+async function _logApiError(path: string, status: number, msg: string) {
   try {
     const page = typeof window !== "undefined" ? window.location.pathname : "";
+    const headers = await authHeaders();
     fetch(`${API}/api/error-log`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({ page, endpoint: path, error_message: msg.slice(0, 500), status_code: status }),
     }).catch(() => {});
   } catch { /* silent */ }
