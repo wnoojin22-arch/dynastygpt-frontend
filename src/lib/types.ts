@@ -1,6 +1,6 @@
 // ── Position & Grade types ──────────────────────────────────────────────
 
-export type Position = "QB" | "RB" | "WR" | "TE" | "PICK";
+export type Position = "QB" | "RB" | "WR" | "TE" | "DEF" | "PICK";
 export type Grade = "A+" | "A" | "A-" | "B+" | "B" | "B-" | "C+" | "C" | "D" | "F" | "N/A";
 export type Signal = "BUY" | "SELL" | "HOLD";
 export type Window = "CONTENDER" | "WIN_NOW" | "REBUILDER" | "BALANCED";
