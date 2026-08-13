@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-import { getFranchiseIntel, getCoachesCorner, getGmVerdict, getActions } from "@/lib/api";
+import { getFranchiseIntel, getCoachesCorner, getGmVerdict, getActions, getOverview } from "@/lib/api";
 import { C, SANS, MONO, DISPLAY, fmt, posColor } from "./tokens";
 import PlayerName from "./PlayerName";
 import { ChevronDown } from "lucide-react";
@@ -140,6 +140,19 @@ function WindowRoster({ windowData, positions, rosterData }: {
   const dynasty = windowData?.dynasty_rank as string | number | undefined;
   const needs = (rosterData?.positional_needs as string[]) || [];
 
+  // Overview query is already cached by the layout shell (same key,
+  // same enabled), so this is a free reuse — no extra network hit.
+  // We only need it to know whether the league has a DEF slot so the
+  // 5th grid cell renders honestly for start-DST leagues.
+  const currentLeagueId = useLeagueStore((s) => s.currentLeagueId);
+  const { data: overview } = useQuery({
+    queryKey: ["overview", currentLeagueId],
+    queryFn: () => getOverview(currentLeagueId!),
+    enabled: !!currentLeagueId,
+  });
+  const rosterPositions = overview?.format?.roster_positions || [];
+  const hasDefSlot = rosterPositions.includes("DEF") || rosterPositions.includes("DST");
+
   const gradeColor = (g: string) =>
     g === "ELITE" ? C.gold : g === "STRONG" ? C.green : g === "AVERAGE" ? "#6bb8e0" : g === "WEAK" ? C.orange : C.red;
 
@@ -188,6 +201,20 @@ function WindowRoster({ windowData, positions, rosterData }: {
                 </div>
               );
             })}
+            {/* DEF 5th cell — only for leagues that actually start a
+                DST. Value-exempt: we don't grade team defenses (design
+                doc §3.4 addendum), but a start-DST league seeing a
+                4-cell grid pretends DST isn't in the lineup. Cell says
+                "we know you start one, we just don't grade it." */}
+            {hasDefSlot && (
+              <div style={{
+                display: "flex", alignItems: "center", gap: 6, padding: "4px 8px",
+                borderRadius: 5, background: `${C.dim}0a`, border: `1px solid ${C.dim}20`,
+              }}>
+                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.dim }}>DEF</span>
+                <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.dim, letterSpacing: "0.04em" }}>1 STARTER · NOT GRADED</span>
+              </div>
+            )}
           </div>
         ) : <span style={{ fontFamily: MONO, fontSize: 10, color: C.dim }}>—</span>}
         {needs.length > 0 && (

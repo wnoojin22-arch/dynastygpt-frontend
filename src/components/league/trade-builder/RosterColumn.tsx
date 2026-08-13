@@ -67,16 +67,23 @@ interface Props {
 export default function RosterColumn({ title, roster, selectedNames, onToggle, side, posGrades, moveableNames, windowToggle }: Props) {
   const openPlayerCard = usePlayerCardStore((s) => s.openPlayerCard);
   const grouped = useMemo(() => {
-    const groups: Record<string, RosterPlayer[]> = { QB: [], RB: [], WR: [], TE: [], PICK: [] };
+    const groups: Record<string, RosterPlayer[]> = { QB: [], RB: [], WR: [], TE: [], DEF: [], PICK: [] };
     for (const p of roster) {
-      const pos = p.position in groups ? p.position : "PICK";
+      // Normalize Sleeper's DST → DEF so team defenses render in the
+      // DEF group with an em-dash value, not misfiled into PICK and
+      // sorted by a draft-pick-label parser (design doc §3.1).
+      const raw = p.position === "DST" ? "DEF" : p.position;
+      const pos = raw in groups ? raw : "PICK";
       groups[pos].push(p);
     }
     // Players: sort by descending value. Picks: sort chronologically
     // (earliest year first), then by round, then by slot within round.
+    // DEF: sort by team acronym since sha_value is 0 for defenses.
     for (const pos of Object.keys(groups)) {
       if (pos === "PICK") {
         groups[pos].sort((a, b) => comparePicks(a.name, b.name));
+      } else if (pos === "DEF") {
+        groups[pos].sort((a, b) => a.name.localeCompare(b.name));
       } else {
         groups[pos].sort((a, b) => (b.sha_value || 0) - (a.sha_value || 0));
       }
