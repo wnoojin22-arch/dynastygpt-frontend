@@ -11,7 +11,7 @@ import {
   getMarketFeed, getCoachesCorner, getRosterValueChange,
 } from "@/lib/api";
 import type { DynastyScoreResponse } from "@/lib/api";
-import { Plus, FileText, ChevronRight, ChevronDown, Activity, Search, X, BarChart3, UserPlus } from "lucide-react";
+import { Plus, FileText, ChevronRight, ChevronDown, Activity, Search, X, BarChart3, UserPlus, MessageSquare } from "lucide-react";
 import { useTradeBuilderStore } from "@/lib/stores/trade-builder-store";
 import { usePlayerCardStore } from "@/lib/stores/player-card-store";
 import { motion, AnimatePresence } from "framer-motion";
@@ -354,6 +354,10 @@ export default function DashboardMobile({ lid, owner, ownerId }: { lid: string; 
       <style>{`@keyframes dhqMobNewPulse{0%,100%{box-shadow:0 0 4px rgba(212,165,50,0.5)}50%{box-shadow:0 0 10px rgba(212,165,50,0.9)}}`}</style>
       <div className="grid grid-cols-3 gap-2 px-3">
         {[
+          // AI CHAT — new tile added 2026-08-16 with the relaunch. Deep-links
+          // to the Trades tab (trade-analyzer) with ?chat=1 which auto-opens
+          // the ChatPanel. NEW badge matches the DHQ pulse pattern.
+          { label: "AI CHAT", sub: "Ask your league AI", icon: MessageSquare, color: C.gold, route: "trade-analyzer?chat=1", isNew: true },
           { label: "WAIVERS", sub: "Free-agent adds", icon: UserPlus, color: C.orange, route: "waivers", isNew: true },
           { label: "BUILD TRADE", sub: "Find your next move", icon: Plus, color: C.gold, route: "trades" },
           { label: "DRAFT HQ", sub: "Rookie ADP — live", icon: FileText, color: C.gold, route: "draft-hq", isNew: false },
