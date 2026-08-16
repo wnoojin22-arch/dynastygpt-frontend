@@ -221,6 +221,17 @@ function EmptyState({
           rosters, values, and behavioral data for every owner.
         </p>
       </div>
+      {/* Beta honesty line — paired with the confidence line above per
+          Billy's spec. Design element, not a legal footnote. */}
+      <div className="mt-1 flex max-w-[280px] items-start gap-2 rounded-md border border-gold/25 bg-gold/[0.08] px-2.5 py-2 text-left">
+        <span className="mt-[1px] rounded-sm bg-gold px-1.5 py-[1px] font-mono text-[8.5px] font-black uppercase tracking-[0.12em] text-bg">
+          Beta
+        </span>
+        <span className="font-sans text-[10.5px] leading-relaxed text-dim">
+          AI can be wrong. Push back on any read that feels off and it
+          will re-check.
+        </span>
+      </div>
       <div className="mt-1 flex w-full flex-col gap-1.5">
         {suggestions.map((s) => (
           <button
