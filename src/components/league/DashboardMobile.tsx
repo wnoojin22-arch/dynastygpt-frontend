@@ -347,7 +347,7 @@ export default function DashboardMobile({ lid, owner, ownerId }: { lid: string; 
 
       {/* ── 2.5 CHAMPIONSHIP ODDS TILE ── */}
       <div className="px-3">
-        <ChampionshipOddsTile leagueId={lid} ownerUserId={ownerId} />
+        <ChampionshipOddsTile leagueId={lid} ownerUserId={ownerId} variant="mobile" />
       </div>
 
       {/* ── 3. ACTION GRID — 3 cols ── */}

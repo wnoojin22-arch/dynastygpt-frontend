@@ -1,20 +1,21 @@
 "use client";
 
 /**
- * "YOUR CHAMPIONSHIP ODDS" DCard tile for team pages (both desktop
- * and mobile Dashboard views).
+ * "YOUR CHAMPIONSHIP ODDS" DCard tile — desktop + mobile variants.
  *
- * Design copied verbatim from DashboardView.tsx:371-413 (the
- * DYNASTYGPT MANAGER RANKS card):
- *   - Same DCard wrapper: goldGlow top strip, goldDark border-top-2,
- *     goldBorder sides, 8px radius
- *   - Same gold header strip: font-mono 10px black tracking-[0.10em]
- *     text-gold, background: C.goldDim
- *   - Same stat-tile shape: bg-elevated, border-border, 6px radius,
- *     text-center, MONO 9px label + DISPLAY 22px black gold numeric
+ * Desktop (variant="desktop", default):
+ *   Three-column stat grid (PLAYOFF / TITLE / 1ST-RD BYE) inside the
+ *   gold-header DCard shell copied from DashboardView.tsx:371-413's
+ *   MANAGER RANKS card. Full label "1ST-RD BYE" clears the "what is
+ *   bye" ambiguity at the width where it fits.
  *
- * Change vs source: three-column grid (playoff / title / bye) instead
- * of two-column rank grid.
+ * Mobile (variant="mobile"):
+ *   Compact horizontal strip, total height ~1 action-grid row. Two
+ *   stats only (PLAYOFF · TITLE) — BYE dropped so the action grid
+ *   below stays the mobile focal point.
+ *
+ * Both variants share the empty-state ("Odds arrive after the first
+ * sim run") when the league has no championship_odds row yet.
  *
  * Reads the same single-row-per-team GET /odds source that the
  * League Home rail + portfolio card odds strip use — never fanout,
@@ -33,15 +34,19 @@ function fmtPct(p: number | null | undefined): string {
   return `${Math.round(p * 100)}%`;
 }
 
+const EMPTY_COPY = "Odds arrive after the first sim run";
+
 interface Props {
   leagueId: string | null | undefined;
-  /** Owner display name (currentOwner from the store) — used to find
-   *  the row in the fleet response. Null-safe: if we can't find the
-   *  user's row (early hydration, unknown owner), tile null-renders. */
   ownerUserId: string | null | undefined;
+  variant?: "desktop" | "mobile";
 }
 
-export default function ChampionshipOddsTile({ leagueId, ownerUserId }: Props) {
+export default function ChampionshipOddsTile({
+  leagueId,
+  ownerUserId,
+  variant = "desktop",
+}: Props) {
   const { data } = useQuery({
     queryKey: ["championship-odds", leagueId],
     queryFn: () => getChampionshipOdds(leagueId!),
@@ -50,33 +55,108 @@ export default function ChampionshipOddsTile({ leagueId, ownerUserId }: Props) {
   });
 
   const teams: ChampionshipOddsRow[] = data?.teams ?? [];
-  // Find the row for the viewing user. Null-safe: if uid is missing
-  // or the sim hasn't written a row for this user (rare — happens on
-  // just-added rosters mid-sync), fall back to a placeholder that
-  // matches the "—" convention of the MANAGER RANKS card when data
-  // is missing.
   const myRow =
     ownerUserId != null
       ? teams.find((t) => t.platform_user_id === ownerUserId)
       : undefined;
+  const hasAnyRow = teams.length > 0 && data?.computed_at != null;
 
-  // Show the card even without a row so the visual rhythm of the
-  // page stays consistent — the numerics degrade to em-dashes.
+  const shell = {
+    borderRadius: variant === "mobile" ? 6 : 8,
+    overflow: "hidden" as const,
+    background: `linear-gradient(180deg, ${C.goldGlow} 0%, transparent 50%), ${C.card}`,
+    borderTop: `2px solid ${C.goldDark}`,
+    borderRight: `1px solid ${C.goldBorder}`,
+    borderBottom: `1px solid ${C.goldBorder}`,
+    borderLeft: `1px solid ${C.goldBorder}`,
+  };
+
+  if (variant === "mobile") {
+    return (
+      <div className="w-full">
+        <div style={shell}>
+          <div
+            style={{
+              padding: "3px 10px",
+              borderBottom: `1px solid ${C.border}`,
+              background: C.goldDim,
+              textAlign: "center",
+            }}
+          >
+            <span
+              style={{
+                fontFamily: MONO,
+                fontSize: 9,
+                fontWeight: 800,
+                letterSpacing: "0.10em",
+                color: C.gold,
+              }}
+            >
+              CHAMPIONSHIP ODDS
+            </span>
+          </div>
+
+          {hasAnyRow ? (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                padding: "5px 10px 6px",
+              }}
+            >
+              {[
+                { label: "PLAYOFF", val: fmtPct(myRow?.p_playoffs) },
+                { label: "TITLE", val: fmtPct(myRow?.p_title) },
+              ].map((s) => (
+                <div key={s.label} style={{ textAlign: "center" }}>
+                  <div
+                    style={{
+                      fontFamily: MONO,
+                      fontSize: 8,
+                      fontWeight: 700,
+                      letterSpacing: "0.10em",
+                      color: C.dim,
+                      marginBottom: 1,
+                    }}
+                  >
+                    {s.label}
+                  </div>
+                  <span
+                    style={{
+                      fontFamily: DISPLAY,
+                      fontSize: 18,
+                      fontWeight: 900,
+                      color: C.gold,
+                      lineHeight: 1,
+                    }}
+                  >
+                    {s.val}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div
+              style={{
+                padding: "8px 10px",
+                textAlign: "center",
+                fontFamily: MONO,
+                fontSize: 9,
+                letterSpacing: "0.06em",
+                color: C.dim,
+              }}
+            >
+              {EMPTY_COPY}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full">
-      <div
-        style={{
-          borderRadius: 8,
-          overflow: "hidden",
-          background: `linear-gradient(180deg, ${C.goldGlow} 0%, transparent 50%), ${C.card}`,
-          borderTop: `2px solid ${C.goldDark}`,
-          borderRight: `1px solid ${C.goldBorder}`,
-          borderBottom: `1px solid ${C.goldBorder}`,
-          borderLeft: `1px solid ${C.goldBorder}`,
-        }}
-      >
-        {/* Gold header strip — identical shape + typography to
-            DashboardView.tsx:382-389. */}
+      <div style={shell}>
         <div
           style={{
             padding: "5px 12px",
@@ -98,123 +178,72 @@ export default function ChampionshipOddsTile({ leagueId, ownerUserId }: Props) {
           </span>
         </div>
 
-        {/* Three-column stat-tile grid — same tile shape as
-            DashboardView.tsx:392-413's two-column grid, extended to 3. */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr 1fr",
-            gap: 8,
-            padding: "10px 12px 12px",
-          }}
-        >
-          {/* Playoff % */}
+        {hasAnyRow ? (
           <div
             style={{
-              textAlign: "center",
-              padding: "6px 8px",
-              borderRadius: 6,
-              background: C.elevated,
-              border: `1px solid ${C.border}`,
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr 1fr",
+              gap: 8,
+              padding: "10px 12px 12px",
             }}
           >
-            <div
-              style={{
-                fontFamily: MONO,
-                fontSize: 9,
-                fontWeight: 700,
-                letterSpacing: "0.10em",
-                color: C.dim,
-                marginBottom: 3,
-              }}
-            >
-              PLAYOFF
-            </div>
-            <span
-              style={{
-                fontFamily: DISPLAY,
-                fontSize: 22,
-                fontWeight: 900,
-                color: C.gold,
-                lineHeight: 1,
-              }}
-            >
-              {fmtPct(myRow?.p_playoffs)}
-            </span>
+            {[
+              { label: "PLAYOFF", val: fmtPct(myRow?.p_playoffs) },
+              { label: "TITLE", val: fmtPct(myRow?.p_title) },
+              { label: "1ST-RD BYE", val: fmtPct(myRow?.p_bye) },
+            ].map((s) => (
+              <div
+                key={s.label}
+                style={{
+                  textAlign: "center",
+                  padding: "6px 8px",
+                  borderRadius: 6,
+                  background: C.elevated,
+                  border: `1px solid ${C.border}`,
+                }}
+              >
+                <div
+                  style={{
+                    fontFamily: MONO,
+                    fontSize: 9,
+                    fontWeight: 700,
+                    letterSpacing: "0.10em",
+                    color: C.dim,
+                    marginBottom: 3,
+                  }}
+                >
+                  {s.label}
+                </div>
+                <span
+                  style={{
+                    fontFamily: DISPLAY,
+                    fontSize: 22,
+                    fontWeight: 900,
+                    color: C.gold,
+                    lineHeight: 1,
+                  }}
+                >
+                  {s.val}
+                </span>
+              </div>
+            ))}
           </div>
-
-          {/* Title % — the marquee number */}
+        ) : (
           <div
             style={{
+              padding: "14px 12px 16px",
               textAlign: "center",
-              padding: "6px 8px",
-              borderRadius: 6,
-              background: C.elevated,
-              border: `1px solid ${C.border}`,
+              fontFamily: MONO,
+              fontSize: 10,
+              letterSpacing: "0.06em",
+              color: C.dim,
             }}
           >
-            <div
-              style={{
-                fontFamily: MONO,
-                fontSize: 9,
-                fontWeight: 700,
-                letterSpacing: "0.10em",
-                color: C.dim,
-                marginBottom: 3,
-              }}
-            >
-              TITLE
-            </div>
-            <span
-              style={{
-                fontFamily: DISPLAY,
-                fontSize: 22,
-                fontWeight: 900,
-                color: C.gold,
-                lineHeight: 1,
-              }}
-            >
-              {fmtPct(myRow?.p_title)}
-            </span>
+            {EMPTY_COPY}
           </div>
+        )}
 
-          {/* Bye % */}
-          <div
-            style={{
-              textAlign: "center",
-              padding: "6px 8px",
-              borderRadius: 6,
-              background: C.elevated,
-              border: `1px solid ${C.border}`,
-            }}
-          >
-            <div
-              style={{
-                fontFamily: MONO,
-                fontSize: 9,
-                fontWeight: 700,
-                letterSpacing: "0.10em",
-                color: C.dim,
-                marginBottom: 3,
-              }}
-            >
-              BYE
-            </div>
-            <span
-              style={{
-                fontFamily: DISPLAY,
-                fontSize: 22,
-                fontWeight: 900,
-                color: C.gold,
-                lineHeight: 1,
-              }}
-            >
-              {fmtPct(myRow?.p_bye)}
-            </span>
-          </div>
-        </div>
-
-        {data?.is_stale && (
+        {data?.is_stale && hasAnyRow && (
           <div
             style={{
               fontFamily: MONO,

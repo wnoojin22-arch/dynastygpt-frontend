@@ -54,7 +54,43 @@ export default function ChampionshipOddsRail({ leagueId, ownersByUid }: Props) {
 
   if (isLoading) return null;
   const teams: ChampionshipOddsRow[] = data?.teams ?? [];
-  if (!teams.length) return null;
+  const hasAnyRow = teams.length > 0 && data?.computed_at != null;
+
+  // Section header — rendered whether or not we have data so the block
+  // is visible in the rail; empty state below explains the state to the
+  // user instead of silently null-rendering.
+  const header = (
+    <div className="mb-3">
+      <div className="flex items-baseline gap-2 mb-1.5">
+        <h3 className="font-sans text-[10px] font-black tracking-[0.14em] text-primary uppercase">
+          CHAMPIONSHIP ODDS
+        </h3>
+        <span className="font-mono text-[9px] text-dim tracking-[0.06em]">
+          playoff · title · 1st-rd bye
+        </span>
+      </div>
+      <div className="h-px w-8 bg-gold" />
+    </div>
+  );
+
+  if (!hasAnyRow) {
+    return (
+      <div className="mt-4">
+        {header}
+        <div
+          style={{
+            fontFamily: MONO,
+            fontSize: 10,
+            letterSpacing: "0.06em",
+            color: C.dim,
+            padding: "8px 10px",
+          }}
+        >
+          Odds arrive after the first sim run
+        </div>
+      </div>
+    );
+  }
 
   // BE orders by p_title DESC — same sort we want, but re-sort defensively
   // in case the shape changes.
@@ -62,20 +98,7 @@ export default function ChampionshipOddsRail({ leagueId, ownersByUid }: Props) {
 
   return (
     <div className="mt-4">
-      <div className="mb-3">
-        {/* SectionLabel-style label — matches home/page.tsx:843
-            `<SectionLabel title="LEAGUE DYNASTYGPT RANKINGS" />` and
-            TrendingOwners.tsx:126-128 heading. Copy-not-invent. */}
-        <div className="flex items-baseline gap-2 mb-1.5">
-          <h3 className="font-sans text-[10px] font-black tracking-[0.14em] text-primary uppercase">
-            CHAMPIONSHIP ODDS
-          </h3>
-          <span className="font-mono text-[9px] text-dim tracking-[0.06em]">
-            playoff · title · bye
-          </span>
-        </div>
-        <div className="h-px w-8 bg-gold" />
-      </div>
+      {header}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
         {rows.map((r, i) => {
@@ -183,7 +206,7 @@ export default function ChampionshipOddsRail({ leagueId, ownersByUid }: Props) {
                   textAlign: "right",
                   flexShrink: 0,
                 }}
-                title="Bye %"
+                title="1st-Rd Bye %"
               >
                 {fmtPct(r.p_bye)}
               </span>

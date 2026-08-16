@@ -864,12 +864,11 @@ export default function LeagueHome() {
           </AnimatedSection>
         </div>
 
-        {/* ── LEAGUE RAIL — right column, spans both rows of the left rail.
-            League DynastyGPT Rankings up top (existing PowerRankings
-            component, unchanged) + TRENDING OWNERS below (new component,
-            uses league-value-changes endpoint). Replaces the previous
-            fleet-wide MARKET PULSE strip which now lives on the
-            portfolio surface. */}
+        {/* ── LEAGUE RAIL — right column, spans both rows of the left
+            column. League DynastyGPT Rankings only; Championship Odds
+            + Trending Owners moved to left column row 2 (2026-08-14)
+            to fill the dead space that used to sit under the news band
+            when this rail was tall and the news band was short. */}
         <AnimatedSection className="order-2 lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:h-full">
           <SectionLabel title="LEAGUE DYNASTYGPT RANKINGS" />
           <PowerRankings
@@ -877,15 +876,28 @@ export default function LeagueHome() {
             leagueIntel={leagueIntel?.owners}
             leagueName={overview?.name || leagueName}
           />
-          {/* Championship Odds — same source of truth as portfolio-card
-              odds strip + team-page DCard tile. Single sim write on BE
-              → all surfaces read the same row. Phase 6 landed
-              2026-08-14. */}
-          <ChampionshipOddsRail leagueId={lid} ownersByUid={ownersByUid} />
-          {SHOW_TRENDING_OWNERS_RAIL && (
-            <TrendingOwners leagueId={lid} currentOwner={currentOwner} days={30} />
-          )}
         </AnimatedSection>
+
+        {/* ── ODDS + TRENDING BAND — left column row 2, 2-col sub-grid
+            mirroring the news band above. Championship Odds on the
+            left, Trending Owners on the right. Moved out of the right
+            rail 2026-08-14 to eliminate the black void under the news
+            band and give Rankings its own column. Both blocks read the
+            same single BE row source they did in the rail. */}
+        <div className="order-3 lg:col-start-1 lg:row-start-2 grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <AnimatedSection>
+            {/* Championship Odds — same source of truth as portfolio-card
+                odds strip + team-page DCard tile. Single sim write on BE
+                → all surfaces read the same row. Phase 6 landed
+                2026-08-14. */}
+            <ChampionshipOddsRail leagueId={lid} ownersByUid={ownersByUid} />
+          </AnimatedSection>
+          {SHOW_TRENDING_OWNERS_RAIL && (
+            <AnimatedSection>
+              <TrendingOwners leagueId={lid} currentOwner={currentOwner} days={30} />
+            </AnimatedSection>
+          )}
+        </div>
       </div>
 
       {/* ═══════════════ ④ BOTTOM SECTION ═══════════════ */}
