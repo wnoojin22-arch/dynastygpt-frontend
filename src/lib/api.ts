@@ -484,6 +484,53 @@ export type WaiversAllResponse = {
 export const getWaiversAll = (id: string) =>
   get<WaiversAllResponse>(`${L(id)}/waivers-all`);
 
+// ── Championship Odds ───────────────────────────────────────────────────
+// Single sim write on BE → single row per (league, uid) in
+// championship_odds → every FE surface (League Home rail,
+// team-page DCard tile, standings pill) reads this ONE row. Never
+// fanout, never recompute FE-side.
+//
+// Source of truth: dynastygpt-api/app/routers/odds.py OddsResponse
+// (Pydantic). Fields kept in strict lockstep — if the BE shape
+// changes, this type must move in the same commit.
+export type ChampionshipOddsRow = {
+  league_id: string;
+  platform_user_id: string;
+  roster_id: number;
+  season: number;
+  as_of_week: number;
+  computed_at: string;
+  fit_id: number;
+  engine_version: string;
+  p_playoffs: number;
+  p_bye: number;
+  p_title: number;
+  expected_wins: number;
+  pf_mean: number;
+  pf_std: number;
+  pf_p10: number;
+  pf_p50: number;
+  pf_p90: number;
+  fallback_playoff_weeks: number[];
+  // seed_dist keys are stringified ints on the wire (0..playoff_teams);
+  // FE consumers cast when they need the histogram.
+  seed_dist: Record<string, number>;
+};
+export type ChampionshipOddsResponse = {
+  league_id: string;
+  season: number;
+  computed_at: string | null;
+  fit_id: number | null;
+  engine_version: string | null;
+  is_stale: boolean;
+  stale_reason: string | null;
+  teams: ChampionshipOddsRow[];
+};
+export const getChampionshipOdds = (id: string, season?: number) =>
+  get<ChampionshipOddsResponse>(
+    `${L(id)}/odds${season != null ? `?season=${season}` : ""}`,
+  );
+
 // ── Rivalries ────────────────────────────────────────────────────────────
 export const getRivalries = (id: string, owner: string, userId?: string | null) => get<{ rivals: Rival[] }>(`${L(id)}/rivalries/${O(owner, userId)}`);
 export const getHeadToHead = (id: string, o1: string, o2: string, uid1?: string | null, uid2?: string | null) => get<HeadToHeadResponse>(`${L(id)}/head-to-head/${O(o1, uid1)}/${O(o2, uid2)}`);

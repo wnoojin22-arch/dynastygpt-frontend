@@ -17,6 +17,7 @@ import { usePlayerCardStore } from "@/lib/stores/player-card-store";
 import { motion, AnimatePresence } from "framer-motion";
 import ManagerCardMobile from "@/components/league/ManagerCardMobile";
 import ManagerCardModal from "@/components/league/ManagerCardModal";
+import ChampionshipOddsTile from "@/components/league/ChampionshipOddsTile";
 import PlayerHeadshot from "@/components/league/PlayerHeadshot";
 import { getOwnerTendencies } from "@/lib/api";
 
@@ -343,6 +344,11 @@ export default function DashboardMobile({ lid, owner, ownerId }: { lid: string; 
           )}
         </>
       )}
+
+      {/* ── 2.5 CHAMPIONSHIP ODDS TILE ── */}
+      <div className="px-3">
+        <ChampionshipOddsTile leagueId={lid} ownerUserId={ownerId} variant="mobile" />
+      </div>
 
       {/* ── 3. ACTION GRID — 3 cols ── */}
       <style>{`@keyframes dhqMobNewPulse{0%,100%{box-shadow:0 0 4px rgba(212,165,50,0.5)}50%{box-shadow:0 0 10px rgba(212,165,50,0.9)}}`}</style>

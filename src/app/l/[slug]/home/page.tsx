@@ -10,12 +10,13 @@ import { useQuery } from "@tanstack/react-query";
 import {
   getRankings, getRecentTrades, getTrending, getOwnerProfiles,
   getOverview, getLeagueIntel, getReportCard, getMarketPulse,
-  getUpcomingDraft, getHeroSummary,
+  getUpcomingDraft, getHeroSummary, getOwners,
 } from "@/lib/api";
 import { RecentTrades, PlayerName, LeagueFreshness } from "@/components/league";
 import PlayerHeadshot from "@/components/league/PlayerHeadshot";
 import WelcomeArticleCard from "@/components/league/WelcomeArticleCard";
 import PowerRankings from "@/components/league/PowerRankings";
+import ChampionshipOddsRail from "@/components/league/ChampionshipOddsRail";
 import TrendingOwners from "@/components/league/TrendingOwners";
 // Rail ENABLED 2026-07-24 after sleeper_id backfill + Big Jer smoke.
 // Backfill filled 71,708 rows (89% of 80,571); remaining 8,863 are
@@ -604,6 +605,21 @@ export default function LeagueHome() {
   const { data: trending } = useQuery({ queryKey: ["trending", lid], queryFn: () => getTrending(lid!), enabled: !!lid, staleTime: HOUR });
   const { data: profiles } = useQuery({ queryKey: ["profiles", lid], queryFn: () => getOwnerProfiles(lid!), enabled: !!lid, staleTime: 2 * HOUR });
   const { data: leagueIntel } = useQuery({ queryKey: ["league-intel", lid], queryFn: () => getLeagueIntel(lid!), enabled: !!lid, staleTime: 2 * HOUR });
+  // Owners fetch — powers the ChampionshipOddsRail's uid → display-name
+  // lookup. Cheap (single query, one row per team, cached long).
+  const { data: ownersData } = useQuery({
+    queryKey: ["owners", lid],
+    queryFn: () => getOwners(lid!),
+    enabled: !!lid,
+    staleTime: 60 * 60 * 1000,
+  });
+  const ownersByUid = React.useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const o of ownersData?.owners ?? []) {
+      if (o.platform_user_id) map[o.platform_user_id] = o.name;
+    }
+    return map;
+  }, [ownersData]);
   const { data: reportCard, isLoading: rcLoading } = useQuery({ queryKey: ["report-card", lid], queryFn: () => getReportCard(lid!), enabled: !!lid, staleTime: 4 * HOUR });
   const { data: marketPulse } = useQuery({ queryKey: ["market-pulse", lid], queryFn: () => getMarketPulse(lid!), enabled: !!lid, staleTime: HOUR });
   const { data: upcomingDraft } = useQuery({ queryKey: ["upcoming-draft", lid], queryFn: () => getUpcomingDraft(lid!), enabled: !!lid, staleTime: HOUR });
@@ -848,12 +864,11 @@ export default function LeagueHome() {
           </AnimatedSection>
         </div>
 
-        {/* ── LEAGUE RAIL — right column, spans both rows of the left rail.
-            League DynastyGPT Rankings up top (existing PowerRankings
-            component, unchanged) + TRENDING OWNERS below (new component,
-            uses league-value-changes endpoint). Replaces the previous
-            fleet-wide MARKET PULSE strip which now lives on the
-            portfolio surface. */}
+        {/* ── LEAGUE RAIL — right column, spans both rows of the left
+            column. League DynastyGPT Rankings only; Championship Odds
+            + Trending Owners moved to left column row 2 (2026-08-14)
+            to fill the dead space that used to sit under the news band
+            when this rail was tall and the news band was short. */}
         <AnimatedSection className="order-2 lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:h-full">
           <SectionLabel title="LEAGUE DYNASTYGPT RANKINGS" />
           <PowerRankings
@@ -861,10 +876,28 @@ export default function LeagueHome() {
             leagueIntel={leagueIntel?.owners}
             leagueName={overview?.name || leagueName}
           />
-          {SHOW_TRENDING_OWNERS_RAIL && (
-            <TrendingOwners leagueId={lid} currentOwner={currentOwner} days={30} />
-          )}
         </AnimatedSection>
+
+        {/* ── ODDS + TRENDING BAND — left column row 2, 2-col sub-grid
+            mirroring the news band above. Championship Odds on the
+            left, Trending Owners on the right. Moved out of the right
+            rail 2026-08-14 to eliminate the black void under the news
+            band and give Rankings its own column. Both blocks read the
+            same single BE row source they did in the rail. */}
+        <div className="order-3 lg:col-start-1 lg:row-start-2 grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <AnimatedSection>
+            {/* Championship Odds — same source of truth as portfolio-card
+                odds strip + team-page DCard tile. Single sim write on BE
+                → all surfaces read the same row. Phase 6 landed
+                2026-08-14. */}
+            <ChampionshipOddsRail leagueId={lid} ownersByUid={ownersByUid} />
+          </AnimatedSection>
+          {SHOW_TRENDING_OWNERS_RAIL && (
+            <AnimatedSection>
+              <TrendingOwners leagueId={lid} currentOwner={currentOwner} days={30} />
+            </AnimatedSection>
+          )}
+        </div>
       </div>
 
       {/* ═══════════════ ④ BOTTOM SECTION ═══════════════ */}
