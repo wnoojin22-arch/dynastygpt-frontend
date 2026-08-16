@@ -211,6 +211,32 @@ export default function MobileChatSheet({
               background: `linear-gradient(90deg, transparent, ${C.border}, transparent)`,
             }} />
 
+            {/* ── Persistent Beta strip — Billy's spec 2026-08-16.
+                 Slim, always visible above the message area. Design
+                 element, gold-family, not a legal footnote. Once the
+                 conversation starts the hero disappears, so this slim
+                 line carries the honesty flag from there on. */}
+            <div style={{
+              flexShrink: 0,
+              padding: "8px 18px",
+              background: `${C.gold}0f`,
+              borderBottom: `1px solid ${C.gold}22`,
+              display: "flex", alignItems: "center", gap: 8,
+            }}>
+              <span style={{
+                fontFamily: MONO, fontSize: 8.5, fontWeight: 900,
+                letterSpacing: "0.12em", color: "#06080d",
+                background: C.gold,
+                padding: "1px 6px", borderRadius: 3,
+                textTransform: "uppercase",
+              }}>Beta</span>
+              <span style={{
+                fontFamily: SANS, fontSize: 10.5, color: C.dim, lineHeight: 1.4,
+              }}>
+                AI can be wrong. Push back on any read that feels off and it will re-check.
+              </span>
+            </div>
+
             {/* ═══════════════════════════════════════════════════════
                 MESSAGE AREA
                 ═══════════════════════════════════════════════════════ */}
@@ -248,6 +274,35 @@ export default function MobileChatSheet({
                       maxWidth: 280, margin: "0 auto",
                     }}>
                       I know every roster, trade history, and owner tendency in your league.
+                    </div>
+                    {/* Beta honesty line — paired with the confidence line
+                        above per Billy's spec 2026-08-16. Same treatment
+                        as the persistent strip; larger for hero context. */}
+                    <div style={{
+                      marginTop: 12,
+                      maxWidth: 300,
+                      marginLeft: "auto", marginRight: "auto",
+                      display: "flex", alignItems: "flex-start", gap: 8,
+                      padding: "10px 12px",
+                      borderRadius: 8,
+                      border: `1px solid ${C.gold}40`,
+                      background: `${C.gold}14`,
+                      textAlign: "left",
+                    }}>
+                      <span style={{
+                        marginTop: 1,
+                        fontFamily: MONO, fontSize: 9, fontWeight: 900,
+                        letterSpacing: "0.12em", color: "#06080d",
+                        background: C.gold,
+                        padding: "1px 6px", borderRadius: 3,
+                        textTransform: "uppercase",
+                        flexShrink: 0,
+                      }}>Beta</span>
+                      <span style={{
+                        fontFamily: SANS, fontSize: 11.5, color: C.dim, lineHeight: 1.5,
+                      }}>
+                        AI can be wrong. Push back on any read that feels off and it will re-check.
+                      </span>
                     </div>
                   </div>
                 </div>
