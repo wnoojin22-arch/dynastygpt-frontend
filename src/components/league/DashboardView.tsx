@@ -845,10 +845,39 @@ function DashboardView({ lid, owner, ownerId }: { lid: string; owner: string; ow
           ══════════════════════════════════════════════════════════ */}
       <div className="mobile-stack" style={{ display: "grid", gridTemplateColumns: "55fr 45fr", gap: 10, alignItems: "stretch" }}>
         <DynastyScoreCard lid={lid} owner={owner} ownerId={ownerId} />
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr", gap: 10, alignItems: "stretch" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr 1fr", gap: 10, alignItems: "stretch" }}>
           {/* Pulse keyframe reused by the WAIVERS NEW badge below.
               Same shape as DashboardMobile.tsx dhqMobNewPulse. */}
           <style>{`@keyframes waiversNewPulse{0%,100%{box-shadow:0 0 4px rgba(212,165,50,0.5)}50%{box-shadow:0 0 10px rgba(212,165,50,0.9)}}`}</style>
+          {/* AI CHAT — new position-1 tile added 2026-08-16 with the
+              relaunch. Deep-links to the Trades tab; the trade-analyzer
+              page reads ?chat=1 and opens the ChatPanel expanded.
+              Grid changed from 5-col to 6-col to accommodate. NEW badge
+              matches the WAIVERS pulse pattern. */}
+          <div
+            onClick={() => router.push(`/l/${currentLeagueSlug}/trade-analyzer?chat=1`)}
+            className="cursor-pointer transition-all duration-200 hover:scale-[1.03]"
+            style={{
+              position: "relative",
+              background: `linear-gradient(135deg, ${C.card} 0%, rgba(212,165,50,0.14) 100%)`,
+              border: `1px solid rgba(212,165,50,0.32)`,
+              borderTop: `2px solid ${C.gold}`,
+              borderRadius: 8,
+              padding: "12px 16px",
+              display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3,
+              boxShadow: `0 4px 24px rgba(212,165,50,0.14), inset 0 1px 0 rgba(212,165,50,0.14)`,
+            }}
+          >
+            <span style={{
+              position: "absolute", top: -6, right: -4,
+              fontFamily: MONO, fontSize: 8, fontWeight: 900, letterSpacing: "0.08em",
+              color: "#06080d", background: C.gold,
+              padding: "2px 6px", borderRadius: 3,
+              animation: "waiversNewPulse 2s ease infinite",
+            }}>NEW</span>
+            <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.gold, letterSpacing: "0.10em", textAlign: "center" }}>AI CHAT</span>
+            <span style={{ fontFamily: SANS, fontSize: 9, color: C.dim, textAlign: "center", lineHeight: 1.3 }}>Ask your league&apos;s AI anything</span>
+          </div>
           {/* WAIVERS — first tile per 2026-07-24 reorder. NEW badge
               until the in-season basics package (matchup preview,
               start/sit, injury watch) lands and the tag comes off. */}

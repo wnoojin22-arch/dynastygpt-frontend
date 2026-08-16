@@ -20,7 +20,9 @@ import SuggestLoadingModal from "./SuggestLoadingModal";
 import { C, SANS, MONO, DISPLAY, fmt, posColor } from "../tokens";
 import { HowItWorksButton } from "./HowItWorksModal";
 import SwipeStack from "./SwipeStack";
+import MobileChatSheet from "./MobileChatSheet";
 import { useTrack } from "@/hooks/useTrack";
+import { useSearchParams } from "next/navigation";
 
 // ── Position badge ───────────────────────────────────────────────────────
 
@@ -829,6 +831,15 @@ export default function TradeBuilderUnified() {
   // ── "What Would It Take?" state ──
   const [wwitLoading, setWwitLoading] = useState(false);
 
+  // ── AI Chat sheet state (relaunch 2026-08-16) ──
+  // Opens via the entry-screen pill, the floating FAB, or a ?chat=1
+  // deep-link from the dashboard AI CHAT tile.
+  const [chatOpen, setChatOpen] = useState(false);
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    if (searchParams?.get("chat") === "1") setChatOpen(true);
+  }, [searchParams]);
+
   const owners = tb.otherOwners || [];
   const hasPartner = !!tb.partner;
   const hasAssets = tb.giveNames.length > 0 || tb.receiveNames.length > 0;
@@ -1084,18 +1095,21 @@ export default function TradeBuilderUnified() {
               </span>
             </button>
 
-            {/* Start a Chat pill — DISABLED for maintenance */}
-            <div
-              aria-disabled="true"
+            {/* Start a Chat pill — LIVE per relaunch 2026-08-16.
+                Opens the mobile chat sheet. NEW badge matches the
+                dashboard AI CHAT tile pattern. */}
+            <button
+              type="button"
+              onClick={() => setChatOpen(true)}
               style={{
                 padding: "14px 10px", borderRadius: 12,
-                border: `1.5px solid ${C.border}`,
-                background: `${C.dim}08`,
-                cursor: "not-allowed",
+                border: `1.5px solid rgba(212,165,50,0.35)`,
+                background: `linear-gradient(135deg, ${C.card} 0%, rgba(212,165,50,0.14) 100%)`,
+                cursor: "pointer",
                 display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
                 gap: 4, minHeight: 72,
                 position: "relative",
-                opacity: 0.85,
+                boxShadow: `0 4px 24px rgba(212,165,50,0.14), inset 0 1px 0 rgba(212,165,50,0.14)`,
               }}
             >
               <div style={{
@@ -1104,15 +1118,15 @@ export default function TradeBuilderUnified() {
                 color: "#000", background: C.gold,
                 padding: "1px 6px", borderRadius: 3, whiteSpace: "nowrap",
               }}>
-                IMPROVEMENTS COMING
+                BETA · NEW
               </div>
-              <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", color: C.dim, lineHeight: 1 }}>
+              <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", color: C.gold, lineHeight: 1 }}>
                 AI CHAT
               </span>
               <span style={{ fontFamily: SANS, fontSize: 10, color: C.dim, lineHeight: 1.2, textAlign: "center" }}>
-                Down for maintenance
+                Talk to your league&apos;s AI
               </span>
-            </div>
+            </button>
           </div>
 
           {/* Error display */}
@@ -1213,26 +1227,46 @@ export default function TradeBuilderUnified() {
         }}
       />
 
-      {/* Floating Chat FAB — DISABLED for maintenance */}
+      {/* Floating Chat FAB — LIVE per relaunch 2026-08-16 */}
       {showBuilder && (
         <div style={{ position: "fixed", bottom: 160, right: 16, zIndex: 9990, display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
-          <div
-            aria-disabled="true"
+          <button
+            type="button"
+            onClick={() => setChatOpen(true)}
             style={{
               borderRadius: 28,
-              background: C.elevated,
-              border: `1.5px solid ${C.border}`, cursor: "not-allowed",
+              background: `linear-gradient(135deg, ${C.gold}, ${C.goldDark})`,
+              border: `1.5px solid ${C.gold}`,
+              cursor: "pointer",
               display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
               padding: "8px 14px",
               gap: 1,
-              opacity: 0.85,
+              boxShadow: `0 4px 24px rgba(212,165,50,0.35), 0 0 40px rgba(212,165,50,0.15)`,
             }}
           >
-            <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, letterSpacing: "0.08em", color: C.dim, lineHeight: 1 }}>AI CHAT</span>
-            <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 900, color: C.gold, lineHeight: 1 }}>DOWN</span>
-          </div>
-          <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, letterSpacing: "0.06em", color: C.dim, textAlign: "center", maxWidth: 110 }}>IMPROVEMENTS COMING</span>
+            <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, letterSpacing: "0.08em", color: "#06080d", lineHeight: 1 }}>AI CHAT</span>
+            <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 900, color: "#06080d", lineHeight: 1 }}>OPEN</span>
+          </button>
+          <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, letterSpacing: "0.06em", color: C.dim, textAlign: "center", maxWidth: 110 }}>BETA · TAP TO CHAT</span>
         </div>
+      )}
+
+      {/* Mobile chat sheet — full-screen when open */}
+      {chatOpen && (
+        <MobileChatSheet
+          isOpen={chatOpen}
+          onClose={() => setChatOpen(false)}
+          leagueId={leagueId}
+          owner={currentOwner}
+          ownerId={currentOwnerId}
+          activeTrade={tb.evaluation}
+          suggestedPackages={tb.suggestedPkgs.length > 0 ? tb.suggestedPkgs : null}
+          quickPrompts={[
+            "Who should I trade with?",
+            "What are my biggest needs?",
+            "Who overpays in this league?",
+          ]}
+        />
       )}
     </div>
   );
