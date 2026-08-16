@@ -10,12 +10,13 @@ import { useQuery } from "@tanstack/react-query";
 import {
   getRankings, getRecentTrades, getTrending, getOwnerProfiles,
   getOverview, getLeagueIntel, getReportCard, getMarketPulse,
-  getUpcomingDraft, getHeroSummary,
+  getUpcomingDraft, getHeroSummary, getOwners,
 } from "@/lib/api";
 import { RecentTrades, PlayerName, LeagueFreshness } from "@/components/league";
 import PlayerHeadshot from "@/components/league/PlayerHeadshot";
 import WelcomeArticleCard from "@/components/league/WelcomeArticleCard";
 import PowerRankings from "@/components/league/PowerRankings";
+import ChampionshipOddsRail from "@/components/league/ChampionshipOddsRail";
 import TrendingOwners from "@/components/league/TrendingOwners";
 // Rail ENABLED 2026-07-24 after sleeper_id backfill + Big Jer smoke.
 // Backfill filled 71,708 rows (89% of 80,571); remaining 8,863 are
@@ -604,6 +605,21 @@ export default function LeagueHome() {
   const { data: trending } = useQuery({ queryKey: ["trending", lid], queryFn: () => getTrending(lid!), enabled: !!lid, staleTime: HOUR });
   const { data: profiles } = useQuery({ queryKey: ["profiles", lid], queryFn: () => getOwnerProfiles(lid!), enabled: !!lid, staleTime: 2 * HOUR });
   const { data: leagueIntel } = useQuery({ queryKey: ["league-intel", lid], queryFn: () => getLeagueIntel(lid!), enabled: !!lid, staleTime: 2 * HOUR });
+  // Owners fetch — powers the ChampionshipOddsRail's uid → display-name
+  // lookup. Cheap (single query, one row per team, cached long).
+  const { data: ownersData } = useQuery({
+    queryKey: ["owners", lid],
+    queryFn: () => getOwners(lid!),
+    enabled: !!lid,
+    staleTime: 60 * 60 * 1000,
+  });
+  const ownersByUid = React.useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const o of ownersData?.owners ?? []) {
+      if (o.platform_user_id) map[o.platform_user_id] = o.name;
+    }
+    return map;
+  }, [ownersData]);
   const { data: reportCard, isLoading: rcLoading } = useQuery({ queryKey: ["report-card", lid], queryFn: () => getReportCard(lid!), enabled: !!lid, staleTime: 4 * HOUR });
   const { data: marketPulse } = useQuery({ queryKey: ["market-pulse", lid], queryFn: () => getMarketPulse(lid!), enabled: !!lid, staleTime: HOUR });
   const { data: upcomingDraft } = useQuery({ queryKey: ["upcoming-draft", lid], queryFn: () => getUpcomingDraft(lid!), enabled: !!lid, staleTime: HOUR });
@@ -861,6 +877,11 @@ export default function LeagueHome() {
             leagueIntel={leagueIntel?.owners}
             leagueName={overview?.name || leagueName}
           />
+          {/* Championship Odds — same source of truth as portfolio-card
+              odds strip + team-page DCard tile. Single sim write on BE
+              → all surfaces read the same row. Phase 6 landed
+              2026-08-14. */}
+          <ChampionshipOddsRail leagueId={lid} ownersByUid={ownersByUid} />
           {SHOW_TRENDING_OWNERS_RAIL && (
             <TrendingOwners leagueId={lid} currentOwner={currentOwner} days={30} />
           )}

@@ -29,6 +29,7 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 import { useOwnerClick } from "@/hooks/useOwnerClick";
 import DashboardMobile from "@/components/league/DashboardMobile";
 import ManagerCardModal from "@/components/league/ManagerCardModal";
+import ChampionshipOddsTile from "@/components/league/ChampionshipOddsTile";
 
 /* ═══════════════════════════════════════════════════════════════
    DESIGN TOKENS
@@ -945,6 +946,11 @@ function DashboardView({ lid, owner, ownerId }: { lid: string; owner: string; ow
           </div>
         </div>
       </div>
+
+      {/* ══════════════════════════════════════════════════════════
+          ROW: CHAMPIONSHIP ODDS TILE (full width, single row)
+          ══════════════════════════════════════════════════════════ */}
+      <ChampionshipOddsTile leagueId={lid} ownerUserId={ownerId} />
 
       {/* ══════════════════════════════════════════════════════════
           TWO COLUMNS: LEFT 55% / RIGHT 45%
